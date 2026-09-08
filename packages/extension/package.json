@@ -1,0 +1,16 @@
+{
+  "name": "@synccinema/extension",
+  "version": "1.0.0",
+  "description": "Chrome Manifest V3 Extension for SyncCinema OTT Player Observation",
+  "scripts": {
+    "build": "tsc && cp src/manifest.json dist/ && mkdir -p dist/popup && cp src/popup/popup.html dist/popup/",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {
+    "@synccinema/common": "*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "typescript": "^5.6.3"
+  }
+}

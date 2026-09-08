@@ -1,0 +1,144 @@
+// Prisma Schema for SyncCinema Watch-Party Platform
+// Fully compatible with PostgreSQL and SQLite
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Seamlessly switchable to "postgresql" via DATABASE_URL
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String            @id @default(cuid())
+  name         String
+  email        String?           @unique
+  passwordHash String?
+  avatar       String?
+  isAnonymous  Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  sessions     Session[]
+  hostedRooms  Room[]            @relation("RoomHost")
+  participants RoomParticipant[]
+  messages     ChatMessage[]
+  reactions    Reaction[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Room {
+  id             String            @id @default(cuid())
+  code           String            @unique // e.g. "ROOM-7X92AB" or slug
+  title          String
+  hostId         String
+  privacy        String            @default("INVITE_ONLY") // PUBLIC, PRIVATE, INVITE_ONLY
+  isLocked       Boolean           @default(false)
+  currentMediaId String?
+  createdAt      DateTime          @default(now())
+  endedAt        DateTime?
+  host           User              @relation("RoomHost", fields: [hostId], references: [id])
+  media          Media?            @relation(fields: [currentMediaId], references: [id])
+  participants   RoomParticipant[]
+  playbackState  PlaybackState?
+  messages       ChatMessage[]
+  reactions      Reaction[]
+  invitations    Invitation[]
+
+  @@index([code])
+  @@map("rooms")
+}
+
+model RoomParticipant {
+  id       String    @id @default(cuid())
+  roomId   String
+  userId   String
+  role     String    @default("PARTICIPANT") // HOST, CO_HOST, PARTICIPANT
+  status   String    @default("WATCHING") // ONLINE, CONNECTING, WATCHING, AWAY, DISCONNECTED
+  joinedAt DateTime  @default(now())
+  leftAt   DateTime?
+  room     Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([roomId, status])
+  @@map("room_participants")
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  provider  String // YOUTUBE, VIMEO, HTML5, EXTERNAL_SESSION
+  url       String
+  title     String
+  duration  Float    @default(0.0)
+  createdAt DateTime @default(now())
+  rooms     Room[]
+
+  @@map("media")
+}
+
+model PlaybackState {
+  roomId       String   @id
+  isPlaying    Boolean  @default(false)
+  position     Float    @default(0.0)
+  playbackRate Float    @default(1.0)
+  updatedAt    DateTime @default(now())
+  controllerId String
+  version      Int      @default(1)
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("playback_states")
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  roomId         String
+  userId         String
+  message        String
+  mediaTimestamp Float?
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  room           Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@map("chat_messages")
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  code      String // joy, heart, fire, scream, clap, rofl, skull
+  emoji     String // 😂, ❤️, 🔥, 😱, 👏, 🤣, 💀
+  timestamp Float // video position seconds
+  createdAt DateTime @default(now())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, timestamp])
+  @@map("reactions")
+}
+
+model Invitation {
+  id        String    @id @default(cuid())
+  roomId    String
+  code      String    @unique
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}

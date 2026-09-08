@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "SyncCinema OTT Bridge",
+  "version": "1.0.0",
+  "description": "Legitimate social synchronization bridge for SyncCinema watch party rooms.",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.youtube.com/*",
+    "https://*.netflix.com/*",
+    "https://*.disneyplus.com/*",
+    "https://*.primevideo.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.youtube.com/*",
+        "https://*.netflix.com/*",
+        "https://*.disneyplus.com/*",
+        "https://*.primevideo.com/*"
+      ],
+      "js": [
+        "content/ott-observer.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html"
+  }
+}

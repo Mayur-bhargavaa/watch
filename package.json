@@ -1,0 +1,30 @@
+{
+  "name": "synccinema-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Global Social Synchronization Layer for Digital Entertainment",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace=apps/server",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": [
+    "watch-party",
+    "synchronization",
+    "real-time",
+    "ott",
+    "webrtc",
+    "websockets"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@esbuild/darwin-arm64": "^0.28.2",
+    "@types/chrome": "^0.2.9"
+  }
+}
