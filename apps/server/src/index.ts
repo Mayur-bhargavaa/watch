@@ -335,7 +335,13 @@ export async function createServer(dbPath = './synccinema.db') {
 }
 
 // Direct execution entrypoint
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+const isMainModule =
+  process.argv[1] === new URL(import.meta.url).pathname ||
+  process.argv[1]?.endsWith('/index.js') ||
+  process.argv[1]?.endsWith('/index.ts') ||
+  Boolean(process.env.pm_id);
+
+if (isMainModule) {
   const { app } = await createServer();
   try {
     const address = await app.listen({ port: PORT, host: HOST });
