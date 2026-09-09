@@ -385,6 +385,9 @@ export class RoomSyncManager {
                     payload: msg.payload || {}
                 });
                 break;
+            case 'room:theme':
+                this.handleRoomTheme(client, room, msg.payload);
+                break;
             default:
                 console.warn(`Unhandled WS message type: ${msg.type}`);
         }
@@ -674,6 +677,25 @@ export class RoomSyncManager {
             }
         });
     }
+    handleRoomTheme(client, room, payload) {
+        if (!payload?.themeId)
+            return;
+        room.themeId = payload.themeId;
+        try {
+            this.db.updateRoomTheme(room.id, payload.themeId);
+        }
+        catch { }
+        this.broadcastToRoom(room.id, {
+            type: 'room:theme',
+            roomId: room.id,
+            senderId: client.userId,
+            timestamp: Date.now(),
+            payload: {
+                themeId: payload.themeId,
+                updatedBy: client.displayName
+            }
+        });
+    }
     // --- Helpers ---
     sendStateSnapshot(client, room) {
         const clientsInRoom = this.roomClients.get(room.id);
@@ -749,5 +771,29 @@ export class RoomSyncManager {
             timestamp: Date.now(),
             payload: { code, message }
         });
+    }
+    isUserOnline(userId) {
+        const client = this.userClients.get(userId);
+        if (client && client.isAlive) {
+            return { online: true, displayName: client.displayName, roomId: client.roomId };
+        }
+        return { online: false };
+    }
+    getConnectedUsers() {
+        const list = [];
+        for (const client of this.userClients.values()) {
+            if (client.isAlive) {
+                list.push({ userId: client.userId, displayName: client.displayName, roomId: client.roomId });
+            }
+        }
+        return list;
+    }
+    sendToUser(userId, message) {
+        const client = this.userClients.get(userId);
+        if (client && client.socket.readyState === 1) {
+            client.socket.send(JSON.stringify(message));
+            return true;
+        }
+        return false;
     }
 }

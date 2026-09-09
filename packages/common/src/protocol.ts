@@ -124,3 +124,8 @@ export interface RoomEndedPayload {
   reason: 'HOST_ENDED' | 'ROOM_CLOSED';
   message: string;
 }
+
+export const RoomThemePayloadSchema = z.object({
+  themeId: z.string().min(1).max(64)
+});
+export type RoomThemePayload = z.infer<typeof RoomThemePayloadSchema>;

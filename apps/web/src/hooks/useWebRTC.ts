@@ -34,6 +34,112 @@ const RTC_CONFIG: RTCConfiguration = {
   ]
 };
 
+// Canvas-based animated video stream fallback when camera hardware is missing or permissions blocked (Google Meet style)
+function createFallbackVideoStream(label: string): MediaStream {
+  if (typeof document === 'undefined') return new MediaStream();
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return new MediaStream();
+
+    let frame = 0;
+    const draw = () => {
+      frame++;
+      // Google Meet charcoal dark background with subtle radial gradient
+      const grad = ctx.createRadialGradient(320, 180, 40, 320, 180, 260);
+      grad.addColorStop(0, '#2b303c');
+      grad.addColorStop(1, '#181a20');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 640, 360);
+
+      // Speaking wave pulse ring (Google Meet blue)
+      const pulse = Math.sin(frame * 0.08) * 6;
+      ctx.beginPath();
+      ctx.arc(320, 155, 62 + pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(138, 180, 248, 0.4)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Google Meet Avatar circle
+      ctx.beginPath();
+      ctx.arc(320, 155, 58, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a73e8';
+      ctx.fill();
+
+      // Bold initial
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 50px system-ui, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText((label[0] || 'Y').toUpperCase(), 320, 153);
+
+      // Google Meet bottom status pill
+      ctx.fillStyle = 'rgba(32, 33, 36, 0.9)';
+      const pillWidth = 170;
+      const pillHeight = 32;
+      const pillX = 320 - pillWidth / 2;
+      const pillY = 250;
+      const pillRadius = 16;
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(pillX, pillY, pillWidth, pillHeight, pillRadius);
+      } else {
+        ctx.rect(pillX, pillY, pillWidth, pillHeight);
+      }
+      ctx.fill();
+
+      // Live green dot
+      ctx.fillStyle = '#34a853';
+      ctx.beginPath();
+      ctx.arc(pillX + 22, pillY + 16, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Meet Cam Preview', pillX + 36, pillY + 16);
+
+      requestAnimationFrame(draw);
+    };
+    draw();
+
+    const captureStream = (canvas as any).captureStream || (canvas as any).webkitCaptureStream;
+    if (typeof captureStream === 'function') {
+      const stream = captureStream.call(canvas, 24);
+      if (stream && stream.getVideoTracks().length > 0) {
+        return stream;
+      }
+    }
+  } catch (err) {
+    console.warn('Fallback video generation error:', err);
+  }
+  return new MediaStream();
+}
+
+// Silent AudioContext destination stream fallback for mic
+function createSilentAudioStream(): MediaStream {
+  try {
+    if (typeof window !== 'undefined') {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        const ctx = new AudioContextClass();
+        const oscillator = ctx.createOscillator();
+        const dst = oscillator.connect(ctx.createMediaStreamDestination());
+        oscillator.start();
+        const stream = (dst as any).stream;
+        if (stream && stream.getAudioTracks().length > 0) {
+          stream.getAudioTracks().forEach((t: MediaStreamTrack) => { t.enabled = false; });
+          return stream;
+        }
+      }
+    }
+  } catch {}
+  return new MediaStream();
+}
+
 export function useWebRTC({
   myUserId,
   members,
@@ -60,6 +166,7 @@ export function useWebRTC({
   const [localUserStream, setLocalUserStream] = useState<MediaStream | null>(null);
   const [isCameraOn, setIsCameraOn] = useState<boolean>(false);
   const [isMicMuted, setIsMicMuted] = useState<boolean>(true);
+  const [mediaNotice, setMediaNotice] = useState<string | null>(null);
   const [remoteUserStreams, setRemoteUserStreams] = useState<Map<string, MediaStream>>(new Map());
   const [remoteCameraStates, setRemoteCameraStates] = useState<Map<string, boolean>>(new Map());
   const [remoteMuteStates, setRemoteMuteStates] = useState<Map<string, boolean>>(new Map());
@@ -221,56 +328,99 @@ export function useWebRTC({
     try {
       let stream = localUserRef.current;
       if (nextCameraOn) {
-        if (!stream || stream.getVideoTracks().length === 0 || stream.getVideoTracks().every(t => t.readyState === 'ended')) {
-          let camStream: MediaStream;
-          try {
-            camStream = await navigator.mediaDevices.getUserMedia({
-              video: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24 } },
-              audio: !isMicMuted
-            });
-          } catch {
-            // Fallback to video only if audio device fails or permission is denied
-            camStream = await navigator.mediaDevices.getUserMedia({
-              video: true,
-              audio: false
-            });
+        const hasLiveVideo = Boolean(
+          stream &&
+          stream.getVideoTracks().length > 0 &&
+          stream.getVideoTracks().some(t => t.readyState === 'live')
+        );
+
+        if (!hasLiveVideo) {
+          let camStream: MediaStream | null = null;
+          // 1. Attempt real webcam acquisition (Try HD first, then generic fallback)
+          if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+            try {
+              camStream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 }, facingMode: 'user' },
+                audio: false
+              });
+            } catch (err1) {
+              console.warn('HD camera acquisition failed, trying generic video constraint:', err1);
+              try {
+                camStream = await navigator.mediaDevices.getUserMedia({
+                  video: true,
+                  audio: false
+                });
+              } catch (err2: any) {
+                console.warn('Real camera acquisition failed:', err2);
+                setMediaNotice('Camera permission needed or webcam unavailable. Showing animated Google Meet preview.');
+              }
+            }
           }
-          camStream.getAudioTracks().forEach(t => { t.enabled = !isMicMuted; });
-          camStream.getVideoTracks().forEach(t => { t.enabled = true; });
-          stream = camStream;
-          localUserRef.current = camStream;
-          setLocalUserStream(camStream);
+
+          // 2. Fallback to animated virtual stream if real webcam is blocked/missing
+          if (!camStream || camStream.getVideoTracks().length === 0) {
+            camStream = createFallbackVideoStream('You');
+          }
+
+          const existingAudio = stream ? stream.getAudioTracks().filter(t => t.readyState === 'live') : [];
+          const newVideo = camStream.getVideoTracks();
+          newVideo.forEach(t => { t.enabled = true; });
+
+          const combinedStream = new MediaStream([...newVideo, ...existingAudio]);
+          localUserRef.current = combinedStream;
+          setLocalUserStream(combinedStream);
+          stream = combinedStream;
         } else {
-          stream.getVideoTracks().forEach(t => { t.enabled = true; });
-          setLocalUserStream(new MediaStream(stream.getTracks()));
+          stream!.getVideoTracks().forEach(t => { t.enabled = true; });
+          setLocalUserStream(new MediaStream(stream!.getTracks()));
         }
 
-        // Immediately update video transceiver on all active peer connections
-        const activeVideoTrack = stream.getVideoTracks().find(t => t.readyState === 'live');
+        // Update video transceiver / track on all active peer connections
+        const activeVideoTrack = stream?.getVideoTracks().find(t => t.readyState === 'live');
         if (activeVideoTrack) {
-          userPeerConnectionsRef.current.forEach((pc) => {
+          userPeerConnectionsRef.current.forEach((pc, peerId) => {
             const videoTransceiver = pc.getTransceivers().find(
               t => t.receiver.track.kind === 'video' || t.sender.track?.kind === 'video'
             );
             if (videoTransceiver) {
               videoTransceiver.sender.replaceTrack(activeVideoTrack).catch(() => {});
               videoTransceiver.direction = 'sendrecv';
+            } else {
+              try {
+                pc.addTrack(activeVideoTrack, stream!);
+              } catch {}
+            }
+            if (pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
+              makingOfferRef.current.set(peerId, true);
+              pc.createOffer()
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                  sendWebRTCSignal(peerId, {
+                    type: 'offer',
+                    sdp: pc.localDescription,
+                    streamKind: 'user'
+                  });
+                })
+                .catch(() => {})
+                .finally(() => {
+                  makingOfferRef.current.set(peerId, false);
+                });
             }
           });
         }
       } else {
+        // Turning camera OFF
         if (stream) {
           stream.getVideoTracks().forEach(t => {
             t.enabled = false;
             try { t.stop(); } catch {}
           });
-          const remaining = stream.getAudioTracks().filter(t => t.readyState === 'live');
-          const nextStream = remaining.length > 0 ? new MediaStream(remaining) : null;
+          const remainingAudio = stream.getAudioTracks().filter(t => t.readyState === 'live');
+          const nextStream = remainingAudio.length > 0 ? new MediaStream(remainingAudio) : null;
           localUserRef.current = nextStream;
           setLocalUserStream(nextStream);
         }
 
-        // Replace video track with null on video transceivers so receiver does not display frozen frame
         userPeerConnectionsRef.current.forEach((pc) => {
           const videoTransceiver = pc.getTransceivers().find(
             t => t.receiver.track.kind === 'video' || t.sender.track?.kind === 'video'
@@ -283,7 +433,7 @@ export function useWebRTC({
 
       // Fanout active stream to all connected peers
       const activeStream = localUserRef.current;
-      if (myUserId && activeStream) {
+      if (activeStream) {
         members.forEach((m) => {
           if (m.userId && m.userId !== myUserId && m.isConnected) {
             initiateUserCall(m.userId, activeStream);
@@ -291,11 +441,9 @@ export function useWebRTC({
         });
       }
     } catch (err) {
-      console.warn('Camera access denied or unavailable:', err);
-      setIsCameraOn(false);
-      sendCameraState(false);
+      console.warn('Camera toggle error:', err);
     }
-  }, [isCameraOn, isMicMuted, members, myUserId, sendCameraState, initiateUserCall]);
+  }, [isCameraOn, members, myUserId, sendCameraState, initiateUserCall, sendWebRTCSignal]);
 
   // Toggle Mic
   const toggleMic = useCallback(async () => {
@@ -305,32 +453,99 @@ export function useWebRTC({
 
     try {
       let stream = localUserRef.current;
-      if (!stream || stream.getAudioTracks().length === 0) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: isCameraOn ? { width: { ideal: 640 }, height: { ideal: 360 } } : false,
-          audio: true
-        });
-        stream.getAudioTracks().forEach(t => { t.enabled = !nextMuted; });
-        stream.getVideoTracks().forEach(t => { t.enabled = isCameraOn; });
-        localUserRef.current = stream;
-        setLocalUserStream(stream);
+      if (!nextMuted) {
+        // User wants to UNMUTE
+        const hasLiveAudio = Boolean(
+          stream &&
+          stream.getAudioTracks().length > 0 &&
+          stream.getAudioTracks().some(t => t.readyState === 'live')
+        );
+
+        if (!hasLiveAudio) {
+          let micStream: MediaStream | null = null;
+          if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+            try {
+              micStream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                video: false
+              });
+            } catch (err: any) {
+              console.warn('Real mic acquisition failed:', err);
+              setMediaNotice('Microphone permission denied or device not found.');
+            }
+          }
+
+          if (!micStream || micStream.getAudioTracks().length === 0) {
+            micStream = createSilentAudioStream();
+          }
+
+          const existingVideo = stream ? stream.getVideoTracks().filter(t => t.readyState === 'live') : [];
+          const newAudio = micStream.getAudioTracks();
+          newAudio.forEach(t => { t.enabled = true; });
+
+          const combinedStream = new MediaStream([...existingVideo, ...newAudio]);
+          localUserRef.current = combinedStream;
+          setLocalUserStream(combinedStream);
+          stream = combinedStream;
+        } else {
+          stream!.getAudioTracks().forEach(t => { t.enabled = true; });
+          setLocalUserStream(new MediaStream(stream!.getTracks()));
+        }
+
+        // Update audio transceiver on active peer connections
+        const activeAudioTrack = stream?.getAudioTracks().find(t => t.readyState === 'live');
+        if (activeAudioTrack) {
+          userPeerConnectionsRef.current.forEach((pc, peerId) => {
+            const audioTransceiver = pc.getTransceivers().find(
+              t => t.receiver.track.kind === 'audio' || t.sender.track?.kind === 'audio'
+            );
+            if (audioTransceiver) {
+              audioTransceiver.sender.replaceTrack(activeAudioTrack).catch(() => {});
+              audioTransceiver.direction = 'sendrecv';
+            } else {
+              try {
+                pc.addTrack(activeAudioTrack, stream!);
+              } catch {}
+            }
+            if (pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
+              makingOfferRef.current.set(peerId, true);
+              pc.createOffer()
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                  sendWebRTCSignal(peerId, {
+                    type: 'offer',
+                    sdp: pc.localDescription,
+                    streamKind: 'user'
+                  });
+                })
+                .catch(() => {})
+                .finally(() => {
+                  makingOfferRef.current.set(peerId, false);
+                });
+            }
+          });
+        }
       } else {
-        stream.getAudioTracks().forEach(t => { t.enabled = !nextMuted; });
-        setLocalUserStream(new MediaStream(stream.getTracks()));
+        // User wants to MUTE
+        if (stream) {
+          stream.getAudioTracks().forEach(t => { t.enabled = false; });
+          setLocalUserStream(new MediaStream(stream.getTracks()));
+        }
       }
 
-      // Fanout to all connected peers
-      if (myUserId && stream) {
+      // Fanout active stream to all connected peers
+      const activeStream = localUserRef.current;
+      if (activeStream) {
         members.forEach((m) => {
           if (m.userId && m.userId !== myUserId && m.isConnected) {
-            initiateUserCall(m.userId, stream!);
+            initiateUserCall(m.userId, activeStream);
           }
         });
       }
     } catch (err) {
-      console.warn('Microphone access denied or unavailable:', err);
+      console.warn('Microphone toggle error:', err);
     }
-  }, [isMicMuted, isCameraOn, members, myUserId, sendVoiceState, initiateUserCall]);
+  }, [isMicMuted, members, myUserId, sendVoiceState, initiateUserCall, sendWebRTCSignal]);
 
   // ---------------------------------------------------------------------------
   // 2. Screen Share WebRTC Mesh Helpers
@@ -722,11 +937,14 @@ export function useWebRTC({
     setRemoteUserStreams(new Map());
   }, [stopScreenShare]);
 
+  const stopAllMediaTracksRef = useRef(stopAllMediaTracks);
+  stopAllMediaTracksRef.current = stopAllMediaTracks;
+
   useEffect(() => {
     return () => {
-      stopAllMediaTracks();
+      stopAllMediaTracksRef.current();
     };
-  }, [stopAllMediaTracks]);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // 4. Compute Participant Video Tiles for VideoGrid
@@ -735,41 +953,66 @@ export function useWebRTC({
   const videoGridParticipants = useMemo<VideoGridParticipant[]>(() => {
     const participants: VideoGridParticipant[] = [];
 
-    // Local tile
-    if (localUserStream && isCameraOn) {
-      participants.push({
-        userId: myUserId || 'me',
-        displayName: 'You (Camera)',
-        stream: localUserStream,
-        isMuted: isMicMuted,
-        isSpeaking: false,
-        isSelf: true,
-        isCameraOn: true
-      });
-    }
+    // Local participant tile
+    const localHasLiveVideo = Boolean(
+      isCameraOn &&
+      localUserStream &&
+      localUserStream.getVideoTracks().length > 0 &&
+      localUserStream.getVideoTracks().some(t => t.enabled && t.readyState !== 'ended')
+    );
 
-    // Remote tiles
+    participants.push({
+      userId: myUserId || 'me',
+      displayName: 'You',
+      stream: localUserStream,
+      isMuted: isMicMuted,
+      isSpeaking: false,
+      isSelf: true,
+      isCameraOn: localHasLiveVideo
+    });
+
+    // Remote tiles: from members list
+    members.forEach((m) => {
+      if (!m.userId || m.userId === myUserId) return;
+      const stream = remoteUserStreams.get(m.userId) || null;
+      const cameraFlag = remoteCameraStates.get(m.userId);
+      const hasLiveVideoTrack = Boolean(
+        stream &&
+        stream.getVideoTracks().length > 0 &&
+        stream.getVideoTracks().some(t => t.enabled && t.readyState === 'live' && !t.muted)
+      );
+      const peerCameraOn = cameraFlag === true || (cameraFlag !== false && hasLiveVideoTrack);
+      const peerMuted = remoteMuteStates.get(m.userId) ?? true;
+
+      participants.push({
+        userId: m.userId,
+        displayName: m.displayName || 'Partner',
+        stream,
+        isMuted: peerMuted,
+        isSpeaking: false,
+        isSelf: false,
+        isCameraOn: peerCameraOn
+      });
+    });
+
+    // Remote tiles: from active streams not in members list
     remoteUserStreams.forEach((stream, peerId) => {
-      if (!peerId || peerId === myUserId) return; // Strict guard against self loopback
-      const member = members.find(m => m.userId === peerId);
+      if (!peerId || peerId === myUserId) return;
+      if (participants.some(p => p.userId === peerId)) return;
       const cameraFlag = remoteCameraStates.get(peerId);
       const hasLiveVideoTrack = Boolean(
         stream &&
         stream.getVideoTracks().length > 0 &&
         stream.getVideoTracks().some(t => t.enabled && t.readyState === 'live' && !t.muted)
       );
-      // Camera is ON if explicitly true OR (not explicitly false and has a live video track)
-      const peerCameraOn = cameraFlag === true || (cameraFlag !== false && hasLiveVideoTrack);
-      const peerMuted = remoteMuteStates.get(peerId) ?? false;
-
       participants.push({
         userId: peerId,
-        displayName: member?.displayName || 'Partner',
+        displayName: 'Partner',
         stream,
-        isMuted: peerMuted,
+        isMuted: remoteMuteStates.get(peerId) ?? true,
         isSpeaking: false,
         isSelf: false,
-        isCameraOn: peerCameraOn
+        isCameraOn: cameraFlag === true || hasLiveVideoTrack
       });
     });
 
@@ -795,6 +1038,8 @@ export function useWebRTC({
     // Camera & Voice
     isCameraOn,
     isMicMuted,
+    mediaNotice,
+    clearMediaNotice: () => setMediaNotice(null),
     localUserStream,
     remoteCameraStates,
     toggleCamera,

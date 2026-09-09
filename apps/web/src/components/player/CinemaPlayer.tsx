@@ -583,10 +583,10 @@ export function CinemaPlayer({
                 onClick={onToggleCamera}
                 className={`p-2 rounded-full transition ${
                   !isCameraOn
-                    ? 'bg-white/5 text-zinc-400 hover:bg-white/15'
-                    : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
+                    : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40 ring-1 ring-emerald-400/50'
                 }`}
-                title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+                title={isCameraOn ? 'Turn Off Camera Preview' : 'Turn On Camera Preview (Google Meet style)'}
               >
                 {isCameraOn ? (
                   <Video className="w-4 h-4" />

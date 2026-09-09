@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Gamepad2, Sparkles, Clock, X, Bell, Check, Users, ChevronRight } from 'lucide-react';
 
 export interface GameItem {
@@ -21,8 +22,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'ludo',
     title: 'LUDO PARTY',
     subtext: 'Classic 4-Player Board',
-    badge: 'Most Popular',
-    badgeColor: 'bg-[#6355ff]',
+    badge: '🔥 Live Multiplayer',
+    badgeColor: 'bg-rose-600',
     category: 'Board Game',
     players: '2-4 Players',
     icon: '🎲',
@@ -182,8 +183,21 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
   isCompact = false,
   hideHeader = true
 }) => {
+  const router = useRouter();
   const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
   const [notifiedGameId, setNotifiedGameId] = useState<string | null>(null);
+
+  const handleGameCardClick = (game: GameItem) => {
+    if (game.id === 'ludo') {
+      router.push('/games/ludo');
+      return;
+    }
+    if (game.id === 'connect4' || game.id === 'four-in-a-row') {
+      router.push('/games/four-in-a-row');
+      return;
+    }
+    setSelectedGame(game);
+  };
 
   return (
     <div className={`w-full text-white ${isCompact ? 'text-xs' : ''}`}>
@@ -233,7 +247,7 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
           {GAMES_CATALOG.map((game) => (
             <div
               key={game.id}
-              onClick={() => setSelectedGame(game)}
+              onClick={() => handleGameCardClick(game)}
               className="group relative h-44 sm:h-48 rounded-2xl bg-[#141521] border border-white/[0.08] hover:border-violet-500/60 hover:shadow-xl hover:shadow-violet-600/20 transition-all duration-300 cursor-pointer overflow-hidden flex flex-col justify-between p-4 sm:p-5 select-none w-full"
             >
               {/* Right Side Themed Artwork with Seamless Left Fade */}

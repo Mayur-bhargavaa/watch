@@ -5,7 +5,9 @@ import fastifyWebsocket from '@fastify/websocket';
 import { nanoid } from 'nanoid';
 import { DatabaseService } from './db/database.js';
 import { RoomSyncManager } from './sync/RoomSyncManager.js';
-import { detectProviderFromUrl } from '@synccinema/common';
+import { GameRoomManager } from './games/GameRoomManager.js';
+import { PresenceManager } from './services/PresenceManager.js';
+import { detectProviderFromUrl, User } from '@synccinema/common';
 import { mongoLogger } from './services/mongoLogger.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'synccinema-development-super-secret-key-32chars!';
@@ -21,6 +23,8 @@ export async function createServer(dbPath = './synccinema.db') {
 
   const db = new DatabaseService(dbPath);
   const syncManager = new RoomSyncManager(db);
+  const gameRoomManager = new GameRoomManager(db);
+  const presenceManager = new PresenceManager();
 
   await app.register(cors, {
     origin: true,
@@ -183,10 +187,13 @@ export async function createServer(dbPath = './synccinema.db') {
       mediaTitle?: string;
       privacy?: 'PUBLIC' | 'INVITE_ONLY' | 'PRIVATE';
       activityMode?: 'CINEMA' | 'GAMING';
+      roomCode?: string;
+      slug?: string;
     };
 
     const roomId = `room_${nanoid(12)}`;
-    const slug = nanoid(8).toLowerCase();
+    const customCode = (body.roomCode || body.slug)?.trim().toLowerCase();
+    const slug = customCode ? customCode.replace(/[^a-z0-9_-]/g, '') : nanoid(8).toLowerCase();
     const sourceUrl = body.sourceUrl?.trim() || '';
     const detected = sourceUrl ? detectProviderFromUrl(sourceUrl) : null;
 
@@ -278,6 +285,401 @@ export async function createServer(dbPath = './synccinema.db') {
     return { success: true, message: 'All personal viewing and chat records permanently erased' };
   });
 
+  // --- Helper to extract or provision User from request ---
+  async function getRequestUser(request: any): Promise<User> {
+    try {
+      const decoded = await request.jwtVerify() as any;
+      const user = db.getUserById(decoded.id);
+      if (user) return user;
+      return {
+        id: decoded.id,
+        displayName: decoded.displayName || 'Player',
+        avatarUrl: decoded.avatarUrl,
+        isAnonymous: Boolean(decoded.isAnonymous),
+        partnerCode: db.ensureUserPartnerCode(decoded.id, decoded.displayName),
+        createdAt: new Date().toISOString()
+      };
+    } catch {
+      const body = (request.body || {}) as any;
+      const query = (request.query || {}) as any;
+      const userId = body.userId || query.userId || `guest_${nanoid(8)}`;
+      const displayName = body.displayName || query.displayName || 'Player';
+      let user = db.getUserById(userId);
+      if (!user) {
+        user = db.createUser({
+          id: userId,
+          displayName,
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
+          isAnonymous: true,
+          createdAt: new Date().toISOString()
+        });
+      }
+      return user;
+    }
+  }
+
+  // =====================================================================
+  // User Profile & Permanent Partner Code Endpoints
+  // =====================================================================
+
+  const isUserOnline = (userId: string): boolean => {
+    return (
+      presenceManager.isUserOnline(userId) ||
+      gameRoomManager.isUserOnline(userId) ||
+      syncManager.isUserOnline(userId).online
+    );
+  };
+
+  app.get('/api/user/me', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const partner = db.getPartner(user.id);
+    const partnerOnline = partner ? isUserOnline(partner.partnerUserId) : false;
+
+    return {
+      user: {
+        ...user,
+        partnerCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName)
+      },
+      partner: partner ? {
+        id: partner.partnerUser?.id || partner.partnerUserId,
+        displayName: partner.partnerUser?.displayName || 'Partner',
+        partnerCode: partner.partnerUser?.partnerCode || '',
+        avatarUrl: partner.partnerUser?.avatarUrl || null,
+        online: partnerOnline,
+        connectionId: partner.id
+      } : null
+    };
+  });
+
+  app.post('/api/user/heartbeat', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const partner = db.getPartner(user.id);
+    const partnerOnline = partner ? isUserOnline(partner.partnerUserId) : false;
+
+    return {
+      status: 'ok',
+      isOnline: true,
+      partner: partner ? {
+        id: partner.partnerUser?.id || partner.partnerUserId,
+        displayName: partner.partnerUser?.displayName || 'Partner',
+        partnerCode: partner.partnerUser?.partnerCode || '',
+        avatarUrl: partner.partnerUser?.avatarUrl || null,
+        online: partnerOnline,
+        connectionId: partner.id
+      } : null
+    };
+  });
+
+  app.get('/api/user/partner', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const partner = db.getPartner(user.id);
+    if (!partner) {
+      return { partner: null };
+    }
+    const isOnline = isUserOnline(partner.partnerUserId);
+    return {
+      partner: {
+        id: partner.partnerUser?.id || partner.partnerUserId,
+        displayName: partner.partnerUser?.displayName || 'Partner',
+        partnerCode: partner.partnerUser?.partnerCode || '',
+        avatarUrl: partner.partnerUser?.avatarUrl || null,
+        online: isOnline,
+        connectionId: partner.id
+      }
+    };
+  });
+
+  app.post('/api/user/partner/connect', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { partnerCode?: string };
+    if (!body.partnerCode) {
+      return reply.code(400).send({ error: 'Partner Code is required' });
+    }
+    try {
+      const partner = db.connectPartner(user.id, body.partnerCode);
+      const isOnline = isUserOnline(partner.partnerUserId);
+      return {
+        success: true,
+        partner: {
+          id: partner.partnerUser?.id || partner.partnerUserId,
+          displayName: partner.partnerUser?.displayName || 'Partner',
+          partnerCode: partner.partnerUser?.partnerCode || '',
+          avatarUrl: partner.partnerUser?.avatarUrl || null,
+          online: isOnline,
+          connectionId: partner.id
+        }
+      };
+    } catch (err: any) {
+      return reply.code(400).send({ error: err.message || 'Failed to connect partner' });
+    }
+  });
+
+  app.delete('/api/user/partner', async (request, reply) => {
+    const user = await getRequestUser(request);
+    db.disconnectPartner(user.id);
+    return { success: true, message: 'Partner disconnected' };
+  });
+
+  // =====================================================================
+  // Human-Only Game Rooms & Matchmaking Endpoints
+  // =====================================================================
+
+  // Play with Partner (Deterministic Smart Pairing)
+  app.post('/api/games/partner/play', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const body = (request.body || {}) as { gameType?: string };
+    const rawGameType = body.gameType || 'ludo';
+    const gameType: 'ludo' | 'four-in-a-row' =
+      rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
+    const partner = db.getPartner(user.id);
+    if (!partner) {
+      return reply.code(400).send({ error: 'No partner connected. Please connect a partner first.' });
+    }
+
+    const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+
+    // 1. Check if partner is ALREADY waiting in an open game room
+    const partnerWaitingRoom = db.findUserWaitingGameRoom(partner.partnerUserId);
+    if (
+      partnerWaitingRoom &&
+      partnerWaitingRoom.gameType === gameType &&
+      partnerWaitingRoom.status === 'WAITING' &&
+      partnerWaitingRoom.players.length < partnerWaitingRoom.maxPlayers
+    ) {
+      const joined = gameRoomManager.joinRoom(partnerWaitingRoom.roomCode, user);
+      return {
+        success: true,
+        room: joined,
+        joinedPartnerRoom: true,
+        inviteUrl: `${gameBasePath}?room=${joined.roomCode}`
+      };
+    }
+
+    // 2. Check if current user ALREADY has an open waiting game room
+    const myWaitingRoom = db.findUserWaitingGameRoom(user.id);
+    if (myWaitingRoom && myWaitingRoom.gameType === gameType && myWaitingRoom.status === 'WAITING') {
+      const invitePayload = {
+        id: `ginvite_${nanoid(8)}`,
+        fromUserId: user.id,
+        fromDisplayName: user.displayName,
+        fromPartnerCode: user.partnerCode,
+        roomCode: myWaitingRoom.roomCode,
+        gameType: myWaitingRoom.gameType,
+        timestamp: Date.now()
+      };
+      presenceManager.sendToUser(partner.partnerUserId, {
+        type: 'partner:game_invite',
+        payload: invitePayload
+      });
+      return {
+        success: true,
+        room: myWaitingRoom,
+        joinedPartnerRoom: false,
+        inviteUrl: `${gameBasePath}?room=${myWaitingRoom.roomCode}`
+      };
+    }
+
+    // 3. Otherwise, create a dedicated 2-player game room for the partners
+    const created = gameRoomManager.createGameRoom({
+      hostUser: user,
+      gameType,
+      maxPlayers: 2,
+      isPrivate: true
+    });
+
+    const invitePayload = {
+      id: `ginvite_${nanoid(8)}`,
+      fromUserId: user.id,
+      fromDisplayName: user.displayName,
+      fromPartnerCode: user.partnerCode,
+      roomCode: created.roomCode,
+      gameType,
+      timestamp: Date.now()
+    };
+    presenceManager.sendToUser(partner.partnerUserId, {
+      type: 'partner:game_invite',
+      payload: invitePayload
+    });
+
+    return {
+      success: true,
+      room: created,
+      joinedPartnerRoom: false,
+      inviteUrl: `${gameBasePath}?room=${created.roomCode}`
+    };
+  });
+
+  // Join Any Room / Matchmaking (2, 3, or 4 players - ZERO BOTS)
+  app.post('/api/games/matchmake', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const body = (request.body || {}) as { gameType?: string; maxPlayers?: number };
+    const rawGameType = body.gameType || 'ludo';
+    const gameType: 'ludo' | 'four-in-a-row' =
+      rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
+    const maxPlayers = gameType === 'four-in-a-row' ? 2 : ((Number(body.maxPlayers) || 2) as 2 | 3 | 4);
+    const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+
+    try {
+      // If user has a partner who is waiting in a matching room, pair them together!
+      const partner = db.getPartner(user.id);
+      if (partner) {
+        const partnerRoom = db.findUserWaitingGameRoom(partner.partnerUserId);
+        if (
+          partnerRoom &&
+          partnerRoom.gameType === gameType &&
+          partnerRoom.maxPlayers === maxPlayers &&
+          partnerRoom.players.length < partnerRoom.maxPlayers
+        ) {
+          const joined = gameRoomManager.joinRoom(partnerRoom.roomCode, user);
+          return {
+            success: true,
+            room: joined,
+            joinedExisting: true,
+            inviteUrl: `${gameBasePath}?room=${joined.roomCode}`
+          };
+        }
+      }
+
+      const result = gameRoomManager.matchmakeOrHost(user, gameType, maxPlayers);
+      return {
+        success: true,
+        room: result.room,
+        joinedExisting: result.joinedExisting,
+        inviteUrl: `${gameBasePath}?room=${result.room.roomCode}`
+      };
+    } catch (err: any) {
+      return reply.code(400).send({ error: err.message || 'Failed to matchmake' });
+    }
+  });
+
+  // Create temporary Game Room (with temporary Room Code)
+  app.post('/api/games/rooms', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const body = (request.body || {}) as {
+      gameType?: string;
+      maxPlayers?: number;
+      isPrivate?: boolean;
+      customCode?: string;
+    };
+    const rawGameType = body.gameType || 'ludo';
+    const gameType: 'ludo' | 'four-in-a-row' =
+      rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
+    const maxPlayers = gameType === 'four-in-a-row' ? 2 : ((Number(body.maxPlayers) || 2) as 2 | 3 | 4);
+    const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+
+    try {
+      const room = gameRoomManager.createGameRoom({
+        hostUser: user,
+        gameType,
+        maxPlayers,
+        isPrivate: body.isPrivate,
+        customCode: body.customCode
+      });
+      return {
+        success: true,
+        room,
+        inviteUrl: `${gameBasePath}?room=${room.roomCode}`
+      };
+    } catch (err: any) {
+      return reply.code(400).send({ error: err.message || 'Failed to create game room' });
+    }
+  });
+
+  // Get Game Room details by temporary room code
+  app.get('/api/games/rooms/:code', async (request, reply) => {
+    const { code } = request.params as { code: string };
+    const room = db.getGameRoomByCode(code);
+    if (!room) {
+      return reply.code(404).send({ error: `Game room "${code}" not found or expired` });
+    }
+    return {
+      room,
+      isFull: room.players.length >= room.maxPlayers,
+      canJoin: room.status === 'WAITING' && room.players.length < room.maxPlayers
+    };
+  });
+
+  // Join Game Room by temporary room code
+  app.post('/api/games/rooms/:code/join', async (request, reply) => {
+    const { code } = request.params as { code: string };
+    const user = await getRequestUser(request);
+    try {
+      const room = gameRoomManager.joinRoom(code, user);
+      return {
+        success: true,
+        room,
+        inviteUrl: `/games/ludo?room=${room.roomCode}`
+      };
+    } catch (err: any) {
+      return reply.code(400).send({ error: err.message || 'Failed to join game room' });
+    }
+  });
+
+  // Invite Connected Partner to a Game Room
+  app.post('/api/games/partner/invite', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const partner = db.getPartner(user.id);
+    if (!partner) {
+      return reply.code(400).send({ error: 'No connected partner found to invite' });
+    }
+    const body = (request.body || {}) as { roomCode: string; gameType?: string };
+    if (!body.roomCode) {
+      return reply.code(400).send({ error: 'Room code is required' });
+    }
+
+    const invitePayload = {
+      id: `ginvite_${nanoid(8)}`,
+      fromUserId: user.id,
+      fromDisplayName: user.displayName,
+      fromPartnerCode: user.partnerCode,
+      roomCode: body.roomCode.toUpperCase(),
+      gameType: body.gameType || 'ludo',
+      timestamp: Date.now()
+    };
+
+    const sentInPresence = presenceManager.sendToUser(partner.partnerUserId, {
+      type: 'partner:game_invite',
+      payload: invitePayload
+    });
+    const sentInGame = gameRoomManager.sendToUser(partner.partnerUserId, {
+      type: 'partner:game_invite',
+      payload: invitePayload
+    });
+    const sentInParty = syncManager.sendToUser(partner.partnerUserId, {
+      type: 'partner:game_invite',
+      payload: invitePayload
+    });
+
+    return {
+      success: true,
+      deliveredLive: sentInPresence || sentInGame || sentInParty,
+      invite: invitePayload
+    };
+  });
+
+  // Legacy Partner Lookup compatibility
+  app.get('/api/games/partner/:code', async (request, reply) => {
+    const { code } = request.params as { code: string };
+    const targetUser = db.getUserByPartnerCode(code);
+    if (!targetUser) {
+      return { found: false, online: false, partnerCode: code };
+    }
+    const isOnline = isUserOnline(targetUser.id);
+    return {
+      found: true,
+      online: isOnline,
+      partner: {
+        code: targetUser.partnerCode,
+        displayName: targetUser.displayName,
+        avatarUrl: targetUser.avatarUrl
+      }
+    };
+  });
+
   // --- Real-Time WebSocket Endpoint ---
   app.get('/ws/rooms/:slug', { websocket: true }, (connection: any, req) => {
     const ws: any = connection.socket || connection;
@@ -331,7 +733,96 @@ export async function createServer(dbPath = './synccinema.db') {
     syncManager.handleConnection(ws, room, user);
   });
 
-  return { app, db, syncManager };
+  // --- Real-Time Game Room WebSocket Endpoint ---
+  app.get('/ws/games/:code', { websocket: true }, (connection: any, req) => {
+    const ws: any = connection.socket || connection;
+    const { code } = req.params as { code: string };
+    const room = gameRoomManager.getRoomByCode(code.toUpperCase());
+
+    if (!room) {
+      ws.send(
+        JSON.stringify({
+          type: 'error:notification',
+          payload: { code: 'GAME_ROOM_NOT_FOUND', message: 'Game room does not exist' }
+        })
+      );
+      ws.close();
+      return;
+    }
+
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    const guestName = url.searchParams.get('guestName');
+    const guestIdParam = url.searchParams.get('guestId');
+
+    let user: { id: string; displayName: string; avatarUrl?: string | null };
+
+    if (token) {
+      try {
+        const decoded = app.jwt.verify(token) as any;
+        user = {
+          id: decoded.id,
+          displayName: decoded.displayName,
+          avatarUrl: decoded.avatarUrl
+        };
+      } catch {
+        const guestId = guestIdParam || `guest_${nanoid(8)}`;
+        user = {
+          id: guestId,
+          displayName: guestName || `Guest_${nanoid(4)}`,
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
+        };
+      }
+    } else {
+      const guestId = guestIdParam || `guest_${nanoid(8)}`;
+      user = {
+        id: guestId,
+        displayName: guestName || `Guest_${nanoid(4)}`,
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
+      };
+    }
+
+    gameRoomManager.registerClient(ws, room.id, user);
+  });
+
+  // --- Real-Time Global Presence WebSocket Endpoint ---
+  app.get('/ws/presence', { websocket: true }, (connection: any, req) => {
+    const ws: any = connection.socket || connection;
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    const guestName = url.searchParams.get('guestName');
+    const guestIdParam = url.searchParams.get('guestId');
+
+    let user: { id: string; displayName: string; partnerCode?: string; avatarUrl?: string | null };
+
+    if (token) {
+      try {
+        const decoded = app.jwt.verify(token) as any;
+        user = {
+          id: decoded.id,
+          displayName: decoded.displayName,
+          partnerCode: decoded.partnerCode,
+          avatarUrl: decoded.avatarUrl
+        };
+      } catch {
+        const guestId = guestIdParam || `guest_${nanoid(8)}`;
+        user = {
+          id: guestId,
+          displayName: guestName || `Guest_${nanoid(4)}`
+        };
+      }
+    } else {
+      const guestId = guestIdParam || `guest_${nanoid(8)}`;
+      user = {
+        id: guestId,
+        displayName: guestName || `Guest_${nanoid(4)}`
+      };
+    }
+
+    presenceManager.registerSocket(ws, user);
+  });
+
+  return { app, db, syncManager, gameRoomManager, presenceManager };
 }
 
 // Direct execution entrypoint

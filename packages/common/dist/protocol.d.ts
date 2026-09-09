@@ -175,4 +175,12 @@ export interface RoomEndedPayload {
     reason: 'HOST_ENDED' | 'ROOM_CLOSED';
     message: string;
 }
+export declare const RoomThemePayloadSchema: z.ZodObject<{
+    themeId: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    themeId: string;
+}, {
+    themeId: string;
+}>;
+export type RoomThemePayload = z.infer<typeof RoomThemePayloadSchema>;
 //# sourceMappingURL=protocol.d.ts.map

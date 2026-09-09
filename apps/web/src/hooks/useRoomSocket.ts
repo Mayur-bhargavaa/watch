@@ -191,6 +191,10 @@ export function useRoomSocket(slug: string) {
     send('countdown:start', {});
   }, [send]);
 
+  const sendRoomTheme = useCallback((themeId: string) => {
+    send('room:theme', { themeId });
+  }, [send]);
+
   const registerCountdownListener = useCallback((listener: () => void) => {
     countdownListenersRef.current.add(listener);
     return () => {
@@ -386,6 +390,21 @@ export function useRoomSocket(slug: string) {
             break;
           }
 
+          case 'room:theme': {
+            const { themeId } = msg.payload;
+            setState(s => {
+              if (!s.room) return s;
+              return {
+                ...s,
+                room: {
+                  ...s.room,
+                  themeId
+                }
+              };
+            });
+            break;
+          }
+
           case 'reaction:broadcast': {
             const reaction = msg.payload as Reaction;
             setState(s => ({
@@ -519,6 +538,13 @@ export function useRoomSocket(slug: string) {
 
           case 'game:action': {
             gameListenersRef.current.forEach(listener => listener(msg.senderId || '', msg.payload));
+            break;
+          }
+
+          case 'partner:ping': {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('stitchbyte:partner-ping', { detail: msg.payload }));
+            }
             break;
           }
 
@@ -680,6 +706,7 @@ export function useRoomSocket(slug: string) {
     registerGameListener,
     sendCountdownStart,
     registerCountdownListener,
+    sendRoomTheme,
     leaveRoom,
     endRoomForAll
   };

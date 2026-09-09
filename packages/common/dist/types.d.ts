@@ -8,6 +8,7 @@ export interface User {
     displayName: string;
     avatarUrl?: string | null;
     isAnonymous: boolean;
+    partnerCode?: string;
     createdAt: string;
 }
 export interface RoomMember {
@@ -53,6 +54,7 @@ export interface Room {
     currentMedia: MediaItem | null;
     playbackState: RoomPlaybackState;
     activityMode?: 'CINEMA' | 'GAMING';
+    themeId?: string;
     createdAt: string;
     endedAt?: string | null;
 }
@@ -140,9 +142,93 @@ export interface GameSessionState {
 }
 export interface GameActionPayload {
     action: 'START_GAME' | 'ANSWER_TRIVIA' | 'DRAW_STROKE' | 'CLEAR_CANVAS' | 'REACTION_TAP' | 'RESET_GAME';
-    gameType?: 'trivia' | 'pictionary' | 'reaction';
+    gameType?: 'trivia' | 'pictionary' | 'reaction' | 'ludo';
     answerIndex?: number;
     strokeData?: any;
     reactionTimeMs?: number;
+}
+export interface PartnerConnection {
+    id: string;
+    userId: string;
+    partnerUserId: string;
+    status: 'ACCEPTED' | 'PENDING' | 'BLOCKED';
+    partnerUser?: {
+        id: string;
+        displayName: string;
+        avatarUrl?: string | null;
+        partnerCode: string;
+        isOnline?: boolean;
+        currentRoomCode?: string | null;
+    };
+    createdAt: string;
+    updatedAt: string;
+}
+export type GameRoomStatus = 'WAITING' | 'READY' | 'PLAYING' | 'FINISHED' | 'CANCELLED';
+export type GamePlayerStatus = 'WAITING' | 'READY' | 'PLAYING' | 'DISCONNECTED' | 'LEFT';
+export type LudoColor = 'red' | 'green' | 'yellow' | 'blue';
+export interface GameRoomPlayer {
+    id: string;
+    roomId: string;
+    userId: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    seat: number;
+    color: LudoColor;
+    status: GamePlayerStatus;
+    isConnected: boolean;
+    joinedAt: string;
+}
+export interface LudoToken {
+    id: number;
+    color: LudoColor;
+    step: number;
+}
+export interface LudoGameState {
+    playersCount: 2 | 3 | 4;
+    seats: Record<number, {
+        userId: string;
+        displayName: string;
+        color: LudoColor;
+    }>;
+    currentTurnSeat: number;
+    currentTurnColor: LudoColor;
+    diceValue: number | null;
+    isRolling: boolean;
+    canRoll: boolean;
+    legalMoves: number[];
+    tokens: Record<LudoColor, LudoToken[]>;
+    winnerColor: LudoColor | null;
+    winnerUserId: string | null;
+    statusMessage: string;
+    consecutiveSixes: number;
+}
+export type GameType = 'ludo' | 'four-in-a-row';
+export type FourInARowDisc = 'R' | 'Y' | null;
+export interface FourInARowGameState {
+    board: FourInARowDisc[][];
+    currentTurnSeat: number;
+    currentTurnColor: 'red' | 'yellow';
+    winner: 'R' | 'Y' | null;
+    winnerColor: 'red' | 'yellow' | null;
+    winnerUserId: string | null;
+    winningLine: [number, number][] | null;
+    isDraw: boolean;
+    statusMessage: string;
+    moveCount: number;
+}
+export interface GameRoom {
+    id: string;
+    roomCode: string;
+    gameType: GameType;
+    hostUserId: string;
+    maxPlayers: number;
+    minPlayers: number;
+    isPrivate: boolean;
+    status: GameRoomStatus;
+    players: GameRoomPlayer[];
+    gameState?: LudoGameState | FourInARowGameState | any | null;
+    createdAt: string;
+    startedAt?: string | null;
+    finishedAt?: string | null;
 }
 //# sourceMappingURL=types.d.ts.map

@@ -10,9 +10,13 @@ import {
   Check,
   MessageSquare,
   Trash2,
-  Clock
+  Clock,
+  X,
+  Sparkles
 } from 'lucide-react';
 import { PARTICIPANT_PALETTE, SmileyFace } from '../voice/VideoGrid';
+import { StickerPicker, StickerMessageView } from './StickerPicker';
+import { parseStickerMessage, formatStickerMessage } from './StickersData';
 
 export interface ContextualChatProps {
   messages: ChatMessage[];
@@ -31,6 +35,7 @@ export interface ContextualChatProps {
   onPassHost?: (userId: string) => void;
   typingUsers?: string[];
   onSendTyping?: (isTyping: boolean) => void;
+  onClose?: () => void;
 }
 
 const QUICK_EMOJIS = ['😂', '❤️', '🔥', '🍿', '😮', '👏', '🎉', '💀'];
@@ -60,10 +65,12 @@ export function ContextualChat({
   copiedInvite = false,
   onSendReaction,
   typingUsers = [],
-  onSendTyping
+  onSendTyping,
+  onClose
 }: ContextualChatProps) {
   const [input, setInput] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -191,25 +198,37 @@ export function ContextualChat({
             </span>
           </div>
 
-          {onCopyInvite && (
-            <button
-              onClick={onCopyInvite}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[11px] text-zinc-300 hover:text-white transition"
-              title="Copy Room Link"
-            >
-              {copiedInvite ? (
-                <>
-                  <Check className="w-3 h-3 text-emerald-400" />
-                  <span className="text-emerald-400 font-semibold">Copied</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  <span>Invite</span>
-                </>
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {onCopyInvite && (
+              <button
+                onClick={onCopyInvite}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[11px] text-zinc-300 hover:text-white transition"
+                title="Copy Room Link"
+              >
+                {copiedInvite ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span className="text-emerald-400 font-semibold">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    <span>Invite</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-400 hover:text-white transition"
+                title="Minimize Chat"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Subheader: Room Title + Live Member Count Pill */}
@@ -277,30 +296,34 @@ export function ContextualChat({
                     </span>
                   </div>
 
-                  <div
-                    className={`text-xs px-3 py-2 rounded-2xl border leading-relaxed break-words shadow-sm relative group/bubble ${
-                      isSelf
-                        ? 'bg-[#E50914] text-white rounded-tr-sm border-[#E50914]'
-                        : 'bg-[#1C202B] text-white rounded-tl-sm border-white/5'
-                    }`}
-                  >
-                    <span>{msg.content}</span>
+                  {parseStickerMessage(msg.content) ? (
+                    <StickerMessageView content={msg.content} />
+                  ) : (
+                    <div
+                      className={`text-xs px-3 py-2 rounded-2xl border leading-relaxed break-words shadow-sm relative group/bubble ${
+                        isSelf
+                          ? 'bg-[#E50914] text-white rounded-tr-sm border-[#E50914]'
+                          : 'bg-black/40 backdrop-blur-sm text-white rounded-tl-sm border-white/10'
+                      }`}
+                    >
+                      <span>{msg.content}</span>
 
-                    {/* Video Timestamp Reference Chip */}
-                    {msg.mediaTimestamp != null && msg.mediaTimestamp > 0 && (
-                      <div className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => onSeekToTimestamp?.(msg.mediaTimestamp!)}
-                          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-black/40 hover:bg-black/60 text-amber-300 transition font-mono border border-amber-300/20"
-                          title="Jump movie to this timestamp"
-                        >
-                          <Clock className="w-2.5 h-2.5" />
-                          <span>{formatTimestamp(msg.mediaTimestamp)}</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      {/* Video Timestamp Reference Chip */}
+                      {msg.mediaTimestamp != null && msg.mediaTimestamp > 0 && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => onSeekToTimestamp?.(msg.mediaTimestamp!)}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-black/40 hover:bg-black/60 text-amber-300 transition font-mono border border-amber-300/20"
+                            title="Jump movie to this timestamp"
+                          >
+                            <Clock className="w-2.5 h-2.5" />
+                            <span>{formatTimestamp(msg.mediaTimestamp)}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Quick hover actions: Copy & Delete */}
                   <div
@@ -340,7 +363,7 @@ export function ContextualChat({
       </div>
 
       {/* 3. Footer: Quick Reactions, Popover, Typing Indicator & Input Form */}
-      <div className="p-3 border-t border-white/10 bg-[#131722] flex flex-col gap-2 flex-shrink-0 relative">
+      <div className="p-3 border-t border-white/10 bg-[#131722]/60 backdrop-blur-md flex flex-col gap-2 flex-shrink-0 relative">
         {/* Quick Reaction Bar */}
         <div className="flex items-center justify-between px-0.5">
           <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-0.5">
@@ -409,18 +432,44 @@ export function ContextualChat({
           <div className="h-2" />
         )}
 
+        {/* Floating Sticker Picker Tray */}
+        {showStickerPicker && (
+          <div className="absolute bottom-16 right-3 z-50 animate-in fade-in zoom-in-95 duration-150">
+            <StickerPicker
+              onSelectSticker={(stickerId) => {
+                onSendMessage(formatStickerMessage(stickerId), currentPlaybackPosition);
+                setShowStickerPicker(false);
+              }}
+              onClose={() => setShowStickerPicker(false)}
+            />
+          </div>
+        )}
+
         {/* Message Input Form */}
         <form onSubmit={handleSubmit} className="relative flex items-center">
           <input
             type="text"
             value={input}
             onChange={handleInputChange}
-            placeholder="Type a message..."
+            placeholder="Type a message or send stickers..."
             maxLength={1000}
-            className="w-full bg-[#1C202B] text-xs text-white placeholder-zinc-400 rounded-xl px-3.5 py-2.5 pr-14 border border-white/10 focus:outline-none focus:border-rose-500 transition shadow-inner"
+            className="w-full bg-[#1C202B] text-xs text-white placeholder-zinc-400 rounded-xl px-3.5 py-2.5 pr-20 border border-white/10 focus:outline-none focus:border-rose-500 transition shadow-inner"
           />
 
           <div className="absolute right-1.5 flex items-center space-x-1">
+            <button
+              type="button"
+              onClick={() => setShowStickerPicker((prev) => !prev)}
+              className={`p-1.5 rounded-lg text-xs transition ${
+                showStickerPicker
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'text-zinc-400 hover:text-amber-400 hover:bg-white/5'
+              }`}
+              title="Send Stickers"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+            </button>
+
             <button
               type="submit"
               disabled={!input.trim()}

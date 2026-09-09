@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.VoiceStatePayloadSchema = exports.VoiceSignalPayloadSchema = exports.HostTransferPayloadSchema = exports.MediaChangePayloadSchema = exports.ChatSendPayloadSchema = exports.ReactionSendPayloadSchema = exports.PlaybackBufferPayloadSchema = exports.PlaybackCommandPayloadSchema = exports.RoomJoinPayloadSchema = exports.SyncPingPayloadSchema = void 0;
+exports.RoomThemePayloadSchema = exports.VoiceStatePayloadSchema = exports.VoiceSignalPayloadSchema = exports.HostTransferPayloadSchema = exports.MediaChangePayloadSchema = exports.ChatSendPayloadSchema = exports.ReactionSendPayloadSchema = exports.PlaybackBufferPayloadSchema = exports.PlaybackCommandPayloadSchema = exports.RoomJoinPayloadSchema = exports.SyncPingPayloadSchema = void 0;
 const zod_1 = require("zod");
 // Client -> Server Payloads
 exports.SyncPingPayloadSchema = zod_1.z.object({
@@ -47,5 +47,8 @@ exports.VoiceStatePayloadSchema = zod_1.z.object({
     isMuted: zod_1.z.boolean(),
     isDeafened: zod_1.z.boolean(),
     isSpeaking: zod_1.z.boolean()
+});
+exports.RoomThemePayloadSchema = zod_1.z.object({
+    themeId: zod_1.z.string().min(1).max(64)
 });
 //# sourceMappingURL=protocol.js.map

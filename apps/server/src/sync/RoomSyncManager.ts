@@ -475,6 +475,10 @@ export class RoomSyncManager {
         });
         break;
 
+      case 'room:theme':
+        this.handleRoomTheme(client, room, msg.payload);
+        break;
+
       default:
         console.warn(`Unhandled WS message type: ${msg.type}`);
     }
@@ -853,6 +857,25 @@ export class RoomSyncManager {
     });
   }
 
+  private handleRoomTheme(client: ConnectedClient, room: Room, payload: { themeId: string }): void {
+    if (!payload?.themeId) return;
+    room.themeId = payload.themeId;
+    try {
+      this.db.updateRoomTheme(room.id, payload.themeId);
+    } catch {}
+
+    this.broadcastToRoom(room.id, {
+      type: 'room:theme',
+      roomId: room.id,
+      senderId: client.userId,
+      timestamp: Date.now(),
+      payload: {
+        themeId: payload.themeId,
+        updatedBy: client.displayName
+      }
+    });
+  }
+
   // --- Helpers ---
   private sendStateSnapshot(client: ConnectedClient, room: Room): void {
     const clientsInRoom = this.roomClients.get(room.id);
@@ -947,4 +970,32 @@ export class RoomSyncManager {
       payload: { code, message }
     });
   }
+
+  public isUserOnline(userId: string): { online: boolean; displayName?: string; roomId?: string } {
+    const client = this.userClients.get(userId);
+    if (client && client.isAlive) {
+      return { online: true, displayName: client.displayName, roomId: client.roomId };
+    }
+    return { online: false };
+  }
+
+  public getConnectedUsers(): Array<{ userId: string; displayName: string; roomId: string }> {
+    const list: Array<{ userId: string; displayName: string; roomId: string }> = [];
+    for (const client of this.userClients.values()) {
+      if (client.isAlive) {
+        list.push({ userId: client.userId, displayName: client.displayName, roomId: client.roomId });
+      }
+    }
+    return list;
+  }
+
+  public sendToUser(userId: string, message: any): boolean {
+    const client = this.userClients.get(userId);
+    if (client && client.socket.readyState === 1) {
+      client.socket.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
+  }
 }
+
