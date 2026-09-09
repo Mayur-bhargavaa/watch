@@ -137,9 +137,9 @@ export class RoomSyncManager {
         if (!this.db.getUserById(user.id)) {
             this.db.createUser({
                 id: user.id,
-                email: null,
+                email: undefined,
                 displayName: user.displayName,
-                avatarUrl: user.avatarUrl || null,
+                avatarUrl: user.avatarUrl || undefined,
                 isAnonymous: true,
                 createdAt: new Date().toISOString()
             });

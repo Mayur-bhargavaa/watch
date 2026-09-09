@@ -364,11 +364,20 @@ function LudoPageContent() {
         currentSession = await ensureSession();
       }
       setSession(currentSession);
+      if (currentSession?.user?.partnerCode) {
+        setMyPartnerCode(currentSession.user.partnerCode);
+      }
 
-      if (currentSession.token) {
+      if (currentSession?.token) {
         const meRes = await getUserMe(currentSession.token).catch(() => null);
         if (meRes?.user?.partnerCode) {
           setMyPartnerCode(meRes.user.partnerCode);
+          if (currentSession.user) {
+            currentSession.user.partnerCode = meRes.user.partnerCode;
+            try {
+              localStorage.setItem('synccinema_session', JSON.stringify(currentSession));
+            } catch {}
+          }
         }
 
         const partnerRes = await getUserPartner(currentSession.token).catch(() => null);
@@ -399,15 +408,17 @@ function LudoPageContent() {
     if (!session?.token) return;
 
     sendHeartbeat(session.token)
-      .then(res => {
+      .then((res: any) => {
         if (res?.partner) setPartner(res.partner);
+        if (res?.myPartnerCode) setMyPartnerCode(res.myPartnerCode);
       })
       .catch(() => {});
 
     const interval = setInterval(() => {
       sendHeartbeat(session.token)
-        .then(res => {
+        .then((res: any) => {
           if (res?.partner) setPartner(res.partner);
+          if (res?.myPartnerCode) setMyPartnerCode(res.myPartnerCode);
         })
         .catch(() => {});
     }, 2500);
@@ -570,16 +581,54 @@ function LudoPageContent() {
   };
 
   // Join with Code
-  const handleJoinWithCode = (e?: React.FormEvent) => {
+  const handleJoinWithCode = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const code = roomCodeInput.trim().toUpperCase();
     if (!code) {
-      setLobbyError('Please enter a valid room code');
+      setLobbyError('Please enter a valid room code or partner code');
       return;
     }
     setLobbyError(null);
     setIsJoiningRoom(true);
-    router.push(`/games/ludo?room=${code}`);
+
+    try {
+      // 1. Check if it's a valid Game Room
+      const roomRes = await getGameRoom(code).catch(() => null);
+      if (roomRes?.room) {
+        if (roomRes.isFull) {
+          setLobbyError(`Room ${code} is already full (${roomRes.room.players.length}/${roomRes.room.maxPlayers} players).`);
+          setIsJoiningRoom(false);
+          return;
+        }
+        if (session?.token) {
+          await joinGameRoom(session.token, code).catch(() => null);
+        }
+        router.push(`/games/ludo?room=${code}`);
+        return;
+      }
+
+      // 2. Check if user entered their Partner's Code
+      if (session?.token) {
+        try {
+          const partnerRes = await connectUserPartner(session.token, code);
+          if (partnerRes?.partner) {
+            setPartner(partnerRes.partner);
+            setIsJoiningRoom(false);
+            setRoomCodeInput('');
+            alert(`Connected with partner ${partnerRes.partner.displayName}! You can now click "Play Together" to start a match.`);
+            return;
+          }
+        } catch {
+          // not partner code
+        }
+      }
+
+      // 3. Fallback: navigate to room directly
+      router.push(`/games/ludo?room=${code}`);
+    } catch (err: any) {
+      setLobbyError(err.message || `Could not join room ${code}`);
+      setIsJoiningRoom(false);
+    }
   };
 
   // Create Private Room
@@ -953,6 +1002,39 @@ function LudoPageContent() {
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-3 sm:p-5 flex flex-col justify-start z-10">
+        {/* ROOM VIEW: CONNECTING OR ERROR STATE */}
+        {roomParam && !isWaiting && !isPlayingOrFinished && (
+          <div className="w-full max-w-md mx-auto my-auto p-8 rounded-3xl bg-black/60 border border-white/20 backdrop-blur-2xl text-center space-y-4 shadow-2xl">
+            {wsError ? (
+              <>
+                <div className="w-12 h-12 mx-auto rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <X className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Room Error</h3>
+                <p className="text-xs text-rose-200/80">{wsError}</p>
+                <button
+                  onClick={() => router.push('/games/ludo')}
+                  className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition"
+                >
+                  Back to Lobby
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 mx-auto rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                <h3 className="text-base font-bold text-white">Connecting to Room...</h3>
+                <p className="text-xs text-zinc-400">Room Code: {roomParam}</p>
+                <button
+                  onClick={() => router.push('/games/ludo')}
+                  className="mt-4 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 text-xs font-medium transition"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ROOM VIEW: WAITING ROOM */}
         {roomParam && isWaiting && (
           <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-5 py-6 animate-in fade-in zoom-in-95 duration-200">

@@ -321,7 +321,7 @@ export async function createGameRoom(
   return res.json();
 }
 
-export async function getGameRoom(code: string): Promise<{ room: GameRoom }> {
+export async function getGameRoom(code: string): Promise<{ room: GameRoom; isFull?: boolean; canJoin?: boolean }> {
   const res = await fetch(`${API_BASE}/api/games/rooms/${encodeURIComponent(code)}`);
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -366,6 +366,7 @@ export async function invitePartnerToGame(
 export async function sendHeartbeat(token: string): Promise<{
   status: string;
   isOnline: boolean;
+  myPartnerCode?: string;
   partner: {
     id: string;
     displayName: string;

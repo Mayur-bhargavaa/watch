@@ -72,6 +72,7 @@ export function useGameRoom(roomCode: string | null) {
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
+  const hasTerminalErrorRef = useRef(false);
   const isUnmountedRef = useRef(false);
   const lastChatSendRef = useRef<number>(0);
 
@@ -100,6 +101,7 @@ export function useGameRoom(roomCode: string | null) {
     if (!roomCode || isUnmountedRef.current) return;
 
     try {
+      hasTerminalErrorRef.current = false;
       setConnectionStatus('CONNECTING');
       let session = getStoredSession();
       if (!session) {
@@ -142,12 +144,14 @@ export function useGameRoom(roomCode: string | null) {
       socket.onclose = () => {
         if (isUnmountedRef.current) return;
         setConnectionStatus('DISCONNECTED');
-        // Auto-reconnect after 2 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          if (!isUnmountedRef.current && roomCode) {
-            connect();
-          }
-        }, 2000);
+        if (!hasTerminalErrorRef.current) {
+          // Auto-reconnect after 2 seconds
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (!isUnmountedRef.current && roomCode && !hasTerminalErrorRef.current) {
+              connect();
+            }
+          }, 2000);
+        }
       };
     } catch (err: any) {
       if (!isUnmountedRef.current) {
@@ -174,13 +178,20 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'game:player_joined': {
-        const { player } = msg.payload;
-        setRoom(prev => {
-          if (!prev) return prev;
-          const exists = prev.players.some(p => p.userId === player.userId);
-          const updatedPlayers = exists ? prev.players : [...prev.players, player];
-          return { ...prev, players: updatedPlayers };
-        });
+        const { player, room: updatedRoom } = msg.payload;
+        if (updatedRoom) {
+          setRoom(updatedRoom);
+          if (updatedRoom.gameState) {
+            setGameState(updatedRoom.gameState);
+          }
+        } else {
+          setRoom(prev => {
+            if (!prev) return prev;
+            const exists = prev.players.some(p => p.userId === player.userId);
+            const updatedPlayers = exists ? prev.players : [...prev.players, player];
+            return { ...prev, players: updatedPlayers };
+          });
+        }
         break;
       }
 
@@ -225,16 +236,23 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'game:player_reconnected': {
-        const { userId } = msg.payload;
-        setRoom(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            players: prev.players.map(p =>
-              p.userId === userId ? { ...p, isConnected: true, status: 'PLAYING' as any } : p
-            )
-          };
-        });
+        const { userId, room: updatedRoom } = msg.payload;
+        if (updatedRoom) {
+          setRoom(updatedRoom);
+          if (updatedRoom.gameState) {
+            setGameState(updatedRoom.gameState);
+          }
+        } else {
+          setRoom(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              players: prev.players.map(p =>
+                p.userId === userId ? { ...p, isConnected: true, status: 'PLAYING' as any } : p
+              )
+            };
+          });
+        }
         setDisconnectedPlayer(prev => (prev?.userId === userId ? null : prev));
         break;
       }
@@ -262,9 +280,12 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'game:started': {
-        const { gameState: startState } = msg.payload;
+        const { gameState: startState, room: updatedRoom } = msg.payload;
         setGameState(startState);
-        setRoom(prev => (prev ? { ...prev, status: 'PLAYING', gameState: startState } : prev));
+        setRoom(prev => {
+          if (updatedRoom) return updatedRoom;
+          return prev ? { ...prev, status: 'PLAYING', gameState: startState } : prev;
+        });
         break;
       }
 
@@ -338,7 +359,13 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'error:notification': {
-        setError(msg.payload?.message || 'Server error');
+        hasTerminalErrorRef.current = true;
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+        setError(msg.payload?.message || 'Game room error');
+        setConnectionStatus('DISCONNECTED');
         break;
       }
 

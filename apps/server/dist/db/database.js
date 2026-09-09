@@ -207,13 +207,26 @@ export class DatabaseService {
     }
     // --- Users ---
     createUser(user, passwordHash) {
-        const partnerCode = user.partnerCode || this.generateUniquePartnerCode(user.displayName);
+        const partnerCode = this.generateUniquePartnerCode(user.displayName);
         const stmt = this.db.prepare(`
       INSERT INTO users (id, email, password_hash, display_name, avatar_url, is_anonymous, partner_code, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        display_name = excluded.display_name,
+        avatar_url = COALESCE(excluded.avatar_url, users.avatar_url),
+        partner_code = COALESCE(users.partner_code, excluded.partner_code)
     `);
         stmt.run(user.id, user.email || null, passwordHash || null, user.displayName, user.avatarUrl || null, user.isAnonymous ? 1 : 0, partnerCode, user.createdAt);
-        return { ...user, partnerCode };
+        const saved = this.getUserById(user.id);
+        return saved || {
+            id: user.id,
+            displayName: user.displayName,
+            email: user.email,
+            avatarUrl: user.avatarUrl,
+            isAnonymous: Boolean(user.isAnonymous),
+            partnerCode,
+            createdAt: user.createdAt
+        };
     }
     getUserById(id) {
         const stmt = this.db.prepare(`SELECT * FROM users WHERE id = ?`);
@@ -556,14 +569,22 @@ export class DatabaseService {
         }
         return `SB${nanoid(6).toUpperCase().replace(/[^A-Z0-9]/g, 'X')}`;
     }
-    ensureUserPartnerCode(userId, displayName) {
+    ensureUserPartnerCode(userId, displayName, avatarUrl, isAnonymous, email) {
         const row = this.db.prepare('SELECT partner_code, display_name FROM users WHERE id = ?').get(userId);
         if (row && row.partner_code) {
             return row.partner_code;
         }
         const name = displayName || (row ? row.display_name : 'Player');
         const newCode = this.generateUniquePartnerCode(name);
-        this.db.prepare('UPDATE users SET partner_code = ? WHERE id = ?').run(newCode, userId);
+        if (!row) {
+            this.db.prepare(`
+        INSERT INTO users (id, email, password_hash, display_name, avatar_url, is_anonymous, partner_code, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(userId, email || null, null, name, avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`, isAnonymous ? 1 : 0, newCode, new Date().toISOString());
+        }
+        else {
+            this.db.prepare('UPDATE users SET partner_code = ? WHERE id = ?').run(newCode, userId);
+        }
         return newCode;
     }
     getUserByPartnerCode(partnerCode) {
@@ -653,6 +674,9 @@ export class DatabaseService {
     // Human-Only Game Rooms & Matchmaking Engine
     // =====================================================================
     createGameRoom(room) {
+        if (!this.getUserById(room.hostUserId)) {
+            this.ensureUserPartnerCode(room.hostUserId, 'Host Player', `https://api.dicebear.com/7.x/bottts/svg?seed=${room.hostUserId}`, true);
+        }
         const stmt = this.db.prepare(`
       INSERT INTO game_rooms (
         id, room_code, game_type, host_user_id, max_players, min_players,
@@ -787,6 +811,9 @@ export class DatabaseService {
         }));
     }
     addPlayerToGameRoom(roomId, user, seat, color) {
+        if (!this.getUserById(user.id)) {
+            this.ensureUserPartnerCode(user.id, user.displayName || 'Player', user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.id}`, true);
+        }
         const id = `gplayer_${nanoid(10)}`;
         const now = new Date().toISOString();
         const stmt = this.db.prepare(`

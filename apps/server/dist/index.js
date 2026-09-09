@@ -240,7 +240,15 @@ export async function createServer(dbPath = './synccinema.db') {
     async function getRequestUser(request) {
         try {
             const decoded = await request.jwtVerify();
-            const user = db.getUserById(decoded.id);
+            let user = db.getUserById(decoded.id);
+            if (user) {
+                if (!user.partnerCode) {
+                    user.partnerCode = db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email);
+                }
+                return user;
+            }
+            const partnerCode = db.ensureUserPartnerCode(decoded.id, decoded.displayName, decoded.avatarUrl, decoded.isAnonymous, decoded.email);
+            user = db.getUserById(decoded.id);
             if (user)
                 return user;
             return {
@@ -248,7 +256,7 @@ export async function createServer(dbPath = './synccinema.db') {
                 displayName: decoded.displayName || 'Player',
                 avatarUrl: decoded.avatarUrl,
                 isAnonymous: Boolean(decoded.isAnonymous),
-                partnerCode: db.ensureUserPartnerCode(decoded.id, decoded.displayName),
+                partnerCode,
                 createdAt: new Date().toISOString()
             };
         }
@@ -286,7 +294,7 @@ export async function createServer(dbPath = './synccinema.db') {
         return {
             user: {
                 ...user,
-                partnerCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName)
+                partnerCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email)
             },
             partner: partner ? {
                 id: partner.partnerUser?.id || partner.partnerUserId,
@@ -306,6 +314,7 @@ export async function createServer(dbPath = './synccinema.db') {
         return {
             status: 'ok',
             isOnline: true,
+            myPartnerCode: user.partnerCode,
             partner: partner ? {
                 id: partner.partnerUser?.id || partner.partnerUserId,
                 displayName: partner.partnerUser?.displayName || 'Partner',
@@ -663,9 +672,10 @@ export async function createServer(dbPath = './synccinema.db') {
                 const decoded = app.jwt.verify(token);
                 user = {
                     id: decoded.id,
-                    displayName: decoded.displayName,
+                    displayName: decoded.displayName || 'Player',
                     avatarUrl: decoded.avatarUrl
                 };
+                db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl || undefined, Boolean(decoded.isAnonymous), decoded.email);
             }
             catch {
                 const guestId = guestIdParam || `guest_${nanoid(8)}`;
@@ -674,6 +684,7 @@ export async function createServer(dbPath = './synccinema.db') {
                     displayName: guestName || `Guest_${nanoid(4)}`,
                     avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
                 };
+                db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, true);
             }
         }
         else {
@@ -683,6 +694,7 @@ export async function createServer(dbPath = './synccinema.db') {
                 displayName: guestName || `Guest_${nanoid(4)}`,
                 avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
             };
+            db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, true);
         }
         gameRoomManager.registerClient(ws, room.id, user);
     });

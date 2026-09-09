@@ -463,12 +463,21 @@ function FourInARowContent() {
         s = await ensureSession();
       }
       setSession(s);
+      if (s?.user?.partnerCode) {
+        setMyPartnerCode(s.user.partnerCode);
+      }
 
       if (s?.token) {
         try {
           const userRes = await getUserMe(s.token);
           if (userRes.user?.partnerCode) {
             setMyPartnerCode(userRes.user.partnerCode);
+            if (s.user) {
+              s.user.partnerCode = userRes.user.partnerCode;
+              try {
+                localStorage.setItem('synccinema_session', JSON.stringify(s));
+              } catch {}
+            }
           }
         } catch {}
 
@@ -499,8 +508,11 @@ function FourInARowContent() {
         if (hb.partner) {
           setPartner(hb.partner);
         }
+        if (hb.myPartnerCode) {
+          setMyPartnerCode(hb.myPartnerCode);
+        }
       } catch {}
-    }, 15000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [session?.token]);
 
@@ -597,16 +609,54 @@ function FourInARowContent() {
   };
 
   // Join Room with Code
-  const handleJoinWithCode = (e?: React.FormEvent) => {
+  const handleJoinWithCode = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const code = roomCodeInput.trim().toUpperCase();
     if (!code) {
-      setLobbyError('Please enter a valid room code (e.g. FOUR-XXXX)');
+      setLobbyError('Please enter a valid room code or partner code');
       return;
     }
     setLobbyError(null);
     setIsJoiningRoom(true);
-    router.push(`/games/four-in-a-row?room=${code}`);
+
+    try {
+      // 1. Check if it's a valid Game Room
+      const roomRes = await getGameRoom(code).catch(() => null);
+      if (roomRes?.room) {
+        if (roomRes.isFull) {
+          setLobbyError(`Room ${code} is already full (2/2 players).`);
+          setIsJoiningRoom(false);
+          return;
+        }
+        if (session?.token) {
+          await joinGameRoom(session.token, code).catch(() => null);
+        }
+        router.push(`/games/four-in-a-row?room=${code}`);
+        return;
+      }
+
+      // 2. Check if user entered a Partner Code
+      if (session?.token) {
+        try {
+          const partnerRes = await connectUserPartner(session.token, code);
+          if (partnerRes?.partner) {
+            setPartner(partnerRes.partner);
+            setIsJoiningRoom(false);
+            setRoomCodeInput('');
+            alert(`Connected with partner ${partnerRes.partner.displayName}! You can now challenge them to a match.`);
+            return;
+          }
+        } catch {
+          // not partner code
+        }
+      }
+
+      // 3. Fallback: navigate directly to room
+      router.push(`/games/four-in-a-row?room=${code}`);
+    } catch (err: any) {
+      setLobbyError(err.message || `Could not join room ${code}`);
+      setIsJoiningRoom(false);
+    }
   };
 
   // Copy Room code & link
@@ -1207,6 +1257,39 @@ function FourInARowContent() {
                 <strong>Zero-Bots Guarantee:</strong> No AI bots or automated fillers are permitted in Four in a Row rooms. Match begins only when 2 real human players take their seats.
               </span>
             </div>
+          </div>
+        )}
+
+        {/* ROOM VIEW: CONNECTING OR ERROR STATE */}
+        {roomParam && !isWaiting && !isPlayingOrFinished && (
+          <div className="w-full max-w-md mx-auto my-auto p-8 rounded-3xl bg-black/60 border border-white/20 backdrop-blur-2xl text-center space-y-4 shadow-2xl">
+            {roomError ? (
+              <>
+                <div className="w-12 h-12 mx-auto rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <X className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Room Error</h3>
+                <p className="text-xs text-rose-200/80">{roomError}</p>
+                <button
+                  onClick={() => router.push('/games/four-in-a-row')}
+                  className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition"
+                >
+                  Back to Lobby
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 mx-auto rounded-full border-2 border-rose-500 border-t-transparent animate-spin" />
+                <h3 className="text-base font-bold text-white">Connecting to Room...</h3>
+                <p className="text-xs text-zinc-400">Room Code: {roomParam}</p>
+                <button
+                  onClick={() => router.push('/games/four-in-a-row')}
+                  className="mt-4 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 text-xs font-medium transition"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
           </div>
         )}
 

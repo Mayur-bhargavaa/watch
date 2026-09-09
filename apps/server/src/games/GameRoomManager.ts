@@ -191,6 +191,7 @@ export class GameRoomManager {
       type: 'game:player_joined',
       roomId: room.id,
       payload: {
+        room,
         player: newPlayer,
         totalPlayers: room.players.length,
         maxPlayers: room.maxPlayers
@@ -237,6 +238,7 @@ export class GameRoomManager {
       type: 'game:started',
       roomId: room.id,
       payload: {
+        room,
         gameState: initialState,
         message: 'All human players connected! Game starting now!'
       }
@@ -430,25 +432,30 @@ export class GameRoomManager {
         try {
           room = this.joinRoom(room.roomCode, user);
           myPlayer = room.players.find(p => p.userId === user.id);
-        } catch (e) {
-          // ignore
+        } catch (e: any) {
+          console.error(`[GameRoom] Error auto-joining room ${room.roomCode} for user ${user.id}:`, e);
+          socket.send(JSON.stringify({
+            type: 'error:notification',
+            payload: { code: 'JOIN_FAILED', message: e?.message || 'Failed to join game room' }
+          }));
         }
       }
 
+      const currentRoom = this.db.getGameRoomById(roomId) || room;
       socket.send(JSON.stringify({
         type: 'game:sync',
         roomId,
         payload: {
-          room,
+          room: currentRoom,
           myUserId: user.id,
-          myPlayer: myPlayer || room.players.find(p => p.userId === user.id)
+          myPlayer: myPlayer || currentRoom.players.find(p => p.userId === user.id)
         }
       }));
 
       this.broadcast(roomId, {
         type: 'game:player_reconnected',
         roomId,
-        payload: { userId: user.id, displayName: user.displayName }
+        payload: { userId: user.id, displayName: user.displayName, room: currentRoom }
       });
     }
 
