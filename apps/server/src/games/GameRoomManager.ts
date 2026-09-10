@@ -215,12 +215,19 @@ export class GameRoomManager {
    * Starts the game when all required human players are present
    */
   private startGame(room: GameRoom): void {
-    const playerConfigs = room.players.map(p => ({
-      userId: p.userId,
-      displayName: p.displayName,
-      seat: p.seat,
-      color: p.color
-    }));
+    const def = GAME_DEFINITIONS[room.gameType];
+    const colors = def?.colorAssignments[room.maxPlayers];
+
+    const playerConfigs = room.players.map(p => {
+      const assignedColor = colors && colors[p.seat] ? colors[p.seat] : p.color;
+      p.color = assignedColor;
+      return {
+        userId: p.userId,
+        displayName: p.displayName,
+        seat: p.seat,
+        color: assignedColor
+      };
+    });
 
     const now = new Date().toISOString();
     let initialState: any;

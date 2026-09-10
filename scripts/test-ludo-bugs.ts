@@ -192,6 +192,19 @@ runTest('Opponents are mapped to appropriate relative physical corners', () => {
   assert.equal(getPhysicalCornerIndex('green', redRot), 2);
 });
 
+runTest('2-player Ludo maps players to diagonally inverted corners (Bottom-Left and Top-Right)', () => {
+  // 2-player assignments: Host is Red (seat 0), Opponent is Yellow (seat 1)
+  // When viewed by Red (Host):
+  const redRot = getRotationForColor('red');
+  assert.equal(getPhysicalCornerIndex('red', redRot), 3, 'Red must be at Bottom-Left (3)');
+  assert.equal(getPhysicalCornerIndex('yellow', redRot), 1, 'Opponent (Yellow) must be diagonally at Top-Right (1)');
+
+  // When viewed by Yellow (Guest):
+  const yellowRot = getRotationForColor('yellow');
+  assert.equal(getPhysicalCornerIndex('yellow', yellowRot), 3, 'Yellow must be at Bottom-Left (3)');
+  assert.equal(getPhysicalCornerIndex('red', yellowRot), 1, 'Opponent (Red) must be diagonally at Top-Right (1)');
+});
+
 // -----------------------------------------------------------------------------
 // SUITE 4: USER TYPING INDICATOR
 // -----------------------------------------------------------------------------

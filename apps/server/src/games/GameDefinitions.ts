@@ -21,8 +21,8 @@ export const GAME_DEFINITIONS: Record<string, GameDefinition> = {
     supportsPartnerMode: true,
     supportsPublicMatchmaking: true,
     colorAssignments: {
-      // 2 players: Red (Top-Left, "You") vs Blue (Top-Right, "Babe") matching reference UI
-      2: ['red', 'blue'],
+      // 2 players: Diagonally opposite corners (Red at Bottom-Left vs Yellow at Top-Right)
+      2: ['red', 'yellow'],
       // 3 players: Red, Blue, Green
       3: ['red', 'blue', 'green'],
       // 4 players: Red, Blue, Green, Yellow
