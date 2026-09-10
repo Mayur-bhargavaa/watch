@@ -713,6 +713,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       color: LudoColor;
       step: number;
       isLegal: boolean;
+      isMyColor: boolean;
       isHopping: boolean;
     }> = [];
 
@@ -734,6 +735,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           color,
           step: activeStep,
           isLegal,
+          isMyColor: Boolean(isMyColor),
           isHopping: isThisTokenAnimating && Boolean(animatingPawn?.isHopArc)
         });
       });
@@ -764,6 +766,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       y: number;
       groundY: number;
       isLegal: boolean;
+      isMyColor: boolean;
       color: LudoColor;
       isHopping: boolean;
       scale: number;
@@ -779,7 +782,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         let scale = 1.0;
 
         if (count > 1 && item.step >= 0) {
-          scale = count > 2 ? 0.88 : 0.96;
+          scale = count > 2 ? 0.76 : 0.86;
           if (count === 2) {
             offsetX = indexInGroup === 0 ? -7 : 7;
             offsetY = 0;
@@ -803,6 +806,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           y: finalY,
           groundY,
           isLegal: item.isLegal,
+          isMyColor: item.isMyColor,
           color: item.color,
           isHopping: item.isHopping,
           scale
@@ -858,75 +862,158 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     );
   };
 
-  // Render sculpted 3D luxury pawn figurine with concentric circular pedestal, gold collar, crystal head, and finial
-  const renderLuxuryPawn = (color: LudoColor, isLegal: boolean) => {
+  // Render sculpted 3D luxury pawn figurine with unique color silhouette, emblems, and crowns
+  const renderLuxuryPawn = (color: LudoColor, isLegal: boolean, isMyColor: boolean = false) => {
     const headGradient = `url(#${color}PawnHead)`;
     const bodyGradient = `url(#${color}PawnBody)`;
+    const neonColor = color === 'red' ? '#ff2e79' : color === 'blue' ? '#38bdf8' : color === 'green' ? '#34d399' : '#fbbf24';
 
     return (
       <g filter="url(#tile3DShadow)">
-        {/* Tier 1: Ground Ambient Occlusion & Base Pad - perfectly concentric at (0, 0) */}
-        <circle cx="0" cy="0" r="14.8" fill="#000000" opacity="0.35" />
+        {/* Tier 0: Player Distinction Halo (makes your gotis instantly identifiable at a glance) */}
+        {isMyColor && (
+          <circle
+            cx="0"
+            cy="0"
+            r="19"
+            fill="none"
+            stroke={neonColor}
+            strokeWidth="1.2"
+            strokeDasharray="3, 2.5"
+            opacity="0.85"
+          />
+        )}
+
+        {/* Tier 1: Ground Ambient Occlusion & Base Pad (concentric at (0, 0)) */}
+        <circle cx="0" cy="0" r="17.2" fill="#000000" opacity="0.38" />
         
-        {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring (concentric circle r=14.2) */}
-        <circle cx="0" cy="0" r="14.2" fill="url(#goldMetallicGradient)" stroke="#78350f" strokeWidth="0.8" />
+        {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring (concentric circle r=16.5) */}
+        <circle cx="0" cy="0" r="16.5" fill="url(#goldMetallicGradient)" stroke="#78350f" strokeWidth="0.9" />
         
         {/* Tier 3: Upper Beveled Marble Base Step */}
-        <circle cx="0" cy="0" r="12.0" fill={headGradient} stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.55" />
-        <circle cx="0" cy="0" r="9.5" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
+        <circle cx="0" cy="0" r="14.0" fill={headGradient} stroke="#ffffff" strokeWidth="0.6" strokeOpacity="0.6" />
+        <circle cx="0" cy="0" r="11.2" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
         {/* Base Specular Gloss Arc */}
-        <path d="M -8 -4 A 9 9 0 0 1 8 -4" fill="none" stroke="#ffffff" strokeWidth="0.9" opacity="0.5" />
+        <path d="M -9 -5 A 11 11 0 0 1 9 -5" fill="none" stroke="#ffffff" strokeWidth="1.1" opacity="0.55" />
 
         {/* Sculpted Flared Pawn Body (Hourglass bell curve rising from base) */}
         <path
-          d="M -8 0 C -7 -3.5, -4.2 -6.5, -3.2 -8.5 C -3.2 -9, 3.2 -9, 3.2 -8.5 C 4.2 -6.5, 7 -3.5, 8 0 Z"
+          d="M -9.5 0 C -8.5 -4.5, -5.5 -8.5, -4 -11.5 C -4 -12, 4 -12, 4 -11.5 C 5.5 -8.5, 8.5 -4.5, 9.5 0 Z"
           fill={bodyGradient}
         />
         {/* Specular curved vertical gloss streak down the left torso */}
         <path
-          d="M -6 0 C -5.2 -3.5, -3 -6, -2.0 -8 C -1.4 -8, -1.8 -3.5, -3.8 0 Z"
+          d="M -7.2 0 C -6.2 -4.5, -3.8 -8.0, -2.5 -10.5 C -1.8 -10.5, -2.2 -4.5, -4.5 0 Z"
           fill="#ffffff"
           opacity="0.45"
         />
         {/* Ambient shadow gradient down the right contour */}
         <path
-          d="M 6 0 C 5.2 -3.5, 3 -6, 2.0 -8 C 1.4 -8, 1.8 -3.5, 3.8 0 Z"
+          d="M 7.2 0 C 6.2 -4.5, 3.8 -8.0, 2.5 -10.5 C 1.8 -10.5, 2.2 -4.5, 4.5 0 Z"
           fill="#000000"
           opacity="0.25"
         />
 
+        {/* Unique Color Chest Emblem (Instantly reveals goti identity) */}
+        {color === 'red' && (
+          /* Glowing Royal Ruby Heart Emblem */
+          <path
+            d="M 0,-5 C 0,-5 -3.5,-8 -3.5,-10 C -3.5,-11.5 -2.2,-12.5 -0.8,-12.5 C 0,-12.5 0,-12 0,-12 C 0,-12 0,-12.5 0.8,-12.5 C 2.2,-12.5 3.5,-10.5 3.5,-10 C 3.5,-8 0,-5 0,-5 Z"
+            transform="translate(0, 5) scale(0.9)"
+            fill="#ff2e79"
+            stroke="#ffffff"
+            strokeWidth="0.6"
+          />
+        )}
+        {color === 'blue' && (
+          /* Sapphire Imperial Diamond Emblem */
+          <polygon
+            points="0,-8.5 3.5,-5 0,-1.5 -3.5,-5"
+            fill="#38bdf8"
+            stroke="#ffffff"
+            strokeWidth="0.6"
+          />
+        )}
+        {color === 'green' && (
+          /* Emerald 4-Leaf Clover Emblem */
+          <g transform="translate(0, -5) scale(0.85)">
+            <circle cx="-2.2" cy="0" r="1.7" fill="#34d399" />
+            <circle cx="2.2" cy="0" r="1.7" fill="#34d399" />
+            <circle cx="0" cy="-2.2" r="1.7" fill="#34d399" />
+            <circle cx="0" cy="2.2" r="1.7" fill="#34d399" />
+            <circle cx="0" cy="0" r="1.0" fill="#ffffff" />
+          </g>
+        )}
+        {color === 'yellow' && (
+          /* Golden Star Emblem */
+          <polygon
+            points="0,-8.5 1.2,-5.2 4.5,-5.2 1.8,-3.2 2.8,0 0,-2 -2.8,0 -1.8,-3.2 -4.5,-5.2 -1.2,-5.2"
+            transform="translate(0, 0.5) scale(0.95)"
+            fill="#fbbf24"
+            stroke="#ffffff"
+            strokeWidth="0.5"
+          />
+        )}
+
         {/* Lower Polished Gold Torus Waist Ring */}
-        <ellipse cx="0" cy="-9" rx="5" ry="1.8" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
+        <ellipse cx="0" cy="-12" rx="6.0" ry="2.2" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
         
         {/* Tapered Slender Neck Column */}
-        <path d="M -2.6 -9 C -2.6 -12, 2.6 -12, 2.6 -9 Z" fill={bodyGradient} />
+        <path d="M -3.2 -12 C -3.2 -15.5, 3.2 -15.5, 3.2 -12 Z" fill={bodyGradient} />
 
         {/* Upper Gold Neck Collar Bead */}
-        <ellipse cx="0" cy="-12" rx="4" ry="1.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" strokeOpacity="0.7" />
+        <ellipse cx="0" cy="-15.5" rx="5.0" ry="1.8" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.75" />
 
-        {/* Spherical Luxury Gemstone Head Knob (Centered at cy = -18, r = 7.5) */}
+        {/* Spherical Luxury Gemstone Head Knob (Larger r=9.8, Centered at cy=-23.5) */}
         <circle
           cx="0"
-          cy="-18"
-          r="7.5"
+          cy="-23.5"
+          r="9.8"
           fill={headGradient}
-          stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.6)'}
-          strokeWidth={isLegal ? '2.2' : '0.8'}
+          stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.7)'}
+          strokeWidth={isLegal ? '2.5' : '1.0'}
         />
 
         {/* 3D Spherical Specular Highlights (glass reflection & curved gleam) */}
-        <circle cx="-2.5" cy="-20.5" r="2.0" fill="#ffffff" opacity="0.95" />
-        <circle cx="-0.8" cy="-22.2" r="1.0" fill="#ffffff" opacity="0.85" />
-        <ellipse cx="2.2" cy="-15.5" rx="1.8" ry="0.9" transform="rotate(30 2.2 -15.5)" fill="#ffffff" opacity="0.25" />
+        <circle cx="-3.2" cy="-26.8" r="2.6" fill="#ffffff" opacity="0.95" />
+        <circle cx="-1.0" cy="-29.2" r="1.3" fill="#ffffff" opacity="0.85" />
+        <ellipse cx="3.0" cy="-20.0" rx="2.4" ry="1.2" transform="rotate(30 3.0 -20.0)" fill="#ffffff" opacity="0.28" />
 
-        {/* Golden Royal Finial Crest on top of the sphere */}
-        <path
-          d="M 0,-28 L 2.0,-25.5 L 0,-24.5 L -2.0,-25.5 Z"
-          fill="url(#goldMetallicGradient)"
-          stroke="#ffffff"
-          strokeWidth="0.3"
-        />
-        <circle cx="0" cy="-28" r="0.7" fill="#ffffff" />
+        {/* Unique Color Head Crown Finials (Distinct silhouettes for every color!) */}
+        {color === 'red' && (
+          /* Red: Imperial Triple-Peak Royal Crown with glowing Ruby Heart */
+          <g transform="translate(0, -33.5)">
+            <path d="M -7.5 0 L -10 -6.5 L -4 -3.5 L 0 -8.5 L 4 -3.5 L 10 -6.5 L 7.5 0 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
+            <circle cx="0" cy="-9.5" r="1.8" fill="#ff2e79" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="-10" cy="-7" r="1.0" fill="#ffffff" />
+            <circle cx="10" cy="-7" r="1.0" fill="#ffffff" />
+          </g>
+        )}
+        {color === 'blue' && (
+          /* Blue: Regal 4-Point Starlight Sapphire Diamond Crest */
+          <g transform="translate(0, -33.5)">
+            <polygon points="0,-11 4.5,-5.5 10,-4.5 5,-0.5 6.5,5.5 0,1.5 -6.5,5.5 -5,-0.5 -10,-4.5 -4.5,-5.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
+            <circle cx="0" cy="-4.5" r="2.0" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="0" cy="-11.5" r="0.9" fill="#ffffff" />
+          </g>
+        )}
+        {color === 'green' && (
+          /* Green: Celtic Emerald Tri-Spire Laurel Crown */
+          <g transform="translate(0, -33.5)">
+            <path d="M -7.5 1 C -9.5 -5.5, -4.5 -7.5, -3 -3.5 C -1.5 -9.5, 1.5 -9.5, 3 -3.5 C 4.5 -7.5, 9.5 -5.5, 7.5 1 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
+            <circle cx="-7" cy="-6.5" r="1.3" fill="#ffffff" />
+            <circle cx="0" cy="-10.5" r="1.8" fill="#34d399" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="7" cy="-6.5" r="1.3" fill="#ffffff" />
+          </g>
+        )}
+        {color === 'yellow' && (
+          /* Yellow: Radiant Solar Sunburst Crown with golden rays & amber jewel */
+          <g transform="translate(0, -33.5)">
+            <polygon points="0,-12 2.8,-5.5 9,-7.5 5,-2 9,2.5 2.8,1.2 0,7 -2.8,1.2 -9,2.5 -5,-2 -9,-7.5 -2.8,-5.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
+            <circle cx="0" cy="-2.5" r="2.4" fill="#fbbf24" stroke="#ffffff" strokeWidth="0.5" />
+            <circle cx="0" cy="-12.5" r="0.9" fill="#ffffff" />
+          </g>
+        )}
       </g>
     );
   };
@@ -1361,10 +1448,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* 4 3D Recessed Gold Socket Pedestals */}
                   {YARD_PAWN_SLOTS.red.map((slot, i) => (
                     <g key={`ry-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.5" fill="#1c0308" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="13.8" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="10" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#1c0308" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
                     </g>
                   ))}
@@ -1412,10 +1499,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* 4 3D Recessed Gold Socket Pedestals */}
                   {YARD_PAWN_SLOTS.blue.map((slot, i) => (
                     <g key={`by-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.5" fill="#030d21" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="13.8" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="10" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#030d21" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
                     </g>
                   ))}
@@ -1463,10 +1550,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* 4 3D Recessed Gold Socket Pedestals */}
                   {YARD_PAWN_SLOTS.green.map((slot, i) => (
                     <g key={`gy-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.5" fill="#02140a" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="13.8" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="10" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#02140a" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
                     </g>
                   ))}
@@ -1514,10 +1601,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* 4 3D Recessed Gold Socket Pedestals */}
                   {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
                     <g key={`yy-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.5" fill="#1c1001" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="13.8" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="10" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#1c1001" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
                     </g>
                   ))}
@@ -1819,7 +1906,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </g>
 
               {/* 5. 3D EMBOSSED LUXURY PAWNS WITH REALISTIC SHADOWS */}
-              {renderedPawns.map(({ token, x, y, groundY, isLegal, color, isHopping, scale }) => {
+              {renderedPawns.map(({ token, x, y, groundY, isLegal, isMyColor, color, isHopping, scale }) => {
                 const cfg = COLOR_CONFIG[color];
 
                 return (
@@ -1846,18 +1933,18 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle
                         cx={0}
                         cy={0}
-                        r={(isHopping ? 15.5 : 14.2) * scale}
+                        r={(isHopping ? 18.5 : 16.5) * scale}
                         fill="#000000"
-                        opacity={isHopping ? 0.12 : 0.35}
+                        opacity={isHopping ? 0.12 : 0.38}
                         filter="url(#castShadowBlur)"
                         style={{ transition: 'all 0.14s ease' }}
                       />
                       <circle
                         cx={0}
                         cy={0}
-                        r={12 * scale}
+                        r={13.5 * scale}
                         fill="#000000"
-                        opacity={isHopping ? 0.18 : 0.5}
+                        opacity={isHopping ? 0.18 : 0.55}
                         filter="url(#contactShadowBlur)"
                         style={{ transition: 'all 0.14s ease' }}
                       />
@@ -1869,25 +1956,25 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         <circle
                           cx={0}
                           cy={0}
-                          r={18 * scale}
+                          r={20.5 * scale}
                           fill={cfg.fill}
-                          opacity="0.35"
+                          opacity="0.38"
                         >
-                          <animate attributeName="r" values={`${16 * scale};${20 * scale};${16 * scale}`} dur="1.3s" repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0.45;0.15;0.45" dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="r" values={`${18.5 * scale};${23 * scale};${18.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0.48;0.15;0.48" dur="1.3s" repeatCount="indefinite" />
                         </circle>
 
                         <circle
                           cx={0}
                           cy={0}
-                          r={16 * scale}
+                          r={18.5 * scale}
                           fill="none"
                           stroke="#f59e0b"
-                          strokeWidth="2"
-                          opacity="0.85"
+                          strokeWidth="2.4"
+                          opacity="0.9"
                         >
-                          <animate attributeName="opacity" values="0.95;0.35;0.95" dur="1.3s" repeatCount="indefinite" />
-                          <animate attributeName="r" values={`${14.5 * scale};${17 * scale};${14.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="1.0;0.4;1.0" dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="r" values={`${16.5 * scale};${19.5 * scale};${16.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
                         </circle>
                       </g>
                     )}
@@ -1910,10 +1997,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                             dur="1.1s"
                             repeatCount="indefinite"
                           />
-                          {renderLuxuryPawn(color, isLegal)}
+                          {renderLuxuryPawn(color, isLegal, isMyColor)}
                         </g>
                       ) : (
-                        renderLuxuryPawn(color, isLegal)
+                        renderLuxuryPawn(color, isLegal, isMyColor)
                       )}
                     </g>
                   </g>
