@@ -181,7 +181,8 @@ export function useGameRoom(roomCode: string | null) {
         if (isUnmountedRef.current) return;
         try {
           const msg = JSON.parse(event.data);
-          handleMessageRef.current?.(msg);
+          const handler = handleMessageRef.current || handleMessage;
+          handler(msg);
         } catch (e) {
           console.error('Failed to parse game message:', e);
         }
@@ -212,7 +213,6 @@ export function useGameRoom(roomCode: string | null) {
   }, [roomCode]);
 
   const handleMessage = (msg: any) => {
-    handleMessageRef.current = handleMessage;
     switch (msg.type) {
       case 'game:sync': {
         const payload = msg.payload;
@@ -527,6 +527,8 @@ export function useGameRoom(roomCode: string | null) {
       }
     }
   };
+
+  handleMessageRef.current = handleMessage;
 
   useEffect(() => {
     isUnmountedRef.current = false;
