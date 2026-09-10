@@ -31,6 +31,10 @@ export class GameRoomManager {
   private userClients = new Map<string, ConnectedGameClient>();
   // userId -> disconnect grace timeout
   private disconnectGraceTimers = new Map<string, NodeJS.Timeout>();
+  // roomId -> active theme
+  private roomThemes = new Map<string, string>();
+  // roomId -> recent chat message history (up to 50)
+  private roomChatHistory = new Map<string, any[]>();
 
   constructor(db: DatabaseService) {
     this.db = db;
@@ -93,6 +97,7 @@ export class GameRoomManager {
       status: 'WAITING',
       players: [],
       gameState: null,
+      theme: 'romantic',
       createdAt: new Date().toISOString()
     };
 
@@ -442,11 +447,18 @@ export class GameRoomManager {
       }
 
       const currentRoom = this.db.getGameRoomById(roomId) || room;
+      const theme = this.roomThemes.get(roomId) || currentRoom.theme || 'romantic';
+      currentRoom.theme = theme;
+      const chatHistory = this.roomChatHistory.get(roomId) || [];
+      currentRoom.chatHistory = chatHistory;
+
       socket.send(JSON.stringify({
         type: 'game:sync',
         roomId,
         payload: {
           room: currentRoom,
+          theme,
+          chatHistory,
           myUserId: user.id,
           myPlayer: myPlayer || currentRoom.players.find(p => p.userId === user.id)
         }
@@ -501,19 +513,55 @@ export class GameRoomManager {
         }
         client.lastChatMessageTime = now;
         if (msg.payload?.content) {
+          const chatMsg = {
+            id: `gchat_${nanoid(8)}`,
+            userId: client.userId,
+            userName: client.displayName,
+            avatarUrl: client.avatarUrl,
+            content: String(msg.payload.content).slice(0, 300),
+            timestamp: now
+          };
+
+          let history = this.roomChatHistory.get(client.roomId);
+          if (!history) {
+            history = [];
+            this.roomChatHistory.set(client.roomId, history);
+          }
+          history.push(chatMsg);
+          if (history.length > 50) history.shift();
+
           this.broadcast(client.roomId, {
             type: 'game:chat_message',
             roomId: client.roomId,
-            payload: {
-              id: `gchat_${nanoid(8)}`,
-              userId: client.userId,
-              userName: client.displayName,
-              avatarUrl: client.avatarUrl,
-              content: String(msg.payload.content).slice(0, 300),
-              timestamp: now
-            }
+            payload: chatMsg
           });
         }
+        break;
+      }
+
+      case 'game:change_theme': {
+        const theme = String(msg.payload?.theme || 'romantic');
+        this.roomThemes.set(client.roomId, theme);
+        const r = this.db.getGameRoomById(client.roomId);
+        if (r) r.theme = theme;
+        this.broadcast(client.roomId, {
+          type: 'game:theme_changed',
+          roomId: client.roomId,
+          payload: { theme }
+        });
+        break;
+      }
+
+      case 'game:typing': {
+        this.broadcast(client.roomId, {
+          type: 'game:typing',
+          roomId: client.roomId,
+          payload: {
+            userId: client.userId,
+            userName: client.displayName,
+            isTyping: Boolean(msg.payload?.isTyping)
+          }
+        }, client.userId); // broadcast to other participants in room
         break;
       }
 

@@ -387,6 +387,107 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
   const turnPlayer = playerByColor[gameState.currentTurnColor];
 
+  // Perspective orientation: Active player's yard sits at Bottom-Left (down) for clarity
+  // Green is originally at Bottom-Left (0°).
+  // Yellow is at Bottom-Right (rotates 90° clockwise to Bottom-Left).
+  // Blue is at Top-Right (rotates 180° clockwise to Bottom-Left).
+  // Red is at Top-Left (rotates 270° clockwise to Bottom-Left).
+  const myColor: LudoColor = useMemo(() => {
+    if (myPlayer?.color) return myPlayer.color;
+    if (gameState.seats && myPlayer?.userId) {
+      const seat = Object.values(gameState.seats).find(s => s.userId === myPlayer.userId);
+      if (seat?.color) return seat.color;
+    }
+    return 'red';
+  }, [myPlayer, gameState.seats]);
+
+  const boardRotation = useMemo(() => {
+    switch (myColor) {
+      case 'green': return 0;
+      case 'yellow': return 90;
+      case 'blue': return 180;
+      case 'red': return 270;
+      default: return 0;
+    }
+  }, [myColor]);
+
+  // Corner pods mapped to their physical screen corner under board rotation
+  const CORNER_CLASSES: Record<number, { className: string; side: 'left' | 'right' }> = {
+    0: { className: 'absolute -top-4 sm:-top-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' },
+    1: { className: 'absolute -top-4 sm:-top-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
+    2: { className: 'absolute -bottom-4 sm:-bottom-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
+    3: { className: 'absolute -bottom-4 sm:-bottom-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' }
+  };
+
+  const ORIG_CORNER_INDEX: Record<LudoColor, number> = {
+    red: 0,
+    blue: 1,
+    yellow: 2,
+    green: 3
+  };
+
+  const getPhysicalCorner = (color: LudoColor) => {
+    const orig = ORIG_CORNER_INDEX[color];
+    const shift = Math.round(boardRotation / 90) % 4;
+    const phys = (orig + shift) % 4;
+    return CORNER_CLASSES[phys];
+  };
+
+  // Single-pawn auto-move: If only 1 goti is legal, move automatically after dice settle
+  // If 2 or more, player will be prompted to choose
+  const autoMoveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHandledRollKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isMyTurn || canRoll || gameState.diceValue === null || gameState.winnerColor) {
+      if (autoMoveTimerRef.current) {
+        clearTimeout(autoMoveTimerRef.current);
+        autoMoveTimerRef.current = null;
+      }
+      return;
+    }
+
+    const rollKey = `${gameState.currentTurnColor}_${gameState.diceValue}_${legalMoves.join(',')}`;
+
+    if (legalMoves.length === 1) {
+      if (lastHandledRollKeyRef.current !== rollKey) {
+        lastHandledRollKeyRef.current = rollKey;
+        const targetTokenId = legalMoves[0];
+
+        if (autoMoveTimerRef.current) clearTimeout(autoMoveTimerRef.current);
+        // Wait 850ms so dice roll settles smoothly, then automatically move the single legal goti
+        autoMoveTimerRef.current = setTimeout(() => {
+          onMoveToken(targetTokenId);
+        }, 850);
+      }
+    } else {
+      if (autoMoveTimerRef.current) {
+        clearTimeout(autoMoveTimerRef.current);
+        autoMoveTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (autoMoveTimerRef.current) {
+        clearTimeout(autoMoveTimerRef.current);
+        autoMoveTimerRef.current = null;
+      }
+    };
+  }, [isMyTurn, canRoll, legalMoves, gameState.diceValue, gameState.currentTurnColor, gameState.winnerColor, onMoveToken]);
+
+  // Clean animation timeout manager to avoid stutter or overlapping frames
+  const animTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const clearAnimTimeouts = () => {
+    animTimeoutsRef.current.forEach(t => clearTimeout(t));
+    animTimeoutsRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => {
+      clearAnimTimeouts();
+    };
+  }, []);
+
   // =========================================================================
   // 1. CENTER 3D ROLLING DICE ANIMATION
   // =========================================================================
@@ -537,18 +638,22 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
     // Case 1: Spawning from yard to start
     if (fromStep === -1 && toStep === 0) {
+      clearAnimTimeouts();
       playSound('step');
       setAnimatingPawn({ color, tokenId, currentStep: 0, isHopArc: true });
-      setTimeout(() => {
+      const t1 = setTimeout(() => {
         playSound('move');
         setAnimatingPawn({ color, tokenId, currentStep: 0, isHopArc: false });
-        setTimeout(() => setAnimatingPawn(null), 250);
+        const t2 = setTimeout(() => setAnimatingPawn(null), 250);
+        animTimeoutsRef.current.push(t2);
       }, 200);
+      animTimeoutsRef.current.push(t1);
       return;
     }
 
     // Case 2: Advance on track step by step with clear pause on each box
     if (toStep > fromStep) {
+      clearAnimTimeouts();
       const hopSequence: number[] = [];
       for (let s = fromStep + 1; s <= toStep; s++) {
         hopSequence.push(s);
@@ -559,14 +664,15 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       const runHop = () => {
         if (hopIndex >= hopSequence.length) {
           playSound('move');
-          setTimeout(() => setAnimatingPawn(null), 250);
+          const finishTimeout = setTimeout(() => setAnimatingPawn(null), 250);
+          animTimeoutsRef.current.push(finishTimeout);
           return;
         }
 
         const nextStep = hopSequence[hopIndex];
         const isFinalStep = hopIndex === hopSequence.length - 1;
 
-        // Step A: Arc hop into the next box (150ms airborne arc)
+        // Step A: Arc hop into the next box (140ms airborne arc)
         setAnimatingPawn({
           color,
           tokenId,
@@ -574,7 +680,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           isHopArc: true
         });
 
-        setTimeout(() => {
+        const landTimeout = setTimeout(() => {
           // Step B: Land firmly on the box, snap contact shadow, play tap sound
           playSound('step');
           setAnimatingPawn({
@@ -584,11 +690,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             isHopArc: false
           });
 
-          // Step C: STOP & PAUSE on this box for 220ms (or 320ms if final destination)
+          // Step C: STOP & PAUSE on this box
           hopIndex++;
-          const pauseTime = isFinalStep ? 320 : 220;
-          setTimeout(runHop, pauseTime);
-        }, 150);
+          const pauseTime = isFinalStep ? 260 : 180;
+          const nextHopTimeout = setTimeout(runHop, pauseTime);
+          animTimeoutsRef.current.push(nextHopTimeout);
+        }, 140);
+        animTimeoutsRef.current.push(landTimeout);
       };
 
       runHop();
@@ -1171,165 +1279,167 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               <rect x="4" y="4" width="592" height="592" rx="24" fill="#161823" stroke="#2c2838" strokeWidth="1.5" />
               <rect x="8" y="8" width="584" height="584" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
 
-              {/* 1. YARDS (4 Luxury Dark Metallic Quadrants with Glowing Neon Hearts) */}
-              {/* Red Yard (Top-Left) */}
-              <g>
-                <rect x="16" y="16" width="224" height="224" rx="24" fill="url(#rubyYardGrad)" stroke="#ff2e63" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                <rect x="16" y="16" width="224" height="224" rx="24" fill="none" stroke="#ff2e63" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowPink)" />
-                {/* Glowing Neon Red/Pink Heart */}
-                <g transform="translate(128, 128) scale(1.4)">
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(255, 46, 121, 0.08)"
-                    stroke="#ff2e79"
-                    strokeWidth="3.5"
-                    filter="url(#neonGlowPink)"
-                  />
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                    opacity="0.9"
-                  />
-                </g>
-                {/* 4 Circular Socket Cups */}
-                {YARD_PAWN_SLOTS.red.map((slot, i) => (
-                  <g key={`ry-${i}`}>
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="22"
-                      fill="#33060f"
-                      stroke="#e11d48"
-                      strokeWidth="1.8"
-                      filter="url(#recessedSaucerShadow)"
+              {/* Rotated Board Play Surface (active player yard always faces bottom-left) */}
+              <g transform={boardRotation ? `rotate(${boardRotation}, 300, 300)` : undefined}>
+                {/* 1. YARDS (4 Luxury Dark Metallic Quadrants with Glowing Neon Hearts) */}
+                {/* Red Yard (Top-Left in base coordinates) */}
+                <g>
+                  <rect x="16" y="16" width="224" height="224" rx="24" fill="url(#rubyYardGrad)" stroke="#ff2e63" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                  <rect x="16" y="16" width="224" height="224" rx="24" fill="none" stroke="#ff2e63" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowPink)" />
+                  {/* Glowing Neon Red/Pink Heart (counter-rotated to stay upright) */}
+                  <g transform={`translate(128, 128) rotate(${-boardRotation}) scale(1.4)`}>
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="rgba(255, 46, 121, 0.08)"
+                      stroke="#ff2e79"
+                      strokeWidth="3.5"
+                      filter="url(#neonGlowPink)"
                     />
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="14"
-                      fill="#1c0308"
-                      opacity="0.95"
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      opacity="0.9"
                     />
                   </g>
-                ))}
-              </g>
-
-              {/* Blue Yard (Top-Right) */}
-              <g>
-                <rect x="360" y="16" width="224" height="224" rx="24" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                <rect x="360" y="16" width="224" height="224" rx="24" fill="none" stroke="#38bdf8" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowBlue)" />
-                {/* Glowing Neon Blue Heart */}
-                <g transform="translate(472, 128) scale(1.4)">
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(56, 189, 248, 0.08)"
-                    stroke="#38bdf8"
-                    strokeWidth="3.5"
-                    filter="url(#neonGlowBlue)"
-                  />
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                    opacity="0.9"
-                  />
+                  {/* 4 Circular Socket Cups */}
+                  {YARD_PAWN_SLOTS.red.map((slot, i) => (
+                    <g key={`ry-${i}`}>
+                      <circle
+                        cx={slot[1] * 40}
+                        cy={slot[0] * 40}
+                        r="22"
+                        fill="#33060f"
+                        stroke="#e11d48"
+                        strokeWidth="1.8"
+                        filter="url(#recessedSaucerShadow)"
+                      />
+                      <circle
+                        cx={slot[1] * 40}
+                        cy={slot[0] * 40}
+                        r="14"
+                        fill="#1c0308"
+                        opacity="0.95"
+                      />
+                    </g>
+                  ))}
                 </g>
-                {/* 4 Circular Socket Cups */}
-                {YARD_PAWN_SLOTS.blue.map((slot, i) => (
-                  <g key={`by-${i}`}>
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="22"
-                      fill="#07193b"
-                      stroke="#3b82f6"
-                      strokeWidth="1.8"
-                      filter="url(#recessedSaucerShadow)"
+
+                {/* Blue Yard (Top-Right in base coordinates) */}
+                <g>
+                  <rect x="360" y="16" width="224" height="224" rx="24" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                  <rect x="360" y="16" width="224" height="224" rx="24" fill="none" stroke="#38bdf8" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowBlue)" />
+                  {/* Glowing Neon Blue Heart (counter-rotated to stay upright) */}
+                  <g transform={`translate(472, 128) rotate(${-boardRotation}) scale(1.4)`}>
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="rgba(56, 189, 248, 0.08)"
+                      stroke="#38bdf8"
+                      strokeWidth="3.5"
+                      filter="url(#neonGlowBlue)"
                     />
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="14"
-                      fill="#030d21"
-                      opacity="0.95"
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      opacity="0.9"
                     />
                   </g>
-                ))}
-              </g>
-
-              {/* Green Yard (Bottom-Left) */}
-              <g>
-                <rect x="16" y="360" width="224" height="224" rx="24" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                <rect x="16" y="360" width="224" height="224" rx="24" fill="none" stroke="#10b981" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGreen)" />
-                {/* Glowing Neon Green Heart */}
-                <g transform="translate(128, 472) scale(1.4)">
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(52, 211, 153, 0.08)"
-                    stroke="#34d399"
-                    strokeWidth="3.5"
-                    filter="url(#neonGlowGreen)"
-                  />
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                    opacity="0.9"
-                  />
+                  {/* 4 Circular Socket Cups */}
+                  {YARD_PAWN_SLOTS.blue.map((slot, i) => (
+                    <g key={`by-${i}`}>
+                      <circle
+                        cx={slot[1] * 40}
+                        cy={slot[0] * 40}
+                        r="22"
+                        fill="#07193b"
+                        stroke="#3b82f6"
+                        strokeWidth="1.8"
+                        filter="url(#recessedSaucerShadow)"
+                      />
+                      <circle
+                        cx={slot[1] * 40}
+                        cy={slot[0] * 40}
+                        r="14"
+                        fill="#030d21"
+                        opacity="0.95"
+                      />
+                    </g>
+                  ))}
                 </g>
-                {/* 4 Circular Socket Cups */}
-                {YARD_PAWN_SLOTS.green.map((slot, i) => (
-                  <g key={`gy-${i}`}>
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="22"
-                      fill="#042613"
-                      stroke="#10b981"
-                      strokeWidth="1.8"
-                      filter="url(#recessedSaucerShadow)"
+
+                {/* Green Yard (Bottom-Left in base coordinates) */}
+                <g>
+                  <rect x="16" y="360" width="224" height="224" rx="24" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                  <rect x="16" y="360" width="224" height="224" rx="24" fill="none" stroke="#10b981" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGreen)" />
+                  {/* Glowing Neon Green Heart (counter-rotated to stay upright) */}
+                  <g transform={`translate(128, 472) rotate(${-boardRotation}) scale(1.4)`}>
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="rgba(52, 211, 153, 0.08)"
+                      stroke="#34d399"
+                      strokeWidth="3.5"
+                      filter="url(#neonGlowGreen)"
                     />
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="14"
-                      fill="#02140a"
-                      opacity="0.95"
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      opacity="0.9"
                     />
                   </g>
-                ))}
-              </g>
-
-              {/* Yellow Yard (Bottom-Right) */}
-              <g>
-                <rect x="360" y="360" width="224" height="224" rx="24" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                <rect x="360" y="360" width="224" height="224" rx="24" fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGold)" />
-                {/* Glowing Neon Gold Heart */}
-                <g transform="translate(472, 472) scale(1.4)">
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(251, 191, 36, 0.08)"
-                    stroke="#fbbf24"
-                    strokeWidth="3.5"
-                    filter="url(#neonGlowGold)"
-                  />
-                  <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.2"
-                    opacity="0.9"
-                  />
+                  {/* 4 Circular Socket Cups */}
+                  {YARD_PAWN_SLOTS.green.map((slot, i) => (
+                    <g key={`gy-${i}`}>
+                      <circle
+                        cx={slot[1] * 40}
+                        cy={slot[0] * 40}
+                        r="22"
+                        fill="#042613"
+                        stroke="#10b981"
+                        strokeWidth="1.8"
+                        filter="url(#recessedSaucerShadow)"
+                      />
+                      <circle
+                        cx={slot[1] * 40}
+                        cy={slot[0] * 40}
+                        r="14"
+                        fill="#02140a"
+                        opacity="0.95"
+                      />
+                    </g>
+                  ))}
                 </g>
-                {/* 4 Circular Socket Cups */}
-                {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
-                  <g key={`yy-${i}`}>
-                    <circle
-                      cx={slot[1] * 40}
+
+                {/* Yellow Yard (Bottom-Right in base coordinates) */}
+                <g>
+                  <rect x="360" y="360" width="224" height="224" rx="24" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                  <rect x="360" y="360" width="224" height="224" rx="24" fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGold)" />
+                  {/* Glowing Neon Gold Heart (counter-rotated to stay upright) */}
+                  <g transform={`translate(472, 472) rotate(${-boardRotation}) scale(1.4)`}>
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="rgba(251, 191, 36, 0.08)"
+                      stroke="#fbbf24"
+                      strokeWidth="3.5"
+                      filter="url(#neonGlowGold)"
+                    />
+                    <path
+                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="1.2"
+                      opacity="0.9"
+                    />
+                  </g>
+                  {/* 4 Circular Socket Cups */}
+                  {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
+                    <g key={`yy-${i}`}>
+                      <circle
+                        cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="22"
                       fill="#362002"
@@ -1512,8 +1622,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               <polygon points="360,240 300,300 360,360" fill="url(#amberTileGrad)" stroke="#4a2e05" strokeWidth="1" />
               <polygon points="240,360 300,300 360,360" fill="url(#emeraldTileGrad)" stroke="#08381c" strokeWidth="1" />
 
-              {/* Radiant Glowing Neon Red Heart at Center Convergence */}
-              <g transform="translate(300, 298) scale(1.5)">
+              {/* Radiant Glowing Neon Red Heart at Center Convergence (counter-rotated) */}
+              <g transform={`translate(300, 298) rotate(${-boardRotation}) scale(1.5)`}>
                 <path
                   d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
                   fill="rgba(255, 23, 68, 0.2)"
@@ -1540,13 +1650,17 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     className={isLegal ? 'cursor-pointer' : ''}
                     onClick={() => {
                       if (isLegal) {
+                        if (autoMoveTimerRef.current) {
+                          clearTimeout(autoMoveTimerRef.current);
+                          autoMoveTimerRef.current = null;
+                        }
                         onMoveToken(token.id);
                       }
                     }}
                   >
                     {/* A. Ground Contact Shadow */}
                     <g
-                      transform={`translate(${x}, ${groundY})`}
+                      transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}
                       style={{
                         transition: isHopping ? 'transform 0.15s ease-out' : 'transform 0.1s ease-in'
                       }}
@@ -1575,7 +1689,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                     {/* B. Legal Move Ground Selection Halo */}
                     {isLegal && !isHopping && (
-                      <g transform={`translate(${x}, ${groundY})`}>
+                      <g transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}>
                         <ellipse
                           cx={0}
                           cy={3.5}
@@ -1606,9 +1720,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       </g>
                     )}
 
-                    {/* C. 3D Luxury Figurine Pawn Body */}
+                    {/* C. 3D Luxury Figurine Pawn Body (counter-rotated to stay perfectly upright) */}
                     <g
-                      transform={`translate(${x}, ${y}) scale(${scale})`}
+                      transform={`translate(${x}, ${y}) rotate(${-boardRotation}) scale(${scale})`}
                       style={{
                         transition: isHopping
                           ? 'transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
@@ -1633,36 +1747,19 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </g>
                 );
               })}
+              </g>
             </svg>
 
-            {/* 4 Corner Player Pods matching reference UI layout */}
-            {/* Top-Left Corner (Red Yard: "You", Crown 👑, Red neon ring) */}
-            {playerByColor['red'] && (
-              <div className="absolute -top-4 sm:-top-5 -left-2 sm:-left-3 z-30 pointer-events-auto">
-                {renderCornerBadge('red', 'left')}
-              </div>
-            )}
-
-            {/* Top-Right Corner (Blue Yard: "Babe" / Partner, Blue neon ring) */}
-            {playerByColor['blue'] && (
-              <div className="absolute -top-4 sm:-top-5 -right-2 sm:-right-3 z-30 pointer-events-auto">
-                {renderCornerBadge('blue', 'right')}
-              </div>
-            )}
-
-            {/* Bottom-Left Corner (Green Yard: Player 3, Green neon ring) */}
-            {playerByColor['green'] && (
-              <div className="absolute -bottom-4 sm:-bottom-5 -left-2 sm:-left-3 z-30 pointer-events-auto">
-                {renderCornerBadge('green', 'left')}
-              </div>
-            )}
-
-            {/* Bottom-Right Corner (Yellow Yard: Player 4, Gold neon ring) */}
-            {playerByColor['yellow'] && (
-              <div className="absolute -bottom-4 sm:-bottom-5 -right-2 sm:-right-3 z-30 pointer-events-auto">
-                {renderCornerBadge('yellow', 'right')}
-              </div>
-            )}
+            {/* 4 Corner Player Pods dynamically placed according to board perspective rotation */}
+            {(['red', 'blue', 'yellow', 'green'] as LudoColor[]).map((col) => {
+              if (!playerByColor[col]) return null;
+              const corner = getPhysicalCorner(col);
+              return (
+                <div key={`corner-${col}`} className={corner.className}>
+                  {renderCornerBadge(col, corner.side)}
+                </div>
+              );
+            })}
           </div>
         </div>
 

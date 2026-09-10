@@ -179,6 +179,7 @@ function LudoPageContent() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('ludo_theme_id', themeId);
     }
+    sendChangeTheme(themeId);
   };
 
   const currentTheme = useMemo(() => {
@@ -279,6 +280,8 @@ function LudoPageContent() {
     error: wsError,
     disconnectedPlayer,
     nudgeAlert,
+    roomTheme,
+    typingUsers,
     rollDice,
     moveToken,
     sendChat,
@@ -286,6 +289,8 @@ function LudoPageContent() {
     sendNudge,
     sendLeave,
     rematch,
+    sendChangeTheme,
+    sendTyping,
     sendWebRTCSignal,
     sendCameraState,
     sendVoiceState,
@@ -293,6 +298,24 @@ function LudoPageContent() {
     registerCameraListener,
     registerVoiceListener
   } = useGameRoom(roomParam);
+
+  // Authoritative theme sync across room players
+  useEffect(() => {
+    if (roomTheme && THEMES.some(t => t.id === roomTheme)) {
+      setSelectedTheme(roomTheme);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('ludo_theme_id', roomTheme);
+      }
+    }
+  }, [roomTheme]);
+
+  // Transform active typing users dictionary into a clean list
+  const typingList = useMemo(() => {
+    return Object.entries(typingUsers || {}).map(([userId, data]) => ({
+      userId,
+      userName: data.userName
+    }));
+  }, [typingUsers]);
 
   const [nudgeFeedback, setNudgeFeedback] = useState<string | null>(null);
 
@@ -650,10 +673,28 @@ function LudoPageContent() {
     }
   };
 
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleChatInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setChatInput(val);
+    if (val.trim()) {
+      sendTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        sendTyping(false);
+      }, 2500);
+    } else {
+      sendTyping(false);
+    }
+  };
+
   // Send Chat
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    sendTyping(false);
     sendChat(chatInput);
     setChatInput('');
   };
@@ -1431,6 +1472,16 @@ function LudoPageContent() {
 
                     {/* Chat Input Bar */}
                     <div className="relative pt-1">
+                      {/* Live Typing Indicator */}
+                      {typingList.length > 0 && (
+                        <div className="flex items-center gap-1.5 px-3 py-1 mb-1.5 text-[11px] text-pink-300 animate-pulse font-medium bg-pink-950/40 rounded-full border border-pink-500/20 w-fit backdrop-blur-sm">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-pink-400 animate-ping" />
+                          <span>
+                            {typingList.map(u => u.userName).join(', ')} is typing...
+                          </span>
+                        </div>
+                      )}
+
                       {/* Floating Sticker Picker Tray */}
                       {showStickerPicker && (
                         <div className="absolute bottom-12 right-0 z-50 animate-in fade-in zoom-in-95 duration-150">
@@ -1452,7 +1503,8 @@ function LudoPageContent() {
                           <input
                             type="text"
                             value={chatInput}
-                            onChange={e => setChatInput(e.target.value)}
+                            onChange={handleChatInputChange}
+                            onBlur={() => sendTyping(false)}
                             placeholder="Type a message or send stickers..."
                             className="w-full pl-3.5 pr-16 py-2.5 bg-black/40 border border-rose-500/30 rounded-2xl text-xs text-white placeholder-rose-300/40 focus:outline-none focus:border-rose-400"
                           />

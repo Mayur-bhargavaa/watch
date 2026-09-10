@@ -227,6 +227,8 @@ export interface GameRoom {
     status: GameRoomStatus;
     players: GameRoomPlayer[];
     gameState?: LudoGameState | FourInARowGameState | any | null;
+    theme?: string;
+    chatHistory?: any[];
     createdAt: string;
     startedAt?: string | null;
     finishedAt?: string | null;

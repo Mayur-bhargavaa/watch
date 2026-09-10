@@ -47,14 +47,61 @@ export interface DiscDropEvent {
   winningLine: [number, number][] | null;
 }
 
+// Synthetic Web Audio API bell chime for Nudge notifications (reliable on all browsers)
+function playNudgeChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    
+    // Dual-tone bell chime (A5 = 880Hz, E6 = 1320Hz)
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(880, now);
+    osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.15);
+    
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1320, now + 0.08);
+    osc2.frequency.exponentialRampToValueAtTime(2640, now + 0.25);
+    
+    gainNode.gain.setValueAtTime(0.4, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+    
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc1.start(now);
+    osc2.start(now + 0.08);
+    osc1.stop(now + 0.7);
+    osc2.stop(now + 0.7);
+  } catch (e) {
+    console.warn('Could not play nudge chime:', e);
+  }
+}
+
 export function useGameRoom(roomCode: string | null) {
   const [room, setRoom] = useState<GameRoom | null>(null);
+  const [roomTheme, setRoomTheme] = useState<string>('romantic');
   const [gameState, setGameState] = useState<any>(null);
   const [myUserId, setMyUserId] = useState<string>('');
   const [connectionStatus, setConnectionStatus] = useState<
     'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED'
   >('CONNECTING');
-  const [chatMessages, setChatMessages] = useState<GameChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<GameChatMessage[]>(() => {
+    if (typeof window !== 'undefined' && roomCode) {
+      try {
+        const cached = localStorage.getItem(`synccinema_gchat_${roomCode.toUpperCase()}`);
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return [];
+  });
+  const [typingUsers, setTypingUsers] = useState<Record<string, { userName: string; timestamp: number }>>({});
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   const [lastDiceRoll, setLastDiceRoll] = useState<DiceRollEvent | null>(null);
   const [lastDiscDrop, setLastDiscDrop] = useState<DiscDropEvent | null>(null);
@@ -171,6 +218,23 @@ export function useGameRoom(roomCode: string | null) {
             setGameState(payload.room.gameState);
           }
         }
+        if (payload.theme || payload.room?.theme) {
+          setRoomTheme(payload.theme || payload.room.theme);
+        }
+        if (payload.chatHistory && Array.isArray(payload.chatHistory)) {
+          setChatMessages(prev => {
+            const map = new Map<string, GameChatMessage>();
+            prev.forEach(m => map.set(m.id, m));
+            payload.chatHistory.forEach((m: GameChatMessage) => map.set(m.id, m));
+            const merged = Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+            try {
+              if (roomCode) {
+                localStorage.setItem(`synccinema_gchat_${roomCode.toUpperCase()}`, JSON.stringify(merged));
+              }
+            } catch (e) {}
+            return merged;
+          });
+        }
         if (payload.myUserId) {
           setMyUserId(payload.myUserId);
         }
@@ -260,6 +324,13 @@ export function useGameRoom(roomCode: string | null) {
       case 'game:nudge': {
         const { fromDisplayName, fromUserId, targetUserId } = msg.payload;
         if (!targetUserId || targetUserId === myUserId) {
+          playNudgeChime();
+          try {
+            if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+              navigator.vibrate([200, 100, 200]);
+            }
+          } catch (e) {}
+
           setNudgeAlert({
             fromDisplayName: fromDisplayName || 'Partner',
             timestamp: Date.now()
@@ -275,6 +346,30 @@ export function useGameRoom(roomCode: string | null) {
           setTimeout(() => {
             setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
           }, 3500);
+        }
+        break;
+      }
+
+      case 'game:theme_changed': {
+        const { theme } = msg.payload;
+        if (theme) {
+          setRoomTheme(theme);
+        }
+        break;
+      }
+
+      case 'game:typing': {
+        const { userId, userName, isTyping } = msg.payload;
+        if (userId && userId !== myUserId) {
+          setTypingUsers(prev => {
+            const next = { ...prev };
+            if (isTyping) {
+              next[userId] = { userName: userName || 'Partner', timestamp: Date.now() };
+            } else {
+              delete next[userId];
+            }
+            return next;
+          });
         }
         break;
       }
@@ -338,7 +433,22 @@ export function useGameRoom(roomCode: string | null) {
           if (prev.some(m => m.userId === chat.userId && m.content === chat.content && Math.abs(m.timestamp - (chat.timestamp || 0)) < 1500)) {
             return prev;
           }
-          return [...prev.slice(-49), chat];
+          const next = [...prev.slice(-49), chat];
+          try {
+            if (roomCode) {
+              localStorage.setItem(`synccinema_gchat_${roomCode.toUpperCase()}`, JSON.stringify(next));
+            }
+          } catch (e) {}
+          return next;
+        });
+        // Clear typing indicator for this user when message arrives
+        setTypingUsers(prev => {
+          if (prev[chat.userId]) {
+            const next = { ...prev };
+            delete next[chat.userId];
+            return next;
+          }
+          return prev;
         });
         break;
       }
@@ -557,8 +667,49 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const sendChangeTheme = useCallback((theme: string) => {
+    setRoomTheme(theme);
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'game:change_theme',
+        payload: { theme }
+      })
+    );
+  }, []);
+
+  const sendTyping = useCallback((isTyping: boolean) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'game:typing',
+        payload: { isTyping }
+      })
+    );
+  }, []);
+
+  // Periodic cleanup of stale typing indicators (> 3.5s)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setTypingUsers(prev => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [uid, info] of Object.entries(next)) {
+          if (now - info.timestamp > 3500) {
+            delete next[uid];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 1500);
+    return () => clearInterval(timer);
+  }, []);
+
   return {
     room,
+    roomTheme,
     players: room?.players || [],
     gameState,
     myPlayer,
@@ -570,6 +721,7 @@ export function useGameRoom(roomCode: string | null) {
     lastDiceRoll,
     lastDiscDrop,
     chatMessages,
+    typingUsers,
     floatingReactions,
     connectionStatus,
     error,
@@ -582,6 +734,8 @@ export function useGameRoom(roomCode: string | null) {
     sendReaction,
     sendNudge,
     sendLeave,
+    sendChangeTheme,
+    sendTyping,
     rematch,
     sendWebRTCSignal,
     sendCameraState,
