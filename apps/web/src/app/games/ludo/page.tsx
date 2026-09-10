@@ -77,7 +77,7 @@ const THEMES: BoardTheme[] = [
   {
     id: 'romantic',
     name: 'Romantic Candlelight (Default)',
-    bgUrl: '/images/romantic_ludo_bg.jpg'
+    bgUrl: '/images/romantic_room_ambient_bg.jpg'
   },
   {
     id: 'cozy',

@@ -951,8 +951,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       {/* Board & Player Ribbons Container */}
       <div className="relative w-full max-w-[380px] sm:max-w-[450px] flex flex-col items-center select-none my-8 sm:my-10">
 
-        {/* Center: Cozy Birchwood Board Block */}
-        <div className="relative w-full aspect-square rounded-[38px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#f2e5d5] via-[#e6d6c1] to-[#cca985] border-[4px] border-[#faf3ea] shadow-[0_20px_45px_rgba(70,45,25,0.2),0_8px_18px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.9)] flex items-center justify-center transition-all duration-300">
+        {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
+        <div className="relative w-full aspect-square rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
           {/* 3D Rolling Center Dice */}
           {centerDiceAnimation && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50">
@@ -989,7 +989,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           {/* SVG Board Container with Luxury Frame matching reference image */}
           <svg
             viewBox="0 0 600 600"
-            className="w-full h-full rounded-[28px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(255,255,255,0.2)] border border-[#4a2e1b]"
+            className="w-full h-full rounded-[26px] overflow-hidden shadow-[inset_0_0_25px_rgba(0,0,0,0.9)] border border-[#2b2535]"
             style={{ shapeRendering: 'geometricPrecision' }}
           >
               <defs>
@@ -1001,16 +1001,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   <feGaussianBlur stdDeviation="2.2" />
                 </filter>
                 <filter id="recessedSaucerShadow" x="-25%" y="-25%" width="150%" height="150%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.4" />
+                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.5" />
                 </filter>
                 <filter id="tile3DShadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="1" stdDeviation="0.6" floodColor="#8c7a65" floodOpacity="0.15" />
+                  <feDropShadow dx="0" dy="1" stdDeviation="0.6" floodColor="#000000" floodOpacity="0.4" />
                 </filter>
                 <filter id="trayInnerShadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.45" />
-                </filter>
-                <filter id="cottageShadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.5" />
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.6" />
                 </filter>
 
                 {/* Neon Glow Filters matching reference image */}
@@ -1043,52 +1040,55 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   <stop offset="100%" stopColor="#92400e" />
                 </linearGradient>
 
-                {/* Yard Glass Background Gradients */}
-                <linearGradient id="rubyYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b0714" />
-                  <stop offset="50%" stopColor="#750d28" />
-                  <stop offset="100%" stopColor="#9f1239" />
-                </linearGradient>
-                <linearGradient id="sapphireYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#081838" />
-                  <stop offset="50%" stopColor="#17357c" />
-                  <stop offset="100%" stopColor="#1e40af" />
-                </linearGradient>
-                <linearGradient id="emeraldYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#02241a" />
-                  <stop offset="50%" stopColor="#054b38" />
-                  <stop offset="100%" stopColor="#065f46" />
-                </linearGradient>
-                <linearGradient id="amberYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#381403" />
-                  <stop offset="50%" stopColor="#692d07" />
-                  <stop offset="100%" stopColor="#92400e" />
+                {/* Travertine Ivory Marble Tile Gradient */}
+                <linearGradient id="marbleTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#f3ede3" />
+                  <stop offset="45%" stopColor="#eae1d2" />
+                  <stop offset="100%" stopColor="#dfd4c3" />
                 </linearGradient>
 
-                {/* Metallic Yard Bevel Gradients */}
-                <linearGradient id="rubyBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fecdd3" />
-                  <stop offset="45%" stopColor="#e11d48" />
-                  <stop offset="75%" stopColor="#881337" />
-                  <stop offset="100%" stopColor="#fda4af" />
+                {/* Colored Stone Tile Gradients */}
+                <linearGradient id="rubyTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#e11d48" />
+                  <stop offset="40%" stopColor="#be123c" />
+                  <stop offset="100%" stopColor="#881337" />
                 </linearGradient>
-                <linearGradient id="sapphireBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#dbeafe" />
-                  <stop offset="45%" stopColor="#3b82f6" />
-                  <stop offset="75%" stopColor="#1e3a8a" />
-                  <stop offset="100%" stopColor="#93c5fd" />
+                <linearGradient id="sapphireTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#3b82f6" />
+                  <stop offset="40%" stopColor="#1d4ed8" />
+                  <stop offset="100%" stopColor="#1e3a8a" />
                 </linearGradient>
-                <linearGradient id="emeraldBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#d1fae5" />
-                  <stop offset="45%" stopColor="#10b981" />
-                  <stop offset="75%" stopColor="#064e3b" />
-                  <stop offset="100%" stopColor="#6ee7b7" />
+                <linearGradient id="emeraldTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="40%" stopColor="#059669" />
+                  <stop offset="100%" stopColor="#064e3b" />
                 </linearGradient>
-                <linearGradient id="amberBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fef3c7" />
-                  <stop offset="45%" stopColor="#f59e0b" />
-                  <stop offset="75%" stopColor="#78350f" />
-                  <stop offset="100%" stopColor="#fde047" />
+                <linearGradient id="amberTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#f59e0b" />
+                  <stop offset="40%" stopColor="#d97706" />
+                  <stop offset="100%" stopColor="#78350f" />
+                </linearGradient>
+
+                {/* Yard Glass Background Gradients */}
+                <linearGradient id="rubyYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#4a0815" />
+                  <stop offset="50%" stopColor="#2c050c" />
+                  <stop offset="100%" stopColor="#180206" />
+                </linearGradient>
+                <linearGradient id="sapphireYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0a2552" />
+                  <stop offset="50%" stopColor="#061530" />
+                  <stop offset="100%" stopColor="#030b1a" />
+                </linearGradient>
+                <linearGradient id="emeraldYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#08381c" />
+                  <stop offset="50%" stopColor="#042010" />
+                  <stop offset="100%" stopColor="#021008" />
+                </linearGradient>
+                <linearGradient id="amberYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#4a2e05" />
+                  <stop offset="50%" stopColor="#2e1c02" />
+                  <stop offset="100%" stopColor="#170e01" />
                 </linearGradient>
 
                 {/* 3D Radial Gradients for Luxury Pawn Heads */}
@@ -1166,49 +1166,51 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 </linearGradient>
               </defs>
 
-              {/* Board Base Surface (Porcelain Ivory with Metallic Grout) */}
-              <rect width="600" height="600" fill="#140d09" />
-              <rect x="5" y="5" width="590" height="590" rx="22" fill="#faf6ee" stroke="#d5c3ab" strokeWidth="1.5" />
+              {/* Board Base Surface: Dark Obsidian Slate with Dark Grout and Inset Golden Pinstripe */}
+              <rect width="600" height="600" fill="#11131c" />
+              <rect x="4" y="4" width="592" height="592" rx="24" fill="#161823" stroke="#2c2838" strokeWidth="1.5" />
+              <rect x="8" y="8" width="584" height="584" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
 
-              {/* 1. YARDS (4 Luxury Glass Quadrants with Glowing Neon Hearts) */}
+              {/* 1. YARDS (4 Luxury Dark Metallic Quadrants with Glowing Neon Hearts) */}
               {/* Red Yard (Top-Left) */}
               <g>
-                <rect x="15" y="15" width="210" height="210" rx="30" fill="url(#rubyYardGrad)" stroke="url(#rubyBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                <rect x="16" y="16" width="224" height="224" rx="24" fill="url(#rubyYardGrad)" stroke="#ff2e63" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                <rect x="16" y="16" width="224" height="224" rx="24" fill="none" stroke="#ff2e63" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowPink)" />
                 {/* Glowing Neon Red/Pink Heart */}
-                <g transform="translate(120, 120) scale(1.35)">
+                <g transform="translate(128, 128) scale(1.4)">
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(255, 46, 121, 0.12)"
+                    fill="rgba(255, 46, 121, 0.08)"
                     stroke="#ff2e79"
-                    strokeWidth="3.2"
+                    strokeWidth="3.5"
                     filter="url(#neonGlowPink)"
                   />
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
                     fill="none"
                     stroke="#ffffff"
-                    strokeWidth="1"
-                    opacity="0.85"
+                    strokeWidth="1.2"
+                    opacity="0.9"
                   />
                 </g>
-                {/* 4 Circular Socket Pads */}
+                {/* 4 Circular Socket Cups */}
                 {YARD_PAWN_SLOTS.red.map((slot, i) => (
                   <g key={`ry-${i}`}>
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="22"
-                      fill="#4a0818"
-                      stroke="url(#rubyBevelGrad)"
-                      strokeWidth="1.6"
+                      fill="#33060f"
+                      stroke="#e11d48"
+                      strokeWidth="1.8"
                       filter="url(#recessedSaucerShadow)"
                     />
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="14"
-                      fill="#6b0e24"
-                      opacity="0.9"
+                      fill="#1c0308"
+                      opacity="0.95"
                     />
                   </g>
                 ))}
@@ -1216,42 +1218,43 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
               {/* Blue Yard (Top-Right) */}
               <g>
-                <rect x="375" y="15" width="210" height="210" rx="30" fill="url(#sapphireYardGrad)" stroke="url(#sapphireBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                <rect x="360" y="16" width="224" height="224" rx="24" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                <rect x="360" y="16" width="224" height="224" rx="24" fill="none" stroke="#38bdf8" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowBlue)" />
                 {/* Glowing Neon Blue Heart */}
-                <g transform="translate(480, 120) scale(1.35)">
+                <g transform="translate(472, 128) scale(1.4)">
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(56, 189, 248, 0.12)"
+                    fill="rgba(56, 189, 248, 0.08)"
                     stroke="#38bdf8"
-                    strokeWidth="3.2"
+                    strokeWidth="3.5"
                     filter="url(#neonGlowBlue)"
                   />
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
                     fill="none"
                     stroke="#ffffff"
-                    strokeWidth="1"
-                    opacity="0.85"
+                    strokeWidth="1.2"
+                    opacity="0.9"
                   />
                 </g>
-                {/* 4 Circular Socket Pads */}
+                {/* 4 Circular Socket Cups */}
                 {YARD_PAWN_SLOTS.blue.map((slot, i) => (
                   <g key={`by-${i}`}>
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="22"
-                      fill="#0f2354"
-                      stroke="url(#sapphireBevelGrad)"
-                      strokeWidth="1.6"
+                      fill="#07193b"
+                      stroke="#3b82f6"
+                      strokeWidth="1.8"
                       filter="url(#recessedSaucerShadow)"
                     />
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="14"
-                      fill="#1b3984"
-                      opacity="0.9"
+                      fill="#030d21"
+                      opacity="0.95"
                     />
                   </g>
                 ))}
@@ -1259,42 +1262,43 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
               {/* Green Yard (Bottom-Left) */}
               <g>
-                <rect x="15" y="375" width="210" height="210" rx="30" fill="url(#emeraldYardGrad)" stroke="url(#emeraldBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                <rect x="16" y="360" width="224" height="224" rx="24" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                <rect x="16" y="360" width="224" height="224" rx="24" fill="none" stroke="#10b981" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGreen)" />
                 {/* Glowing Neon Green Heart */}
-                <g transform="translate(120, 480) scale(1.35)">
+                <g transform="translate(128, 472) scale(1.4)">
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(52, 211, 153, 0.12)"
+                    fill="rgba(52, 211, 153, 0.08)"
                     stroke="#34d399"
-                    strokeWidth="3.2"
+                    strokeWidth="3.5"
                     filter="url(#neonGlowGreen)"
                   />
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
                     fill="none"
                     stroke="#ffffff"
-                    strokeWidth="1"
-                    opacity="0.85"
+                    strokeWidth="1.2"
+                    opacity="0.9"
                   />
                 </g>
-                {/* 4 Circular Socket Pads */}
+                {/* 4 Circular Socket Cups */}
                 {YARD_PAWN_SLOTS.green.map((slot, i) => (
                   <g key={`gy-${i}`}>
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="22"
-                      fill="#032e1f"
-                      stroke="url(#emeraldBevelGrad)"
-                      strokeWidth="1.6"
+                      fill="#042613"
+                      stroke="#10b981"
+                      strokeWidth="1.8"
                       filter="url(#recessedSaucerShadow)"
                     />
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="14"
-                      fill="#064e3b"
-                      opacity="0.9"
+                      fill="#02140a"
+                      opacity="0.95"
                     />
                   </g>
                 ))}
@@ -1302,48 +1306,49 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
               {/* Yellow Yard (Bottom-Right) */}
               <g>
-                <rect x="375" y="375" width="210" height="210" rx="30" fill="url(#amberYardGrad)" stroke="url(#amberBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                <rect x="360" y="360" width="224" height="224" rx="24" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2" filter="url(#trayInnerShadow)" />
+                <rect x="360" y="360" width="224" height="224" rx="24" fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGold)" />
                 {/* Glowing Neon Gold Heart */}
-                <g transform="translate(480, 480) scale(1.35)">
+                <g transform="translate(472, 472) scale(1.4)">
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(251, 191, 36, 0.12)"
+                    fill="rgba(251, 191, 36, 0.08)"
                     stroke="#fbbf24"
-                    strokeWidth="3.2"
+                    strokeWidth="3.5"
                     filter="url(#neonGlowGold)"
                   />
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
                     fill="none"
                     stroke="#ffffff"
-                    strokeWidth="1"
-                    opacity="0.85"
+                    strokeWidth="1.2"
+                    opacity="0.9"
                   />
                 </g>
-                {/* 4 Circular Socket Pads */}
+                {/* 4 Circular Socket Cups */}
                 {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
                   <g key={`yy-${i}`}>
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="22"
-                      fill="#4d2204"
-                      stroke="url(#amberBevelGrad)"
-                      strokeWidth="1.6"
+                      fill="#362002"
+                      stroke="#f59e0b"
+                      strokeWidth="1.8"
                       filter="url(#recessedSaucerShadow)"
                     />
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="14"
-                      fill="#713206"
-                      opacity="0.9"
+                      fill="#1c1001"
+                      opacity="0.95"
                     />
                   </g>
                 ))}
               </g>
 
-              {/* 2. TRACK CELLS (52 Ivory Porcelain Tiles with Elegant Metallic Star Coins) */}
+              {/* 2. TRACK CELLS (52 Ivory Travertine Marble Tiles with Clean Engraved Stars) */}
               {RING_COORDS.map(([r, c], idx) => {
                 const isSafe = SAFE_STAR_TILES.has(idx);
                 const isRedStart = idx === 0;
@@ -1351,168 +1356,177 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 const isYellowStart = idx === 26;
                 const isGreenStart = idx === 39;
 
-                let fill = '#fbf8f2';
-                let stroke = '#e8dfce';
+                let fill = 'url(#marbleTileGrad)';
+                let stroke = '#c8bcab';
 
-                if (isRedStart) { fill = '#ffe4e6'; stroke = '#f43f5e'; }
-                else if (isBlueStart) { fill = '#dbeafe'; stroke = '#3b82f6'; }
-                else if (isYellowStart) { fill = '#fef3c7'; stroke = '#f59e0b'; }
-                else if (isGreenStart) { fill = '#d1fae5'; stroke = '#10b981'; }
+                if (isRedStart) { fill = 'url(#rubyTileGrad)'; stroke = '#fda4af'; }
+                else if (isBlueStart) { fill = 'url(#sapphireTileGrad)'; stroke = '#93c5fd'; }
+                else if (isYellowStart) { fill = 'url(#amberTileGrad)'; stroke = '#fde047'; }
+                else if (isGreenStart) { fill = 'url(#emeraldTileGrad)'; stroke = '#86efac'; }
+
+                const tileX = c * 40 + 2;
+                const tileY = r * 40 + 2;
 
                 return (
                   <g key={`track-${idx}`} filter="url(#tile3DShadow)">
                     <rect
-                      x={c * 40 + 1}
-                      y={r * 40 + 1}
-                      width="38"
-                      height="38"
+                      x={tileX}
+                      y={tileY}
+                      width="36"
+                      height="36"
                       fill={fill}
                       stroke={stroke}
-                      strokeWidth="1.2"
-                      rx="6"
+                      strokeWidth="0.8"
+                      rx="4"
                     />
 
-                    {/* Elegant Safe Star Emblem */}
-                    {isSafe && (
-                      <g>
-                        <circle
-                          cx={c * 40 + 20}
-                          cy={r * 40 + 20}
-                          r="13"
-                          fill="#f3ebe0"
-                          stroke="#ded1be"
-                          strokeWidth="1.2"
-                        />
-                        <text
-                          x={c * 40 + 20}
-                          y={r * 40 + 25}
-                          textAnchor="middle"
-                          fill="#c29d5b"
-                          fontSize="15"
-                          fontWeight="bold"
-                        >
-                          ★
-                        </text>
-                      </g>
+                    {/* Subtle top inner bevel highlight on marble tiles */}
+                    {!isRedStart && !isBlueStart && !isYellowStart && !isGreenStart && (
+                      <line
+                        x1={tileX + 3}
+                        y1={tileY + 2}
+                        x2={tileX + 33}
+                        y2={tileY + 2}
+                        stroke="#ffffff"
+                        strokeWidth="0.8"
+                        opacity="0.75"
+                      />
                     )}
 
-                    {/* Directional Entry Coins into Home Runways */}
-                    {idx === 50 && (
-                      <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#fda4af" stroke="#e11d48" strokeWidth="1.5" />
-                        <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
-                          →
-                        </text>
-                      </g>
-                    )}
-                    {idx === 11 && (
-                      <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#93c5fd" stroke="#2563eb" strokeWidth="1.5" />
-                        <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
-                          ↓
-                        </text>
-                      </g>
-                    )}
-                    {idx === 24 && (
-                      <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#fde047" stroke="#d97706" strokeWidth="1.5" />
-                        <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
-                          ←
-                        </text>
-                      </g>
-                    )}
-                    {idx === 37 && (
-                      <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#86efac" stroke="#16a34a" strokeWidth="1.5" />
-                        <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
-                          ↑
-                        </text>
-                      </g>
+                    {/* Clean engraved 5-point star on safe tiles (NO circles, exactly matching reference image) */}
+                    {isSafe && (
+                      <polygon
+                        points="18,5 21.5,13.5 30.5,14.5 24,20.5 26,29.5 18,25 10,29.5 12,20.5 5.5,14.5 14.5,13.5"
+                        transform={`translate(${tileX}, ${tileY}) scale(1)`}
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="1.8"
+                        strokeLinejoin="round"
+                        opacity="0.95"
+                      />
                     )}
                   </g>
                 );
               })}
 
-              {/* 3. HOME RUNWAYS (Glossy Saturated Beveled Tiles) */}
+              {/* 3. HOME RUNWAYS (Saturated Beveled Colored Stone Tiles) */}
               {HOME_PATHS.red.map(([r, c], idx) => (
-                <rect
-                  key={`rhp-${idx}`}
-                  x={c * 40 + 1}
-                  y={r * 40 + 1}
-                  width="38"
-                  height="38"
-                  fill="#e11d48"
-                  stroke="#be123c"
-                  strokeWidth="1.2"
-                  rx="6"
-                  filter="url(#tile3DShadow)"
-                />
+                <g key={`rhp-${idx}`} filter="url(#tile3DShadow)">
+                  <rect
+                    x={c * 40 + 2}
+                    y={r * 40 + 2}
+                    width="36"
+                    height="36"
+                    fill="url(#rubyTileGrad)"
+                    stroke="#fda4af"
+                    strokeWidth="0.8"
+                    rx="4"
+                  />
+                  <line
+                    x1={c * 40 + 5}
+                    y1={r * 40 + 3}
+                    x2={c * 40 + 33}
+                    y2={r * 40 + 3}
+                    stroke="#ffffff"
+                    strokeWidth="0.8"
+                    opacity="0.6"
+                  />
+                </g>
               ))}
 
               {HOME_PATHS.blue.map(([r, c], idx) => (
-                <rect
-                  key={`bhp-${idx}`}
-                  x={c * 40 + 1}
-                  y={r * 40 + 1}
-                  width="38"
-                  height="38"
-                  fill="#2563eb"
-                  stroke="#1d4ed8"
-                  strokeWidth="1.2"
-                  rx="6"
-                  filter="url(#tile3DShadow)"
-                />
+                <g key={`bhp-${idx}`} filter="url(#tile3DShadow)">
+                  <rect
+                    x={c * 40 + 2}
+                    y={r * 40 + 2}
+                    width="36"
+                    height="36"
+                    fill="url(#sapphireTileGrad)"
+                    stroke="#93c5fd"
+                    strokeWidth="0.8"
+                    rx="4"
+                  />
+                  <line
+                    x1={c * 40 + 5}
+                    y1={r * 40 + 3}
+                    x2={c * 40 + 33}
+                    y2={r * 40 + 3}
+                    stroke="#ffffff"
+                    strokeWidth="0.8"
+                    opacity="0.6"
+                  />
+                </g>
               ))}
 
               {HOME_PATHS.yellow.map(([r, c], idx) => (
-                <rect
-                  key={`yhp-${idx}`}
-                  x={c * 40 + 1}
-                  y={r * 40 + 1}
-                  width="38"
-                  height="38"
-                  fill="#f59e0b"
-                  stroke="#d97706"
-                  strokeWidth="1.2"
-                  rx="6"
-                  filter="url(#tile3DShadow)"
-                />
+                <g key={`yhp-${idx}`} filter="url(#tile3DShadow)">
+                  <rect
+                    x={c * 40 + 2}
+                    y={r * 40 + 2}
+                    width="36"
+                    height="36"
+                    fill="url(#amberTileGrad)"
+                    stroke="#fde047"
+                    strokeWidth="0.8"
+                    rx="4"
+                  />
+                  <line
+                    x1={c * 40 + 5}
+                    y1={r * 40 + 3}
+                    x2={c * 40 + 33}
+                    y2={r * 40 + 3}
+                    stroke="#ffffff"
+                    strokeWidth="0.8"
+                    opacity="0.6"
+                  />
+                </g>
               ))}
 
               {HOME_PATHS.green.map(([r, c], idx) => (
-                <rect
-                  key={`ghp-${idx}`}
-                  x={c * 40 + 1}
-                  y={r * 40 + 1}
-                  width="38"
-                  height="38"
-                  fill="#10b981"
-                  stroke="#059669"
-                  strokeWidth="1.2"
-                  rx="6"
-                  filter="url(#tile3DShadow)"
-                />
+                <g key={`ghp-${idx}`} filter="url(#tile3DShadow)">
+                  <rect
+                    x={c * 40 + 2}
+                    y={r * 40 + 2}
+                    width="36"
+                    height="36"
+                    fill="url(#emeraldTileGrad)"
+                    stroke="#86efac"
+                    strokeWidth="0.8"
+                    rx="4"
+                  />
+                  <line
+                    x1={c * 40 + 5}
+                    y1={r * 40 + 3}
+                    x2={c * 40 + 33}
+                    y2={r * 40 + 3}
+                    stroke="#ffffff"
+                    strokeWidth="0.8"
+                    opacity="0.6"
+                  />
+                </g>
               ))}
 
               {/* 4. CENTER HOME TRIANGLES */}
-              <polygon points="240,240 300,300 240,360" fill="#e11d48" stroke="#be123c" strokeWidth="1" />
-              <polygon points="240,240 300,300 360,240" fill="#2563eb" stroke="#1d4ed8" strokeWidth="1" />
-              <polygon points="360,240 300,300 360,360" fill="#f59e0b" stroke="#d97706" strokeWidth="1" />
-              <polygon points="240,360 300,300 360,360" fill="#10b981" stroke="#059669" strokeWidth="1" />
+              <polygon points="240,240 300,300 240,360" fill="url(#rubyTileGrad)" stroke="#5c0d1c" strokeWidth="1" />
+              <polygon points="240,240 300,300 360,240" fill="url(#sapphireTileGrad)" stroke="#0d2b5c" strokeWidth="1" />
+              <polygon points="360,240 300,300 360,360" fill="url(#amberTileGrad)" stroke="#4a2e05" strokeWidth="1" />
+              <polygon points="240,360 300,300 360,360" fill="url(#emeraldTileGrad)" stroke="#08381c" strokeWidth="1" />
 
-              {/* Center Obsidian Glass Medallion with Radiant Neon Red Heart */}
-              <circle cx="300" cy="300" r="44" fill="#090a12" stroke="url(#goldMetallicGradient)" strokeWidth="3" filter="url(#cottageShadow)" />
-              <circle cx="300" cy="300" r="38" fill="#14070d" />
-              <circle cx="300" cy="300" r="30" fill="#ff1744" opacity="0.25" filter="url(#castShadowBlur)" />
-
-              {/* Intense Glowing Neon Red Heart in Center */}
-              <g transform="translate(300, 298) scale(1.4)">
+              {/* Radiant Glowing Neon Red Heart at Center Convergence */}
+              <g transform="translate(300, 298) scale(1.5)">
                 <path
                   d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                  fill="#ff2e79"
-                  stroke="#ffffff"
-                  strokeWidth="1.2"
+                  fill="rgba(255, 23, 68, 0.2)"
+                  stroke="#ff1744"
+                  strokeWidth="4.5"
                   filter="url(#neonGlowRedCenter)"
+                />
+                <path
+                  d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth="1.5"
+                  opacity="0.95"
                 />
               </g>
 
