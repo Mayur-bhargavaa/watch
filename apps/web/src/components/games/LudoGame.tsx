@@ -419,12 +419,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     }
   }, [myColor]);
 
-  // Corner pods dynamically positioned floating out from the board corners matching reference design
+  // Corner pods dynamically positioned floating prominently out from the board corners matching reference design
   const CORNER_CLASSES: Record<number, { className: string; side: 'left' | 'right' }> = {
-    0: { className: 'absolute -top-4 sm:-top-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' },
-    1: { className: 'absolute -top-4 sm:-top-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
-    2: { className: 'absolute -bottom-4 sm:-bottom-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
-    3: { className: 'absolute -bottom-4 sm:-bottom-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' }
+    0: { className: 'absolute -top-6 sm:-top-8 -left-4 sm:-left-6 z-30 pointer-events-auto', side: 'left' },
+    1: { className: 'absolute -top-6 sm:-top-8 -right-4 sm:-right-6 z-30 pointer-events-auto', side: 'right' },
+    2: { className: 'absolute -bottom-6 sm:-bottom-8 -right-4 sm:-right-6 z-30 pointer-events-auto', side: 'right' },
+    3: { className: 'absolute -bottom-6 sm:-bottom-8 -left-4 sm:-left-6 z-30 pointer-events-auto', side: 'left' }
   };
 
   const ORIG_CORNER_INDEX: Record<LudoColor, number> = {
@@ -1235,7 +1235,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
       {/* Board & Player Ribbons Container - Perfectly sized to fit screen without scrolling */}
       <div
-        className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-2 sm:my-3"
+        className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-4 sm:my-6"
       >
 
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
@@ -2113,7 +2113,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         </div>
 
         {/* BOTTOM CONTROLS MATCHING REFERENCE IMAGE (Undo button, Large Glowing Red Dice, Emoji button) */}
-        <div className="w-full flex flex-col items-center mt-2.5 sm:mt-3 max-w-xs sm:max-w-sm px-2 z-20">
+        <div className="w-full flex flex-col items-center mt-4 sm:mt-5 max-w-xs sm:max-w-sm px-2 z-20">
           {/* Turn text status banner */}
           <div className="text-rose-200/90 font-sans font-bold text-xs sm:text-sm tracking-wider uppercase mb-2 text-center select-none drop-shadow-[0_0_8px_rgba(255,46,121,0.5)]">
             {gameState.winnerColor
