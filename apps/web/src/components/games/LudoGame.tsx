@@ -419,12 +419,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     }
   }, [myColor]);
 
-  // Corner pods neatly docked inside their physical screen corner
+  // Corner pods dynamically positioned floating out from the board corners matching reference design
   const CORNER_CLASSES: Record<number, { className: string; side: 'left' | 'right' }> = {
-    0: { className: 'absolute top-1 sm:top-1.5 left-1 sm:left-1.5 z-30 pointer-events-auto', side: 'left' },
-    1: { className: 'absolute top-1 sm:top-1.5 right-1 sm:right-1.5 z-30 pointer-events-auto', side: 'right' },
-    2: { className: 'absolute bottom-1 sm:bottom-1.5 right-1 sm:right-1.5 z-30 pointer-events-auto', side: 'right' },
-    3: { className: 'absolute bottom-1 sm:bottom-1.5 left-1 sm:left-1.5 z-30 pointer-events-auto', side: 'left' }
+    0: { className: 'absolute -top-4 sm:-top-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' },
+    1: { className: 'absolute -top-4 sm:-top-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
+    2: { className: 'absolute -bottom-4 sm:-bottom-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
+    3: { className: 'absolute -bottom-4 sm:-bottom-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' }
   };
 
   const ORIG_CORNER_INDEX: Record<LudoColor, number> = {
