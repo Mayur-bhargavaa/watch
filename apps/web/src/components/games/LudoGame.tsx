@@ -14,7 +14,9 @@ import {
   Check,
   RotateCcw,
   Heart,
-  MoreHorizontal
+  MoreHorizontal,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import {
   GameRoom,
@@ -435,6 +437,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     const phys = (orig + shift) % 4;
     return CORNER_CLASSES[phys];
   };
+
+  // Board Size Mode: Large by default, with optional Cinema / Expanded mode
+  const [isCinemaMode, setIsCinemaMode] = useState<boolean>(false);
 
   // =========================================================================
   // 1. CENTER 3D ROLLING DICE ANIMATION
@@ -1177,7 +1182,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-between w-full max-w-4xl mx-auto select-none relative">
+    <div className="flex flex-col items-center justify-between w-full max-w-5xl xl:max-w-6xl mx-auto select-none relative">
       {/* Floating Reactions Overlay */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
         {floatingReactions.map(r => (
@@ -1194,7 +1199,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       </div>
 
       {/* Board & Player Ribbons Container */}
-      <div className="relative w-full max-w-[380px] sm:max-w-[450px] flex flex-col items-center select-none my-8 sm:my-10">
+      <div
+        className={`relative w-full ${
+          isCinemaMode
+            ? 'max-w-[min(98vw,520px)] sm:max-w-[640px] md:max-w-[720px] lg:max-w-[800px] xl:max-w-[880px]'
+            : 'max-w-[min(94vw,460px)] sm:max-w-[560px] md:max-w-[620px] lg:max-w-[680px] xl:max-w-[740px]'
+        } flex flex-col items-center select-none my-6 sm:my-8 transition-all duration-300`}
+      >
 
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
         <div className="relative w-full aspect-square rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
@@ -2058,8 +2069,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           </div>
         </div>
 
-        {/* BOTTOM CONTROLS MATCHING REFERENCE IMAGE (Undo button, Large Glowing Red Dice, Emoji button) */}
-        <div className="w-full flex flex-col items-center mt-3 max-w-sm px-2 z-20">
+        {/* BOTTOM CONTROLS MATCHING REFERENCE IMAGE (Undo button, Large Glowing Red Dice, Emoji button, Board Size toggle) */}
+        <div className="w-full flex flex-col items-center mt-4 sm:mt-6 max-w-md sm:max-w-lg px-2 z-20">
           {/* Turn text status banner */}
           <div className="text-rose-200/90 font-sans font-bold text-xs sm:text-sm tracking-wider uppercase mb-3 text-center select-none drop-shadow-[0_0_8px_rgba(255,46,121,0.5)]">
             {gameState.winnerColor
@@ -2071,8 +2082,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               : `it's ${turnPlayer?.displayName?.toLowerCase() || 'partner'}'s turn`}
           </div>
 
-          {/* 3-Control Bottom Panel from reference UI */}
-          <div className="w-full flex items-center justify-center gap-6 sm:gap-8">
+          {/* 4-Control Bottom Panel */}
+          <div className="w-full flex items-center justify-center gap-4 sm:gap-7">
             {/* 1. Left: Circular UNDO / Replay Button */}
             <div className="flex flex-col items-center gap-1">
               <button
@@ -2173,6 +2184,29 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </button>
               <span className="text-[10px] font-bold text-white/60 tracking-widest uppercase">
                 EMOJI
+              </span>
+            </div>
+
+            {/* 4. Far Right: Board Size Toggle Button */}
+            <div className="flex flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsCinemaMode(prev => !prev)}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#121422]/90 backdrop-blur-md border ${
+                  isCinemaMode ? 'border-amber-400/80 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.4)]' : 'border-white/20 text-white/80'
+                } shadow-[0_4px_15px_rgba(0,0,0,0.5)] flex items-center justify-center hover:text-white hover:border-white/40 active:scale-95 transition cursor-pointer`}
+                title={isCinemaMode ? 'Switch to Standard Size' : 'Switch to Cinema / Extra Large Size'}
+              >
+                {isCinemaMode ? (
+                  <Minimize2 className="w-5 h-5 text-amber-300" />
+                ) : (
+                  <Maximize2 className="w-5 h-5 text-white/90" />
+                )}
+              </button>
+              <span className={`text-[10px] font-bold tracking-widest uppercase ${
+                isCinemaMode ? 'text-amber-300' : 'text-white/60'
+              }`}>
+                {isCinemaMode ? 'EXPAND' : 'BIG'}
               </span>
             </div>
           </div>
