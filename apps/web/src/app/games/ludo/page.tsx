@@ -1231,7 +1231,7 @@ function LudoPageContent() {
             </div>
 
             {/* Center Column: The 3D Wooden Board with Flanking Cards & Bottom Controls */}
-            <div className="flex-1 w-full max-w-4xl xl:max-w-6xl mx-auto flex flex-col items-center">
+            <div className="flex-1 w-full max-w-2xl sm:max-w-3xl mx-auto flex flex-col items-center">
               {/* Opponent Left / Disconnected Notification Banner */}
               {isOpponentDisconnected && (
                 <div className="w-full max-w-xl mb-3.5 p-3.5 sm:p-4 rounded-3xl bg-[#1d0b17]/95 border-2 border-amber-500/50 shadow-2xl backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300 z-30">
