@@ -1038,13 +1038,6 @@ function LudoPageContent() {
         </div>
       )}
 
-      {/* Incoming Nudge Floating Notification Toast */}
-      {nudgeAlert && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-xs shadow-2xl flex items-center gap-2.5 animate-bounce ring-4 ring-amber-300/60 border border-amber-200">
-          <Bell className="w-4 h-4 text-slate-950 animate-spin" />
-          <span>🔔 {nudgeAlert.fromDisplayName} nudged you! It's your turn to roll!</span>
-        </div>
-      )}
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-3 sm:p-5 flex flex-col justify-start z-10">

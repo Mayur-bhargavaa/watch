@@ -773,26 +773,26 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
         let offsetX = 0;
         let offsetY = 0;
-        let scale = 1;
+        let scale = 1.15;
 
         if (count > 1 && item.step >= 0) {
-          scale = count > 2 ? 0.78 : 0.85;
+          scale = count > 2 ? 0.88 : 0.96;
           if (count === 2) {
-            offsetX = indexInGroup === 0 ? -6 : 6;
+            offsetX = indexInGroup === 0 ? -7 : 7;
             offsetY = 0;
           } else if (count === 3) {
-            if (indexInGroup === 0) { offsetX = -6; offsetY = -3; }
-            else if (indexInGroup === 1) { offsetX = 6; offsetY = -3; }
-            else { offsetX = 0; offsetY = 3; }
+            if (indexInGroup === 0) { offsetX = -7; offsetY = -4; }
+            else if (indexInGroup === 1) { offsetX = 7; offsetY = -4; }
+            else { offsetX = 0; offsetY = 4; }
           } else {
-            offsetX = indexInGroup % 2 === 0 ? -5.5 : 5.5;
-            offsetY = indexInGroup < 2 ? -3.5 : 3.5;
+            offsetX = indexInGroup % 2 === 0 ? -6.5 : 6.5;
+            offsetY = indexInGroup < 2 ? -4 : 4;
           }
         }
 
         const finalX = baseX + offsetX;
         const groundY = baseY + offsetY;
-        const finalY = (item.isHopping ? baseY - 16 : baseY) + offsetY;
+        const finalY = (item.isHopping ? baseY - 20 : baseY) + offsetY;
 
         pawns.push({
           token: item.token,
@@ -855,56 +855,74 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     );
   };
 
-  // Render sculpted 3D luxury pawn figurine matching the reference image
+  // Render sculpted 3D luxury pawn figurine with weighted pedestal, waist collar, crystal head, and finial
   const renderLuxuryPawn = (color: LudoColor, isLegal: boolean) => {
     const headGradient = `url(#${color}PawnHead)`;
     const bodyGradient = `url(#${color}PawnBody)`;
-    const collarGradient = `url(#${color}PawnCollar)`;
 
     return (
-      <g>
-        {/* Tiered circular base pedestal with ambient occlusion shadow */}
-        <ellipse cx="0" cy="3.5" rx="11" ry="4.2" fill="#000000" opacity="0.35" />
-        {/* Base bottom ring */}
-        <ellipse cx="0" cy="2.8" rx="10.8" ry="4" fill={bodyGradient} />
-        {/* Base upper step */}
-        <ellipse cx="0" cy="1.6" rx="9.2" ry="3.2" fill={headGradient} />
-        <ellipse cx="-1.5" cy="1.2" rx="7" ry="1.8" fill="#ffffff" opacity="0.3" />
+      <g filter="url(#tile3DShadow)">
+        {/* Tier 1: Ground Ambient Occlusion & Base Felt Pad */}
+        <ellipse cx="0" cy="5.2" rx="14.5" ry="4.5" fill="#000000" opacity="0.45" />
+        <ellipse cx="0" cy="4.2" rx="13.5" ry="4.0" fill={bodyGradient} />
+        
+        {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring */}
+        <ellipse cx="0" cy="3.0" rx="12.2" ry="3.4" fill="url(#goldMetallicGradient)" stroke="#78350f" strokeWidth="0.5" />
+        
+        {/* Tier 3: Upper Beveled Marble Base Step */}
+        <ellipse cx="0" cy="1.6" rx="10.5" ry="2.9" fill={headGradient} />
+        <ellipse cx="-1.5" cy="0.9" rx="7.2" ry="1.5" fill="#ffffff" opacity="0.45" />
 
-        {/* Flared bell-shaped body with smooth sculpted waist */}
+        {/* Sculpted Flared Pawn Body (Hourglass bell curve) */}
         <path
-          d="M -7.8 1.8 C -6.8 -5, -4 -9, -3.2 -12.5 C -3.2 -13.5, 3.2 -13.5, 3.2 -12.5 C 4 -9, 6.8 -5, 7.8 1.8 Z"
+          d="M -9 2 C -8 -5, -4.6 -11, -3.8 -14.5 C -3.8 -15.5, 3.8 -15.5, 3.8 -14.5 C 4.6 -11, 8 -5, 9 2 Z"
           fill={bodyGradient}
         />
-        {/* Specular vertical reflection highlight along left curve of body */}
+        {/* Specular curved vertical gloss streak down the left torso */}
         <path
-          d="M -5.5 1 C -4.8 -4, -3 -8, -2.2 -12 C -1.5 -12, -2.5 -4, -3.8 1 Z"
+          d="M -6.8 0.8 C -5.8 -4.5, -3.2 -9.5, -2.4 -14 C -1.6 -14, -2.2 -5, -4.2 0.8 Z"
           fill="#ffffff"
-          opacity="0.35"
+          opacity="0.42"
+        />
+        {/* Ambient shadow gradient down the right contour */}
+        <path
+          d="M 6.8 0.8 C 5.8 -4.5, 3.2 -9.5, 2.4 -14 C 1.6 -14, 2.2 -5, 4.2 0.8 Z"
+          fill="#000000"
+          opacity="0.25"
         />
 
-        {/* Collar metallic/beveled ring between waist and neck */}
-        <ellipse cx="0" cy="-13.2" rx="4.5" ry="1.6" fill={collarGradient} stroke="#ffffff" strokeWidth="0.4" strokeOpacity="0.6" />
+        {/* Lower Polished Gold Torus Waist Ring */}
+        <ellipse cx="0" cy="-15" rx="6.2" ry="1.9" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.6" />
+        
+        {/* Tapered Slender Neck Column */}
+        <path d="M -3.2 -15 C -3.2 -18.5, 3.2 -18.5, 3.2 -15 Z" fill={bodyGradient} />
 
-        {/* Slender neck column */}
-        <path d="M -2.6 -13.2 C -2.6 -15, 2.6 -15, 2.6 -13.2 Z" fill={bodyGradient} />
+        {/* Upper Gold Neck Collar Bead */}
+        <ellipse cx="0" cy="-18.5" rx="4.8" ry="1.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" strokeOpacity="0.7" />
 
-        {/* Neck collar bead */}
-        <ellipse cx="0" cy="-15.5" rx="3.8" ry="1.4" fill={headGradient} stroke="#ffffff" strokeWidth="0.3" strokeOpacity="0.5" />
-
-        {/* Spherical head knob */}
+        {/* Spherical Luxury Gemstone Head Knob (Large, majestic sphere) */}
         <circle
           cx="0"
-          cy="-21.5"
-          r="6.8"
+          cy="-28"
+          r="9.5"
           fill={headGradient}
-          stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.4)'}
-          strokeWidth={isLegal ? '1.8' : '0.6'}
+          stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.5)'}
+          strokeWidth={isLegal ? '2.4' : '0.8'}
         />
 
-        {/* Head specular glint (bright glass reflection dot + curved glint) */}
-        <ellipse cx="-2.2" cy="-23.8" rx="2.4" ry="1.3" transform="rotate(-25 -2.2 -23.8)" fill="#ffffff" opacity="0.85" />
-        <circle cx="2.6" cy="-19.2" r="0.8" fill="#ffffff" opacity="0.4" />
+        {/* 3D Spherical Specular Highlights (glass reflection & curved gleam) */}
+        <circle cx="-3.4" cy="-31.5" r="2.6" fill="#ffffff" opacity="0.95" />
+        <circle cx="-1.2" cy="-33.8" r="1.2" fill="#ffffff" opacity="0.85" />
+        <ellipse cx="3.2" cy="-24.5" rx="2.5" ry="1.2" transform="rotate(30 3.2 -24.5)" fill="#ffffff" opacity="0.25" />
+
+        {/* Golden Royal Finial Crest on top of the sphere */}
+        <path
+          d="M 0,-40.5 L 2.6,-37.2 L 0,-36.2 L -2.6,-37.2 Z"
+          fill="url(#goldMetallicGradient)"
+          stroke="#ffffff"
+          strokeWidth="0.3"
+        />
+        <circle cx="0" cy="-40.5" r="0.9" fill="#ffffff" />
       </g>
     );
   };
@@ -1140,325 +1158,369 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   <feDropShadow dx="0" dy="0" stdDeviation="12" floodColor="#ff2e79" floodOpacity="0.75" />
                 </filter>
 
-                {/* Metallic Gold & Bevel Gradients */}
-                <linearGradient id="goldMetallicGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fef08a" />
-                  <stop offset="35%" stopColor="#f59e0b" />
-                  <stop offset="70%" stopColor="#d97706" />
-                  <stop offset="100%" stopColor="#92400e" />
-                </linearGradient>
+                {/* 3D Star Glow and Pedestal Shadow Filters */}
+                <filter id="starGoldGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#fbbf24" floodOpacity="0.9" />
+                  <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.6" />
+                </filter>
+                <filter id="pedestalRingShadow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.65" />
+                </filter>
+                <filter id="pawnSpecularGleam" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="0.6" />
+                  <feMerge>
+                    <feMergeNode />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
 
-                {/* Travertine Ivory Marble Tile Gradient */}
+                {/* 24K Royal Metallic Gold Gradients */}
+                <linearGradient id="goldMetallicGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fffbeb" />
+                  <stop offset="25%" stopColor="#fef08a" />
+                  <stop offset="50%" stopColor="#f59e0b" />
+                  <stop offset="80%" stopColor="#d97706" />
+                  <stop offset="100%" stopColor="#78350f" />
+                </linearGradient>
+                <radialGradient id="goldRingRadial" cx="35%" cy="30%" r="70%">
+                  <stop offset="0%" stopColor="#fef9c3" />
+                  <stop offset="45%" stopColor="#f59e0b" />
+                  <stop offset="85%" stopColor="#b45309" />
+                  <stop offset="100%" stopColor="#78350f" />
+                </radialGradient>
+
+                {/* Travertine Ivory Marble Tile Gradient with 3D Depth */}
                 <linearGradient id="marbleTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#f3ede3" />
-                  <stop offset="45%" stopColor="#eae1d2" />
-                  <stop offset="100%" stopColor="#dfd4c3" />
+                  <stop offset="0%" stopColor="#fbf9f4" />
+                  <stop offset="45%" stopColor="#ede6da" />
+                  <stop offset="100%" stopColor="#ded3c1" />
                 </linearGradient>
 
                 {/* Colored Stone Tile Gradients */}
                 <linearGradient id="rubyTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#e11d48" />
-                  <stop offset="40%" stopColor="#be123c" />
+                  <stop offset="0%" stopColor="#fb7185" />
+                  <stop offset="40%" stopColor="#e11d48" />
                   <stop offset="100%" stopColor="#881337" />
                 </linearGradient>
                 <linearGradient id="sapphireTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="40%" stopColor="#1d4ed8" />
+                  <stop offset="0%" stopColor="#60a5fa" />
+                  <stop offset="40%" stopColor="#2563eb" />
                   <stop offset="100%" stopColor="#1e3a8a" />
                 </linearGradient>
                 <linearGradient id="emeraldTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#10b981" />
-                  <stop offset="40%" stopColor="#059669" />
+                  <stop offset="0%" stopColor="#4ade80" />
+                  <stop offset="40%" stopColor="#10b981" />
                   <stop offset="100%" stopColor="#064e3b" />
                 </linearGradient>
                 <linearGradient id="amberTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#f59e0b" />
-                  <stop offset="40%" stopColor="#d97706" />
+                  <stop offset="0%" stopColor="#fde047" />
+                  <stop offset="40%" stopColor="#f59e0b" />
                   <stop offset="100%" stopColor="#78350f" />
                 </linearGradient>
 
-                {/* Yard Glass Background Gradients */}
+                {/* Yard Royal Velvet Background Gradients */}
                 <linearGradient id="rubyYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#4a0815" />
-                  <stop offset="50%" stopColor="#2c050c" />
-                  <stop offset="100%" stopColor="#180206" />
+                  <stop offset="0%" stopColor="#5c091a" />
+                  <stop offset="50%" stopColor="#33050e" />
+                  <stop offset="100%" stopColor="#1a0207" />
                 </linearGradient>
                 <linearGradient id="sapphireYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#0a2552" />
-                  <stop offset="50%" stopColor="#061530" />
+                  <stop offset="0%" stopColor="#0d2b5c" />
+                  <stop offset="50%" stopColor="#071733" />
                   <stop offset="100%" stopColor="#030b1a" />
                 </linearGradient>
                 <linearGradient id="emeraldYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#08381c" />
-                  <stop offset="50%" stopColor="#042010" />
-                  <stop offset="100%" stopColor="#021008" />
+                  <stop offset="0%" stopColor="#0a4221" />
+                  <stop offset="50%" stopColor="#042613" />
+                  <stop offset="100%" stopColor="#02140a" />
                 </linearGradient>
                 <linearGradient id="amberYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#4a2e05" />
-                  <stop offset="50%" stopColor="#2e1c02" />
-                  <stop offset="100%" stopColor="#170e01" />
+                  <stop offset="0%" stopColor="#543304" />
+                  <stop offset="50%" stopColor="#362002" />
+                  <stop offset="100%" stopColor="#1c1001" />
                 </linearGradient>
 
-                {/* 3D Radial Gradients for Luxury Pawn Heads */}
-                <radialGradient id="redPawnHead" cx="35%" cy="25%" r="70%">
-                  <stop offset="0%" stopColor="#ffe4e6" />
-                  <stop offset="25%" stopColor="#fb7185" />
-                  <stop offset="65%" stopColor="#e11d48" />
-                  <stop offset="100%" stopColor="#881337" />
+                {/* 3D Radial Sphere Gradients for Luxury Pawn Heads */}
+                <radialGradient id="redPawnHead" cx="30%" cy="25%" r="75%">
+                  <stop offset="0%" stopColor="#fff1f2" />
+                  <stop offset="20%" stopColor="#fda4af" />
+                  <stop offset="55%" stopColor="#e11d48" />
+                  <stop offset="85%" stopColor="#9f1239" />
+                  <stop offset="100%" stopColor="#4c0519" />
                 </radialGradient>
-                <radialGradient id="bluePawnHead" cx="35%" cy="25%" r="70%">
-                  <stop offset="0%" stopColor="#dbeafe" />
-                  <stop offset="25%" stopColor="#60a5fa" />
-                  <stop offset="65%" stopColor="#2563eb" />
-                  <stop offset="100%" stopColor="#1e3a8a" />
+                <radialGradient id="bluePawnHead" cx="30%" cy="25%" r="75%">
+                  <stop offset="0%" stopColor="#f0f9ff" />
+                  <stop offset="20%" stopColor="#93c5fd" />
+                  <stop offset="55%" stopColor="#2563eb" />
+                  <stop offset="85%" stopColor="#1e40af" />
+                  <stop offset="100%" stopColor="#081e59" />
                 </radialGradient>
-                <radialGradient id="yellowPawnHead" cx="35%" cy="25%" r="70%">
-                  <stop offset="0%" stopColor="#fef3c7" />
-                  <stop offset="25%" stopColor="#fde047" />
-                  <stop offset="65%" stopColor="#f59e0b" />
-                  <stop offset="100%" stopColor="#78350f" />
+                <radialGradient id="yellowPawnHead" cx="30%" cy="25%" r="75%">
+                  <stop offset="0%" stopColor="#fffbeb" />
+                  <stop offset="20%" stopColor="#fde047" />
+                  <stop offset="55%" stopColor="#f59e0b" />
+                  <stop offset="85%" stopColor="#b45309" />
+                  <stop offset="100%" stopColor="#451a03" />
                 </radialGradient>
-                <radialGradient id="greenPawnHead" cx="35%" cy="25%" r="70%">
-                  <stop offset="0%" stopColor="#d1fae5" />
-                  <stop offset="25%" stopColor="#4ade80" />
-                  <stop offset="65%" stopColor="#10b981" />
-                  <stop offset="100%" stopColor="#064e3b" />
+                <radialGradient id="greenPawnHead" cx="30%" cy="25%" r="75%">
+                  <stop offset="0%" stopColor="#f0fdf4" />
+                  <stop offset="20%" stopColor="#86efac" />
+                  <stop offset="55%" stopColor="#10b981" />
+                  <stop offset="85%" stopColor="#047857" />
+                  <stop offset="100%" stopColor="#022c22" />
                 </radialGradient>
 
-                {/* 3D Linear Gradients for Luxury Pawn Bodies */}
-                <linearGradient id="redPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
-                  <stop offset="0%" stopColor="#fda4af" />
-                  <stop offset="30%" stopColor="#f43f5e" />
-                  <stop offset="75%" stopColor="#be123c" />
+                {/* 3D Cylindrical Gradients for Luxury Pawn Bodies */}
+                <linearGradient id="redPawnBody" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#9f1239" />
+                  <stop offset="25%" stopColor="#fb7185" />
+                  <stop offset="50%" stopColor="#e11d48" />
+                  <stop offset="85%" stopColor="#881337" />
                   <stop offset="100%" stopColor="#4c0519" />
                 </linearGradient>
-                <linearGradient id="bluePawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
-                  <stop offset="0%" stopColor="#93c5fd" />
-                  <stop offset="30%" stopColor="#3b82f6" />
-                  <stop offset="75%" stopColor="#1d4ed8" />
-                  <stop offset="100%" stopColor="#0f172a" />
+                <linearGradient id="bluePawnBody" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#1e40af" />
+                  <stop offset="25%" stopColor="#60a5fa" />
+                  <stop offset="50%" stopColor="#2563eb" />
+                  <stop offset="85%" stopColor="#1e3a8a" />
+                  <stop offset="100%" stopColor="#081e59" />
                 </linearGradient>
-                <linearGradient id="yellowPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
-                  <stop offset="0%" stopColor="#fef08a" />
-                  <stop offset="30%" stopColor="#f59e0b" />
-                  <stop offset="75%" stopColor="#d97706" />
-                  <stop offset="100%" stopColor="#78350f" />
+                <linearGradient id="yellowPawnBody" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#b45309" />
+                  <stop offset="25%" stopColor="#fde047" />
+                  <stop offset="50%" stopColor="#f59e0b" />
+                  <stop offset="85%" stopColor="#92400e" />
+                  <stop offset="100%" stopColor="#451a03" />
                 </linearGradient>
-                <linearGradient id="greenPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
-                  <stop offset="0%" stopColor="#86efac" />
-                  <stop offset="30%" stopColor="#22c55e" />
-                  <stop offset="75%" stopColor="#15803d" />
-                  <stop offset="100%" stopColor="#052e16" />
-                </linearGradient>
-
-                {/* Metallic Pawn Collars */}
-                <linearGradient id="redPawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="50%" stopColor="#fecdd3" />
-                  <stop offset="100%" stopColor="#be123c" />
-                </linearGradient>
-                <linearGradient id="bluePawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="50%" stopColor="#bfdbfe" />
-                  <stop offset="100%" stopColor="#1e40af" />
-                </linearGradient>
-                <linearGradient id="yellowPawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="50%" stopColor="#fde68a" />
-                  <stop offset="100%" stopColor="#b45309" />
-                </linearGradient>
-                <linearGradient id="greenPawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="50%" stopColor="#bbf7d0" />
-                  <stop offset="100%" stopColor="#15803d" />
+                <linearGradient id="greenPawnBody" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#047857" />
+                  <stop offset="25%" stopColor="#4ade80" />
+                  <stop offset="50%" stopColor="#10b981" />
+                  <stop offset="85%" stopColor="#064e3b" />
+                  <stop offset="100%" stopColor="#022c22" />
                 </linearGradient>
               </defs>
 
-              {/* Board Base Surface: Dark Obsidian Slate with Dark Grout and Inset Golden Pinstripe */}
-              <rect width="600" height="600" fill="#11131c" />
-              <rect x="4" y="4" width="592" height="592" rx="24" fill="#161823" stroke="#2c2838" strokeWidth="1.5" />
-              <rect x="8" y="8" width="584" height="584" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+              {/* Board Base Surface: Dark Obsidian Slate with Dual Golden Inlay and Corner Filigree */}
+              <rect width="600" height="600" fill="#0b0d14" />
+              <rect x="4" y="4" width="592" height="592" rx="26" fill="#131622" stroke="#2c2838" strokeWidth="2" />
+              <rect x="10" y="10" width="580" height="580" rx="22" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" opacity="0.85" />
+              <rect x="14" y="14" width="572" height="572" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="5, 4" opacity="0.6" />
+
+              {/* 4 Ornate Golden Corner Filigree Brackets */}
+              <path d="M 12 36 L 12 24 A 12 12 0 0 1 24 12 L 36 12 M 16 32 L 16 26 A 10 10 0 0 1 26 16 L 32 16" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              <path d="M 588 36 L 588 24 A 12 12 0 0 0 576 12 L 564 12 M 584 32 L 584 26 A 10 10 0 0 0 574 16 L 568 16" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              <path d="M 12 564 L 12 576 A 12 12 0 0 0 24 588 L 36 588 M 16 568 L 16 574 A 10 10 0 0 0 26 584 L 32 584" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              <path d="M 588 564 L 588 576 A 12 12 0 0 1 576 588 L 564 588 M 584 568 L 584 574 A 10 10 0 0 1 574 584 L 568 584" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
 
               {/* Rotated Board Play Surface (active player yard always faces bottom-left) */}
               <g transform={boardRotation ? `rotate(${boardRotation}, 300, 300)` : undefined}>
-                {/* 1. YARDS (4 Luxury Dark Metallic Quadrants with Glowing Neon Hearts) */}
+                {/* 1. YARDS (4 Luxury Royal Palace Chambers with 3D Pedestals & Illuminated Crests) */}
                 {/* Red Yard (Top-Left in base coordinates) */}
                 <g>
-                  <rect x="16" y="16" width="224" height="224" rx="24" fill="url(#rubyYardGrad)" stroke="#ff2e63" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                  <rect x="16" y="16" width="224" height="224" rx="24" fill="none" stroke="#ff2e63" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowPink)" />
-                  {/* Glowing Neon Red/Pink Heart (counter-rotated to stay upright) */}
-                  <g transform={`translate(128, 128) rotate(${-boardRotation}) scale(1.4)`}>
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="rgba(255, 46, 121, 0.08)"
-                      stroke="#ff2e79"
-                      strokeWidth="3.5"
-                      filter="url(#neonGlowPink)"
-                    />
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="1.2"
-                      opacity="0.9"
-                    />
+                  <rect x="16" y="16" width="224" height="224" rx="24" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="20" y="20" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="23" y="23" width="210" height="210" rx="17" fill="none" stroke="#ff2e79" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  {/* Concentric ornamental quadrant arcs */}
+                  <circle cx="128" cy="128" r="82" fill="none" stroke="#ff2e79" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="128" cy="128" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+
+                  {/* Glowing Royal Red/Pink Heart Crest with Crown */}
+                  <g transform={`translate(128, 128) rotate(${-boardRotation})`}>
+                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
+                    <circle cx="0" cy="0" r="33" fill="none" stroke="#ff2e79" strokeWidth="1.2" opacity="0.5" />
+                    <g transform="scale(1.45)">
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="rgba(255, 46, 121, 0.15)"
+                        stroke="#ff2e79"
+                        strokeWidth="3.2"
+                        filter="url(#neonGlowPink)"
+                      />
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="1.2"
+                        opacity="0.9"
+                      />
+                      {/* Imperial Crown atop Heart */}
+                      <path
+                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
+                        fill="url(#goldMetallicGradient)"
+                        stroke="#ffffff"
+                        strokeWidth="0.4"
+                      />
+                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                    </g>
                   </g>
-                  {/* 4 Circular Socket Cups */}
+
+                  {/* 4 3D Recessed Gold Socket Pedestals */}
                   {YARD_PAWN_SLOTS.red.map((slot, i) => (
-                    <g key={`ry-${i}`}>
-                      <circle
-                        cx={slot[1] * 40}
-                        cy={slot[0] * 40}
-                        r="22"
-                        fill="#33060f"
-                        stroke="#e11d48"
-                        strokeWidth="1.8"
-                        filter="url(#recessedSaucerShadow)"
-                      />
-                      <circle
-                        cx={slot[1] * 40}
-                        cy={slot[0] * 40}
-                        r="14"
-                        fill="#1c0308"
-                        opacity="0.95"
-                      />
+                    <g key={`ry-${i}`} filter="url(#pedestalRingShadow)">
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="23" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="21" fill="#1c0308" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="1" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="3" fill="url(#goldMetallicGradient)" />
                     </g>
                   ))}
                 </g>
 
                 {/* Blue Yard (Top-Right in base coordinates) */}
                 <g>
-                  <rect x="360" y="16" width="224" height="224" rx="24" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                  <rect x="360" y="16" width="224" height="224" rx="24" fill="none" stroke="#38bdf8" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowBlue)" />
-                  {/* Glowing Neon Blue Heart (counter-rotated to stay upright) */}
-                  <g transform={`translate(472, 128) rotate(${-boardRotation}) scale(1.4)`}>
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="rgba(56, 189, 248, 0.08)"
-                      stroke="#38bdf8"
-                      strokeWidth="3.5"
-                      filter="url(#neonGlowBlue)"
-                    />
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="1.2"
-                      opacity="0.9"
-                    />
+                  <rect x="360" y="16" width="224" height="224" rx="24" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="364" y="20" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="367" y="23" width="210" height="210" rx="17" fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  {/* Concentric ornamental quadrant arcs */}
+                  <circle cx="472" cy="128" r="82" fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="472" cy="128" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+
+                  {/* Glowing Royal Blue Heart Crest with Crown */}
+                  <g transform={`translate(472, 128) rotate(${-boardRotation})`}>
+                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
+                    <circle cx="0" cy="0" r="33" fill="none" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" />
+                    <g transform="scale(1.45)">
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="rgba(56, 189, 248, 0.15)"
+                        stroke="#38bdf8"
+                        strokeWidth="3.2"
+                        filter="url(#neonGlowBlue)"
+                      />
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="1.2"
+                        opacity="0.9"
+                      />
+                      {/* Imperial Crown atop Heart */}
+                      <path
+                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
+                        fill="url(#goldMetallicGradient)"
+                        stroke="#ffffff"
+                        strokeWidth="0.4"
+                      />
+                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                    </g>
                   </g>
-                  {/* 4 Circular Socket Cups */}
+
+                  {/* 4 3D Recessed Gold Socket Pedestals */}
                   {YARD_PAWN_SLOTS.blue.map((slot, i) => (
-                    <g key={`by-${i}`}>
-                      <circle
-                        cx={slot[1] * 40}
-                        cy={slot[0] * 40}
-                        r="22"
-                        fill="#07193b"
-                        stroke="#3b82f6"
-                        strokeWidth="1.8"
-                        filter="url(#recessedSaucerShadow)"
-                      />
-                      <circle
-                        cx={slot[1] * 40}
-                        cy={slot[0] * 40}
-                        r="14"
-                        fill="#030d21"
-                        opacity="0.95"
-                      />
+                    <g key={`by-${i}`} filter="url(#pedestalRingShadow)">
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="23" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="21" fill="#030d21" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="1" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="3" fill="url(#goldMetallicGradient)" />
                     </g>
                   ))}
                 </g>
 
                 {/* Green Yard (Bottom-Left in base coordinates) */}
                 <g>
-                  <rect x="16" y="360" width="224" height="224" rx="24" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                  <rect x="16" y="360" width="224" height="224" rx="24" fill="none" stroke="#10b981" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGreen)" />
-                  {/* Glowing Neon Green Heart (counter-rotated to stay upright) */}
-                  <g transform={`translate(128, 472) rotate(${-boardRotation}) scale(1.4)`}>
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="rgba(52, 211, 153, 0.08)"
-                      stroke="#34d399"
-                      strokeWidth="3.5"
-                      filter="url(#neonGlowGreen)"
-                    />
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="1.2"
-                      opacity="0.9"
-                    />
+                  <rect x="16" y="360" width="224" height="224" rx="24" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="20" y="364" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="23" y="367" width="210" height="210" rx="17" fill="none" stroke="#10b981" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  {/* Concentric ornamental quadrant arcs */}
+                  <circle cx="128" cy="472" r="82" fill="none" stroke="#10b981" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="128" cy="472" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+
+                  {/* Glowing Royal Green Heart Crest with Crown */}
+                  <g transform={`translate(128, 472) rotate(${-boardRotation})`}>
+                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
+                    <circle cx="0" cy="0" r="33" fill="none" stroke="#10b981" strokeWidth="1.2" opacity="0.5" />
+                    <g transform="scale(1.45)">
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="rgba(52, 211, 153, 0.15)"
+                        stroke="#34d399"
+                        strokeWidth="3.2"
+                        filter="url(#neonGlowGreen)"
+                      />
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="1.2"
+                        opacity="0.9"
+                      />
+                      {/* Imperial Crown atop Heart */}
+                      <path
+                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
+                        fill="url(#goldMetallicGradient)"
+                        stroke="#ffffff"
+                        strokeWidth="0.4"
+                      />
+                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                    </g>
                   </g>
-                  {/* 4 Circular Socket Cups */}
+
+                  {/* 4 3D Recessed Gold Socket Pedestals */}
                   {YARD_PAWN_SLOTS.green.map((slot, i) => (
-                    <g key={`gy-${i}`}>
-                      <circle
-                        cx={slot[1] * 40}
-                        cy={slot[0] * 40}
-                        r="22"
-                        fill="#042613"
-                        stroke="#10b981"
-                        strokeWidth="1.8"
-                        filter="url(#recessedSaucerShadow)"
-                      />
-                      <circle
-                        cx={slot[1] * 40}
-                        cy={slot[0] * 40}
-                        r="14"
-                        fill="#02140a"
-                        opacity="0.95"
-                      />
+                    <g key={`gy-${i}`} filter="url(#pedestalRingShadow)">
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="23" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="21" fill="#02140a" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="1" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="3" fill="url(#goldMetallicGradient)" />
                     </g>
                   ))}
                 </g>
 
                 {/* Yellow Yard (Bottom-Right in base coordinates) */}
                 <g>
-                  <rect x="360" y="360" width="224" height="224" rx="24" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                  <rect x="360" y="360" width="224" height="224" rx="24" fill="none" stroke="#f59e0b" strokeWidth="1.5" opacity="0.8" filter="url(#neonGlowGold)" />
-                  {/* Glowing Neon Gold Heart (counter-rotated to stay upright) */}
-                  <g transform={`translate(472, 472) rotate(${-boardRotation}) scale(1.4)`}>
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="rgba(251, 191, 36, 0.08)"
-                      stroke="#fbbf24"
-                      strokeWidth="3.5"
-                      filter="url(#neonGlowGold)"
-                    />
-                    <path
-                      d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                      fill="none"
-                      stroke="#ffffff"
-                      strokeWidth="1.2"
-                      opacity="0.9"
-                    />
-                  </g>
-                  {/* 4 Circular Socket Cups */}
-                  {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
-                    <g key={`yy-${i}`}>
-                      <circle
-                        cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="22"
-                      fill="#362002"
-                      stroke="#f59e0b"
-                      strokeWidth="1.8"
-                      filter="url(#recessedSaucerShadow)"
-                    />
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="14"
-                      fill="#1c1001"
-                      opacity="0.95"
-                    />
-                  </g>
-                ))}
-              </g>
+                  <rect x="360" y="360" width="224" height="224" rx="24" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="364" y="364" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="367" y="367" width="210" height="210" rx="17" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  {/* Concentric ornamental quadrant arcs */}
+                  <circle cx="472" cy="472" r="82" fill="none" stroke="#f59e0b" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="472" cy="472" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
 
-              {/* 2. TRACK CELLS (52 Ivory Travertine Marble Tiles with Clean Engraved Stars) */}
+                  {/* Glowing Royal Gold Heart Crest with Crown */}
+                  <g transform={`translate(472, 472) rotate(${-boardRotation})`}>
+                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
+                    <circle cx="0" cy="0" r="33" fill="none" stroke="#fbbf24" strokeWidth="1.2" opacity="0.5" />
+                    <g transform="scale(1.45)">
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="rgba(251, 191, 36, 0.15)"
+                        stroke="#fbbf24"
+                        strokeWidth="3.2"
+                        filter="url(#neonGlowGold)"
+                      />
+                      <path
+                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="1.2"
+                        opacity="0.9"
+                      />
+                      {/* Imperial Crown atop Heart */}
+                      <path
+                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
+                        fill="url(#goldMetallicGradient)"
+                        stroke="#ffffff"
+                        strokeWidth="0.4"
+                      />
+                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                    </g>
+                  </g>
+
+                  {/* 4 3D Recessed Gold Socket Pedestals */}
+                  {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
+                    <g key={`yy-${i}`} filter="url(#pedestalRingShadow)">
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="23" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="21" fill="#1c1001" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="1" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="3" fill="url(#goldMetallicGradient)" />
+                    </g>
+                  ))}
+                </g>
+
+              {/* 2. TRACK CELLS (52 Ivory Travertine Marble Tiles with Embossed 3D Golden Safe Stars) */}
               {RING_COORDS.map(([r, c], idx) => {
                 const isSafe = SAFE_STAR_TILES.has(idx);
                 const isRedStart = idx === 0;
@@ -1469,10 +1531,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 let fill = 'url(#marbleTileGrad)';
                 let stroke = '#c8bcab';
 
-                if (isRedStart) { fill = 'url(#rubyTileGrad)'; stroke = '#fda4af'; }
-                else if (isBlueStart) { fill = 'url(#sapphireTileGrad)'; stroke = '#93c5fd'; }
-                else if (isYellowStart) { fill = 'url(#amberTileGrad)'; stroke = '#fde047'; }
-                else if (isGreenStart) { fill = 'url(#emeraldTileGrad)'; stroke = '#86efac'; }
+                if (isRedStart) { fill = 'url(#rubyTileGrad)'; stroke = '#f43f5e'; }
+                else if (isBlueStart) { fill = 'url(#sapphireTileGrad)'; stroke = '#3b82f6'; }
+                else if (isYellowStart) { fill = 'url(#amberTileGrad)'; stroke = '#eab308'; }
+                else if (isGreenStart) { fill = 'url(#emeraldTileGrad)'; stroke = '#10b981'; }
 
                 const tileX = c * 40 + 2;
                 const tileY = r * 40 + 2;
@@ -1486,158 +1548,271 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       height="36"
                       fill={fill}
                       stroke={stroke}
-                      strokeWidth="0.8"
-                      rx="4"
+                      strokeWidth="1"
+                      rx="5"
                     />
 
                     {/* Subtle top inner bevel highlight on marble tiles */}
                     {!isRedStart && !isBlueStart && !isYellowStart && !isGreenStart && (
-                      <line
-                        x1={tileX + 3}
-                        y1={tileY + 2}
-                        x2={tileX + 33}
-                        y2={tileY + 2}
-                        stroke="#ffffff"
-                        strokeWidth="0.8"
-                        opacity="0.75"
+                      <>
+                        <line
+                          x1={tileX + 3}
+                          y1={tileY + 2.5}
+                          x2={tileX + 33}
+                          y2={tileY + 2.5}
+                          stroke="#ffffff"
+                          strokeWidth="0.8"
+                          opacity="0.8"
+                        />
+                        <rect
+                          x={tileX + 3}
+                          y={tileY + 3}
+                          width="30"
+                          height="30"
+                          fill="none"
+                          stroke="rgba(0,0,0,0.06)"
+                          strokeWidth="0.5"
+                          rx="3"
+                        />
+                      </>
+                    )}
+
+                    {/* Start tile golden royal emblem badge */}
+                    {(isRedStart || isBlueStart || isYellowStart || isGreenStart) && (
+                      <circle
+                        cx={tileX + 18}
+                        cy={tileY + 18}
+                        r="14"
+                        fill="none"
+                        stroke="url(#goldMetallicGradient)"
+                        strokeWidth="1"
+                        opacity="0.6"
                       />
                     )}
 
-                    {/* Clean engraved 5-point star on safe tiles (NO circles, exactly matching reference image) */}
+                    {/* Gleaming 3D Embossed Golden Star on Safe Haven Tiles */}
                     {isSafe && (
-                      <polygon
-                        points="18,5 21.5,13.5 30.5,14.5 24,20.5 26,29.5 18,25 10,29.5 12,20.5 5.5,14.5 14.5,13.5"
-                        transform={`translate(${tileX}, ${tileY}) scale(1)`}
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="1.8"
-                        strokeLinejoin="round"
-                        opacity="0.95"
-                      />
+                      <g transform={`translate(${tileX}, ${tileY})`}>
+                        {/* Golden celestial radiance glow */}
+                        <circle cx="18" cy="18" r="14" fill="url(#starGoldGlow)" opacity="0.35" />
+                        {/* Drop shadow star */}
+                        <polygon
+                          points="18,5 21.5,13.5 30.5,14.5 24,20.5 26,29.5 18,25 10,29.5 12,20.5 5.5,14.5 14.5,13.5"
+                          transform="translate(0, 1.2)"
+                          fill="#451a03"
+                          opacity="0.5"
+                        />
+                        {/* 3D 24K Gold Embossed Star Body */}
+                        <polygon
+                          points="18,5 21.5,13.5 30.5,14.5 24,20.5 26,29.5 18,25 10,29.5 12,20.5 5.5,14.5 14.5,13.5"
+                          fill="url(#goldMetallicGradient)"
+                          stroke="#fffbeb"
+                          strokeWidth="1"
+                          strokeLinejoin="round"
+                        />
+                        {/* Internal golden star facets */}
+                        <polygon
+                          points="18,18 18,5 21.5,13.5"
+                          fill="#ffffff"
+                          opacity="0.4"
+                        />
+                        <polygon
+                          points="18,18 30.5,14.5 24,20.5"
+                          fill="#78350f"
+                          opacity="0.3"
+                        />
+                        <polygon
+                          points="18,18 26,29.5 18,25"
+                          fill="#78350f"
+                          opacity="0.3"
+                        />
+                        <polygon
+                          points="18,18 10,29.5 12,20.5"
+                          fill="#ffffff"
+                          opacity="0.35"
+                        />
+                        <polygon
+                          points="18,18 5.5,14.5 14.5,13.5"
+                          fill="#ffffff"
+                          opacity="0.45"
+                        />
+                        {/* Central sparkling gem pip */}
+                        <circle cx="18" cy="18" r="2.2" fill="#ffffff" filter="url(#goldGlowFilter)" />
+                      </g>
                     )}
                   </g>
                 );
               })}
 
-              {/* 3. HOME RUNWAYS (Saturated Beveled Colored Stone Tiles) */}
-              {HOME_PATHS.red.map(([r, c], idx) => (
-                <g key={`rhp-${idx}`} filter="url(#tile3DShadow)">
-                  <rect
-                    x={c * 40 + 2}
-                    y={r * 40 + 2}
-                    width="36"
-                    height="36"
-                    fill="url(#rubyTileGrad)"
-                    stroke="#fda4af"
-                    strokeWidth="0.8"
-                    rx="4"
-                  />
-                  <line
-                    x1={c * 40 + 5}
-                    y1={r * 40 + 3}
-                    x2={c * 40 + 33}
-                    y2={r * 40 + 3}
-                    stroke="#ffffff"
-                    strokeWidth="0.8"
-                    opacity="0.6"
-                  />
-                </g>
-              ))}
+              {/* 3. HOME RUNWAYS (Directional Jeweled Runway Tiles with Golden Chevrons) */}
+              {/* Red Home Runway (Points Right: -> towards center) */}
+              {HOME_PATHS.red.map(([r, c], idx) => {
+                const tileX = c * 40 + 2;
+                const tileY = r * 40 + 2;
+                return (
+                  <g key={`rhp-${idx}`} filter="url(#tile3DShadow)">
+                    <rect
+                      x={tileX}
+                      y={tileY}
+                      width="36"
+                      height="36"
+                      fill="url(#rubyTileGrad)"
+                      stroke="#fb7185"
+                      strokeWidth="1"
+                      rx="5"
+                    />
+                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                    {/* Golden Directional Chevron pointing toward Center (Right) */}
+                    <path
+                      d={`M ${tileX + 14} ${tileY + 11} L ${tileX + 22} ${tileY + 18} L ${tileX + 14} ${tileY + 25}`}
+                      fill="none"
+                      stroke="url(#goldMetallicGradient)"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={0.45 + idx * 0.12}
+                    />
+                  </g>
+                );
+              })}
 
-              {HOME_PATHS.blue.map(([r, c], idx) => (
-                <g key={`bhp-${idx}`} filter="url(#tile3DShadow)">
-                  <rect
-                    x={c * 40 + 2}
-                    y={r * 40 + 2}
-                    width="36"
-                    height="36"
-                    fill="url(#sapphireTileGrad)"
-                    stroke="#93c5fd"
-                    strokeWidth="0.8"
-                    rx="4"
-                  />
-                  <line
-                    x1={c * 40 + 5}
-                    y1={r * 40 + 3}
-                    x2={c * 40 + 33}
-                    y2={r * 40 + 3}
-                    stroke="#ffffff"
-                    strokeWidth="0.8"
-                    opacity="0.6"
-                  />
-                </g>
-              ))}
+              {/* Blue Home Runway (Points Down: v towards center) */}
+              {HOME_PATHS.blue.map(([r, c], idx) => {
+                const tileX = c * 40 + 2;
+                const tileY = r * 40 + 2;
+                return (
+                  <g key={`bhp-${idx}`} filter="url(#tile3DShadow)">
+                    <rect
+                      x={tileX}
+                      y={tileY}
+                      width="36"
+                      height="36"
+                      fill="url(#sapphireTileGrad)"
+                      stroke="#60a5fa"
+                      strokeWidth="1"
+                      rx="5"
+                    />
+                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                    {/* Golden Directional Chevron pointing toward Center (Down) */}
+                    <path
+                      d={`M ${tileX + 11} ${tileY + 14} L ${tileX + 18} ${tileY + 22} L ${tileX + 25} ${tileY + 14}`}
+                      fill="none"
+                      stroke="url(#goldMetallicGradient)"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={0.45 + idx * 0.12}
+                    />
+                  </g>
+                );
+              })}
 
-              {HOME_PATHS.yellow.map(([r, c], idx) => (
-                <g key={`yhp-${idx}`} filter="url(#tile3DShadow)">
-                  <rect
-                    x={c * 40 + 2}
-                    y={r * 40 + 2}
-                    width="36"
-                    height="36"
-                    fill="url(#amberTileGrad)"
-                    stroke="#fde047"
-                    strokeWidth="0.8"
-                    rx="4"
-                  />
-                  <line
-                    x1={c * 40 + 5}
-                    y1={r * 40 + 3}
-                    x2={c * 40 + 33}
-                    y2={r * 40 + 3}
-                    stroke="#ffffff"
-                    strokeWidth="0.8"
-                    opacity="0.6"
-                  />
-                </g>
-              ))}
+              {/* Yellow Home Runway (Points Left: <- towards center) */}
+              {HOME_PATHS.yellow.map(([r, c], idx) => {
+                const tileX = c * 40 + 2;
+                const tileY = r * 40 + 2;
+                return (
+                  <g key={`yhp-${idx}`} filter="url(#tile3DShadow)">
+                    <rect
+                      x={tileX}
+                      y={tileY}
+                      width="36"
+                      height="36"
+                      fill="url(#amberTileGrad)"
+                      stroke="#facc15"
+                      strokeWidth="1"
+                      rx="5"
+                    />
+                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                    {/* Golden Directional Chevron pointing toward Center (Left) */}
+                    <path
+                      d={`M ${tileX + 22} ${tileY + 11} L ${tileX + 14} ${tileY + 18} L ${tileX + 22} ${tileY + 25}`}
+                      fill="none"
+                      stroke="url(#goldMetallicGradient)"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={0.45 + idx * 0.12}
+                    />
+                  </g>
+                );
+              })}
 
-              {HOME_PATHS.green.map(([r, c], idx) => (
-                <g key={`ghp-${idx}`} filter="url(#tile3DShadow)">
-                  <rect
-                    x={c * 40 + 2}
-                    y={r * 40 + 2}
-                    width="36"
-                    height="36"
-                    fill="url(#emeraldTileGrad)"
-                    stroke="#86efac"
-                    strokeWidth="0.8"
-                    rx="4"
-                  />
-                  <line
-                    x1={c * 40 + 5}
-                    y1={r * 40 + 3}
-                    x2={c * 40 + 33}
-                    y2={r * 40 + 3}
-                    stroke="#ffffff"
-                    strokeWidth="0.8"
-                    opacity="0.6"
-                  />
-                </g>
-              ))}
+              {/* Green Home Runway (Points Up: ^ towards center) */}
+              {HOME_PATHS.green.map(([r, c], idx) => {
+                const tileX = c * 40 + 2;
+                const tileY = r * 40 + 2;
+                return (
+                  <g key={`ghp-${idx}`} filter="url(#tile3DShadow)">
+                    <rect
+                      x={tileX}
+                      y={tileY}
+                      width="36"
+                      height="36"
+                      fill="url(#emeraldTileGrad)"
+                      stroke="#4ade80"
+                      strokeWidth="1"
+                      rx="5"
+                    />
+                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                    {/* Golden Directional Chevron pointing toward Center (Up) */}
+                    <path
+                      d={`M ${tileX + 11} ${tileY + 22} L ${tileX + 18} ${tileY + 14} L ${tileX + 25} ${tileY + 22}`}
+                      fill="none"
+                      stroke="url(#goldMetallicGradient)"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity={0.45 + idx * 0.12}
+                    />
+                  </g>
+                );
+              })}
 
-              {/* 4. CENTER HOME TRIANGLES */}
-              <polygon points="240,240 300,300 240,360" fill="url(#rubyTileGrad)" stroke="#5c0d1c" strokeWidth="1" />
-              <polygon points="240,240 300,300 360,240" fill="url(#sapphireTileGrad)" stroke="#0d2b5c" strokeWidth="1" />
-              <polygon points="360,240 300,300 360,360" fill="url(#amberTileGrad)" stroke="#4a2e05" strokeWidth="1" />
-              <polygon points="240,360 300,300 360,360" fill="url(#emeraldTileGrad)" stroke="#08381c" strokeWidth="1" />
+              {/* 4. CENTER HOME TRIANGLES & IMPERIAL VICTORY SANCTUARY */}
+              <g filter="url(#trayInnerShadow)">
+                <polygon points="240,240 300,300 240,360" fill="url(#rubyTileGrad)" stroke="#4c0519" strokeWidth="1.2" />
+                <polygon points="240,240 300,300 360,240" fill="url(#sapphireTileGrad)" stroke="#082f49" strokeWidth="1.2" />
+                <polygon points="360,240 300,300 360,360" fill="url(#amberTileGrad)" stroke="#451a03" strokeWidth="1.2" />
+                <polygon points="240,360 300,300 360,360" fill="url(#emeraldTileGrad)" stroke="#022c22" strokeWidth="1.2" />
+              </g>
 
-              {/* Radiant Glowing Neon Red Heart at Center Convergence (counter-rotated) */}
-              <g transform={`translate(300, 298) rotate(${-boardRotation}) scale(1.5)`}>
-                <path
-                  d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                  fill="rgba(255, 23, 68, 0.2)"
-                  stroke="#ff1744"
-                  strokeWidth="4.5"
-                  filter="url(#neonGlowRedCenter)"
-                />
-                <path
-                  d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                  fill="none"
+              {/* 24K Gold Separator Struts between 4 Home Triangles */}
+              <line x1="240" y1="240" x2="360" y2="360" stroke="url(#goldMetallicGradient)" strokeWidth="2.4" strokeLinecap="round" />
+              <line x1="240" y1="360" x2="360" y2="240" stroke="url(#goldMetallicGradient)" strokeWidth="2.4" strokeLinecap="round" />
+
+              {/* Imperial Victory Medallion with Radiant Golden Rosette and Ruby Heart */}
+              <g transform={`translate(300, 300) rotate(${-boardRotation})`}>
+                {/* Outer Golden Rosette Ring */}
+                <circle cx="0" cy="0" r="38" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="2" opacity="0.8" />
+                <circle cx="0" cy="0" r="34" fill="none" stroke="#fbbf24" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.6" />
+                {/* 8-Point Golden Star Behind Heart */}
+                <polygon
+                  points="0,-32 8,-12 30,-12 14,3 20,24 0,12 -20,24 -14,3 -30,-12 -8,-12"
+                  fill="url(#goldMetallicGradient)"
                   stroke="#ffffff"
-                  strokeWidth="1.5"
-                  opacity="0.95"
+                  strokeWidth="0.6"
+                  opacity="0.85"
                 />
+                <circle cx="0" cy="0" r="22" fill="#180408" opacity="0.85" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" />
+
+                {/* Radiant Glowing Neon Ruby Heart */}
+                <g transform="translate(0, -2) scale(1.35)">
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="rgba(255, 23, 68, 0.3)"
+                    stroke="#ff1744"
+                    strokeWidth="3.6"
+                    filter="url(#neonGlowRedCenter)"
+                  />
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1.4"
+                    opacity="0.95"
+                  />
+                </g>
               </g>
 
               {/* 5. 3D EMBOSSED LUXURY PAWNS WITH REALISTIC SHADOWS */}
