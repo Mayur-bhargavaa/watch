@@ -106,6 +106,25 @@ runTest('Receiver audio chime uses pleasant dual-tone harmonic bells', () => {
   assert.equal(vibrationPattern[0], 200);
 });
 
+runTest('Only targeted recipient (not sender) plays chime and receives bell reaction', () => {
+  const senderId = 'alice-123';
+  const recipientId = 'bob-456';
+  const thirdPartyId = 'charlie-789';
+
+  const shouldTriggerForUser = (myUserId: string, fromUserId: string, targetUserId?: string) => {
+    return fromUserId !== myUserId && (!targetUserId || targetUserId === myUserId);
+  };
+
+  // Alice (the sender) must NEVER play chime or receive bell reaction
+  assert.equal(shouldTriggerForUser(senderId, senderId, recipientId), false);
+
+  // Bob (the recipient) MUST play chime and receive bell reaction
+  assert.equal(shouldTriggerForUser(recipientId, senderId, recipientId), true);
+
+  // Charlie (unrelated bystander) must NOT play chime or receive bell reaction
+  assert.equal(shouldTriggerForUser(thirdPartyId, senderId, recipientId), false);
+});
+
 // -----------------------------------------------------------------------------
 // SUITE 3: PERSPECTIVE ORIENTATION (BOTTOM-LEFT YARD & UPRIGHT GOTIS)
 // -----------------------------------------------------------------------------

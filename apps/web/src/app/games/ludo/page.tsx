@@ -321,11 +321,10 @@ function LudoPageContent() {
 
   const handleNudgePlayer = useCallback((targetUserId?: string, targetDisplayName?: string) => {
     sendNudge(targetUserId);
-    sendReaction('🔔');
     const name = targetDisplayName || 'Partner';
     setNudgeFeedback(`Nudged ${name}! 🔔`);
     setTimeout(() => setNudgeFeedback(null), 3500);
-  }, [sendNudge, sendReaction]);
+  }, [sendNudge]);
 
   // WebRTC Audio / Video Call hook for In-Game Calling
   const effectiveUserId = myPlayer?.userId || session?.user?.id || (typeof window !== 'undefined' ? getStoredSession()?.user?.id : '') || '';

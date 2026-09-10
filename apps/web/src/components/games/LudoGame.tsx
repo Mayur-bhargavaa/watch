@@ -368,6 +368,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     } catch (e) {}
   };
 
+  // Visual feedback when sender taps nudge
+  const [justNudged, setJustNudged] = useState(false);
+
   // Map players by color
   const playerByColor = useMemo(() => {
     const map: Partial<Record<LudoColor, GameRoomPlayer>> = {};
@@ -1045,7 +1048,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               e.stopPropagation();
               if (!isMe) {
                 onNudgePlayer?.(p.userId, p.displayName);
-                playSound('nudge');
               }
             }}
             title={!isMe ? `Nudge ${p.displayName}` : undefined}
@@ -1990,10 +1992,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   } else if (canMove) {
                     // choosing goti
                   } else {
-                    // Friendly nudge
+                    // Friendly nudge (notifies only recipient)
                     onNudgePlayer?.(turnPlayer?.userId, turnPlayer?.displayName);
-                    onSendReaction?.('🔔');
-                    playSound('nudge');
+                    setJustNudged(true);
+                    setTimeout(() => setJustNudged(false), 2500);
                   }
                 }}
                 className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer active:scale-95 ${
@@ -2003,6 +2005,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     ? 'bg-gradient-to-br from-[#ff2e79] via-[#e11d48] to-[#9f1239] shadow-[0_0_25px_rgba(255,46,121,0.6),0_10px_25px_rgba(0,0,0,0.6)] border-2 border-rose-300/40'
                     : gameState.winnerColor
                     ? 'bg-gradient-to-br from-[#f59e0b] via-[#d97706] to-[#b45309] shadow-[0_0_25px_rgba(245,158,11,0.7)] border-2 border-amber-300/60 animate-bounce'
+                    : justNudged
+                    ? 'bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 shadow-[0_0_25px_rgba(16,185,129,0.7)] border-2 border-emerald-300/60'
                     : 'bg-gradient-to-br from-[#e11d48]/70 via-[#9f1239]/70 to-[#50071c]/80 shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/20 hover:brightness-110'
                 }`}
               >
@@ -2014,7 +2018,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
               {/* Bold Glowing Label */}
               <span className={`text-[11px] sm:text-xs font-black tracking-widest uppercase drop-shadow-[0_0_8px_rgba(255,46,121,0.7)] ${
-                canRoll ? 'text-rose-300 animate-pulse' : canMove ? 'text-amber-300' : 'text-white/80'
+                canRoll
+                  ? 'text-rose-300 animate-pulse'
+                  : canMove
+                  ? 'text-amber-300'
+                  : justNudged
+                  ? 'text-emerald-300 animate-pulse'
+                  : 'text-white/80'
               }`}>
                 {gameState.winnerColor
                   ? 'REMATCH'
@@ -2024,6 +2034,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   ? 'CHOOSE GOTI'
                   : isMyTurn
                   ? 'YOUR TURN'
+                  : justNudged
+                  ? 'NUDGED! 🔔'
                   : 'NUDGE'}
               </span>
             </div>

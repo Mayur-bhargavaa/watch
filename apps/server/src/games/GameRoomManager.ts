@@ -626,7 +626,7 @@ export class GameRoomManager {
             targetUserId: msg.payload?.targetUserId,
             timestamp: Date.now()
           }
-        });
+        }, client.userId);
         break;
 
       case 'game:leave':

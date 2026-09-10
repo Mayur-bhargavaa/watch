@@ -571,7 +571,6 @@ function FourInARowContent() {
   // Nudge opponent in-game
   const handleNudgePlayer = (targetUserId?: string, targetName?: string) => {
     sendNudge(targetUserId);
-    triggerSound('nudge');
     setNudgeFeedback(`🔔 Nudged ${targetName || 'opponent'}!`);
     setTimeout(() => setNudgeFeedback(null), 3000);
   };

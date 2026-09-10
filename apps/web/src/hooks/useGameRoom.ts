@@ -122,6 +122,8 @@ export function useGameRoom(roomCode: string | null) {
   const hasTerminalErrorRef = useRef(false);
   const isUnmountedRef = useRef(false);
   const lastChatSendRef = useRef<number>(0);
+  const myUserIdRef = useRef<string>('');
+  const handleMessageRef = useRef<((msg: any) => void) | null>(null);
 
   // WebRTC & Audio/Video Call Listeners
   const signalListenersRef = useRef<Set<(fromUserId: string, signal: any) => void>>(new Set());
@@ -156,6 +158,7 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       setMyUserId(session.user.id);
+      myUserIdRef.current = session.user.id;
 
       // Build websocket URL
       let wsUrl = `${WS_BASE}/ws/games/${encodeURIComponent(roomCode.toUpperCase())}`;
@@ -178,7 +181,7 @@ export function useGameRoom(roomCode: string | null) {
         if (isUnmountedRef.current) return;
         try {
           const msg = JSON.parse(event.data);
-          handleMessage(msg);
+          handleMessageRef.current?.(msg);
         } catch (e) {
           console.error('Failed to parse game message:', e);
         }
@@ -209,6 +212,7 @@ export function useGameRoom(roomCode: string | null) {
   }, [roomCode]);
 
   const handleMessage = (msg: any) => {
+    handleMessageRef.current = handleMessage;
     switch (msg.type) {
       case 'game:sync': {
         const payload = msg.payload;
@@ -237,6 +241,7 @@ export function useGameRoom(roomCode: string | null) {
         }
         if (payload.myUserId) {
           setMyUserId(payload.myUserId);
+          myUserIdRef.current = payload.myUserId;
         }
         break;
       }
@@ -323,7 +328,11 @@ export function useGameRoom(roomCode: string | null) {
 
       case 'game:nudge': {
         const { fromDisplayName, fromUserId, targetUserId } = msg.payload;
-        if (!targetUserId || targetUserId === myUserId) {
+        const currentUserId = myUserIdRef.current || myUserId;
+        const isFromMe = Boolean(currentUserId && fromUserId === currentUserId);
+        const isTargetedToMe = !targetUserId || (Boolean(currentUserId) && targetUserId === currentUserId);
+
+        if (!isFromMe && isTargetedToMe) {
           playNudgeChime();
           try {
             if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -331,10 +340,6 @@ export function useGameRoom(roomCode: string | null) {
             }
           } catch (e) {}
 
-          setNudgeAlert({
-            fromDisplayName: fromDisplayName || 'Partner',
-            timestamp: Date.now()
-          });
           const reaction: FloatingReaction = {
             id: `react_${Date.now()}_${Math.random()}`,
             userId: fromUserId,
