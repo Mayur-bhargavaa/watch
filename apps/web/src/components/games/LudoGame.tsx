@@ -803,33 +803,32 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       group.forEach((item, indexInGroup) => {
         const [baseX, baseY] = getStepCoordinates(item.color, item.step, item.token.id);
 
-        // Base scale factor so luxury figurine (crown to base) fits 100% inside 40px tile
-        const PAWN_BASE_SCALE = 0.70;
+        // Base scale factor so luxury figurine fits circle and tile like a glove
+        const PAWN_BASE_SCALE = 0.82;
         let scale = PAWN_BASE_SCALE;
         let offsetX = 0;
         let offsetY = 0;
 
         if (count > 1 && item.step >= 0) {
-          const multiScale = count > 2 ? 0.76 : 0.86;
+          const multiScale = count > 2 ? 0.68 : 0.78;
           scale = PAWN_BASE_SCALE * multiScale;
           if (count === 2) {
-            offsetX = indexInGroup === 0 ? -6 : 6;
+            offsetX = indexInGroup === 0 ? -6.5 : 6.5;
             offsetY = 0;
           } else if (count === 3) {
-            if (indexInGroup === 0) { offsetX = -6; offsetY = -3; }
-            else if (indexInGroup === 1) { offsetX = 6; offsetY = -3; }
-            else { offsetX = 0; offsetY = 3; }
+            if (indexInGroup === 0) { offsetX = -6.5; offsetY = -3.5; }
+            else if (indexInGroup === 1) { offsetX = 6.5; offsetY = -3.5; }
+            else { offsetX = 0; offsetY = 3.5; }
           } else {
-            offsetX = indexInGroup % 2 === 0 ? -5.5 : 5.5;
-            offsetY = indexInGroup < 2 ? -3 : 3;
+            offsetX = indexInGroup % 2 === 0 ? -6 : 6;
+            offsetY = indexInGroup < 2 ? -3.5 : 3.5;
           }
         }
 
         const finalX = baseX + offsetX;
-        // Anchor vertical position so the pawn figurine's base rests naturally in the lower tile floor,
-        // leaving the crown comfortably inside the top border with zero overflow into adjacent rows/yards.
-        const groundAnchorOffset = item.step === -1 ? 4 : (item.step === 56 ? 0 : 7);
-        const groundY = baseY + offsetY + groundAnchorOffset;
+        // Figurine visual center is calibrated at (0, 0), so (baseX, baseY) centers
+        // it exactly within the yard socket circles and within board tiles.
+        const groundY = baseY + offsetY;
 
         pawns.push({
           token: item.token,
@@ -1969,7 +1968,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     >
                       <ellipse
                         cx={0}
-                        cy={2 * (scale / 0.70)}
+                        cy={16.5 * scale}
                         rx={(isHopping ? 16 : 14) * scale}
                         ry={(isHopping ? 7.5 : 5.8) * scale}
                         fill="#000000"
@@ -1979,7 +1978,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       />
                       <ellipse
                         cx={0}
-                        cy={2 * (scale / 0.70)}
+                        cy={16.5 * scale}
                         rx={11 * scale}
                         ry={4.5 * scale}
                         fill="#000000"
@@ -1994,7 +1993,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <g transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}>
                         <ellipse
                           cx={0}
-                          cy={2 * (scale / 0.70)}
+                          cy={16.5 * scale}
                           rx={16 * scale}
                           ry={7.2 * scale}
                           fill={cfg.fill}
@@ -2007,7 +2006,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                         <ellipse
                           cx={0}
-                          cy={2 * (scale / 0.70)}
+                          cy={16.5 * scale}
                           rx={15 * scale}
                           ry={6.8 * scale}
                           fill="none"
@@ -2022,9 +2021,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       </g>
                     )}
 
-                    {/* C. 3D Luxury Figurine Pawn Body (counter-rotated to stay perfectly upright & hopped straight up into the air) */}
+                    {/* C. 3D Luxury Figurine Pawn Body (centered in circle & hopped straight up into the air) */}
                     <g
-                      transform={`translate(${x}, ${groundY}) rotate(${-boardRotation}) translate(0, ${isHopping ? -12 : 0}) scale(${scale})`}
+                      transform={`translate(${x}, ${groundY}) rotate(${-boardRotation}) translate(0, ${isHopping ? -14 : 0}) scale(${scale}) translate(0, 14.5)`}
                       style={{
                         transition: isHopping
                           ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)'
