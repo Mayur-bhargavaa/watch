@@ -421,10 +421,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
   // Corner pods dynamically positioned floating prominently out from the board corners matching reference design
   const CORNER_CLASSES: Record<number, { className: string; side: 'left' | 'right' }> = {
-    0: { className: 'absolute -top-6 sm:-top-8 -left-4 sm:-left-6 z-30 pointer-events-auto', side: 'left' },
-    1: { className: 'absolute -top-6 sm:-top-8 -right-4 sm:-right-6 z-30 pointer-events-auto', side: 'right' },
-    2: { className: 'absolute -bottom-6 sm:-bottom-8 -right-4 sm:-right-6 z-30 pointer-events-auto', side: 'right' },
-    3: { className: 'absolute -bottom-6 sm:-bottom-8 -left-4 sm:-left-6 z-30 pointer-events-auto', side: 'left' }
+    0: { className: 'absolute -top-8 sm:-top-10 -left-6 sm:-left-8 z-30 pointer-events-auto', side: 'left' },
+    1: { className: 'absolute -top-8 sm:-top-10 -right-6 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
+    2: { className: 'absolute -bottom-8 sm:-bottom-10 -right-6 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
+    3: { className: 'absolute -bottom-8 sm:-bottom-10 -left-6 sm:-left-8 z-30 pointer-events-auto', side: 'left' }
   };
 
   const ORIG_CORNER_INDEX: Record<LudoColor, number> = {
@@ -1235,7 +1235,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
       {/* Board & Player Ribbons Container - Perfectly sized to fit screen without scrolling */}
       <div
-        className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-4 sm:my-6"
+        className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-5 sm:my-7 px-5 sm:px-8"
       >
 
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
