@@ -419,12 +419,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     }
   }, [myColor]);
 
-  // Corner pods mapped to their physical screen corner under board rotation
+  // Corner pods neatly docked inside their physical screen corner
   const CORNER_CLASSES: Record<number, { className: string; side: 'left' | 'right' }> = {
-    0: { className: 'absolute -top-4 sm:-top-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' },
-    1: { className: 'absolute -top-4 sm:-top-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
-    2: { className: 'absolute -bottom-4 sm:-bottom-5 -right-2 sm:-right-3 z-30 pointer-events-auto', side: 'right' },
-    3: { className: 'absolute -bottom-4 sm:-bottom-5 -left-2 sm:-left-3 z-30 pointer-events-auto', side: 'left' }
+    0: { className: 'absolute top-1 sm:top-1.5 left-1 sm:left-1.5 z-30 pointer-events-auto', side: 'left' },
+    1: { className: 'absolute top-1 sm:top-1.5 right-1 sm:right-1.5 z-30 pointer-events-auto', side: 'right' },
+    2: { className: 'absolute bottom-1 sm:bottom-1.5 right-1 sm:right-1.5 z-30 pointer-events-auto', side: 'right' },
+    3: { className: 'absolute bottom-1 sm:bottom-1.5 left-1 sm:left-1.5 z-30 pointer-events-auto', side: 'left' }
   };
 
   const ORIG_CORNER_INDEX: Record<LudoColor, number> = {
@@ -1275,8 +1275,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
           {/* SVG Board Container with Luxury Frame matching reference image */}
           <svg
-            viewBox="0 0 600 600"
-            className="w-full h-full rounded-[26px] overflow-visible shadow-[inset_0_0_25px_rgba(0,0,0,0.9)] border border-[#2b2535]"
+            viewBox="-16 -16 632 632"
+            className="w-full h-full rounded-[26px] overflow-hidden shadow-[inset_0_0_25px_rgba(0,0,0,0.9)] border border-[#2b2535]"
             style={{ shapeRendering: 'geometricPrecision' }}
           >
               <defs>
@@ -1463,16 +1463,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </defs>
 
               {/* Board Base Surface: Dark Obsidian Slate with Dual Golden Inlay and Corner Filigree */}
-              <rect width="600" height="600" fill="#0b0d14" />
-              <rect x="4" y="4" width="592" height="592" rx="26" fill="#131622" stroke="#2c2838" strokeWidth="2" />
-              <rect x="10" y="10" width="580" height="580" rx="22" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" opacity="0.85" />
-              <rect x="14" y="14" width="572" height="572" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="5, 4" opacity="0.6" />
+              <rect x="-16" y="-16" width="632" height="632" rx="26" fill="#0b0d14" />
+              <rect x="-12" y="-12" width="624" height="624" rx="22" fill="#131622" stroke="#2c2838" strokeWidth="2" />
+              <rect x="-6" y="-6" width="612" height="612" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" opacity="0.85" />
+              <rect x="-2" y="-2" width="604" height="604" rx="14" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="5, 4" opacity="0.6" />
 
               {/* 4 Ornate Golden Corner Filigree Brackets */}
-              <path d="M 12 36 L 12 24 A 12 12 0 0 1 24 12 L 36 12 M 16 32 L 16 26 A 10 10 0 0 1 26 16 L 32 16" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
-              <path d="M 588 36 L 588 24 A 12 12 0 0 0 576 12 L 564 12 M 584 32 L 584 26 A 10 10 0 0 0 574 16 L 568 16" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
-              <path d="M 12 564 L 12 576 A 12 12 0 0 0 24 588 L 36 588 M 16 568 L 16 574 A 10 10 0 0 0 26 584 L 32 584" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
-              <path d="M 588 564 L 588 576 A 12 12 0 0 1 576 588 L 564 588 M 584 568 L 584 574 A 10 10 0 0 1 574 584 L 568 584" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              <path d="M -4 20 L -4 8 A 12 12 0 0 1 8 -4 L 20 -4 M 0 16 L 0 10 A 10 10 0 0 1 10 0 L 16 0" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              <path d="M 604 20 L 604 8 A 12 12 0 0 0 592 -4 L 580 -4 M 600 16 L 600 10 A 10 10 0 0 0 590 0 L 584 0" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              <path d="M -4 580 L -4 592 A 12 12 0 0 0 8 604 L 20 604 M 0 584 L 0 590 A 10 10 0 0 0 10 600 L 16 600" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              <path d="M 604 580 L 604 592 A 12 12 0 0 1 592 604 L 580 604 M 600 584 L 600 590 A 10 10 0 0 1 590 600 L 584 600" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
 
               {/* Rotated Board Play Surface (active player yard always faces bottom-left) */}
               <g transform={boardRotation ? `rotate(${boardRotation}, 300, 300)` : undefined}>
