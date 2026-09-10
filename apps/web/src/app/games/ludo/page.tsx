@@ -1228,27 +1228,6 @@ function LudoPageContent() {
                   <span>{room.players.length} Players • {room.isPrivate ? 'Private Room' : 'Public Room'}</span>
                 </div>
               </div>
-
-              {/* Ambient Glowing Neon Signs matching reference background */}
-              <div className="hidden lg:flex flex-col gap-6 px-2 select-none">
-                <div className="p-4 rounded-3xl bg-black/40 border border-rose-500/20 backdrop-blur-xl shadow-2xl">
-                  <div className="text-2xl font-serif font-black text-rose-400 drop-shadow-[0_0_12px_rgba(255,46,121,0.8)]">
-                    Ludo ♡
-                  </div>
-                  <div className="text-[10px] font-black text-rose-200/70 tracking-widest uppercase mt-1">
-                    PLAY • LAUGH • STAY TOGETHER ♡
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-3xl bg-black/40 border border-sky-500/20 backdrop-blur-xl shadow-2xl">
-                  <div className="text-sm font-sans italic font-bold text-sky-300 drop-shadow-[0_0_10px_rgba(56,189,248,0.7)]">
-                    “Same Game, Different Hearts ♡”
-                  </div>
-                  <div className="text-[10px] font-mono text-zinc-400 mt-1">
-                    Distance means nothing when you play together.
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Center Column: The 3D Wooden Board with Flanking Cards & Bottom Controls */}
