@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   Trophy,
   Sparkles,
@@ -387,6 +387,11 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     }
     return map;
   }, [room.players, gameState.seats]);
+
+  // Helper to check if a color is active in the current match
+  const isColorInGame = useCallback((color: LudoColor) => {
+    return Boolean(playerByColor[color]);
+  }, [playerByColor]);
 
   const turnPlayer = playerByColor[gameState.currentTurnColor];
 
@@ -796,6 +801,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       color: LudoColor;
       isHopping: boolean;
       scale: number;
+      isInGame: boolean;
     }> = [];
 
     tileGroups.forEach((group) => {
@@ -838,7 +844,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           isMyColor: item.isMyColor,
           color: item.color,
           isHopping: item.isHopping,
-          scale
+          scale,
+          isInGame: isColorInGame(item.color)
         });
       });
     });
@@ -1058,9 +1065,32 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     const isMe = p?.userId === myPlayer?.userId;
     const isHost = p?.seat === 0;
 
-    if (!p) return null;
+    // Faded empty pod for colors/seats not in the current game
+    if (!p) {
+      return (
+        <div className={`relative flex items-center ${side === 'right' ? 'flex-row-reverse' : 'flex-row'} z-30 select-none opacity-30 hover:opacity-50 transition-opacity`}>
+          <div className="relative z-20 flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#0a0c16]/50 backdrop-blur-md border border-white/10 shadow-md">
+            <div
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-dashed flex items-center justify-center text-white/30 text-xs font-bold"
+              style={{ borderColor: `${cfg.neon}40`, backgroundColor: `${cfg.fill}15` }}
+            >
+              <span className="text-white/30 text-[10px] sm:text-xs">—</span>
+            </div>
+            <div className="flex flex-col min-w-0 pr-1">
+              <span className="font-semibold text-white/40 text-[10px] sm:text-[11px] tracking-wide">
+                Not in Game
+              </span>
+              <span className="text-[8px] sm:text-[9px] font-bold text-white/20 uppercase tracking-wider">
+                {color}
+              </span>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     const pStream = participantStreamsByUserId[p.userId];
+    const isDisconnected = !p.isConnected;
     
     // For local player (isMe), prioritize localUserStream and isCameraOn directly
     const activeStream = isMe ? (localUserStream || pStream?.stream) : pStream?.stream;
@@ -1084,7 +1114,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         {/* Floating Dark Glass Capsule matching reference UI */}
         <div
           className={`relative z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0a0c16]/85 backdrop-blur-xl border transition-all duration-300 shadow-[0_8px_25px_rgba(0,0,0,0.65)] ${
-            isCurrentTurn
+            isDisconnected
+              ? 'opacity-40 grayscale-[60%] border-rose-500/25'
+              : isCurrentTurn
               ? 'ring-2 border-white/40 scale-105'
               : 'border-white/15 hover:border-white/25'
           }`}
@@ -1143,11 +1175,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             <span className="font-bold text-white text-xs sm:text-sm tracking-wide truncate max-w-[80px] sm:max-w-[95px] drop-shadow-sm">
               {isMe ? 'You' : p.displayName}
             </span>
-            {isCurrentTurn && (
+            {isDisconnected ? (
+              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-400/90 leading-none flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
+                Offline
+              </span>
+            ) : isCurrentTurn ? (
               <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300/90 leading-none">
                 Turn
               </span>
-            )}
+            ) : null}
           </div>
 
           {/* Heart Icon with Neon Glow */}
@@ -1441,7 +1478,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               <g transform={boardRotation ? `rotate(${boardRotation}, 300, 300)` : undefined}>
                 {/* 1. YARDS (4 Luxury Royal Palace Chambers with 3D Pedestals & Illuminated Crests) */}
                 {/* Red Yard (Top-Left in base coordinates) */}
-                <g>
+                <g style={{ opacity: isColorInGame('red') ? 1 : 0.28, filter: isColorInGame('red') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="16" y="16" width="224" height="224" rx="24" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
                   <rect x="20" y="20" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
                   <rect x="23" y="23" width="210" height="210" rx="17" fill="none" stroke="#ff2e79" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
@@ -1492,7 +1529,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 </g>
 
                 {/* Blue Yard (Top-Right in base coordinates) */}
-                <g>
+                <g style={{ opacity: isColorInGame('blue') ? 1 : 0.28, filter: isColorInGame('blue') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="360" y="16" width="224" height="224" rx="24" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
                   <rect x="364" y="20" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
                   <rect x="367" y="23" width="210" height="210" rx="17" fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
@@ -1543,7 +1580,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 </g>
 
                 {/* Green Yard (Bottom-Left in base coordinates) */}
-                <g>
+                <g style={{ opacity: isColorInGame('green') ? 1 : 0.28, filter: isColorInGame('green') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="16" y="360" width="224" height="224" rx="24" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
                   <rect x="20" y="364" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
                   <rect x="23" y="367" width="210" height="210" rx="17" fill="none" stroke="#10b981" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
@@ -1594,7 +1631,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 </g>
 
                 {/* Yellow Yard (Bottom-Right in base coordinates) */}
-                <g>
+                <g style={{ opacity: isColorInGame('yellow') ? 1 : 0.28, filter: isColorInGame('yellow') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="360" y="360" width="224" height="224" rx="24" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
                   <rect x="364" y="364" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
                   <rect x="367" y="367" width="210" height="210" rx="17" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
@@ -1770,128 +1807,136 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
               {/* 3. HOME RUNWAYS (Directional Jeweled Runway Tiles with Golden Chevrons) */}
               {/* Red Home Runway (Points Right: -> towards center) */}
-              {HOME_PATHS.red.map(([r, c], idx) => {
-                const tileX = c * 40 + 2;
-                const tileY = r * 40 + 2;
-                return (
-                  <g key={`rhp-${idx}`} filter="url(#tile3DShadow)">
-                    <rect
-                      x={tileX}
-                      y={tileY}
-                      width="36"
-                      height="36"
-                      fill="url(#rubyTileGrad)"
-                      stroke="#fb7185"
-                      strokeWidth="1"
-                      rx="5"
-                    />
-                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
-                    {/* Golden Directional Chevron pointing toward Center (Right) */}
-                    <path
-                      d={`M ${tileX + 14} ${tileY + 11} L ${tileX + 22} ${tileY + 18} L ${tileX + 14} ${tileY + 25}`}
-                      fill="none"
-                      stroke="url(#goldMetallicGradient)"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={0.45 + idx * 0.12}
-                    />
-                  </g>
-                );
-              })}
+              <g style={{ opacity: isColorInGame('red') ? 1 : 0.25, transition: 'opacity 0.4s ease' }}>
+                {HOME_PATHS.red.map(([r, c], idx) => {
+                  const tileX = c * 40 + 2;
+                  const tileY = r * 40 + 2;
+                  return (
+                    <g key={`rhp-${idx}`} filter="url(#tile3DShadow)">
+                      <rect
+                        x={tileX}
+                        y={tileY}
+                        width="36"
+                        height="36"
+                        fill="url(#rubyTileGrad)"
+                        stroke="#fb7185"
+                        strokeWidth="1"
+                        rx="5"
+                      />
+                      <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                      {/* Golden Directional Chevron pointing toward Center (Right) */}
+                      <path
+                        d={`M ${tileX + 14} ${tileY + 11} L ${tileX + 22} ${tileY + 18} L ${tileX + 14} ${tileY + 25}`}
+                        fill="none"
+                        stroke="url(#goldMetallicGradient)"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity={0.45 + idx * 0.12}
+                      />
+                    </g>
+                  );
+                })}
+              </g>
 
               {/* Blue Home Runway (Points Down: v towards center) */}
-              {HOME_PATHS.blue.map(([r, c], idx) => {
-                const tileX = c * 40 + 2;
-                const tileY = r * 40 + 2;
-                return (
-                  <g key={`bhp-${idx}`} filter="url(#tile3DShadow)">
-                    <rect
-                      x={tileX}
-                      y={tileY}
-                      width="36"
-                      height="36"
-                      fill="url(#sapphireTileGrad)"
-                      stroke="#60a5fa"
-                      strokeWidth="1"
-                      rx="5"
-                    />
-                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
-                    {/* Golden Directional Chevron pointing toward Center (Down) */}
-                    <path
-                      d={`M ${tileX + 11} ${tileY + 14} L ${tileX + 18} ${tileY + 22} L ${tileX + 25} ${tileY + 14}`}
-                      fill="none"
-                      stroke="url(#goldMetallicGradient)"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={0.45 + idx * 0.12}
-                    />
-                  </g>
-                );
-              })}
+              <g style={{ opacity: isColorInGame('blue') ? 1 : 0.25, transition: 'opacity 0.4s ease' }}>
+                {HOME_PATHS.blue.map(([r, c], idx) => {
+                  const tileX = c * 40 + 2;
+                  const tileY = r * 40 + 2;
+                  return (
+                    <g key={`bhp-${idx}`} filter="url(#tile3DShadow)">
+                      <rect
+                        x={tileX}
+                        y={tileY}
+                        width="36"
+                        height="36"
+                        fill="url(#sapphireTileGrad)"
+                        stroke="#60a5fa"
+                        strokeWidth="1"
+                        rx="5"
+                      />
+                      <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                      {/* Golden Directional Chevron pointing toward Center (Down) */}
+                      <path
+                        d={`M ${tileX + 11} ${tileY + 14} L ${tileX + 18} ${tileY + 22} L ${tileX + 25} ${tileY + 14}`}
+                        fill="none"
+                        stroke="url(#goldMetallicGradient)"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity={0.45 + idx * 0.12}
+                      />
+                    </g>
+                  );
+                })}
+              </g>
 
               {/* Yellow Home Runway (Points Left: <- towards center) */}
-              {HOME_PATHS.yellow.map(([r, c], idx) => {
-                const tileX = c * 40 + 2;
-                const tileY = r * 40 + 2;
-                return (
-                  <g key={`yhp-${idx}`} filter="url(#tile3DShadow)">
-                    <rect
-                      x={tileX}
-                      y={tileY}
-                      width="36"
-                      height="36"
-                      fill="url(#amberTileGrad)"
-                      stroke="#facc15"
-                      strokeWidth="1"
-                      rx="5"
-                    />
-                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
-                    {/* Golden Directional Chevron pointing toward Center (Left) */}
-                    <path
-                      d={`M ${tileX + 22} ${tileY + 11} L ${tileX + 14} ${tileY + 18} L ${tileX + 22} ${tileY + 25}`}
-                      fill="none"
-                      stroke="url(#goldMetallicGradient)"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={0.45 + idx * 0.12}
-                    />
-                  </g>
-                );
-              })}
+              <g style={{ opacity: isColorInGame('yellow') ? 1 : 0.25, transition: 'opacity 0.4s ease' }}>
+                {HOME_PATHS.yellow.map(([r, c], idx) => {
+                  const tileX = c * 40 + 2;
+                  const tileY = r * 40 + 2;
+                  return (
+                    <g key={`yhp-${idx}`} filter="url(#tile3DShadow)">
+                      <rect
+                        x={tileX}
+                        y={tileY}
+                        width="36"
+                        height="36"
+                        fill="url(#amberTileGrad)"
+                        stroke="#facc15"
+                        strokeWidth="1"
+                        rx="5"
+                      />
+                      <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                      {/* Golden Directional Chevron pointing toward Center (Left) */}
+                      <path
+                        d={`M ${tileX + 22} ${tileY + 11} L ${tileX + 14} ${tileY + 18} L ${tileX + 22} ${tileY + 25}`}
+                        fill="none"
+                        stroke="url(#goldMetallicGradient)"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity={0.45 + idx * 0.12}
+                      />
+                    </g>
+                  );
+                })}
+              </g>
 
               {/* Green Home Runway (Points Up: ^ towards center) */}
-              {HOME_PATHS.green.map(([r, c], idx) => {
-                const tileX = c * 40 + 2;
-                const tileY = r * 40 + 2;
-                return (
-                  <g key={`ghp-${idx}`} filter="url(#tile3DShadow)">
-                    <rect
-                      x={tileX}
-                      y={tileY}
-                      width="36"
-                      height="36"
-                      fill="url(#emeraldTileGrad)"
-                      stroke="#4ade80"
-                      strokeWidth="1"
-                      rx="5"
-                    />
-                    <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
-                    {/* Golden Directional Chevron pointing toward Center (Up) */}
-                    <path
-                      d={`M ${tileX + 11} ${tileY + 22} L ${tileX + 18} ${tileY + 14} L ${tileX + 25} ${tileY + 22}`}
-                      fill="none"
-                      stroke="url(#goldMetallicGradient)"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity={0.45 + idx * 0.12}
-                    />
-                  </g>
-                );
-              })}
+              <g style={{ opacity: isColorInGame('green') ? 1 : 0.25, transition: 'opacity 0.4s ease' }}>
+                {HOME_PATHS.green.map(([r, c], idx) => {
+                  const tileX = c * 40 + 2;
+                  const tileY = r * 40 + 2;
+                  return (
+                    <g key={`ghp-${idx}`} filter="url(#tile3DShadow)">
+                      <rect
+                        x={tileX}
+                        y={tileY}
+                        width="36"
+                        height="36"
+                        fill="url(#emeraldTileGrad)"
+                        stroke="#4ade80"
+                        strokeWidth="1"
+                        rx="5"
+                      />
+                      <line x1={tileX + 3} y1={tileY + 2.5} x2={tileX + 33} y2={tileY + 2.5} stroke="#ffffff" strokeWidth="0.8" opacity="0.6" />
+                      {/* Golden Directional Chevron pointing toward Center (Up) */}
+                      <path
+                        d={`M ${tileX + 11} ${tileY + 22} L ${tileX + 18} ${tileY + 14} L ${tileX + 25} ${tileY + 22}`}
+                        fill="none"
+                        stroke="url(#goldMetallicGradient)"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity={0.45 + idx * 0.12}
+                      />
+                    </g>
+                  );
+                })}
+              </g>
 
               {/* 4. CENTER HOME TRIANGLES & IMPERIAL VICTORY SANCTUARY */}
               <g filter="url(#trayInnerShadow)">
@@ -1940,13 +1985,18 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </g>
 
               {/* 5. 3D EMBOSSED LUXURY PAWNS WITH REALISTIC SHADOWS */}
-              {renderedPawns.map(({ token, x, y, groundY, isLegal, isMyColor, color, isHopping, scale }) => {
+              {renderedPawns.map(({ token, x, y, groundY, isLegal, isMyColor, color, isHopping, scale, isInGame }) => {
                 const cfg = COLOR_CONFIG[color];
 
                 return (
                   <g
                     key={`pawn-${color}-${token.id}`}
                     className={isLegal ? 'cursor-pointer' : ''}
+                    style={{
+                      opacity: isInGame ? 1 : 0.26,
+                      filter: isInGame ? undefined : 'grayscale(60%)',
+                      transition: 'opacity 0.4s ease, filter 0.4s ease'
+                    }}
                     onClick={() => {
                       if (isLegal) {
                         if (autoMoveTimerRef.current) {
@@ -1971,7 +2021,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         rx={(isHopping ? 16 : 14) * scale}
                         ry={(isHopping ? 7.5 : 5.8) * scale}
                         fill="#000000"
-                        opacity={isHopping ? 0.12 : 0.40}
+                        opacity={isHopping ? 0.12 : (isInGame ? 0.40 : 0.08)}
                         filter="url(#castShadowBlur)"
                         style={{ transition: 'all 0.22s ease' }}
                       />
@@ -1981,7 +2031,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         rx={11 * scale}
                         ry={4.5 * scale}
                         fill="#000000"
-                        opacity={isHopping ? 0.18 : 0.58}
+                        opacity={isHopping ? 0.18 : (isInGame ? 0.58 : 0.12)}
                         filter="url(#contactShadowBlur)"
                         style={{ transition: 'all 0.22s ease' }}
                       />
@@ -2052,7 +2102,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
             {/* 4 Corner Player Pods dynamically placed according to board perspective rotation */}
             {(['red', 'blue', 'yellow', 'green'] as LudoColor[]).map((col) => {
-              if (!playerByColor[col]) return null;
               const corner = getPhysicalCorner(col);
               return (
                 <div key={`corner-${col}`} className={corner.className}>
