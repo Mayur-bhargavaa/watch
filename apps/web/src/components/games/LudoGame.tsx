@@ -460,6 +460,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         if (autoMoveTimerRef.current) clearTimeout(autoMoveTimerRef.current);
         // Wait 850ms so dice roll settles smoothly, then automatically move the single legal goti
         autoMoveTimerRef.current = setTimeout(() => {
+          setCenterDiceAnimation(null);
           onMoveToken(targetTokenId);
         }, 850);
       }
@@ -552,6 +553,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       };
     } else if (gameState.diceValue === null) {
       prevDiceValueRef.current = null;
+      setCenterDiceAnimation(null);
     }
   }, [gameState.diceValue, gameState.currentTurnColor]);
 
@@ -637,6 +639,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
     if (!movedPawnInfo) return;
 
+    setCenterDiceAnimation(null);
     const { color, tokenId, fromStep, toStep } = movedPawnInfo;
 
     // Case 1: Spawning from yard to start
@@ -1170,7 +1173,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
         <div className="relative w-full aspect-square rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
           {/* 3D Rolling Center Dice */}
-          {centerDiceAnimation && (
+          {centerDiceAnimation && gameState.diceValue !== null && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50">
               <div
                 className={`flex flex-col items-center justify-center ${
@@ -1919,6 +1922,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                           clearTimeout(autoMoveTimerRef.current);
                           autoMoveTimerRef.current = null;
                         }
+                        setCenterDiceAnimation(null);
                         onMoveToken(token.id);
                       }
                     }}
