@@ -436,6 +436,43 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     return CORNER_CLASSES[phys];
   };
 
+  // =========================================================================
+  // 1. CENTER 3D ROLLING DICE ANIMATION
+  // =========================================================================
+  const [centerDiceAnimation, setCenterDiceAnimation] = useState<{
+    phase: 'rolling' | 'settled' | 'vanishing';
+    displayValue: number;
+    finalValue: number;
+    color: LudoColor;
+  } | null>(null);
+
+  const prevDiceValueRef = useRef<number | null>(null);
+  const diceTimeoutsRef = useRef<{
+    cycle?: NodeJS.Timeout;
+    settle?: NodeJS.Timeout;
+    vanish?: NodeJS.Timeout;
+    finish?: NodeJS.Timeout;
+  }>({});
+
+  const clearDiceTimeouts = () => {
+    if (diceTimeoutsRef.current.cycle) clearInterval(diceTimeoutsRef.current.cycle);
+    if (diceTimeoutsRef.current.settle) clearTimeout(diceTimeoutsRef.current.settle);
+    if (diceTimeoutsRef.current.vanish) clearTimeout(diceTimeoutsRef.current.vanish);
+    if (diceTimeoutsRef.current.finish) clearTimeout(diceTimeoutsRef.current.finish);
+    diceTimeoutsRef.current = {};
+  };
+
+  const hideCenterDice = () => {
+    clearDiceTimeouts();
+    setCenterDiceAnimation(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      clearDiceTimeouts();
+    };
+  }, []);
+
   // Single-pawn auto-move: If only 1 goti is legal, move automatically after dice settle
   // If 2 or more, player will be prompted to choose
   const autoMoveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -460,7 +497,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         if (autoMoveTimerRef.current) clearTimeout(autoMoveTimerRef.current);
         // Wait 850ms so dice roll settles smoothly, then automatically move the single legal goti
         autoMoveTimerRef.current = setTimeout(() => {
-          setCenterDiceAnimation(null);
+          hideCenterDice();
           onMoveToken(targetTokenId);
         }, 850);
       }
@@ -492,24 +529,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     };
   }, []);
 
-  // =========================================================================
-  // 1. CENTER 3D ROLLING DICE ANIMATION
-  // =========================================================================
-  const [centerDiceAnimation, setCenterDiceAnimation] = useState<{
-    phase: 'rolling' | 'settled' | 'vanishing';
-    displayValue: number;
-    finalValue: number;
-    color: LudoColor;
-  } | null>(null);
-
-  const prevDiceValueRef = useRef<number | null>(null);
-
   useEffect(() => {
     if (gameState.diceValue !== null && gameState.diceValue !== prevDiceValueRef.current) {
       prevDiceValueRef.current = gameState.diceValue;
       const finalVal = gameState.diceValue;
       const turnColor = gameState.currentTurnColor;
 
+      clearDiceTimeouts();
       playSound('roll');
       setCenterDiceAnimation({
         phase: 'rolling',
@@ -518,7 +544,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         color: turnColor
       });
 
-      const cycleInterval = setInterval(() => {
+      diceTimeoutsRef.current.cycle = setInterval(() => {
         setCenterDiceAnimation(prev =>
           prev && prev.phase === 'rolling'
             ? { ...prev, displayValue: Math.floor(Math.random() * 6) + 1 }
@@ -526,8 +552,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         );
       }, 70);
 
-      const settleTimeout = setTimeout(() => {
-        clearInterval(cycleInterval);
+      diceTimeoutsRef.current.settle = setTimeout(() => {
+        if (diceTimeoutsRef.current.cycle) clearInterval(diceTimeoutsRef.current.cycle);
         playSound('step');
         setCenterDiceAnimation({
           phase: 'settled',
@@ -537,23 +563,20 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         });
       }, 600);
 
-      const vanishTimeout = setTimeout(() => {
+      diceTimeoutsRef.current.vanish = setTimeout(() => {
         setCenterDiceAnimation(prev => (prev ? { ...prev, phase: 'vanishing' } : null));
       }, 1450);
 
-      const finishTimeout = setTimeout(() => {
-        setCenterDiceAnimation(null);
+      diceTimeoutsRef.current.finish = setTimeout(() => {
+        hideCenterDice();
       }, 1800);
 
       return () => {
-        clearInterval(cycleInterval);
-        clearTimeout(settleTimeout);
-        clearTimeout(vanishTimeout);
-        clearTimeout(finishTimeout);
+        clearDiceTimeouts();
       };
     } else if (gameState.diceValue === null) {
       prevDiceValueRef.current = null;
-      setCenterDiceAnimation(null);
+      hideCenterDice();
     }
   }, [gameState.diceValue, gameState.currentTurnColor]);
 
@@ -639,7 +662,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
     if (!movedPawnInfo) return;
 
-    setCenterDiceAnimation(null);
+    hideCenterDice();
     const { color, tokenId, fromStep, toStep } = movedPawnInfo;
 
     // Case 1: Spawning from yard to start
@@ -873,46 +896,49 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
     return (
       <g filter="url(#tile3DShadow)">
-        {/* Tier 0: Player Distinction Halo (makes your gotis instantly identifiable at a glance) */}
+        {/* Tier 0: Player Distinction Halo (hugs the goti base pedestal cleanly without spilling) */}
         {isMyColor && (
-          <circle
+          <ellipse
             cx="0"
-            cy="0"
-            r="19"
+            cy="2"
+            rx="14.5"
+            ry="6.2"
             fill="none"
             stroke={neonColor}
-            strokeWidth="1.2"
-            strokeDasharray="3, 2.5"
-            opacity="0.85"
+            strokeWidth="1.4"
+            strokeDasharray="3, 2"
+            opacity="0.9"
           />
         )}
 
-        {/* Tier 1: Ground Ambient Occlusion & Base Pad (concentric at (0, 0)) */}
-        <circle cx="0" cy="0" r="17.2" fill="#000000" opacity="0.38" />
+        {/* Tier 1: Ambient Base Ground Shadow */}
+        <ellipse cx="0" cy="3.5" rx="14" ry="5.5" fill="#000000" opacity="0.38" />
         
-        {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring (concentric circle r=16.5) */}
-        <circle cx="0" cy="0" r="16.5" fill="url(#goldMetallicGradient)" stroke="#78350f" strokeWidth="0.9" />
+        {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring */}
+        <ellipse cx="0" cy="2" rx="13.5" ry="5.2" fill="url(#goldMetallicGradient)" stroke="#78350f" strokeWidth="0.8" />
         
-        {/* Tier 3: Upper Beveled Marble Base Step */}
-        <circle cx="0" cy="0" r="14.0" fill={headGradient} stroke="#ffffff" strokeWidth="0.6" strokeOpacity="0.6" />
-        <circle cx="0" cy="0" r="11.2" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
+        {/* Tier 3: Upper Beveled Gemstone Base Step */}
+        <ellipse cx="0" cy="0.8" rx="11" ry="4.2" fill={headGradient} stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.6" />
+        
+        {/* Tier 4: Gold Torus Collar Base Rim */}
+        <ellipse cx="0" cy="-0.2" rx="8.5" ry="3.0" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
         {/* Base Specular Gloss Arc */}
-        <path d="M -9 -5 A 11 11 0 0 1 9 -5" fill="none" stroke="#ffffff" strokeWidth="1.1" opacity="0.55" />
+        <path d="M -7 -1 A 8 3 0 0 1 7 -1" fill="none" stroke="#ffffff" strokeWidth="0.9" opacity="0.6" />
 
-        {/* Sculpted Flared Pawn Body (Hourglass bell curve rising from base) */}
+        {/* Sculpted Flared Pawn Body (Hourglass bell curve seamlessly covering and wrapping the base) */}
         <path
-          d="M -9.5 0 C -8.5 -4.5, -5.5 -8.5, -4 -11.5 C -4 -12, 4 -12, 4 -11.5 C 5.5 -8.5, 8.5 -4.5, 9.5 0 Z"
+          d="M -8.2 0 C -7.5 -4, -5 -7, -3.6 -9 L 3.6 -9 C 5 -7, 7.5 -4, 8.2 0 C 4.5 2.2, -4.5 2.2, -8.2 0 Z"
           fill={bodyGradient}
         />
         {/* Specular curved vertical gloss streak down the left torso */}
         <path
-          d="M -7.2 0 C -6.2 -4.5, -3.8 -8.0, -2.5 -10.5 C -1.8 -10.5, -2.2 -4.5, -4.5 0 Z"
+          d="M -6.2 -0.2 C -5.5 -3.8, -3.2 -6.5, -2.2 -8.5 C -1.5 -8.5, -2.0 -3.8, -4.0 -0.2 Z"
           fill="#ffffff"
-          opacity="0.45"
+          opacity="0.4"
         />
         {/* Ambient shadow gradient down the right contour */}
         <path
-          d="M 7.2 0 C 6.2 -4.5, 3.8 -8.0, 2.5 -10.5 C 1.8 -10.5, 2.2 -4.5, 4.5 0 Z"
+          d="M 6.2 -0.2 C 5.5 -3.8, 3.2 -6.5, 2.2 -8.5 C 1.5 -8.5, 2.0 -3.8, 4.0 -0.2 Z"
           fill="#000000"
           opacity="0.25"
         />
@@ -921,100 +947,100 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         {color === 'red' && (
           /* Glowing Royal Ruby Heart Emblem */
           <path
-            d="M 0,-5 C 0,-5 -3.5,-8 -3.5,-10 C -3.5,-11.5 -2.2,-12.5 -0.8,-12.5 C 0,-12.5 0,-12 0,-12 C 0,-12 0,-12.5 0.8,-12.5 C 2.2,-12.5 3.5,-10.5 3.5,-10 C 3.5,-8 0,-5 0,-5 Z"
-            transform="translate(0, 5) scale(0.9)"
+            d="M 0,-2 C 0,-2 -2.8,-4.5 -2.8,-6.2 C -2.8,-7.5 -1.8,-8.2 -0.6,-8.2 C 0,-8.2 0,-7.8 0,-7.8 C 0,-7.8 0,-8.2 0.6,-8.2 C 1.8,-8.2 2.8,-7.5 2.8,-6.2 C 2.8,-4.5 0,-2 0,-2 Z"
+            transform="translate(0, 2.5) scale(0.9)"
             fill="#ff2e79"
             stroke="#ffffff"
-            strokeWidth="0.6"
+            strokeWidth="0.5"
           />
         )}
         {color === 'blue' && (
           /* Sapphire Imperial Diamond Emblem */
           <polygon
-            points="0,-8.5 3.5,-5 0,-1.5 -3.5,-5"
+            points="0,-7 2.8,-4.2 0,-1.4 -2.8,-4.2"
             fill="#38bdf8"
             stroke="#ffffff"
-            strokeWidth="0.6"
+            strokeWidth="0.5"
           />
         )}
         {color === 'green' && (
           /* Emerald 4-Leaf Clover Emblem */
-          <g transform="translate(0, -5) scale(0.85)">
-            <circle cx="-2.2" cy="0" r="1.7" fill="#34d399" />
-            <circle cx="2.2" cy="0" r="1.7" fill="#34d399" />
-            <circle cx="0" cy="-2.2" r="1.7" fill="#34d399" />
-            <circle cx="0" cy="2.2" r="1.7" fill="#34d399" />
-            <circle cx="0" cy="0" r="1.0" fill="#ffffff" />
+          <g transform="translate(0, -4.2) scale(0.72)">
+            <circle cx="-1.8" cy="0" r="1.4" fill="#34d399" />
+            <circle cx="1.8" cy="0" r="1.4" fill="#34d399" />
+            <circle cx="0" cy="-1.8" r="1.4" fill="#34d399" />
+            <circle cx="0" cy="1.8" r="1.4" fill="#34d399" />
+            <circle cx="0" cy="0" r="0.8" fill="#ffffff" />
           </g>
         )}
         {color === 'yellow' && (
           /* Golden Star Emblem */
           <polygon
-            points="0,-8.5 1.2,-5.2 4.5,-5.2 1.8,-3.2 2.8,0 0,-2 -2.8,0 -1.8,-3.2 -4.5,-5.2 -1.2,-5.2"
-            transform="translate(0, 0.5) scale(0.95)"
+            points="0,-7 1.0,-4.3 3.6,-4.3 1.5,-2.7 2.3,0 0,-1.6 -2.3,0 -1.5,-2.7 -3.6,-4.3 -1.0,-4.3"
+            transform="translate(0, 0.4) scale(0.85)"
             fill="#fbbf24"
             stroke="#ffffff"
-            strokeWidth="0.5"
+            strokeWidth="0.4"
           />
         )}
 
         {/* Lower Polished Gold Torus Waist Ring */}
-        <ellipse cx="0" cy="-12" rx="6.0" ry="2.2" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
+        <ellipse cx="0" cy="-9" rx="4.8" ry="1.8" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
         
         {/* Tapered Slender Neck Column */}
-        <path d="M -3.2 -12 C -3.2 -15.5, 3.2 -15.5, 3.2 -12 Z" fill={bodyGradient} />
+        <path d="M -2.6 -9 C -2.6 -12.5, 2.6 -12.5, 2.6 -9 Z" fill={bodyGradient} />
 
         {/* Upper Gold Neck Collar Bead */}
-        <ellipse cx="0" cy="-15.5" rx="5.0" ry="1.8" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.75" />
+        <ellipse cx="0" cy="-12.5" rx="4.0" ry="1.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.8" />
 
-        {/* Spherical Luxury Gemstone Head Knob (Larger r=9.8, Centered at cy=-23.5) */}
+        {/* Spherical Luxury Gemstone Head Knob (Centered at cy=-19.5, r=8.2) */}
         <circle
           cx="0"
-          cy="-23.5"
-          r="9.8"
+          cy="-19.5"
+          r="8.2"
           fill={headGradient}
           stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.7)'}
-          strokeWidth={isLegal ? '2.5' : '1.0'}
+          strokeWidth={isLegal ? '2.2' : '1.0'}
         />
 
         {/* 3D Spherical Specular Highlights (glass reflection & curved gleam) */}
-        <circle cx="-3.2" cy="-26.8" r="2.6" fill="#ffffff" opacity="0.95" />
-        <circle cx="-1.0" cy="-29.2" r="1.3" fill="#ffffff" opacity="0.85" />
-        <ellipse cx="3.0" cy="-20.0" rx="2.4" ry="1.2" transform="rotate(30 3.0 -20.0)" fill="#ffffff" opacity="0.28" />
+        <circle cx="-2.6" cy="-22.2" r="2.2" fill="#ffffff" opacity="0.95" />
+        <circle cx="-0.8" cy="-24.2" r="1.1" fill="#ffffff" opacity="0.85" />
+        <ellipse cx="2.5" cy="-16.8" rx="2.0" ry="1.0" transform="rotate(30 2.5 -16.8)" fill="#ffffff" opacity="0.28" />
 
         {/* Unique Color Head Crown Finials (Distinct silhouettes for every color!) */}
         {color === 'red' && (
           /* Red: Imperial Triple-Peak Royal Crown with glowing Ruby Heart */
-          <g transform="translate(0, -33.5)">
-            <path d="M -7.5 0 L -10 -6.5 L -4 -3.5 L 0 -8.5 L 4 -3.5 L 10 -6.5 L 7.5 0 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
-            <circle cx="0" cy="-9.5" r="1.8" fill="#ff2e79" stroke="#ffffff" strokeWidth="0.4" />
-            <circle cx="-10" cy="-7" r="1.0" fill="#ffffff" />
-            <circle cx="10" cy="-7" r="1.0" fill="#ffffff" />
+          <g transform="translate(0, -27.7)">
+            <path d="M -6.5 0 L -8.5 -5.5 L -3.5 -3 L 0 -7 L 3.5 -3 L 8.5 -5.5 L 6.5 0 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="0" cy="-7.8" r="1.5" fill="#ff2e79" stroke="#ffffff" strokeWidth="0.3" />
+            <circle cx="-8.5" cy="-5.8" r="0.8" fill="#ffffff" />
+            <circle cx="8.5" cy="-5.8" r="0.8" fill="#ffffff" />
           </g>
         )}
         {color === 'blue' && (
           /* Blue: Regal 4-Point Starlight Sapphire Diamond Crest */
-          <g transform="translate(0, -33.5)">
-            <polygon points="0,-11 4.5,-5.5 10,-4.5 5,-0.5 6.5,5.5 0,1.5 -6.5,5.5 -5,-0.5 -10,-4.5 -4.5,-5.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
-            <circle cx="0" cy="-4.5" r="2.0" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.4" />
-            <circle cx="0" cy="-11.5" r="0.9" fill="#ffffff" />
+          <g transform="translate(0, -27.7)">
+            <polygon points="0,-9 3.8,-4.5 8,-3.5 4,-0.5 5,4.5 0,1.2 -5,4.5 -4,-0.5 -8,-3.5 -3.8,-4.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="0" cy="-3.5" r="1.6" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.3" />
+            <circle cx="0" cy="-9.5" r="0.8" fill="#ffffff" />
           </g>
         )}
         {color === 'green' && (
           /* Green: Celtic Emerald Tri-Spire Laurel Crown */
-          <g transform="translate(0, -33.5)">
-            <path d="M -7.5 1 C -9.5 -5.5, -4.5 -7.5, -3 -3.5 C -1.5 -9.5, 1.5 -9.5, 3 -3.5 C 4.5 -7.5, 9.5 -5.5, 7.5 1 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
-            <circle cx="-7" cy="-6.5" r="1.3" fill="#ffffff" />
-            <circle cx="0" cy="-10.5" r="1.8" fill="#34d399" stroke="#ffffff" strokeWidth="0.4" />
-            <circle cx="7" cy="-6.5" r="1.3" fill="#ffffff" />
+          <g transform="translate(0, -27.7)">
+            <path d="M -6.5 1 C -8 -4.5, -4 -6, -2.5 -3 C -1.2 -8, 1.2 -8, 2.5 -3 C 4 -6, 8 -4.5, 6.5 1 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="-6" cy="-5.5" r="1.0" fill="#ffffff" />
+            <circle cx="0" cy="-8.5" r="1.5" fill="#34d399" stroke="#ffffff" strokeWidth="0.3" />
+            <circle cx="6" cy="-5.5" r="1.0" fill="#ffffff" />
           </g>
         )}
         {color === 'yellow' && (
           /* Yellow: Radiant Solar Sunburst Crown with golden rays & amber jewel */
-          <g transform="translate(0, -33.5)">
-            <polygon points="0,-12 2.8,-5.5 9,-7.5 5,-2 9,2.5 2.8,1.2 0,7 -2.8,1.2 -9,2.5 -5,-2 -9,-7.5 -2.8,-5.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" />
-            <circle cx="0" cy="-2.5" r="2.4" fill="#fbbf24" stroke="#ffffff" strokeWidth="0.5" />
-            <circle cx="0" cy="-12.5" r="0.9" fill="#ffffff" />
+          <g transform="translate(0, -27.7)">
+            <polygon points="0,-9.5 2.2,-4.5 7,-6 4,-1.5 7,2 2.2,1 0,5 -2.2,1 -7,2 -4,-1.5 -7,-6 -2.2,-4.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="0" cy="-2" r="1.8" fill="#fbbf24" stroke="#ffffff" strokeWidth="0.4" />
+            <circle cx="0" cy="-10" r="0.8" fill="#ffffff" />
           </g>
         )}
       </g>
@@ -1173,7 +1199,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
         <div className="relative w-full aspect-square rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
           {/* 3D Rolling Center Dice */}
-          {centerDiceAnimation && gameState.diceValue !== null && (
+          {centerDiceAnimation && !animatingPawn && gameState.diceValue !== null && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50">
               <div
                 className={`flex flex-col items-center justify-center ${
@@ -1208,7 +1234,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           {/* SVG Board Container with Luxury Frame matching reference image */}
           <svg
             viewBox="0 0 600 600"
-            className="w-full h-full rounded-[26px] overflow-hidden shadow-[inset_0_0_25px_rgba(0,0,0,0.9)] border border-[#2b2535]"
+            className="w-full h-full rounded-[26px] overflow-visible shadow-[inset_0_0_25px_rgba(0,0,0,0.9)] border border-[#2b2535]"
             style={{ shapeRendering: 'geometricPrecision' }}
           >
               <defs>
@@ -1922,7 +1948,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                           clearTimeout(autoMoveTimerRef.current);
                           autoMoveTimerRef.current = null;
                         }
-                        setCenterDiceAnimation(null);
+                        hideCenterDice();
                         onMoveToken(token.id);
                       }
                     }}
@@ -1934,19 +1960,21 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         transition: isHopping ? 'transform 0.15s ease-out' : 'transform 0.1s ease-in'
                       }}
                     >
-                      <circle
+                      <ellipse
                         cx={0}
-                        cy={0}
-                        r={(isHopping ? 18.5 : 16.5) * scale}
+                        cy={2}
+                        rx={(isHopping ? 16 : 14) * scale}
+                        ry={(isHopping ? 7.5 : 5.8) * scale}
                         fill="#000000"
                         opacity={isHopping ? 0.12 : 0.38}
                         filter="url(#castShadowBlur)"
                         style={{ transition: 'all 0.14s ease' }}
                       />
-                      <circle
+                      <ellipse
                         cx={0}
-                        cy={0}
-                        r={13.5 * scale}
+                        cy={2}
+                        rx={11 * scale}
+                        ry={4.5 * scale}
                         fill="#000000"
                         opacity={isHopping ? 0.18 : 0.55}
                         filter="url(#contactShadowBlur)"
@@ -1957,29 +1985,33 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     {/* B. Legal Move Ground Selection Halo */}
                     {isLegal && !isHopping && (
                       <g transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}>
-                        <circle
+                        <ellipse
                           cx={0}
-                          cy={0}
-                          r={20.5 * scale}
+                          cy={2}
+                          rx={16 * scale}
+                          ry={7.2 * scale}
                           fill={cfg.fill}
-                          opacity="0.38"
+                          opacity="0.35"
                         >
-                          <animate attributeName="r" values={`${18.5 * scale};${23 * scale};${18.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0.48;0.15;0.48" dur="1.3s" repeatCount="indefinite" />
-                        </circle>
+                          <animate attributeName="rx" values={`${14.5 * scale};${17.5 * scale};${14.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="ry" values={`${6.5 * scale};${8.0 * scale};${6.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0.45;0.15;0.45" dur="1.3s" repeatCount="indefinite" />
+                        </ellipse>
 
-                        <circle
+                        <ellipse
                           cx={0}
-                          cy={0}
-                          r={18.5 * scale}
+                          cy={2}
+                          rx={15 * scale}
+                          ry={6.8 * scale}
                           fill="none"
                           stroke="#f59e0b"
-                          strokeWidth="2.4"
+                          strokeWidth="2.0"
                           opacity="0.9"
                         >
                           <animate attributeName="opacity" values="1.0;0.4;1.0" dur="1.3s" repeatCount="indefinite" />
-                          <animate attributeName="r" values={`${16.5 * scale};${19.5 * scale};${16.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
-                        </circle>
+                          <animate attributeName="rx" values={`${13.5 * scale};${16 * scale};${13.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="ry" values={`${6.0 * scale};${7.2 * scale};${6.0 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                        </ellipse>
                       </g>
                     )}
 
