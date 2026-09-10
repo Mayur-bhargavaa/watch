@@ -673,14 +673,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       const t1 = setTimeout(() => {
         playSound('move');
         setAnimatingPawn({ color, tokenId, currentStep: 0, isHopArc: false });
-        const t2 = setTimeout(() => setAnimatingPawn(null), 250);
+        const t2 = setTimeout(() => setAnimatingPawn(null), 300);
         animTimeoutsRef.current.push(t2);
-      }, 200);
+      }, 260);
       animTimeoutsRef.current.push(t1);
       return;
     }
 
-    // Case 2: Advance on track step by step with clear pause on each box
+    // Case 2: Advance on track step by step with clear pause on each box (slow, one-by-one cadence)
     if (toStep > fromStep) {
       clearAnimTimeouts();
       const hopSequence: number[] = [];
@@ -693,7 +693,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       const runHop = () => {
         if (hopIndex >= hopSequence.length) {
           playSound('move');
-          const finishTimeout = setTimeout(() => setAnimatingPawn(null), 250);
+          const finishTimeout = setTimeout(() => setAnimatingPawn(null), 320);
           animTimeoutsRef.current.push(finishTimeout);
           return;
         }
@@ -701,7 +701,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         const nextStep = hopSequence[hopIndex];
         const isFinalStep = hopIndex === hopSequence.length - 1;
 
-        // Step A: Arc hop into the next box (140ms airborne arc)
+        // Step A: Arc hop into the next box (250ms smooth airborne arc)
         setAnimatingPawn({
           color,
           tokenId,
@@ -719,12 +719,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             isHopArc: false
           });
 
-          // Step C: STOP & PAUSE on this box
+          // Step C: STOP & PAUSE visibly on this box so player clearly sees it move one-by-one
           hopIndex++;
-          const pauseTime = isFinalStep ? 260 : 180;
+          const pauseTime = isFinalStep ? 360 : 250;
           const nextHopTimeout = setTimeout(runHop, pauseTime);
           animTimeoutsRef.current.push(nextHopTimeout);
-        }, 140);
+        }, 250);
         animTimeoutsRef.current.push(landTimeout);
       };
 
@@ -1959,7 +1959,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     <g
                       transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}
                       style={{
-                        transition: isHopping ? 'transform 0.15s ease-out' : 'transform 0.1s ease-in'
+                        transition: isHopping ? 'transform 0.25s ease-out' : 'transform 0.22s ease-in'
                       }}
                     >
                       <ellipse
@@ -1970,7 +1970,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         fill="#000000"
                         opacity={isHopping ? 0.12 : 0.38}
                         filter="url(#castShadowBlur)"
-                        style={{ transition: 'all 0.14s ease' }}
+                        style={{ transition: 'all 0.22s ease' }}
                       />
                       <ellipse
                         cx={0}
@@ -1980,7 +1980,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         fill="#000000"
                         opacity={isHopping ? 0.18 : 0.55}
                         filter="url(#contactShadowBlur)"
-                        style={{ transition: 'all 0.14s ease' }}
+                        style={{ transition: 'all 0.22s ease' }}
                       />
                     </g>
 
@@ -2022,8 +2022,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       transform={`translate(${x}, ${y}) rotate(${-boardRotation}) scale(${scale})`}
                       style={{
                         transition: isHopping
-                          ? 'transform 0.15s cubic-bezier(0.2, 0.9, 0.3, 1.2)'
-                          : 'transform 0.12s cubic-bezier(0.3, 1.4, 0.4, 1)'
+                          ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)'
+                          : 'transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)'
                       }}
                     >
                       {isLegal && !isHopping ? (
