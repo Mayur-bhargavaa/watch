@@ -11,7 +11,10 @@ import {
   ShieldCheck,
   Send,
   Smile,
-  Check
+  Check,
+  RotateCcw,
+  Heart,
+  MoreHorizontal
 } from 'lucide-react';
 import {
   GameRoom,
@@ -112,20 +115,20 @@ export interface LudoGameProps {
 
 // Color starting tile indices on the common 52-tile ring
 const COLOR_START_TILES: Record<LudoColor, number> = {
-  yellow: 0,
+  red: 0,
   blue: 13,
-  red: 26,
+  yellow: 26,
   green: 39
 };
 
-// Visual themes matching the cozy cottagecore claymation UI
+// Visual themes matching the romantic candlelit neon date-night design
 const COLOR_CONFIG: Record<LudoColor, {
   name: string;
-  animal: 'chick' | 'bear' | 'bunny' | 'frog';
   fill: string;
   border: string;
   light: string;
   glow: string;
+  neon: string;
   yardBg: string;
   yardBorder: string;
   homeRow: string;
@@ -133,67 +136,67 @@ const COLOR_CONFIG: Record<LudoColor, {
   gradientStart: string;
   gradientEnd: string;
 }> = {
-  yellow: {
-    name: 'Yellow',
-    animal: 'chick',
-    fill: '#f5c842',
-    border: '#e5b634',
-    light: '#fef9e7',
-    glow: 'rgba(245, 200, 66, 0.6)',
-    yardBg: '#fae8a4',
-    yardBorder: '#e8cb74',
-    homeRow: '#fae288',
-    dotColor: 'bg-amber-400',
-    gradientStart: '#fef08a',
-    gradientEnd: '#d97706'
+  red: {
+    name: 'Red',
+    fill: '#e11d48',
+    border: '#be123c',
+    light: '#ffe4e6',
+    glow: 'rgba(255, 46, 121, 0.75)',
+    neon: '#ff2e79',
+    yardBg: '#881337',
+    yardBorder: '#fda4af',
+    homeRow: '#e11d48',
+    dotColor: 'bg-rose-500',
+    gradientStart: '#fb7185',
+    gradientEnd: '#9f1239'
   },
   blue: {
     name: 'Blue',
-    animal: 'bear',
-    fill: '#4a8ee8',
-    border: '#3b78cb',
-    light: '#e8f2fe',
-    glow: 'rgba(74, 142, 232, 0.6)',
-    yardBg: '#b4d7fe',
-    yardBorder: '#8abdf6',
-    homeRow: '#9bc5f5',
+    fill: '#2563eb',
+    border: '#1d4ed8',
+    light: '#e0f2fe',
+    glow: 'rgba(56, 189, 248, 0.75)',
+    neon: '#38bdf8',
+    yardBg: '#1e3a8a',
+    yardBorder: '#93c5fd',
+    homeRow: '#2563eb',
     dotColor: 'bg-blue-500',
-    gradientStart: '#93c5fd',
-    gradientEnd: '#2563eb'
+    gradientStart: '#60a5fa',
+    gradientEnd: '#1e40af'
   },
-  red: {
-    name: 'Red',
-    animal: 'bunny',
-    fill: '#f26464',
-    border: '#dc4a4a',
-    light: '#feeff0',
-    glow: 'rgba(242, 100, 100, 0.6)',
-    yardBg: '#fba5a5',
-    yardBorder: '#f28d8d',
-    homeRow: '#fca5a5',
-    dotColor: 'bg-rose-500',
-    gradientStart: '#fca5a5',
-    gradientEnd: '#dc2626'
+  yellow: {
+    name: 'Yellow',
+    fill: '#f59e0b',
+    border: '#d97706',
+    light: '#fef3c7',
+    glow: 'rgba(251, 191, 36, 0.75)',
+    neon: '#fbbf24',
+    yardBg: '#78350f',
+    yardBorder: '#fde68a',
+    homeRow: '#f59e0b',
+    dotColor: 'bg-amber-400',
+    gradientStart: '#fde047',
+    gradientEnd: '#b45309'
   },
   green: {
     name: 'Green',
-    animal: 'frog',
-    fill: '#6bbd73',
-    border: '#53a85b',
-    light: '#eef8ef',
-    glow: 'rgba(107, 189, 115, 0.6)',
-    yardBg: '#b2d8b5',
-    yardBorder: '#8abf8e',
-    homeRow: '#a8d4ab',
+    fill: '#10b981',
+    border: '#059669',
+    light: '#d1fae5',
+    glow: 'rgba(52, 211, 153, 0.75)',
+    neon: '#34d399',
+    yardBg: '#064e3b',
+    yardBorder: '#a7f3d0',
+    homeRow: '#10b981',
     dotColor: 'bg-emerald-500',
-    gradientStart: '#86efac',
-    gradientEnd: '#16a34a'
+    gradientStart: '#4ade80',
+    gradientEnd: '#047857'
   }
 };
 
 // 52 Track Tile Coordinates [row, col] on a 15x15 grid (0 to 14)
 const RING_COORDS: Array<[number, number]> = [
-  [6, 1],  // 0  Yellow Start (Star)
+  [6, 1],  // 0  Red Start (Star) - Top-Left entry moving right
   [6, 2],  // 1
   [6, 3],  // 2
   [6, 4],  // 3
@@ -206,7 +209,7 @@ const RING_COORDS: Array<[number, number]> = [
   [0, 6],  // 10
   [0, 7],  // 11
   [0, 8],  // 12
-  [1, 8],  // 13 Blue Start (Star)
+  [1, 8],  // 13 Blue Start (Star) - Top-Right entry moving down
   [2, 8],  // 14
   [3, 8],  // 15
   [4, 8],  // 16
@@ -214,12 +217,12 @@ const RING_COORDS: Array<[number, number]> = [
   [6, 9],  // 18
   [6, 10], // 19
   [6, 11], // 20
-  [6, 12], // 21  (Safe Star)
+  [6, 12], // 21 (Safe Star)
   [6, 13], // 22
   [6, 14], // 23
   [7, 14], // 24
   [8, 14], // 25
-  [8, 13], // 26 Red Start (Star)
+  [8, 13], // 26 Yellow Start (Star) - Bottom-Right entry moving left
   [8, 12], // 27
   [8, 11], // 28
   [8, 10], // 29
@@ -232,7 +235,7 @@ const RING_COORDS: Array<[number, number]> = [
   [14, 8], // 36
   [14, 7], // 37
   [14, 6], // 38
-  [13, 6], // 39 Green Start (Star)
+  [13, 6], // 39 Green Start (Star) - Bottom-Left entry moving up
   [12, 6], // 40
   [11, 6], // 41
   [10, 6], // 42
@@ -249,13 +252,13 @@ const RING_COORDS: Array<[number, number]> = [
 
 // 5 Home Column Coordinates for each color
 const HOME_PATHS: Record<LudoColor, Array<[number, number]>> = {
-  yellow: [
+  red: [
     [7, 1], [7, 2], [7, 3], [7, 4], [7, 5]
   ],
   blue: [
     [1, 7], [2, 7], [3, 7], [4, 7], [5, 7]
   ],
-  red: [
+  yellow: [
     [7, 13], [7, 12], [7, 11], [7, 10], [7, 9]
   ],
   green: [
@@ -268,10 +271,10 @@ const SAFE_STAR_TILES = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 
 // Fixed pawn slots inside the 4 yards
 const YARD_PAWN_SLOTS: Record<LudoColor, Array<[number, number]>> = {
-  yellow: [[1.8, 1.8], [1.8, 4.2], [4.2, 1.8], [4.2, 4.2]], // Top-Left
+  red:    [[1.8, 1.8], [1.8, 4.2], [4.2, 1.8], [4.2, 4.2]], // Top-Left
   blue:   [[1.8, 10.8], [1.8, 13.2], [4.2, 10.8], [4.2, 13.2]], // Top-Right
   green:  [[10.8, 1.8], [10.8, 4.2], [13.2, 1.8], [13.2, 4.2]], // Bottom-Left
-  red:    [[10.8, 10.8], [10.8, 13.2], [13.2, 10.8], [13.2, 13.2]] // Bottom-Right
+  yellow: [[10.8, 10.8], [10.8, 13.2], [13.2, 10.8], [13.2, 13.2]] // Bottom-Right
 };
 
 export const LudoGame: React.FC<LudoGameProps> = ({
@@ -487,9 +490,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     if (step === 56) {
       const centerOffsets: Record<LudoColor, [number, number]> = {
         red: [265, 300],
-        green: [300, 265],
+        blue: [300, 265],
         yellow: [335, 300],
-        blue: [300, 335]
+        green: [300, 335]
       };
       const offset = centerOffsets[color];
       return [offset[0] + (tokenId % 2 === 0 ? -6 : 6), offset[1] + (tokenId < 2 ? -6 : 6)];
@@ -744,213 +747,61 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     );
   };
 
-  // Render sculpted 3D ceramic animal figurines matching reference image
-  const renderAnimalFigurine = (color: LudoColor, isLegal: boolean, cfg: any) => {
-    if (color === 'blue') {
-      // 🐻 3D Ceramic Blue Teddy Bear
-      return (
-        <g>
-          {/* Base Pedestal */}
-          <ellipse cx={0} cy={3.8} rx="11" ry="4.2" fill="#1e3a8a" opacity="0.4" />
-          <ellipse cx={0} cy={3.2} rx="10.8" ry="4" fill="url(#bluePawnBody)" />
-          <ellipse cx={0} cy={2.2} rx="9.6" ry="3.2" fill="url(#bluePawnBody)" />
-          <ellipse cx={-1.5} cy={1.8} rx="7.2" ry="1.8" fill="#bfdbfe" opacity="0.6" />
+  // Render sculpted 3D luxury pawn figurine matching the reference image
+  const renderLuxuryPawn = (color: LudoColor, isLegal: boolean) => {
+    const headGradient = `url(#${color}PawnHead)`;
+    const bodyGradient = `url(#${color}PawnBody)`;
+    const collarGradient = `url(#${color}PawnCollar)`;
 
-          {/* Sculpted Bear Torso */}
-          <path
-            d="M -7.5 2 C -8.5 -4, -6.5 -10, 0 -10 C 6.5 -10, 8.5 -4, 7.5 2 Z"
-            fill="url(#bluePawnBody)"
-          />
-          {/* Soft Tummy Patch */}
-          <ellipse cx={0} cy="-3.5" rx="4.5" ry="5" fill="#60a5fa" opacity="0.75" />
-
-          {/* Folded Bear Paws on Tummy */}
-          <ellipse cx="-4.2" cy="-3" rx="2.5" ry="1.8" transform="rotate(-18 -4.2 -3)" fill="#2563eb" stroke="#1d4ed8" strokeWidth="0.4" />
-          <ellipse cx="4.2" cy="-3" rx="2.5" ry="1.8" transform="rotate(18 4.2 -3)" fill="#2563eb" stroke="#1d4ed8" strokeWidth="0.4" />
-
-          {/* Round Bear Ears */}
-          <circle cx="-5.8" cy="-20.5" r="3.2" fill="#2563eb" stroke="#1e40af" strokeWidth="0.5" />
-          <circle cx="-5.8" cy="-20.5" r="1.8" fill="#bfdbfe" />
-          <circle cx="5.8" cy="-20.5" r="3.2" fill="#2563eb" stroke="#1e40af" strokeWidth="0.5" />
-          <circle cx="5.8" cy="-20.5" r="1.8" fill="#bfdbfe" />
-
-          {/* Round Bear Head */}
-          <circle
-            cx={0}
-            cy={-14.8}
-            r="7.8"
-            fill="url(#bluePawnHead)"
-            stroke={isLegal ? '#ffffff' : '#1d4ed8'}
-            strokeWidth={isLegal ? '1.8' : '0.7'}
-          />
-
-          {/* Snout / Muzzle */}
-          <ellipse cx={0} cy={-13.2} rx="3.6" ry="2.7" fill="#dbeafe" />
-          {/* Bear Nose */}
-          <path d="M -1.5 -14.2 Q 0 -14.8 1.5 -14.2 Q 0 -13 -1.5 -14.2 Z" fill="#1e293b" />
-          {/* Bear Smile */}
-          <path d="M -1.8 -12.3 Q 0 -11.4 1.8 -12.3" fill="none" stroke="#1e293b" strokeWidth="0.7" strokeLinecap="round" />
-
-          {/* Glossy Black Bead Eyes with Catchlights */}
-          <circle cx="-2.8" cy="-16.2" r="1.1" fill="#0f172a" />
-          <circle cx="-3.1" cy="-16.5" r="0.45" fill="#ffffff" />
-          <circle cx="2.8" cy="-16.2" r="1.1" fill="#0f172a" />
-          <circle cx="2.5" cy="-16.5" r="0.45" fill="#ffffff" />
-
-          {/* Ceramic Specular Highlight Glint */}
-          <ellipse cx="-2.4" cy="-18" rx="2.2" ry="1.2" fill="#ffffff" opacity="0.85" />
-        </g>
-      );
-    }
-
-    if (color === 'green') {
-      // 🐸 3D Ceramic Green Frog
-      return (
-        <g>
-          {/* Tiered Base Pedestal / Lilypad rim */}
-          <ellipse cx={0} cy={3.8} rx="11" ry="4.2" fill="#064e3b" opacity="0.4" />
-          <ellipse cx={0} cy={3.2} rx="10.8" ry="4" fill="url(#greenPawnBody)" />
-          <ellipse cx={0} cy={2.2} rx="9.6" ry="3.2" fill="url(#greenPawnBody)" />
-          <ellipse cx={-1.5} cy={1.8} rx="7.2" ry="1.8" fill="#bbf7d0" opacity="0.6" />
-
-          {/* Wide Frog Body */}
-          <path
-            d="M -8 2 C -9 -3, -7 -9.5, 0 -9.5 C 7 -9.5, 9 -3, 8 2 Z"
-            fill="url(#greenPawnBody)"
-          />
-          {/* Pale Green Soft Belly */}
-          <ellipse cx={0} cy="-3" rx="5.2" ry="4.8" fill="#bbf7d0" opacity="0.85" />
-
-          {/* Little Hands on Sides */}
-          <ellipse cx="-4.8" cy="-2.5" rx="2.2" ry="1.6" fill="#15803d" />
-          <ellipse cx="4.8" cy="-2.5" rx="2.2" ry="1.6" fill="#15803d" />
-
-          {/* Wide Friendly Frog Head */}
-          <ellipse
-            cx={0}
-            cy={-13.8}
-            rx="7.8"
-            ry="6.6"
-            fill="url(#greenPawnHead)"
-            stroke={isLegal ? '#ffffff' : '#15803d'}
-            strokeWidth={isLegal ? '1.8' : '0.7'}
-          />
-
-          {/* Bulbous Frog Eyes on Top */}
-          <circle cx="-4.8" cy="-19" r="3.4" fill="url(#greenPawnHead)" stroke="#166534" strokeWidth="0.5" />
-          <circle cx="-4.8" cy="-19" r="2.3" fill="#ffffff" />
-          <circle cx="-4.5" cy="-19" r="1.3" fill="#0f172a" />
-          <circle cx="-4.8" cy="-19.4" r="0.5" fill="#ffffff" />
-
-          <circle cx="4.8" cy="-19" r="3.4" fill="url(#greenPawnHead)" stroke="#166534" strokeWidth="0.5" />
-          <circle cx="4.8" cy="-19" r="2.3" fill="#ffffff" />
-          <circle cx="4.5" cy="-19" r="1.3" fill="#0f172a" />
-          <circle cx="4.2" cy="-19.4" r="0.5" fill="#ffffff" />
-
-          {/* Blush Pink Cheeks */}
-          <circle cx="-5.2" cy="-12.5" r="1.6" fill="#f472b6" opacity="0.65" />
-          <circle cx="5.2" cy="-12.5" r="1.6" fill="#f472b6" opacity="0.65" />
-
-          {/* Wide Gentle Frog Smile */}
-          <path d="M -3.6 -12 Q 0 -9.6 3.6 -12" fill="none" stroke="#14532d" strokeWidth="0.9" strokeLinecap="round" />
-
-          {/* Glossy Glint */}
-          <ellipse cx="-1.8" cy="-15.8" rx="2.5" ry="1.2" fill="#ffffff" opacity="0.8" />
-        </g>
-      );
-    }
-
-    if (color === 'yellow') {
-      // 🐥 3D Ceramic Yellow Chick
-      return (
-        <g>
-          <ellipse cx={0} cy={3.8} rx="11" ry="4.2" fill="#713f12" opacity="0.4" />
-          <ellipse cx={0} cy={3.2} rx="10.8" ry="4" fill="url(#yellowPawnBody)" />
-          <ellipse cx={0} cy={2.2} rx="9.6" ry="3.2" fill="url(#yellowPawnBody)" />
-          <ellipse cx={-1.5} cy={1.8} rx="7.2" ry="1.8" fill="#fef08a" opacity="0.6" />
-
-          {/* Plump Chick Body */}
-          <path
-            d="M -7.5 2 C -8.5 -4, -6.5 -10, 0 -10 C 6.5 -10, 8.5 -4, 7.5 2 Z"
-            fill="url(#yellowPawnBody)"
-          />
-          <path d="M -6.8 -1.5 Q -8.5 -4.5 -6.2 -7" stroke="#ca8a04" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-          <path d="M 6.8 -1.5 Q 8.5 -4.5 6.2 -7" stroke="#ca8a04" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-
-          {/* Feather Tuft */}
-          <path d="M -1 -21.8 Q 0 -24.5 1 -21.8" fill="none" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round" />
-
-          {/* Head */}
-          <circle
-            cx={0}
-            cy={-14.5}
-            r="7.5"
-            fill="url(#yellowPawnHead)"
-            stroke={isLegal ? '#ffffff' : '#ca8a04'}
-            strokeWidth={isLegal ? '1.8' : '0.7'}
-          />
-
-          {/* Orange Beak */}
-          <polygon points="0,-10.8 -2.4,-13.2 2.4,-13.2" fill="#ea580c" stroke="#c2410c" strokeWidth="0.3" />
-
-          {/* Eyes */}
-          <circle cx="-2.8" cy="-15.5" r="1.1" fill="#1c1917" />
-          <circle cx="-3.1" cy="-15.8" r="0.4" fill="#ffffff" />
-          <circle cx="2.8" cy="-15.5" r="1.1" fill="#1c1917" />
-          <circle cx="2.5" cy="-15.8" r="0.4" fill="#ffffff" />
-
-          <ellipse cx="-2.4" cy="-17.8" rx="2.2" ry="1.2" fill="#ffffff" opacity="0.85" />
-        </g>
-      );
-    }
-
-    // 🐰 3D Ceramic Coral/Red Bunny
     return (
       <g>
-        <ellipse cx={0} cy={3.8} rx="11" ry="4.2" fill="#4c0519" opacity="0.4" />
-        <ellipse cx={0} cy={3.2} rx="10.8" ry="4" fill="url(#redPawnBody)" />
-        <ellipse cx={0} cy={2.2} rx="9.6" ry="3.2" fill="url(#redPawnBody)" />
-        <ellipse cx={-1.5} cy={1.8} rx="7.2" ry="1.8" fill="#fecdd3" opacity="0.6" />
+        {/* Tiered circular base pedestal with ambient occlusion shadow */}
+        <ellipse cx="0" cy="3.5" rx="11" ry="4.2" fill="#000000" opacity="0.35" />
+        {/* Base bottom ring */}
+        <ellipse cx="0" cy="2.8" rx="10.8" ry="4" fill={bodyGradient} />
+        {/* Base upper step */}
+        <ellipse cx="0" cy="1.6" rx="9.2" ry="3.2" fill={headGradient} />
+        <ellipse cx="-1.5" cy="1.2" rx="7" ry="1.8" fill="#ffffff" opacity="0.3" />
 
-        {/* Upright Bunny Ears */}
-        <ellipse cx="-3.5" cy="-24.5" rx="2.2" ry="5.5" transform="rotate(-8 -3.5 -24.5)" fill="url(#redPawnHead)" stroke="#be123c" strokeWidth="0.4" />
-        <ellipse cx="-3.5" cy="-24.5" rx="1.2" ry="3.8" transform="rotate(-8 -3.5 -24.5)" fill="#fecdd3" />
-        <ellipse cx="3.5" cy="-24.5" rx="2.2" ry="5.5" transform="rotate(8 3.5 -24.5)" fill="url(#redPawnHead)" stroke="#be123c" strokeWidth="0.4" />
-        <ellipse cx="3.5" cy="-24.5" rx="1.2" ry="3.8" transform="rotate(8 3.5 -24.5)" fill="#fecdd3" />
-
-        {/* Bunny Body */}
+        {/* Flared bell-shaped body with smooth sculpted waist */}
         <path
-          d="M -7.5 2 C -8.5 -4, -6.5 -10, 0 -10 C 6.5 -10, 8.5 -4, 7.5 2 Z"
-          fill="url(#redPawnBody)"
+          d="M -7.8 1.8 C -6.8 -5, -4 -9, -3.2 -12.5 C -3.2 -13.5, 3.2 -13.5, 3.2 -12.5 C 4 -9, 6.8 -5, 7.8 1.8 Z"
+          fill={bodyGradient}
         />
-        <ellipse cx={0} cy="-3" rx="4.5" ry="5" fill="#ffe4e6" opacity="0.85" />
+        {/* Specular vertical reflection highlight along left curve of body */}
+        <path
+          d="M -5.5 1 C -4.8 -4, -3 -8, -2.2 -12 C -1.5 -12, -2.5 -4, -3.8 1 Z"
+          fill="#ffffff"
+          opacity="0.35"
+        />
 
-        {/* Head */}
+        {/* Collar metallic/beveled ring between waist and neck */}
+        <ellipse cx="0" cy="-13.2" rx="4.5" ry="1.6" fill={collarGradient} stroke="#ffffff" strokeWidth="0.4" strokeOpacity="0.6" />
+
+        {/* Slender neck column */}
+        <path d="M -2.6 -13.2 C -2.6 -15, 2.6 -15, 2.6 -13.2 Z" fill={bodyGradient} />
+
+        {/* Neck collar bead */}
+        <ellipse cx="0" cy="-15.5" rx="3.8" ry="1.4" fill={headGradient} stroke="#ffffff" strokeWidth="0.3" strokeOpacity="0.5" />
+
+        {/* Spherical head knob */}
         <circle
-          cx={0}
-          cy={-14.2}
-          r="7.5"
-          fill="url(#redPawnHead)"
-          stroke={isLegal ? '#ffffff' : '#be123c'}
-          strokeWidth={isLegal ? '1.8' : '0.7'}
+          cx="0"
+          cy="-21.5"
+          r="6.8"
+          fill={headGradient}
+          stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.4)'}
+          strokeWidth={isLegal ? '1.8' : '0.6'}
         />
 
-        {/* Nose & Mouth */}
-        <polygon points="0,-12 -1.2,-13.2 1.2,-13.2" fill="#f43f5e" />
-        <path d="M -1.2 -11 Q 0 -10.3 1.2 -11" fill="none" stroke="#881337" strokeWidth="0.7" strokeLinecap="round" />
-
-        {/* Eyes */}
-        <circle cx="-2.8" cy="-15" r="1.1" fill="#1c1917" />
-        <circle cx="-3.1" cy="-15.3" r="0.4" fill="#ffffff" />
-        <circle cx="2.8" cy="-15.5" r="1.1" fill="#1c1917" />
-        <circle cx="2.5" cy="-15.3" r="0.4" fill="#ffffff" />
-
-        <ellipse cx="-2.2" cy="-17.2" rx="2.2" ry="1.2" fill="#ffffff" opacity="0.85" />
+        {/* Head specular glint (bright glass reflection dot + curved glint) */}
+        <ellipse cx="-2.2" cy="-23.8" rx="2.4" ry="1.3" transform="rotate(-25 -2.2 -23.8)" fill="#ffffff" opacity="0.85" />
+        <circle cx="2.6" cy="-19.2" r="0.8" fill="#ffffff" opacity="0.4" />
       </g>
     );
   };
 
-  // Render Angled Ribbon Player Badge matching reference UI (e.g., 'kucchu' and 'you')
+  // Render Floating Dark Glass Player Pod matching the reference UI
   const renderCornerBadge = (color: LudoColor, side: 'left' | 'right') => {
     const p = playerByColor[color];
     const isCurrentTurn = gameState.currentTurnColor === color;
@@ -960,7 +811,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
     if (!p) return null;
 
-    const isRight = side === 'right';
     const pStream = participantStreamsByUserId[p.userId];
     
     // For local player (isMe), prioritize localUserStream and isCameraOn directly
@@ -976,140 +826,106 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     const isPlayerMuted = isMe ? isMicMuted : (pStream?.isMuted ?? true);
 
     return (
-      <div className={`relative flex items-center ${isRight ? 'flex-row-reverse' : 'flex-row'} z-30 select-none`}>
+      <div className={`relative flex items-center ${side === 'right' ? 'flex-row-reverse' : 'flex-row'} z-30 select-none group`}>
         {/* Remote audio receiver so we hear opponent speaking */}
         {!isMe && pStream?.stream && (
           <RemoteAudioPlayer stream={pStream.stream} />
         )}
 
-        {/* Circular Avatar with Centered Floating Golden Chevron */}
-        <div className="relative shrink-0 z-20">
-          {/* Floating 3D Golden Pointer when this player's turn - perfectly centered above avatar */}
-          {isCurrentTurn && (
-            <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce z-40 pointer-events-none">
-              <svg width="24" height="22" viewBox="0 0 24 22" fill="none" className="drop-shadow-[0_3px_5px_rgba(0,0,0,0.45)]">
-                <defs>
-                  <linearGradient id="goldTopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#fff7ed" />
-                    <stop offset="35%" stopColor="#fde047" />
-                    <stop offset="70%" stopColor="#eab308" />
-                    <stop offset="100%" stopColor="#ca8a04" />
-                  </linearGradient>
-                  <linearGradient id="goldLeftGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#fef08a" />
-                    <stop offset="100%" stopColor="#a16207" />
-                  </linearGradient>
-                </defs>
-                {/* 3D faceted chevron arrow */}
-                <path d="M 12 21 L 2 4 L 12 7 Z" fill="url(#goldLeftGrad)" />
-                <path d="M 12 21 L 22 4 L 12 7 Z" fill="url(#goldTopGrad)" />
-                <path d="M 2 4 L 12 7 L 22 4 L 12 21 Z" stroke="#ffffff" strokeWidth="0.8" opacity="0.85" />
-              </svg>
-            </div>
-          )}
-
-          {/* Avatar Ring with Speaking Glow & Camera Integration */}
-          <div
-            className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full p-0.5 border-2 shadow-lg flex items-center justify-center transition-all ${
-              (isMe ? !isMicMuted : pStream?.isSpeaking)
-                ? 'ring-4 ring-emerald-400 scale-105 shadow-[0_0_20px_rgba(52,211,153,0.85)]'
-                : isCurrentTurn
-                ? 'ring-3 ring-amber-300 scale-105 shadow-[0_0_18px_rgba(251,191,36,0.65)]'
-                : ''
-            }`}
-            style={{
-              borderColor: cfg.border,
-              backgroundColor: '#ffffff'
-            }}
-          >
-            <div
-              className="w-full h-full rounded-full flex items-center justify-center font-black text-xs sm:text-sm text-white shadow-inner uppercase overflow-hidden relative"
-              style={{ backgroundColor: cfg.fill }}
-            >
-              {hasLiveVideo && activeStream ? (
-                <VideoAvatar stream={activeStream} isSelf={isMe} displayName={p.displayName} />
-              ) : p.avatarUrl ? (
-                <img src={p.avatarUrl} alt={p.displayName} className="w-full h-full object-cover" />
-              ) : (
-                <span>{p.displayName[0]}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Connection status indicator dot */}
-          <span
-            className={`absolute bottom-0.5 ${isRight ? 'left-0.5' : 'right-0.5'} w-3.5 h-3.5 rounded-full ring-2 ring-white flex items-center justify-center text-[7px] font-bold ${
-              p.isConnected ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
-            }`}
-            title={p.isConnected ? 'Online' : 'Player Left / Disconnected'}
-          />
-
-          {/* Audio / Mic indicator dot */}
-          <span
-            className={`absolute -top-1 ${isRight ? '-left-1' : '-right-1'} w-4 h-4 rounded-full border border-white shadow-sm flex items-center justify-center text-[8px] z-30 transition-colors ${
-              isPlayerMuted
-                ? 'bg-rose-600 text-white'
-                : 'bg-emerald-500 text-white animate-pulse'
-            }`}
-            title={isPlayerMuted ? 'Microphone Muted' : 'Microphone Active'}
-          >
-            {isPlayerMuted ? '🔇' : '🎙️'}
-          </span>
-
-          {/* Dice icon for local player */}
-          {isMe && (
-            <span className={`absolute -bottom-1.5 ${isRight ? '-left-1.5' : '-right-1.5'} w-5 h-5 rounded-md bg-white border border-[#dfd5c4] shadow-sm flex items-center justify-center text-[11px] leading-none`}>
-              🎲
-            </span>
-          )}
-        </div>
-
-        {/* Angled Ribbon Banner tucking behind avatar */}
+        {/* Floating Dark Glass Capsule matching reference UI */}
         <div
-          className={`relative z-10 py-1.5 font-extrabold text-white text-xs sm:text-sm tracking-wide shadow-md flex items-center gap-1.5 transition-all ${
-            isRight
-              ? '-mr-3.5 pr-5 pl-4 rounded-l-xl'
-              : '-ml-3.5 pl-5 pr-4 rounded-r-xl'
-          } ${!p.isConnected ? 'opacity-90' : ''}`}
+          className={`relative z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0a0c16]/85 backdrop-blur-xl border transition-all duration-300 shadow-[0_8px_25px_rgba(0,0,0,0.65)] ${
+            isCurrentTurn
+              ? 'ring-2 border-white/40 scale-105'
+              : 'border-white/15 hover:border-white/25'
+          }`}
           style={{
-            backgroundColor: p.isConnected ? cfg.fill : '#475569',
-            border: `2px solid ${p.isConnected ? cfg.border : '#64748b'}`,
-            boxShadow: `0 4px 12px ${p.isConnected ? cfg.glow : 'rgba(0,0,0,0.35)'}`,
-            transform: isRight ? 'skewX(-4deg)' : 'skewX(4deg)'
+            boxShadow: isCurrentTurn ? `0 0 20px ${cfg.glow}, 0 8px 25px rgba(0,0,0,0.7)` : undefined,
+            borderColor: isCurrentTurn ? cfg.neon : undefined
           }}
         >
-          <span
-            className="truncate max-w-[85px] sm:max-w-[110px]"
-            style={{ transform: isRight ? 'skewX(4deg)' : 'skewX(-4deg)' }}
-          >
-            {isMe ? 'you' : !p.isConnected ? `${p.displayName.toLowerCase()} (left)` : p.displayName.toLowerCase()}
-          </span>
-          {isHost && (
-            <span
-              className="text-amber-200 text-xs shrink-0"
-              style={{ transform: isRight ? 'skewX(4deg)' : 'skewX(-4deg)' }}
-            >
-              👑
-            </span>
-          )}
+          {/* Avatar container with Neon Ring */}
+          <div className="relative shrink-0">
+            {/* Crown for Host ("You") */}
+            {isHost && (
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                <Crown className="w-4 h-4 text-amber-300 fill-amber-400 animate-pulse" />
+              </div>
+            )}
 
-          {/* Quick Nudge pill button on ribbon if opponent left/disconnected */}
-          {!isMe && !p.isConnected && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
+            {/* Glowing Neon Avatar Ring */}
+            <div
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full p-0.5 border flex items-center justify-center transition-all ${
+                (isMe ? !isMicMuted : pStream?.isSpeaking)
+                  ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.9)]'
+                  : ''
+              }`}
+              style={{
+                borderColor: cfg.neon,
+                boxShadow: `0 0 12px ${cfg.glow}`,
+                backgroundColor: '#0f111a'
+              }}
+            >
+              <div
+                className="w-full h-full rounded-full flex items-center justify-center font-bold text-xs text-white shadow-inner uppercase overflow-hidden relative"
+                style={{ backgroundColor: cfg.fill }}
+              >
+                {hasLiveVideo && activeStream ? (
+                  <VideoAvatar stream={activeStream} isSelf={isMe} displayName={p.displayName} />
+                ) : p.avatarUrl ? (
+                  <img src={p.avatarUrl} alt={p.displayName} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{p.displayName[0]}</span>
+                )}
+              </div>
+            </div>
+
+            {/* Connection status indicator dot */}
+            <span
+              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-1.5 ring-[#0a0c16] ${
+                p.isConnected ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
+              }`}
+              title={p.isConnected ? 'Online' : 'Disconnected'}
+            />
+          </div>
+
+          {/* Player Name / Tag */}
+          <div className="flex flex-col min-w-0 pr-0.5">
+            <span className="font-bold text-white text-xs sm:text-sm tracking-wide truncate max-w-[80px] sm:max-w-[95px] drop-shadow-sm">
+              {isMe ? 'You' : p.displayName}
+            </span>
+            {isCurrentTurn && (
+              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300/90 leading-none">
+                Turn
+              </span>
+            )}
+          </div>
+
+          {/* Heart Icon with Neon Glow */}
+          <Heart
+            className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:scale-110"
+            style={{
+              color: cfg.neon,
+              fill: isCurrentTurn ? cfg.neon : `${cfg.neon}40`,
+              filter: `drop-shadow(0 0 4px ${cfg.glow})`
+            }}
+          />
+
+          {/* Three Dots Menu Icon */}
+          <button
+            type="button"
+            className="text-white/40 hover:text-white/80 transition p-0.5 cursor-pointer shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isMe) {
                 onNudgePlayer?.(p.userId, p.displayName);
                 playSound('nudge');
-              }}
-              style={{ transform: isRight ? 'skewX(4deg)' : 'skewX(-4deg)' }}
-              className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[9px] uppercase tracking-wider flex items-center gap-0.5 shadow transition active:scale-95 cursor-pointer shrink-0"
-              title={`Nudge ${p.displayName} to return`}
-            >
-              <span>🔔</span>
-              <span>Nudge</span>
-            </button>
-          )}
+              }
+            }}
+            title={!isMe ? `Nudge ${p.displayName}` : undefined}
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     );
@@ -1170,10 +986,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             </div>
           )}
 
-          {/* SVG Board */}
+          {/* SVG Board Container with Luxury Frame matching reference image */}
           <svg
             viewBox="0 0 600 600"
-            className="w-full h-full rounded-[26px] overflow-hidden shadow-inner border border-[#e8dcc8]"
+            className="w-full h-full rounded-[28px] overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(255,255,255,0.2)] border border-[#4a2e1b]"
             style={{ shapeRendering: 'geometricPrecision' }}
           >
               <defs>
@@ -1185,73 +1001,134 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   <feGaussianBlur stdDeviation="2.2" />
                 </filter>
                 <filter id="recessedSaucerShadow" x="-25%" y="-25%" width="150%" height="150%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.18" />
+                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.4" />
                 </filter>
                 <filter id="tile3DShadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="1" stdDeviation="0.6" floodColor="#8c7a65" floodOpacity="0.12" />
+                  <feDropShadow dx="0" dy="1" stdDeviation="0.6" floodColor="#8c7a65" floodOpacity="0.15" />
                 </filter>
                 <filter id="trayInnerShadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#8c7a65" floodOpacity="0.18" />
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.45" />
                 </filter>
                 <filter id="cottageShadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#7a5530" floodOpacity="0.25" />
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.5" />
                 </filter>
 
-                {/* Gold Metallic & Pointer Gradients */}
+                {/* Neon Glow Filters matching reference image */}
+                <filter id="neonGlowPink" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#ff2e79" floodOpacity="0.9" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#ff2e79" floodOpacity="0.6" />
+                </filter>
+                <filter id="neonGlowBlue" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#38bdf8" floodOpacity="0.9" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#38bdf8" floodOpacity="0.6" />
+                </filter>
+                <filter id="neonGlowGreen" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#34d399" floodOpacity="0.9" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#34d399" floodOpacity="0.6" />
+                </filter>
+                <filter id="neonGlowGold" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#fbbf24" floodOpacity="0.9" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#fbbf24" floodOpacity="0.6" />
+                </filter>
+                <filter id="neonGlowRedCenter" x="-60%" y="-60%" width="220%" height="220%">
+                  <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ff1744" floodOpacity="0.95" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="12" floodColor="#ff2e79" floodOpacity="0.75" />
+                </filter>
+
+                {/* Metallic Gold & Bevel Gradients */}
                 <linearGradient id="goldMetallicGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#fef08a" />
                   <stop offset="35%" stopColor="#f59e0b" />
                   <stop offset="70%" stopColor="#d97706" />
                   <stop offset="100%" stopColor="#92400e" />
                 </linearGradient>
-                <linearGradient id="goldPointerGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#fef08a" />
-                  <stop offset="40%" stopColor="#f59e0b" />
-                  <stop offset="100%" stopColor="#d97706" />
+
+                {/* Yard Glass Background Gradients */}
+                <linearGradient id="rubyYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#3b0714" />
+                  <stop offset="50%" stopColor="#750d28" />
+                  <stop offset="100%" stopColor="#9f1239" />
+                </linearGradient>
+                <linearGradient id="sapphireYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#081838" />
+                  <stop offset="50%" stopColor="#17357c" />
+                  <stop offset="100%" stopColor="#1e40af" />
+                </linearGradient>
+                <linearGradient id="emeraldYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#02241a" />
+                  <stop offset="50%" stopColor="#054b38" />
+                  <stop offset="100%" stopColor="#065f46" />
+                </linearGradient>
+                <linearGradient id="amberYardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#381403" />
+                  <stop offset="50%" stopColor="#692d07" />
+                  <stop offset="100%" stopColor="#92400e" />
                 </linearGradient>
 
-                {/* 3D Radial Gradients for Ceramic Animal Heads */}
-                <radialGradient id="bluePawnHead" cx="35%" cy="25%" r="70%">
+                {/* Metallic Yard Bevel Gradients */}
+                <linearGradient id="rubyBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fecdd3" />
+                  <stop offset="45%" stopColor="#e11d48" />
+                  <stop offset="75%" stopColor="#881337" />
+                  <stop offset="100%" stopColor="#fda4af" />
+                </linearGradient>
+                <linearGradient id="sapphireBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#dbeafe" />
-                  <stop offset="25%" stopColor="#60a5fa" />
-                  <stop offset="60%" stopColor="#2563eb" />
-                  <stop offset="85%" stopColor="#1d4ed8" />
-                  <stop offset="100%" stopColor="#172554" />
-                </radialGradient>
-                <radialGradient id="greenPawnHead" cx="35%" cy="25%" r="70%">
-                  <stop offset="0%" stopColor="#dcfce7" />
-                  <stop offset="25%" stopColor="#4ade80" />
-                  <stop offset="60%" stopColor="#16a34a" />
-                  <stop offset="85%" stopColor="#15803d" />
-                  <stop offset="100%" stopColor="#14532d" />
-                </radialGradient>
-                <radialGradient id="yellowPawnHead" cx="35%" cy="25%" r="70%">
-                  <stop offset="0%" stopColor="#fffbeb" />
-                  <stop offset="25%" stopColor="#fde047" />
-                  <stop offset="60%" stopColor="#eab308" />
-                  <stop offset="85%" stopColor="#ca8a04" />
-                  <stop offset="100%" stopColor="#713f12" />
-                </radialGradient>
+                  <stop offset="45%" stopColor="#3b82f6" />
+                  <stop offset="75%" stopColor="#1e3a8a" />
+                  <stop offset="100%" stopColor="#93c5fd" />
+                </linearGradient>
+                <linearGradient id="emeraldBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#d1fae5" />
+                  <stop offset="45%" stopColor="#10b981" />
+                  <stop offset="75%" stopColor="#064e3b" />
+                  <stop offset="100%" stopColor="#6ee7b7" />
+                </linearGradient>
+                <linearGradient id="amberBevelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fef3c7" />
+                  <stop offset="45%" stopColor="#f59e0b" />
+                  <stop offset="75%" stopColor="#78350f" />
+                  <stop offset="100%" stopColor="#fde047" />
+                </linearGradient>
+
+                {/* 3D Radial Gradients for Luxury Pawn Heads */}
                 <radialGradient id="redPawnHead" cx="35%" cy="25%" r="70%">
                   <stop offset="0%" stopColor="#ffe4e6" />
                   <stop offset="25%" stopColor="#fb7185" />
-                  <stop offset="60%" stopColor="#e11d48" />
-                  <stop offset="85%" stopColor="#be123c" />
-                  <stop offset="100%" stopColor="#4c0519" />
+                  <stop offset="65%" stopColor="#e11d48" />
+                  <stop offset="100%" stopColor="#881337" />
+                </radialGradient>
+                <radialGradient id="bluePawnHead" cx="35%" cy="25%" r="70%">
+                  <stop offset="0%" stopColor="#dbeafe" />
+                  <stop offset="25%" stopColor="#60a5fa" />
+                  <stop offset="65%" stopColor="#2563eb" />
+                  <stop offset="100%" stopColor="#1e3a8a" />
+                </radialGradient>
+                <radialGradient id="yellowPawnHead" cx="35%" cy="25%" r="70%">
+                  <stop offset="0%" stopColor="#fef3c7" />
+                  <stop offset="25%" stopColor="#fde047" />
+                  <stop offset="65%" stopColor="#f59e0b" />
+                  <stop offset="100%" stopColor="#78350f" />
+                </radialGradient>
+                <radialGradient id="greenPawnHead" cx="35%" cy="25%" r="70%">
+                  <stop offset="0%" stopColor="#d1fae5" />
+                  <stop offset="25%" stopColor="#4ade80" />
+                  <stop offset="65%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#064e3b" />
                 </radialGradient>
 
-                {/* 3D Linear Gradients for Ceramic Animal Bodies */}
+                {/* 3D Linear Gradients for Luxury Pawn Bodies */}
+                <linearGradient id="redPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
+                  <stop offset="0%" stopColor="#fda4af" />
+                  <stop offset="30%" stopColor="#f43f5e" />
+                  <stop offset="75%" stopColor="#be123c" />
+                  <stop offset="100%" stopColor="#4c0519" />
+                </linearGradient>
                 <linearGradient id="bluePawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
                   <stop offset="0%" stopColor="#93c5fd" />
                   <stop offset="30%" stopColor="#3b82f6" />
                   <stop offset="75%" stopColor="#1d4ed8" />
                   <stop offset="100%" stopColor="#0f172a" />
-                </linearGradient>
-                <linearGradient id="greenPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
-                  <stop offset="0%" stopColor="#86efac" />
-                  <stop offset="30%" stopColor="#22c55e" />
-                  <stop offset="75%" stopColor="#15803d" />
-                  <stop offset="100%" stopColor="#052e16" />
                 </linearGradient>
                 <linearGradient id="yellowPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
                   <stop offset="0%" stopColor="#fef08a" />
@@ -1259,159 +1136,60 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   <stop offset="75%" stopColor="#d97706" />
                   <stop offset="100%" stopColor="#78350f" />
                 </linearGradient>
-                <linearGradient id="redPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
-                  <stop offset="0%" stopColor="#fda4af" />
-                  <stop offset="30%" stopColor="#f43f5e" />
-                  <stop offset="75%" stopColor="#be123c" />
-                  <stop offset="100%" stopColor="#4c0519" />
+                <linearGradient id="greenPawnBody" x1="15%" y1="0%" x2="85%" y2="100%">
+                  <stop offset="0%" stopColor="#86efac" />
+                  <stop offset="30%" stopColor="#22c55e" />
+                  <stop offset="75%" stopColor="#15803d" />
+                  <stop offset="100%" stopColor="#052e16" />
+                </linearGradient>
+
+                {/* Metallic Pawn Collars */}
+                <linearGradient id="redPawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="50%" stopColor="#fecdd3" />
+                  <stop offset="100%" stopColor="#be123c" />
+                </linearGradient>
+                <linearGradient id="bluePawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="50%" stopColor="#bfdbfe" />
+                  <stop offset="100%" stopColor="#1e40af" />
+                </linearGradient>
+                <linearGradient id="yellowPawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="50%" stopColor="#fde68a" />
+                  <stop offset="100%" stopColor="#b45309" />
+                </linearGradient>
+                <linearGradient id="greenPawnCollar" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="50%" stopColor="#bbf7d0" />
+                  <stop offset="100%" stopColor="#15803d" />
                 </linearGradient>
               </defs>
 
-              {/* Board Base Surface (Porcelain Cream) */}
-              <rect width="600" height="600" fill="#faf7ee" />
+              {/* Board Base Surface (Porcelain Ivory with Metallic Grout) */}
+              <rect width="600" height="600" fill="#140d09" />
+              <rect x="5" y="5" width="590" height="590" rx="22" fill="#faf6ee" stroke="#d5c3ab" strokeWidth="1.5" />
 
-              {/* 1. YARDS (4 Pastel Trays with Botanical Engravings) */}
-              {/* Yellow Yard (Top-Left) with Daisy Engraving */}
+              {/* 1. YARDS (4 Luxury Glass Quadrants with Glowing Neon Hearts) */}
+              {/* Red Yard (Top-Left) */}
               <g>
-                <rect x="0" y="0" width="240" height="240" fill={COLOR_CONFIG.yellow.yardBg} />
-                <rect x="20" y="20" width="200" height="200" rx="36" fill="#fdfaf0" stroke="#ebd28c" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                {/* Daisy Engraving in Center */}
-                <g transform="translate(120, 120)" opacity="0.8">
-                  {/* Stem & Leaves */}
-                  <path d="M 0 10 L 0 34" stroke="#c5963f" strokeWidth="1.6" strokeLinecap="round" />
-                  <path d="M 0 18 Q -8 15 -10 20 Q -4 22 0 18" fill="none" stroke="#c5963f" strokeWidth="1.3" />
-                  <path d="M 0 24 Q 8 21 10 26 Q 4 28 0 24" fill="none" stroke="#c5963f" strokeWidth="1.3" />
-                  {/* Center Disc */}
-                  <circle cx="0" cy="0" r="5" fill="none" stroke="#c5963f" strokeWidth="1.6" />
-                  {/* 8 Flower Petals */}
-                  {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => (
-                    <ellipse
-                      key={`ypet-${deg}`}
-                      cx="0"
-                      cy="-11"
-                      rx="3.5"
-                      ry="5"
-                      transform={`rotate(${deg} 0 0)`}
-                      fill="none"
-                      stroke="#c5963f"
-                      strokeWidth="1.3"
-                    />
-                  ))}
-                </g>
-                {/* 4 Circular Socket Pads */}
-                {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
-                  <g key={`yy-${i}`}>
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="22"
-                      fill="#faf0cd"
-                      stroke="#e0be69"
-                      strokeWidth="1.5"
-                      filter="url(#recessedSaucerShadow)"
-                    />
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="14"
-                      fill="#fae8a4"
-                      opacity="0.9"
-                    />
-                  </g>
-                ))}
-              </g>
-
-              {/* Blue Yard (Top-Right) with Fern Branch Engraving */}
-              <g>
-                <rect x="360" y="0" width="240" height="240" fill={COLOR_CONFIG.blue.yardBg} />
-                <rect x="380" y="20" width="200" height="200" rx="36" fill="#f4f9ff" stroke="#9bc5f5" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                {/* Fern Branch Engraving in Center */}
-                <g transform="translate(480, 120)" opacity="0.8">
-                  <path d="M 0 -36 L 0 36" stroke="#5289cc" strokeWidth="1.6" strokeLinecap="round" />
-                  {[-24, -12, 0, 12, 24].map((offsetY, idx) => (
-                    <g key={`fern-${idx}`}>
-                      <path d={`M 0 ${offsetY} Q -12 ${offsetY - 3} -14 ${offsetY + 3} Q -7 ${offsetY + 4} 0 ${offsetY + 1}`} fill="none" stroke="#5289cc" strokeWidth="1.3" />
-                      <path d={`M 0 ${offsetY} Q 12 ${offsetY - 3} 14 ${offsetY + 3} Q 7 ${offsetY + 4} 0 ${offsetY + 1}`} fill="none" stroke="#5289cc" strokeWidth="1.3" />
-                    </g>
-                  ))}
-                </g>
-                {/* 4 Circular Socket Pads */}
-                {YARD_PAWN_SLOTS.blue.map((slot, i) => (
-                  <g key={`by-${i}`}>
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="22"
-                      fill="#dbeafe"
-                      stroke="#7eb1ee"
-                      strokeWidth="1.5"
-                      filter="url(#recessedSaucerShadow)"
-                    />
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="14"
-                      fill="#b4d7fe"
-                      opacity="0.9"
-                    />
-                  </g>
-                ))}
-              </g>
-
-              {/* Green Yard (Bottom-Left) with Lavender Stalk Engraving */}
-              <g>
-                <rect x="0" y="360" width="240" height="240" fill={COLOR_CONFIG.green.yardBg} />
-                <rect x="20" y="380" width="200" height="200" rx="36" fill="#f4faf5" stroke="#9ecfa2" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                {/* Lavender Wildflower Stalk Engraving in Center */}
-                <g transform="translate(120, 480)" opacity="0.8">
-                  <path d="M 0 -34 L 0 34" stroke="#528757" strokeWidth="1.6" strokeLinecap="round" />
-                  {[-24, -14, -4, 6].map((offsetY, idx) => (
-                    <g key={`lav-${idx}`}>
-                      <ellipse cx="-4.5" cy={offsetY} rx="3.5" ry="1.8" transform={`rotate(-25 -4.5 ${offsetY})`} fill="none" stroke="#528757" strokeWidth="1.3" />
-                      <ellipse cx="4.5" cy={offsetY} rx="3.5" ry="1.8" transform={`rotate(25 4.5 ${offsetY})`} fill="none" stroke="#528757" strokeWidth="1.3" />
-                    </g>
-                  ))}
-                  <path d="M 0 18 Q -10 20 -11 26 Q -5 27 0 21" fill="none" stroke="#528757" strokeWidth="1.3" />
-                  <path d="M 0 18 Q 10 20 11 26 Q 5 27 0 21" fill="none" stroke="#528757" strokeWidth="1.3" />
-                </g>
-                {/* 4 Circular Socket Pads */}
-                {YARD_PAWN_SLOTS.green.map((slot, i) => (
-                  <g key={`gy-${i}`}>
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="22"
-                      fill="#daf0dd"
-                      stroke="#7ab680"
-                      strokeWidth="1.5"
-                      filter="url(#recessedSaucerShadow)"
-                    />
-                    <circle
-                      cx={slot[1] * 40}
-                      cy={slot[0] * 40}
-                      r="14"
-                      fill="#b2d8b5"
-                      opacity="0.9"
-                    />
-                  </g>
-                ))}
-              </g>
-
-              {/* Red Yard (Bottom-Right) with Maple Leaf Engraving */}
-              <g>
-                <rect x="360" y="360" width="240" height="240" fill={COLOR_CONFIG.red.yardBg} />
-                <rect x="380" y="380" width="200" height="200" rx="36" fill="#fff5f5" stroke="#f49d9d" strokeWidth="2" filter="url(#trayInnerShadow)" />
-                {/* Maple Leaf Engraving in Center */}
-                <g transform="translate(480, 480)" opacity="0.8">
-                  <path d="M 0 24 L 0 36" stroke="#c75454" strokeWidth="1.6" strokeLinecap="round" />
+                <rect x="15" y="15" width="210" height="210" rx="30" fill="url(#rubyYardGrad)" stroke="url(#rubyBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                {/* Glowing Neon Red/Pink Heart */}
+                <g transform="translate(120, 120) scale(1.35)">
                   <path
-                    d="M 0 -30 L 4 -18 L 15 -22 L 10 -11 L 24 -6 L 13 0 L 16 12 L 6 10 L 0 19 L -6 10 L -16 12 L -13 0 L -24 -6 L -10 -11 L -15 -22 L -4 -18 Z"
-                    fill="none"
-                    stroke="#c75454"
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="rgba(255, 46, 121, 0.12)"
+                    stroke="#ff2e79"
+                    strokeWidth="3.2"
+                    filter="url(#neonGlowPink)"
                   />
-                  <path d="M 0 19 L 0 -26 M 0 6 L 14 -7 M 0 6 L -14 -7 M 0 -4 L 9 -17 M 0 -4 L -9 -17" stroke="#c75454" strokeWidth="1.2" strokeLinecap="round" />
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1"
+                    opacity="0.85"
+                  />
                 </g>
                 {/* 4 Circular Socket Pads */}
                 {YARD_PAWN_SLOTS.red.map((slot, i) => (
@@ -1420,37 +1198,166 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="22"
-                      fill="#fde2e2"
-                      stroke="#e87676"
-                      strokeWidth="1.5"
+                      fill="#4a0818"
+                      stroke="url(#rubyBevelGrad)"
+                      strokeWidth="1.6"
                       filter="url(#recessedSaucerShadow)"
                     />
                     <circle
                       cx={slot[1] * 40}
                       cy={slot[0] * 40}
                       r="14"
-                      fill="#fba5a5"
+                      fill="#6b0e24"
                       opacity="0.9"
                     />
                   </g>
                 ))}
               </g>
 
-              {/* 2. TRACK CELLS (52 Tiles with Soft Wooden Star Tokens & Arrow Coins) */}
+              {/* Blue Yard (Top-Right) */}
+              <g>
+                <rect x="375" y="15" width="210" height="210" rx="30" fill="url(#sapphireYardGrad)" stroke="url(#sapphireBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                {/* Glowing Neon Blue Heart */}
+                <g transform="translate(480, 120) scale(1.35)">
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="rgba(56, 189, 248, 0.12)"
+                    stroke="#38bdf8"
+                    strokeWidth="3.2"
+                    filter="url(#neonGlowBlue)"
+                  />
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1"
+                    opacity="0.85"
+                  />
+                </g>
+                {/* 4 Circular Socket Pads */}
+                {YARD_PAWN_SLOTS.blue.map((slot, i) => (
+                  <g key={`by-${i}`}>
+                    <circle
+                      cx={slot[1] * 40}
+                      cy={slot[0] * 40}
+                      r="22"
+                      fill="#0f2354"
+                      stroke="url(#sapphireBevelGrad)"
+                      strokeWidth="1.6"
+                      filter="url(#recessedSaucerShadow)"
+                    />
+                    <circle
+                      cx={slot[1] * 40}
+                      cy={slot[0] * 40}
+                      r="14"
+                      fill="#1b3984"
+                      opacity="0.9"
+                    />
+                  </g>
+                ))}
+              </g>
+
+              {/* Green Yard (Bottom-Left) */}
+              <g>
+                <rect x="15" y="375" width="210" height="210" rx="30" fill="url(#emeraldYardGrad)" stroke="url(#emeraldBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                {/* Glowing Neon Green Heart */}
+                <g transform="translate(120, 480) scale(1.35)">
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="rgba(52, 211, 153, 0.12)"
+                    stroke="#34d399"
+                    strokeWidth="3.2"
+                    filter="url(#neonGlowGreen)"
+                  />
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1"
+                    opacity="0.85"
+                  />
+                </g>
+                {/* 4 Circular Socket Pads */}
+                {YARD_PAWN_SLOTS.green.map((slot, i) => (
+                  <g key={`gy-${i}`}>
+                    <circle
+                      cx={slot[1] * 40}
+                      cy={slot[0] * 40}
+                      r="22"
+                      fill="#032e1f"
+                      stroke="url(#emeraldBevelGrad)"
+                      strokeWidth="1.6"
+                      filter="url(#recessedSaucerShadow)"
+                    />
+                    <circle
+                      cx={slot[1] * 40}
+                      cy={slot[0] * 40}
+                      r="14"
+                      fill="#064e3b"
+                      opacity="0.9"
+                    />
+                  </g>
+                ))}
+              </g>
+
+              {/* Yellow Yard (Bottom-Right) */}
+              <g>
+                <rect x="375" y="375" width="210" height="210" rx="30" fill="url(#amberYardGrad)" stroke="url(#amberBevelGrad)" strokeWidth="3" filter="url(#trayInnerShadow)" />
+                {/* Glowing Neon Gold Heart */}
+                <g transform="translate(480, 480) scale(1.35)">
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="rgba(251, 191, 36, 0.12)"
+                    stroke="#fbbf24"
+                    strokeWidth="3.2"
+                    filter="url(#neonGlowGold)"
+                  />
+                  <path
+                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                    fill="none"
+                    stroke="#ffffff"
+                    strokeWidth="1"
+                    opacity="0.85"
+                  />
+                </g>
+                {/* 4 Circular Socket Pads */}
+                {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
+                  <g key={`yy-${i}`}>
+                    <circle
+                      cx={slot[1] * 40}
+                      cy={slot[0] * 40}
+                      r="22"
+                      fill="#4d2204"
+                      stroke="url(#amberBevelGrad)"
+                      strokeWidth="1.6"
+                      filter="url(#recessedSaucerShadow)"
+                    />
+                    <circle
+                      cx={slot[1] * 40}
+                      cy={slot[0] * 40}
+                      r="14"
+                      fill="#713206"
+                      opacity="0.9"
+                    />
+                  </g>
+                ))}
+              </g>
+
+              {/* 2. TRACK CELLS (52 Ivory Porcelain Tiles with Elegant Metallic Star Coins) */}
               {RING_COORDS.map(([r, c], idx) => {
                 const isSafe = SAFE_STAR_TILES.has(idx);
-                const isYellowStart = idx === 0;
+                const isRedStart = idx === 0;
                 const isBlueStart = idx === 13;
-                const isRedStart = idx === 26;
+                const isYellowStart = idx === 26;
                 const isGreenStart = idx === 39;
 
-                let fill = '#fcfaf4';
+                let fill = '#fbf8f2';
                 let stroke = '#e8dfce';
 
-                if (isYellowStart) { fill = COLOR_CONFIG.yellow.yardBg; stroke = '#e0be69'; }
-                else if (isBlueStart) { fill = COLOR_CONFIG.blue.yardBg; stroke = '#7eb1ee'; }
-                else if (isRedStart) { fill = COLOR_CONFIG.red.yardBg; stroke = '#e87676'; }
-                else if (isGreenStart) { fill = COLOR_CONFIG.green.yardBg; stroke = '#7ab680'; }
+                if (isRedStart) { fill = '#ffe4e6'; stroke = '#f43f5e'; }
+                else if (isBlueStart) { fill = '#dbeafe'; stroke = '#3b82f6'; }
+                else if (isYellowStart) { fill = '#fef3c7'; stroke = '#f59e0b'; }
+                else if (isGreenStart) { fill = '#d1fae5'; stroke = '#10b981'; }
 
                 return (
                   <g key={`track-${idx}`} filter="url(#tile3DShadow)">
@@ -1465,7 +1372,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       rx="6"
                     />
 
-                    {/* Safe Stamped Wooden / Ceramic Star Coin */}
+                    {/* Elegant Safe Star Emblem */}
                     {isSafe && (
                       <g>
                         <circle
@@ -1480,8 +1387,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                           x={c * 40 + 20}
                           y={r * 40 + 25}
                           textAnchor="middle"
-                          fill="#9f8569"
-                          fontSize="14"
+                          fill="#c29d5b"
+                          fontSize="15"
                           fontWeight="bold"
                         >
                           ★
@@ -1489,26 +1396,26 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       </g>
                     )}
 
-                    {/* Directional Entry Coins to Home Stretch Lanes */}
-                    {idx === 11 && (
-                      <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#b4d7fe" stroke="#7fb3f3" strokeWidth="1.5" />
-                        <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
-                          ↓
-                        </text>
-                      </g>
-                    )}
+                    {/* Directional Entry Coins into Home Runways */}
                     {idx === 50 && (
                       <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#fae8a4" stroke="#e5be52" strokeWidth="1.5" />
+                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#fda4af" stroke="#e11d48" strokeWidth="1.5" />
                         <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
                           →
                         </text>
                       </g>
                     )}
+                    {idx === 11 && (
+                      <g>
+                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#93c5fd" stroke="#2563eb" strokeWidth="1.5" />
+                        <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
+                          ↓
+                        </text>
+                      </g>
+                    )}
                     {idx === 24 && (
                       <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#fba5a5" stroke="#ec7878" strokeWidth="1.5" />
+                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#fde047" stroke="#d97706" strokeWidth="1.5" />
                         <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
                           ←
                         </text>
@@ -1516,7 +1423,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     )}
                     {idx === 37 && (
                       <g>
-                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#b2d8b5" stroke="#7eb883" strokeWidth="1.5" />
+                        <circle cx={c * 40 + 20} cy={r * 40 + 20} r="13" fill="#86efac" stroke="#16a34a" strokeWidth="1.5" />
                         <text x={c * 40 + 20} y={r * 40 + 25} textAnchor="middle" fill="#ffffff" fontSize="15" fontWeight="900">
                           ↑
                         </text>
@@ -1526,16 +1433,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 );
               })}
 
-              {/* 3. HOME PATHS */}
-              {HOME_PATHS.yellow.map(([r, c], idx) => (
+              {/* 3. HOME RUNWAYS (Glossy Saturated Beveled Tiles) */}
+              {HOME_PATHS.red.map(([r, c], idx) => (
                 <rect
-                  key={`yhp-${idx}`}
+                  key={`rhp-${idx}`}
                   x={c * 40 + 1}
                   y={r * 40 + 1}
                   width="38"
                   height="38"
-                  fill={COLOR_CONFIG.yellow.homeRow}
-                  stroke="#edd47d"
+                  fill="#e11d48"
+                  stroke="#be123c"
                   strokeWidth="1.2"
                   rx="6"
                   filter="url(#tile3DShadow)"
@@ -1549,23 +1456,23 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   y={r * 40 + 1}
                   width="38"
                   height="38"
-                  fill={COLOR_CONFIG.blue.homeRow}
-                  stroke="#8cbaf0"
+                  fill="#2563eb"
+                  stroke="#1d4ed8"
                   strokeWidth="1.2"
                   rx="6"
                   filter="url(#tile3DShadow)"
                 />
               ))}
 
-              {HOME_PATHS.red.map(([r, c], idx) => (
+              {HOME_PATHS.yellow.map(([r, c], idx) => (
                 <rect
-                  key={`rhp-${idx}`}
+                  key={`yhp-${idx}`}
                   x={c * 40 + 1}
                   y={r * 40 + 1}
                   width="38"
                   height="38"
-                  fill={COLOR_CONFIG.red.homeRow}
-                  stroke="#f09595"
+                  fill="#f59e0b"
+                  stroke="#d97706"
                   strokeWidth="1.2"
                   rx="6"
                   filter="url(#tile3DShadow)"
@@ -1579,8 +1486,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   y={r * 40 + 1}
                   width="38"
                   height="38"
-                  fill={COLOR_CONFIG.green.homeRow}
-                  stroke="#9ac99d"
+                  fill="#10b981"
+                  stroke="#059669"
                   strokeWidth="1.2"
                   rx="6"
                   filter="url(#tile3DShadow)"
@@ -1588,33 +1495,30 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               ))}
 
               {/* 4. CENTER HOME TRIANGLES */}
-              <polygon points="240,240 300,300 240,360" fill={COLOR_CONFIG.yellow.homeRow} />
-              <polygon points="240,240 300,300 360,240" fill={COLOR_CONFIG.blue.homeRow} />
-              <polygon points="360,240 300,300 360,360" fill={COLOR_CONFIG.red.homeRow} />
-              <polygon points="240,360 300,300 360,360" fill={COLOR_CONFIG.green.homeRow} />
+              <polygon points="240,240 300,300 240,360" fill="#e11d48" stroke="#be123c" strokeWidth="1" />
+              <polygon points="240,240 300,300 360,240" fill="#2563eb" stroke="#1d4ed8" strokeWidth="1" />
+              <polygon points="360,240 300,300 360,360" fill="#f59e0b" stroke="#d97706" strokeWidth="1" />
+              <polygon points="240,360 300,300 360,360" fill="#10b981" stroke="#059669" strokeWidth="1" />
 
-              {/* Center Home Birchwood Medallion with Engraved Cottage House + Heart */}
-              <circle cx="300" cy="300" r="44" fill="#eedcc6" stroke="#d5bc9f" strokeWidth="3" filter="url(#cottageShadow)" />
-              <circle cx="300" cy="300" r="39" fill="#faedd9" />
-              <g transform="translate(300, 300)">
-                {/* Gable Roof */}
-                <path d="M -22 -2 L 0 -22 L 22 -2" stroke="#ab7d53" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                {/* Chimney */}
-                <path d="M 12 -12 L 12 -20 L 17 -20 L 17 -7" stroke="#ab7d53" strokeWidth="2.2" strokeLinejoin="round" fill="none" />
-                {/* House walls */}
-                <path d="M -16 -2 L -16 20 L 16 20 L 16 -2" stroke="#ab7d53" strokeWidth="2.8" strokeLinejoin="round" fill="none" />
-                {/* Centered Engraved Heart in House */}
+              {/* Center Obsidian Glass Medallion with Radiant Neon Red Heart */}
+              <circle cx="300" cy="300" r="44" fill="#090a12" stroke="url(#goldMetallicGradient)" strokeWidth="3" filter="url(#cottageShadow)" />
+              <circle cx="300" cy="300" r="38" fill="#14070d" />
+              <circle cx="300" cy="300" r="30" fill="#ff1744" opacity="0.25" filter="url(#castShadowBlur)" />
+
+              {/* Intense Glowing Neon Red Heart in Center */}
+              <g transform="translate(300, 298) scale(1.4)">
                 <path
-                  d="M 0,11 C 0,11 -7,6 -7,2 C -7,-1 -5,-3 -2,-3 C -0.5,-3 0,-2 0,-2 C 0,-2 0.5,-3 2,-3 C 5,-3 7,-1 7,2 C 7,6 0,11 0,11 Z"
-                  fill="#ab7d53"
+                  d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
+                  fill="#ff2e79"
+                  stroke="#ffffff"
+                  strokeWidth="1.2"
+                  filter="url(#neonGlowRedCenter)"
                 />
               </g>
 
-              {/* 5. 3D EMBOSSED PAWNS WITH PHYSICAL GROUND CONTACT (NEVER IN AIR) */}
+              {/* 5. 3D EMBOSSED LUXURY PAWNS WITH REALISTIC SHADOWS */}
               {renderedPawns.map(({ token, x, y, groundY, isLegal, color, isHopping, scale }) => {
                 const cfg = COLOR_CONFIG[color];
-                const headGradient = `url(#${color}PawnHead)`;
-                const bodyGradient = `url(#${color}PawnBody)`;
 
                 return (
                   <g
@@ -1626,14 +1530,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       }
                     }}
                   >
-                    {/* A. Physical Ground Contact Shadow (Glides smoothly along the floor) */}
+                    {/* A. Ground Contact Shadow */}
                     <g
                       transform={`translate(${x}, ${groundY})`}
                       style={{
                         transition: isHopping ? 'transform 0.15s ease-out' : 'transform 0.1s ease-in'
                       }}
                     >
-                      {/* Soft directional cast shadow */}
                       <ellipse
                         cx={1.5}
                         cy={4.5}
@@ -1644,7 +1547,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         filter="url(#castShadowBlur)"
                         style={{ transition: 'all 0.14s ease' }}
                       />
-                      {/* Tight ambient occlusion contact shadow directly touching base rim */}
                       <ellipse
                         cx={0}
                         cy={3.5}
@@ -1657,10 +1559,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       />
                     </g>
 
-                    {/* B. Legal Move Ground Selection Halo (Flat on tile floor under goti) */}
+                    {/* B. Legal Move Ground Selection Halo */}
                     {isLegal && !isHopping && (
                       <g transform={`translate(${x}, ${groundY})`}>
-                        {/* Soft Outer Ground Aura */}
                         <ellipse
                           cx={0}
                           cy={3.5}
@@ -1674,7 +1575,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                           <animate attributeName="opacity" values="0.45;0.18;0.45" dur="1.3s" repeatCount="indefinite" />
                         </ellipse>
 
-                        {/* Concentric Golden Selection Ring on Floor */}
                         <ellipse
                           cx={0}
                           cy={3.5}
@@ -1692,7 +1592,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       </g>
                     )}
 
-                    {/* C. 3D Luxury Figurine Pawn Body (Glides smoothly, gentle bob when selectable) */}
+                    {/* C. 3D Luxury Figurine Pawn Body */}
                     <g
                       transform={`translate(${x}, ${y}) scale(${scale})`}
                       style={{
@@ -1701,7 +1601,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                           : 'transform 0.12s cubic-bezier(0.3, 1.4, 0.4, 1)'
                       }}
                     >
-                      {/* When selectable, subtle gentle hover/bounce inviting tap */}
                       {isLegal && !isHopping ? (
                         <g>
                           <animateTransform
@@ -1711,10 +1610,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                             dur="1.1s"
                             repeatCount="indefinite"
                           />
-                          {renderAnimalFigurine(color, isLegal, cfg)}
+                          {renderLuxuryPawn(color, isLegal)}
                         </g>
                       ) : (
-                        renderAnimalFigurine(color, isLegal, cfg)
+                        renderLuxuryPawn(color, isLegal)
                       )}
                     </g>
                   </g>
@@ -1722,86 +1621,145 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               })}
             </svg>
 
-            {/* 4 Corner Player Badges Anchored directly on the Board Corners */}
-            {/* Top-Left Corner (Yellow Yard) */}
-            {playerByColor['yellow'] && (
+            {/* 4 Corner Player Pods matching reference UI layout */}
+            {/* Top-Left Corner (Red Yard: "You", Crown 👑, Red neon ring) */}
+            {playerByColor['red'] && (
               <div className="absolute -top-4 sm:-top-5 -left-2 sm:-left-3 z-30 pointer-events-auto">
-                {renderCornerBadge('yellow', 'left')}
+                {renderCornerBadge('red', 'left')}
               </div>
             )}
 
-            {/* Top-Right Corner (Blue Yard) */}
+            {/* Top-Right Corner (Blue Yard: "Babe" / Partner, Blue neon ring) */}
             {playerByColor['blue'] && (
               <div className="absolute -top-4 sm:-top-5 -right-2 sm:-right-3 z-30 pointer-events-auto">
                 {renderCornerBadge('blue', 'right')}
               </div>
             )}
 
-            {/* Bottom-Left Corner (Green Yard) */}
+            {/* Bottom-Left Corner (Green Yard: Player 3, Green neon ring) */}
             {playerByColor['green'] && (
               <div className="absolute -bottom-4 sm:-bottom-5 -left-2 sm:-left-3 z-30 pointer-events-auto">
                 {renderCornerBadge('green', 'left')}
               </div>
             )}
 
-            {/* Bottom-Right Corner (Red Yard) */}
-            {playerByColor['red'] && (
+            {/* Bottom-Right Corner (Yellow Yard: Player 4, Gold neon ring) */}
+            {playerByColor['yellow'] && (
               <div className="absolute -bottom-4 sm:-bottom-5 -right-2 sm:-right-3 z-30 pointer-events-auto">
-                {renderCornerBadge('red', 'right')}
+                {renderCornerBadge('yellow', 'right')}
               </div>
             )}
           </div>
         </div>
 
-        {/* BOTTOM CONTROLS (Turn Text, Plush Amber Button, Quick Reactions & Chat) */}
-        <div className="w-full flex flex-col items-center mt-2 max-w-sm px-2 z-20">
-          {/* Turn Text in cozy warm brown serif */}
-          <div className="text-[#523c2d] font-serif font-bold text-sm sm:text-base mb-2 text-center select-none">
+        {/* BOTTOM CONTROLS MATCHING REFERENCE IMAGE (Undo button, Large Glowing Red Dice, Emoji button) */}
+        <div className="w-full flex flex-col items-center mt-3 max-w-sm px-2 z-20">
+          {/* Turn text status banner */}
+          <div className="text-rose-200/90 font-sans font-bold text-xs sm:text-sm tracking-wider uppercase mb-3 text-center select-none drop-shadow-[0_0_8px_rgba(255,46,121,0.5)]">
             {gameState.winnerColor
               ? `🏆 ${gameState.winnerColor.toUpperCase()} Won the Match!`
               : turnPlayer && !turnPlayer.isConnected
-              ? `${turnPlayer.displayName} has left the match • tap below to nudge`
+              ? `${turnPlayer.displayName} has left • tap to nudge`
               : isMyTurn
               ? "it's your turn"
               : `it's ${turnPlayer?.displayName?.toLowerCase() || 'partner'}'s turn`}
           </div>
 
-          {/* Large Plush Warm Amber Pill Button matching reference UI */}
-          <button
-            onClick={() => {
-              if (gameState.winnerColor && onRematch) {
-                onRematch();
-              } else if (canRoll) {
-                onRollDice();
-              } else if (canMove) {
-                // choosing goti
-              } else {
-                // Friendly partner nudge
-                onNudgePlayer?.(turnPlayer?.userId, turnPlayer?.displayName);
-                onSendReaction?.('🔔');
-                playSound('nudge');
-              }
-            }}
-            className={`w-full max-w-[270px] py-3.5 sm:py-4 rounded-full font-black text-sm sm:text-base tracking-wide transition-all duration-200 select-none shadow-[0_10px_22px_rgba(217,119,6,0.38),inset_0_2px_2px_rgba(255,255,255,0.7),inset_0_-4px_0_rgba(180,83,9,0.55)] active:scale-95 active:shadow-[0_4px_12px_rgba(217,119,6,0.3)] cursor-pointer ${
-              canRoll
-                ? 'bg-gradient-to-b from-[#fbb040] via-[#f59e0b] to-[#d97706] text-[#3d2708] hover:brightness-105 animate-pulse ring-2 ring-amber-300/70'
-                : canMove
-                ? 'bg-gradient-to-b from-[#fbb040] via-[#f59e0b] to-[#d97706] text-[#3d2708] hover:brightness-105'
-                : gameState.winnerColor
-                ? 'bg-gradient-to-b from-[#fbb040] via-[#f59e0b] to-[#d97706] text-[#3d2708] animate-bounce'
-                : 'bg-gradient-to-b from-[#fab652] via-[#f5a31a] to-[#de8211] text-[#4a2e05] hover:brightness-105'
-            }`}
-          >
-            {gameState.winnerColor
-              ? 'Rematch 🔄'
-              : canRoll
-              ? 'roll dice'
-              : canMove
-              ? 'choose goti'
-              : turnPlayer && !turnPlayer.isConnected
-              ? `nudge ${turnPlayer.displayName.toLowerCase()} 🔔`
-              : 'nudge partner 🔔'}
-          </button>
+          {/* 3-Control Bottom Panel from reference UI */}
+          <div className="w-full flex items-center justify-center gap-6 sm:gap-8">
+            {/* 1. Left: Circular UNDO / Replay Button */}
+            <div className="flex flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (gameState.winnerColor && onRematch) {
+                    onRematch();
+                  } else {
+                    playSound('step');
+                  }
+                }}
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#121422]/90 backdrop-blur-md border border-white/20 shadow-[0_4px_15px_rgba(0,0,0,0.5)] flex items-center justify-center text-white/80 hover:text-white hover:border-white/40 active:scale-95 transition cursor-pointer"
+                title={gameState.winnerColor ? 'Rematch' : 'Undo'}
+              >
+                {gameState.winnerColor ? (
+                  <RefreshCw className="w-5 h-5 text-amber-400" />
+                ) : (
+                  <RotateCcw className="w-5 h-5 text-white/90" />
+                )}
+              </button>
+              <span className="text-[10px] font-bold text-white/60 tracking-widest uppercase">
+                {gameState.winnerColor ? 'REMATCH' : 'UNDO'}
+              </span>
+            </div>
+
+            {/* 2. Center: Large Circular Glowing Button with 3D Red Cube Dice */}
+            <div className="flex flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (gameState.winnerColor && onRematch) {
+                    onRematch();
+                  } else if (canRoll) {
+                    onRollDice();
+                  } else if (canMove) {
+                    // choosing goti
+                  } else {
+                    // Friendly nudge
+                    onNudgePlayer?.(turnPlayer?.userId, turnPlayer?.displayName);
+                    onSendReaction?.('🔔');
+                    playSound('nudge');
+                  }
+                }}
+                className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer active:scale-95 ${
+                  canRoll
+                    ? 'bg-gradient-to-br from-[#ff2e79] via-[#e11d48] to-[#9f1239] shadow-[0_0_35px_rgba(255,46,121,0.85),0_10px_25px_rgba(0,0,0,0.6)] border-2 border-rose-300/60 animate-pulse'
+                    : canMove
+                    ? 'bg-gradient-to-br from-[#ff2e79] via-[#e11d48] to-[#9f1239] shadow-[0_0_25px_rgba(255,46,121,0.6),0_10px_25px_rgba(0,0,0,0.6)] border-2 border-rose-300/40'
+                    : gameState.winnerColor
+                    ? 'bg-gradient-to-br from-[#f59e0b] via-[#d97706] to-[#b45309] shadow-[0_0_25px_rgba(245,158,11,0.7)] border-2 border-amber-300/60 animate-bounce'
+                    : 'bg-gradient-to-br from-[#e11d48]/70 via-[#9f1239]/70 to-[#50071c]/80 shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/20 hover:brightness-110'
+                }`}
+              >
+                {/* 3D Glossy Red Cube with White Pips */}
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#ff4777] to-[#be123c] border border-white/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu">
+                  {renderDiceFace(gameState.diceValue || 6, 'sm')}
+                </div>
+              </button>
+
+              {/* Bold Glowing Label */}
+              <span className={`text-[11px] sm:text-xs font-black tracking-widest uppercase drop-shadow-[0_0_8px_rgba(255,46,121,0.7)] ${
+                canRoll ? 'text-rose-300 animate-pulse' : canMove ? 'text-amber-300' : 'text-white/80'
+              }`}>
+                {gameState.winnerColor
+                  ? 'REMATCH'
+                  : canRoll
+                  ? 'ROLL THE DICE'
+                  : canMove
+                  ? 'CHOOSE GOTI'
+                  : isMyTurn
+                  ? 'YOUR TURN'
+                  : 'NUDGE'}
+              </span>
+            </div>
+
+            {/* 3. Right: Circular EMOJI Button */}
+            <div className="flex flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onSendReaction?.('❤️');
+                  playSound('step');
+                }}
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#121422]/90 backdrop-blur-md border border-white/20 shadow-[0_4px_15px_rgba(0,0,0,0.5)] flex items-center justify-center text-white/80 hover:text-white hover:border-white/40 active:scale-95 transition cursor-pointer"
+                title="Send Emoji / Reaction"
+              >
+                <Smile className="w-5 h-5 text-white/90" />
+              </button>
+              <span className="text-[10px] font-bold text-white/60 tracking-widest uppercase">
+                EMOJI
+              </span>
+            </div>
+          </div>
         </div>
       </div>
   );

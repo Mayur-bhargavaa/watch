@@ -75,6 +75,11 @@ export interface BoardTheme {
 
 const THEMES: BoardTheme[] = [
   {
+    id: 'romantic',
+    name: 'Romantic Candlelight (Default)',
+    bgUrl: '/images/romantic_ludo_bg.jpg'
+  },
+  {
     id: 'cozy',
     name: 'Cozy Cottage',
     bgUrl: '/images/cozy_ludo_bg.jpg'
@@ -158,7 +163,7 @@ function LudoPageContent() {
 
   // Sound effects setting & Draggable PIP Window State
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
-  const [selectedTheme, setSelectedTheme] = useState<string>('cozy');
+  const [selectedTheme, setSelectedTheme] = useState<string>('romantic');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -1191,18 +1196,24 @@ function LudoPageContent() {
                 </div>
               </div>
 
-              {/* Ambient Decorative Slogans matching reference background */}
-              <div className="hidden lg:flex flex-col gap-8 px-2 select-none">
-                <div className="text-rose-400/30 font-serif italic text-lg leading-snug drop-shadow">
-                  “Good Friends,<br />Great Games,<br />Better Together” 💖
+              {/* Ambient Glowing Neon Signs matching reference background */}
+              <div className="hidden lg:flex flex-col gap-6 px-2 select-none">
+                <div className="p-4 rounded-3xl bg-black/40 border border-rose-500/20 backdrop-blur-xl shadow-2xl">
+                  <div className="text-2xl font-serif font-black text-rose-400 drop-shadow-[0_0_12px_rgba(255,46,121,0.8)]">
+                    Ludo ♡
+                  </div>
+                  <div className="text-[10px] font-black text-rose-200/70 tracking-widest uppercase mt-1">
+                    PLAY • LAUGH • STAY TOGETHER ♡
+                  </div>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-black/30 border border-rose-500/15 text-rose-300/40 text-center font-mono text-xs shadow-inner">
-                  Same Moves,<br />Different Hearts 💕
-                </div>
-
-                <div className="text-rose-500/25 font-bold text-sm uppercase tracking-wider">
-                  Play • Laugh • Connect
+                <div className="p-4 rounded-3xl bg-black/40 border border-sky-500/20 backdrop-blur-xl shadow-2xl">
+                  <div className="text-sm font-sans italic font-bold text-sky-300 drop-shadow-[0_0_10px_rgba(56,189,248,0.7)]">
+                    “Same Game, Different Hearts ♡”
+                  </div>
+                  <div className="text-[10px] font-mono text-zinc-400 mt-1">
+                    Distance means nothing when you play together.
+                  </div>
                 </div>
               </div>
             </div>

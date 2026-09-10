@@ -3,9 +3,9 @@ import { GAME_DEFINITIONS } from './GameDefinitions.js';
 
 // Color starting tile indices on the common 52-tile ring
 export const COLOR_START_TILES: Record<LudoColor, number> = {
-  yellow: 0,
+  red: 0,
   blue: 13,
-  red: 26,
+  yellow: 26,
   green: 39
 };
 
