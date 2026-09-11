@@ -531,14 +531,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     }
   }, [myColor]);
 
-  // Corner cards dynamically positioned floating prominently out from the board corners matching Image 2 benchmark
-  const CORNER_CLASSES: Record<number, { className: string; side: 'left' | 'right' }> = {
-    0: { className: 'absolute -top-5 sm:-top-7 -left-4 sm:-left-8 z-30 pointer-events-auto', side: 'left' },
-    1: { className: 'absolute -top-5 sm:-top-7 -right-4 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
-    2: { className: 'absolute -bottom-5 sm:-bottom-7 -right-4 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
-    3: { className: 'absolute -bottom-5 sm:-bottom-7 -left-4 sm:-left-8 z-30 pointer-events-auto', side: 'left' }
-  };
-
   const ORIG_CORNER_INDEX: Record<LudoColor, number> = {
     red: 0,
     blue: 1,
@@ -546,12 +538,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     green: 3
   };
 
-  const getPhysicalCorner = (color: LudoColor) => {
-    const orig = ORIG_CORNER_INDEX[color];
+  // Maps physical screen position (0: Top-Left, 1: Top-Right, 2: Bottom-Right, 3: Bottom-Left)
+  // back to logical LudoColor taking perspective rotation into account.
+  const getColorAtPhysicalCorner = useCallback((phys: number): LudoColor => {
     const shift = Math.round(boardRotation / 90) % 4;
-    const phys = (orig + shift) % 4;
-    return CORNER_CLASSES[phys];
-  };
+    const orig = (phys - shift + 4) % 4;
+    const entry = Object.entries(ORIG_CORNER_INDEX).find(([_, idx]) => idx === orig);
+    return (entry ? entry[0] : 'green') as LudoColor;
+  }, [boardRotation]);
 
   // =========================================================================
   // 1. CENTER 3D ROLLING DICE ANIMATION
@@ -1336,6 +1330,24 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     );
   };
 
+  const renderPlayerAtPhysicalCorner = useCallback((phys: number) => {
+    const col = getColorAtPhysicalCorner(phys);
+    const p = playerByColor[col];
+    // In 2-player mode or unassigned seats, render invisible spacer to anchor opponent
+    if (!p && (room?.maxPlayers === 2 || !isColorInGame(col))) {
+      return <div className="w-20 sm:w-24 pointer-events-none invisible" aria-hidden="true" />;
+    }
+    return renderCornerBadge(col, phys === 0 || phys === 3 ? 'left' : 'right');
+  }, [getColorAtPhysicalCorner, playerByColor, room?.maxPlayers, isColorInGame]);
+
+  const hasTopRowPlayers = Boolean(
+    playerByColor[getColorAtPhysicalCorner(0)] ||
+    playerByColor[getColorAtPhysicalCorner(1)] ||
+    isColorInGame(getColorAtPhysicalCorner(0)) ||
+    isColorInGame(getColorAtPhysicalCorner(1)) ||
+    (room?.maxPlayers ?? 4) > 2
+  );
+
   return (
     <div className="flex flex-col items-center justify-between w-full max-w-2xl mx-auto select-none relative">
       {/* Floating Reactions Overlay */}
@@ -1355,10 +1367,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
       {/* Board & Player Ribbons Container - Perfectly sized to fit screen without scrolling */}
       <div
-        className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-4 sm:my-6 px-5 sm:px-8"
+        className="relative w-full max-w-[min(92vw,calc(100dvh-320px),440px)] sm:max-w-[min(85vw,calc(100dvh-300px),470px)] md:max-w-[min(75vw,calc(100dvh-280px),500px)] lg:max-w-[min(48vw,calc(100dvh-260px),520px)] flex flex-col items-center select-none my-2 sm:my-3 px-2 sm:px-4"
       >
         {/* Top Room Status Pill & Alignment Debug Toggle */}
-        <div className="mb-3 sm:mb-4 flex items-center justify-center gap-2 z-20">
+        <div className="mb-2 sm:mb-2.5 flex items-center justify-center gap-2 z-20">
           <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0a0c16]/85 backdrop-blur-md border border-amber-400/30 shadow-[0_4px_15px_rgba(0,0,0,0.5)] text-amber-200/90 text-xs font-semibold tracking-wide">
             <Users className="w-3.5 h-3.5 text-amber-400" />
             <span>{room.maxPlayers || 4} Players</span>
@@ -1380,6 +1392,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             <Crosshair className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {/* Top Player Row - Positioned completely outside the board perimeter */}
+        {hasTopRowPlayers && (
+          <div className="w-full flex items-center justify-between mb-2.5 sm:mb-3.5 px-0.5 z-20">
+            {renderPlayerAtPhysicalCorner(0)}
+            {renderPlayerAtPhysicalCorner(1)}
+          </div>
+        )}
 
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
         <div className="relative w-full aspect-square rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
@@ -2477,15 +2497,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </g>
             </svg>
 
-            {/* 4 Corner Player Pods dynamically placed according to board perspective rotation */}
-            {(['red', 'blue', 'yellow', 'green'] as LudoColor[]).map((col) => {
-              const corner = getPhysicalCorner(col);
-              return (
-                <div key={`corner-${col}`} className={corner.className}>
-                  {renderCornerBadge(col, corner.side)}
-                </div>
-              );
-            })}
+          </div>
+
+          {/* Bottom Player Row - Positioned completely outside the board perimeter */}
+          <div className="w-full flex items-center justify-between mt-2.5 sm:mt-3.5 px-0.5 z-20">
+            {renderPlayerAtPhysicalCorner(3)}
+            {renderPlayerAtPhysicalCorner(2)}
           </div>
         </div>
 
