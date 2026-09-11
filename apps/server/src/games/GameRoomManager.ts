@@ -526,7 +526,12 @@ export class GameRoomManager {
             userName: client.displayName,
             avatarUrl: client.avatarUrl,
             content: String(msg.payload.content).slice(0, 300),
-            timestamp: now
+            timestamp: now,
+            replyTo: msg.payload?.replyTo ? {
+              id: String(msg.payload.replyTo.id),
+              userName: String(msg.payload.replyTo.userName || 'Player'),
+              content: String(msg.payload.replyTo.content || '').slice(0, 300)
+            } : null
           };
 
           let history = this.roomChatHistory.get(client.roomId);
@@ -653,13 +658,52 @@ export class GameRoomManager {
     this.userClients.delete(client.userId);
     this.db.setGamePlayerConnected(client.roomId, client.userId, false);
 
+    const room = this.db.getGameRoomById(client.roomId);
+    let isWinner = false;
+    let winnerUserId: string | null = null;
+    let winnerDisplayName: string | null = null;
+    let winnerColor: any = null;
+
+    if (room && (room.status === 'PLAYING' || room.status === 'READY' || room.gameState)) {
+      const remainingPlayers = room.players.filter(p => p.userId !== client.userId);
+      if (remainingPlayers.length === 1) {
+        const winner = remainingPlayers[0];
+        isWinner = true;
+        winnerUserId = winner.userId;
+        winnerDisplayName = winner.displayName;
+        winnerColor = winner.color;
+
+        const now = new Date().toISOString();
+        this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+
+        if (room.gameType === 'ludo' && room.gameState) {
+          room.gameState.winnerColor = winner.color;
+          room.gameState.winnerUserId = winner.userId;
+          room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+          this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+        } else if (room.gameType === 'four-in-a-row' && room.gameState) {
+          room.gameState.winner = winner.color === 'red' ? 'R' : 'Y';
+          room.gameState.winnerColor = winner.color;
+          room.gameState.winnerUserId = winner.userId;
+          room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+          this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+        }
+      }
+    }
+
     this.broadcast(client.roomId, {
       type: 'game:player_left',
       roomId: client.roomId,
       payload: {
         userId: client.userId,
         displayName: client.displayName,
-        reason: 'LEFT'
+        reason: 'LEFT',
+        isWinner,
+        winnerUserId,
+        winnerDisplayName,
+        winnerColor,
+        forfeitMessage: `${client.displayName} left the game. You are the winner! 🏆`,
+        gameState: room?.gameState
       }
     });
   }
@@ -675,7 +719,7 @@ export class GameRoomManager {
     this.userClients.delete(client.userId);
     this.db.setGamePlayerConnected(client.roomId, client.userId, false);
 
-    // 30-second grace timer for human reconnection
+    // 5-second grace timer for human reconnection
     const graceTimer = setTimeout(() => {
       this.disconnectGraceTimers.delete(client.userId);
       const room = this.db.getGameRoomById(client.roomId);
@@ -685,10 +729,46 @@ export class GameRoomManager {
         this.broadcast(room.id, {
           type: 'game:player_left',
           roomId: room.id,
-          payload: { userId: client.userId, displayName: client.displayName }
+          payload: { userId: client.userId, displayName: client.displayName, reason: 'LEFT' }
         });
+      } else if (room && (room.status === 'PLAYING' || room.status === 'READY' || room.gameState)) {
+        const remainingPlayers = room.players.filter(p => p.userId !== client.userId);
+        if (remainingPlayers.length === 1) {
+          const winner = remainingPlayers[0];
+          const now = new Date().toISOString();
+          this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+
+          if (room.gameType === 'ludo' && room.gameState) {
+            room.gameState.winnerColor = winner.color;
+            room.gameState.winnerUserId = winner.userId;
+            room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+            this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+          } else if (room.gameType === 'four-in-a-row' && room.gameState) {
+            room.gameState.winner = winner.color === 'red' ? 'R' : 'Y';
+            room.gameState.winnerColor = winner.color;
+            room.gameState.winnerUserId = winner.userId;
+            room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+            this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+          }
+
+          this.broadcast(room.id, {
+            type: 'game:player_left',
+            roomId: room.id,
+            payload: {
+              userId: client.userId,
+              displayName: client.displayName,
+              reason: 'DISCONNECTED',
+              isWinner: true,
+              winnerUserId: winner.userId,
+              winnerDisplayName: winner.displayName,
+              winnerColor: winner.color,
+              forfeitMessage: `${client.displayName} left the game. You are the winner! 🏆`,
+              gameState: room.gameState
+            }
+          });
+        }
       }
-    }, 30000);
+    }, 5000);
 
     this.disconnectGraceTimers.set(client.userId, graceTimer);
 
@@ -699,7 +779,7 @@ export class GameRoomManager {
       payload: {
         userId: client.userId,
         displayName: client.displayName,
-        graceSeconds: 30
+        graceSeconds: 5
       }
     });
   }

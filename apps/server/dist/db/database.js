@@ -115,6 +115,7 @@ export class DatabaseService {
         user_avatar TEXT,
         content TEXT NOT NULL,
         media_timestamp REAL,
+        reply_to TEXT,
         is_deleted INTEGER DEFAULT 0,
         created_at TEXT NOT NULL
       );
@@ -185,6 +186,10 @@ export class DatabaseService {
         catch { }
         try {
             this.db.exec("ALTER TABLE rooms ADD COLUMN theme_id TEXT DEFAULT 'default'");
+        }
+        catch { }
+        try {
+            this.db.exec("ALTER TABLE chat_messages ADD COLUMN reply_to TEXT");
         }
         catch { }
         try {
@@ -509,10 +514,10 @@ export class DatabaseService {
     // --- Chat ---
     insertChatMessage(msg) {
         const stmt = this.db.prepare(`
-      INSERT INTO chat_messages (id, room_id, user_id, user_name, user_avatar, content, media_timestamp, is_deleted, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO chat_messages (id, room_id, user_id, user_name, user_avatar, content, media_timestamp, reply_to, is_deleted, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-        stmt.run(msg.id, msg.roomId, msg.userId, msg.userName, msg.userAvatar || null, msg.content, msg.mediaTimestamp ?? null, msg.isDeleted ? 1 : 0, msg.createdAt);
+        stmt.run(msg.id, msg.roomId, msg.userId, msg.userName, msg.userAvatar || null, msg.content, msg.mediaTimestamp ?? null, msg.replyTo ? JSON.stringify(msg.replyTo) : null, msg.isDeleted ? 1 : 0, msg.createdAt);
     }
     getRecentChatMessages(roomId, limit = 100) {
         const rows = this.db.prepare(`
@@ -526,6 +531,14 @@ export class DatabaseService {
             userAvatar: r.user_avatar,
             content: r.content,
             mediaTimestamp: r.media_timestamp,
+            replyTo: r.reply_to ? (() => {
+                try {
+                    return JSON.parse(r.reply_to);
+                }
+                catch {
+                    return null;
+                }
+            })() : null,
             isDeleted: Boolean(r.is_deleted),
             createdAt: r.created_at
         }));

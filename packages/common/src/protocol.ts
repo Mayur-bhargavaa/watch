@@ -42,9 +42,16 @@ export const ReactionSendPayloadSchema = z.object({
 });
 export type ReactionSendPayload = z.infer<typeof ReactionSendPayloadSchema>;
 
+export const ChatReplyToSchema = z.object({
+  id: z.string(),
+  userName: z.string(),
+  content: z.string()
+});
+
 export const ChatSendPayloadSchema = z.object({
   content: z.string().min(1).max(1000),
-  mediaTimestamp: z.number().min(0).optional().nullable()
+  mediaTimestamp: z.number().min(0).optional().nullable(),
+  replyTo: ChatReplyToSchema.optional().nullable()
 });
 export type ChatSendPayload = z.infer<typeof ChatSendPayloadSchema>;
 

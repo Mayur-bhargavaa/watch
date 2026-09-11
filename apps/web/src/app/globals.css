@@ -14,20 +14,31 @@ body {
   overflow-x: hidden;
 }
 
-/* Custom Cinema Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* Hide all scrolling bars completely across all browsers */
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
 }
-::-webkit-scrollbar-track {
-  background: #0b0f17;
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
-::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 3px;
+
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
 }
 
 @keyframes floatUp {

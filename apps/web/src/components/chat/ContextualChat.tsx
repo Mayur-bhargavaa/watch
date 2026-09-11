@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '@synccinema/common';
+import { ChatMessage, ChatReplyTo } from '@synccinema/common';
 import {
   Send,
   Smile,
@@ -12,11 +12,13 @@ import {
   Trash2,
   Clock,
   X,
-  Sparkles
+  Sparkles,
+  CornerUpLeft
 } from 'lucide-react';
 import { PARTICIPANT_PALETTE, SmileyFace } from '../voice/VideoGrid';
 import { StickerPicker, StickerMessageView } from './StickerPicker';
 import { parseStickerMessage, formatStickerMessage } from './StickersData';
+import { ChatReplyQuote, ChatReplyingBanner } from './ChatReplyUI';
 
 export interface ContextualChatProps {
   messages: ChatMessage[];
@@ -26,7 +28,7 @@ export interface ContextualChatProps {
   roomTitle?: string;
   memberCount?: number;
   members?: any[];
-  onSendMessage: (content: string, mediaTimestamp?: number | null) => void;
+  onSendMessage: (content: string, mediaTimestamp?: number | null, replyTo?: ChatReplyTo | null) => void;
   onDeleteMessage?: (messageId: string) => void;
   onSeekToTimestamp?: (seconds: number) => void;
   onCopyInvite?: () => void;
@@ -72,19 +74,51 @@ export function ContextualChat({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<ChatReplyTo | null>(null);
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const typingTimerRef = useRef<any>(null);
   const isTypingActiveRef = useRef(false);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  const isUserScrolledUpRef = useRef<boolean>(false);
+  const prevMessagesCountRef = useRef<number>(messages.length);
+
+  const handleJumpToMessage = (msgId: string) => {
+    const el = document.getElementById(`ctx-msg-${msgId}`);
+    if (el) {
+      isUserScrolledUpRef.current = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMsgId(msgId);
+      setTimeout(() => {
+        setHighlightedMsgId((prev) => (prev === msgId ? null : prev));
+      }, 2000);
     }
-  }, [messages]);
+  };
+
+  const handleChatScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    isUserScrolledUpRef.current = scrollHeight - scrollTop - clientHeight > 60;
+  };
+
+  // Auto-scroll to bottom only on new messages if user isn't reading history
+  useEffect(() => {
+    if (messages.length > prevMessagesCountRef.current) {
+      prevMessagesCountRef.current = messages.length;
+      if (!isUserScrolledUpRef.current && scrollRef.current) {
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    } else {
+      prevMessagesCountRef.current = messages.length;
+    }
+  }, [messages.length]);
 
   // Close emoji picker when clicking outside or pressing Escape
   useEffect(() => {
@@ -153,9 +187,19 @@ export function ContextualChat({
       clearTimeout(typingTimerRef.current);
     }
 
-    onSendMessage(input.trim(), Math.floor(currentPlaybackPosition));
+    onSendMessage(input.trim(), Math.floor(currentPlaybackPosition), replyingTo);
     setInput('');
+    setReplyingTo(null);
     setShowEmojiPicker(false);
+    isUserScrolledUpRef.current = false;
+    setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }, 50);
   };
 
   const handleInsertEmoji = (emoji: string) => {
@@ -247,7 +291,8 @@ export function ContextualChat({
       {/* 2. Messages List (100% Real messages from socket) */}
       <div
         ref={scrollRef}
-        className="flex-1 p-3.5 space-y-3 overflow-y-auto overflow-x-hidden min-h-0 scrollbar-thin scrollbar-thumb-white/10"
+        onScroll={handleChatScroll}
+        className="flex-1 p-3.5 space-y-3 overflow-y-auto overflow-x-hidden min-h-0 scrollbar-none"
       >
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 select-none">
@@ -265,11 +310,16 @@ export function ContextualChat({
             const avatarColor = PARTICIPANT_PALETTE[idx % PARTICIPANT_PALETTE.length];
             const canDelete = isSelf || isHost;
 
+            const isHighlighted = highlightedMsgId === msg.id;
+
             return (
               <div
                 key={msg.id}
-                className={`group relative flex items-start space-x-2 max-w-full ${
+                id={`ctx-msg-${msg.id}`}
+                className={`group relative flex items-start space-x-2 max-w-full rounded-2xl p-1.5 my-0.5 transition-all duration-300 ${
                   isSelf ? 'flex-row-reverse space-x-reverse' : ''
+                } ${
+                  isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
                 }`}
               >
                 {/* Round Avatar with Smiley */}
@@ -296,13 +346,22 @@ export function ContextualChat({
                     </span>
                   </div>
 
+                  {/* Quoted reply card if replying to another message */}
+                  {msg.replyTo && (
+                    <ChatReplyQuote
+                      replyTo={msg.replyTo}
+                      onJumpToMessage={handleJumpToMessage}
+                      accentColor="rose"
+                    />
+                  )}
+
                   {parseStickerMessage(msg.content) ? (
                     <StickerMessageView content={msg.content} />
                   ) : (
                     <div
                       className={`text-xs px-3 py-2 rounded-2xl border leading-relaxed break-words shadow-sm relative group/bubble ${
                         isSelf
-                          ? 'bg-[#E50914] text-white rounded-tr-sm border-[#E50914]'
+                          ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-tr-sm border-rose-500/30'
                           : 'bg-black/40 backdrop-blur-sm text-white rounded-tl-sm border-white/10'
                       }`}
                     >
@@ -325,7 +384,7 @@ export function ContextualChat({
                     </div>
                   )}
 
-                  {/* Quick hover actions: Copy & Delete */}
+                  {/* Quick hover actions: Reply, Copy & Delete */}
                   <div
                     className={`opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pt-0.5 ${
                       isSelf ? 'justify-end' : 'justify-start'
@@ -333,8 +392,20 @@ export function ContextualChat({
                   >
                     <button
                       type="button"
+                      onClick={() => {
+                        setReplyingTo({ id: msg.id, userName: msg.userName, content: msg.content });
+                        inputRef.current?.focus({ preventScroll: true });
+                      }}
+                      className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white text-[10px] transition cursor-pointer"
+                      title="Reply to message"
+                    >
+                      <CornerUpLeft className="w-3 h-3 text-red-400" />
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => handleCopyMessage(msg.id, msg.content)}
-                      className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white text-[10px] transition"
+                      className="p-1 rounded hover:bg-white/10 text-zinc-400 hover:text-white text-[10px] transition cursor-pointer"
                       title="Copy text"
                     >
                       {copiedMsgId === msg.id ? (
@@ -348,7 +419,7 @@ export function ContextualChat({
                       <button
                         type="button"
                         onClick={() => onDeleteMessage(msg.id)}
-                        className="p-1 rounded hover:bg-red-500/20 text-zinc-400 hover:text-red-400 text-[10px] transition"
+                        className="p-1 rounded hover:bg-red-500/20 text-zinc-400 hover:text-red-400 text-[10px] transition cursor-pointer"
                         title="Delete message"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -437,21 +508,37 @@ export function ContextualChat({
           <div className="absolute bottom-16 right-3 z-50 animate-in fade-in zoom-in-95 duration-150">
             <StickerPicker
               onSelectSticker={(stickerId) => {
-                onSendMessage(formatStickerMessage(stickerId), currentPlaybackPosition);
+                onSendMessage(formatStickerMessage(stickerId), currentPlaybackPosition, replyingTo);
                 setShowStickerPicker(false);
+                setReplyingTo(null);
               }}
               onClose={() => setShowStickerPicker(false)}
             />
           </div>
         )}
 
+        {/* Replying-to Preview Bar */}
+        {replyingTo && (
+          <ChatReplyingBanner
+            replyingTo={replyingTo}
+            onCancel={() => setReplyingTo(null)}
+            accentColor="rose"
+          />
+        )}
+
         {/* Message Input Form */}
         <form onSubmit={handleSubmit} className="relative flex items-center">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={handleInputChange}
-            placeholder="Type a message or send stickers..."
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && replyingTo) {
+                setReplyingTo(null);
+              }
+            }}
+            placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Type a message or send stickers..."}
             maxLength={1000}
             className="w-full bg-[#1C202B] text-xs text-white placeholder-zinc-400 rounded-xl px-3.5 py-2.5 pr-20 border border-white/10 focus:outline-none focus:border-rose-500 transition shadow-inner"
           />
@@ -473,7 +560,7 @@ export function ContextualChat({
             <button
               type="submit"
               disabled={!input.trim()}
-              className="p-2 bg-[#E50914] hover:bg-red-600 disabled:opacity-30 disabled:hover:bg-[#E50914] text-white rounded-lg transition shadow flex items-center justify-center active:scale-95"
+              className="p-2 bg-[#E50914] hover:bg-red-600 disabled:opacity-30 disabled:hover:bg-[#E50914] text-white rounded-lg transition shadow flex items-center justify-center active:scale-95 cursor-pointer"
               title="Send Message"
             >
               <Send className="w-3.5 h-3.5" />

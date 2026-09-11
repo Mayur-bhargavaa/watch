@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RoomThemePayloadSchema = exports.VoiceStatePayloadSchema = exports.VoiceSignalPayloadSchema = exports.HostTransferPayloadSchema = exports.MediaChangePayloadSchema = exports.ChatSendPayloadSchema = exports.ReactionSendPayloadSchema = exports.PlaybackBufferPayloadSchema = exports.PlaybackCommandPayloadSchema = exports.RoomJoinPayloadSchema = exports.SyncPingPayloadSchema = void 0;
+exports.RoomThemePayloadSchema = exports.VoiceStatePayloadSchema = exports.VoiceSignalPayloadSchema = exports.HostTransferPayloadSchema = exports.MediaChangePayloadSchema = exports.ChatSendPayloadSchema = exports.ChatReplyToSchema = exports.ReactionSendPayloadSchema = exports.PlaybackBufferPayloadSchema = exports.PlaybackCommandPayloadSchema = exports.RoomJoinPayloadSchema = exports.SyncPingPayloadSchema = void 0;
 const zod_1 = require("zod");
 // Client -> Server Payloads
 exports.SyncPingPayloadSchema = zod_1.z.object({
@@ -24,9 +24,15 @@ exports.ReactionSendPayloadSchema = zod_1.z.object({
     emoji: zod_1.z.string().min(1).max(8),
     mediaTimestamp: zod_1.z.number().min(0)
 });
+exports.ChatReplyToSchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    userName: zod_1.z.string(),
+    content: zod_1.z.string()
+});
 exports.ChatSendPayloadSchema = zod_1.z.object({
     content: zod_1.z.string().min(1).max(1000),
-    mediaTimestamp: zod_1.z.number().min(0).optional().nullable()
+    mediaTimestamp: zod_1.z.number().min(0).optional().nullable(),
+    replyTo: exports.ChatReplyToSchema.optional().nullable()
 });
 exports.MediaChangePayloadSchema = zod_1.z.object({
     sourceUrl: zod_1.z.string().min(1),

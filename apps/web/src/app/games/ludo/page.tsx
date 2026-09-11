@@ -40,8 +40,12 @@ import {
   Palette,
   Crown,
   Zap,
-  Lock
+  Lock,
+  CornerUpLeft
 } from 'lucide-react';
+import { ChatReplyTo } from '@synccinema/common';
+import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/ChatReplyUI';
+import { AlertModal, AlertModalType } from '../../../components/ui/AlertModal';
 import {
   getStoredSession,
   ensureSession,
@@ -154,12 +158,64 @@ function LudoPageContent() {
   const [activeSideTab, setActiveSideTab] = useState<'chat' | 'call' | 'players'>('chat');
   const [chatInput, setChatInput] = useState('');
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ChatReplyTo | null>(null);
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isUserScrolledUpRef = useRef<boolean>(false);
+  const prevMessagesCountRef = useRef<number>(0);
   const lastStickerSentRef = useRef<number>(0);
+
+  const handleJumpToMessage = useCallback((msgId: string) => {
+    const el = document.getElementById(`ludo-chat-msg-${msgId}`);
+    if (el) {
+      isUserScrolledUpRef.current = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMsgId(msgId);
+      setTimeout(() => {
+        setHighlightedMsgId((prev) => (prev === msgId ? null : prev));
+      }, 2000);
+    }
+  }, []);
+
+  const handleChatScroll = useCallback(() => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    isUserScrolledUpRef.current = scrollHeight - scrollTop - clientHeight > 60;
+  }, []);
 
   // Modals
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [alertModalState, setAlertModalState] = useState<{
+    title: string;
+    message: string | React.ReactNode;
+    type?: AlertModalType;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+  } | null>(null);
+
+  const showAlert = useCallback((
+    title: string,
+    message: string | React.ReactNode,
+    type: AlertModalType = 'info',
+    options?: {
+      confirmText?: string;
+      cancelText?: string;
+      onConfirm?: () => void;
+    }
+  ) => {
+    setAlertModalState({
+      title,
+      message,
+      type,
+      confirmText: options?.confirmText,
+      cancelText: options?.cancelText,
+      onConfirm: options?.onConfirm
+    });
+  }, []);
 
   // Sound effects setting & Draggable PIP Window State
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
@@ -280,6 +336,8 @@ function LudoPageContent() {
     error: wsError,
     disconnectedPlayer,
     nudgeAlert,
+    opponentLeftWin,
+    clearOpponentLeftWin,
     roomTheme,
     typingUsers,
     rollDice,
@@ -378,10 +436,20 @@ function LudoPageContent() {
     return map;
   }, [videoGridParticipants, effectiveUserId, myPlayer]);
 
-  // Auto-scroll chat to bottom
+  // Auto-scroll chat to bottom only when a new message arrives and user isn't reading history
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (chatMessages.length > prevMessagesCountRef.current) {
+      prevMessagesCountRef.current = chatMessages.length;
+      if (!isUserScrolledUpRef.current && chatContainerRef.current) {
+        chatContainerRef.current.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    } else {
+      prevMessagesCountRef.current = chatMessages.length;
+    }
+  }, [chatMessages.length]);
 
   // Initialize Session & Partner Code
   const loadUserAndPartner = useCallback(async () => {
@@ -530,14 +598,24 @@ function LudoPageContent() {
 
   // Disconnect Partner
   const handleDisconnectPartner = async () => {
-    if (!confirm('Disconnect from your partner? You can reconnect anytime with their code.')) return;
     if (!session?.token) return;
-    try {
-      await disconnectUserPartner(session.token);
-      setPartner(null);
-    } catch (err) {
-      console.error(err);
-    }
+    showAlert(
+      'Disconnect Partner? 💔',
+      'Are you sure you want to disconnect from your partner? You can reconnect anytime with their partner code.',
+      'warning',
+      {
+        confirmText: 'Disconnect',
+        cancelText: 'Keep Partner',
+        onConfirm: async () => {
+          try {
+            await disconnectUserPartner(session.token);
+            setPartner(null);
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+    );
   };
 
   // Ping Partner
@@ -642,7 +720,11 @@ function LudoPageContent() {
             setPartner(partnerRes.partner);
             setIsJoiningRoom(false);
             setRoomCodeInput('');
-            alert(`Connected with partner ${partnerRes.partner.displayName}! You can now click "Play Together" to start a match.`);
+            showAlert(
+              'Partner Connected! 💕',
+              `Connected with partner ${partnerRes.partner.displayName}! You can now click "Play Together" to start a match.`,
+              'success'
+            );
             return;
           }
         } catch {
@@ -694,8 +776,16 @@ function LudoPageContent() {
     if (!chatInput.trim()) return;
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     sendTyping(false);
-    sendChat(chatInput);
+    sendChat(chatInput, replyingTo);
     setChatInput('');
+    setReplyingTo(null);
+    isUserScrolledUpRef.current = false;
+    setTimeout(() => {
+      chatContainerRef.current?.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }, 50);
   };
 
   const isWaiting = room && room.status === 'WAITING';
@@ -717,7 +807,7 @@ function LudoPageContent() {
   const disconnectedOpponentName = opponentPlayer?.displayName || disconnectedPlayer?.displayName || 'Partner';
 
   return (
-    <div className="min-h-screen bg-[#1c1815] text-slate-800 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950 relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#120712] text-white flex flex-col font-sans selection:bg-rose-600 selection:text-white relative overflow-x-hidden">
       {/* Customizable Game Theme Background */}
       <div
         className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
@@ -728,8 +818,8 @@ function LudoPageContent() {
       {/* Live Animated Candle Flames, Flickering Glow, Mug Steam & Floating Warm Embers */}
       <DynamicThemeEffects themeId={currentTheme.id} />
 
-      {/* Subtle warm daylight tint */}
-      <div className="fixed inset-0 pointer-events-none z-0 bg-amber-900/[0.04] backdrop-blur-[0.2px]" />
+      {/* Subtle warm rose tint */}
+      <div className="fixed inset-0 pointer-events-none z-0 bg-rose-950/[0.05] backdrop-blur-[0.2px]" />
 
       {/* TOP NAVIGATION BAR (Exact replica of reference UI) */}
       <header className="h-16 px-4 sm:px-8 bg-transparent flex items-center justify-between shrink-0 sticky top-0 z-40">
@@ -738,10 +828,19 @@ function LudoPageContent() {
           <button
             onClick={() => {
               if (roomParam) {
-                if (confirm('Leave current match?')) {
-                  sendLeave();
-                  router.push('/games/ludo');
-                }
+                showAlert(
+                  'Leave Match? 🚪',
+                  'Are you sure you want to leave this game? You will disconnect from the match and return to the lounge.',
+                  'warning',
+                  {
+                    confirmText: 'Leave Match',
+                    cancelText: 'Stay & Play',
+                    onConfirm: () => {
+                      sendLeave();
+                      router.push('/games/ludo');
+                    }
+                  }
+                );
               } else {
                 router.push('/games');
               }
@@ -758,10 +857,10 @@ function LudoPageContent() {
         {roomParam && isPipClosed && (
           <button
             onClick={() => setIsPipClosed(false)}
-            className="px-3.5 py-1.5 rounded-full bg-[#1e1e1e]/90 hover:bg-[#2b2b2b] text-amber-300 border border-amber-400/40 shadow-lg text-xs font-bold flex items-center gap-1.5 transition backdrop-blur-md animate-fade-in"
+            className="px-3.5 py-1.5 rounded-full bg-[#1e1e1e]/90 hover:bg-[#2b2b2b] text-rose-300 border border-rose-400/40 shadow-lg text-xs font-bold flex items-center gap-1.5 transition backdrop-blur-md animate-fade-in"
             title="Open Floating Video Call"
           >
-            <Video className="w-3.5 h-3.5 text-amber-300" />
+            <Video className="w-3.5 h-3.5 text-rose-300" />
             <span>Show Video Call</span>
           </button>
         )}
@@ -789,7 +888,7 @@ function LudoPageContent() {
               onClick={toggleCamera}
               className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border transition flex items-center justify-center shadow-md backdrop-blur-md ${
                 isCameraOn
-                  ? 'bg-amber-950/80 hover:bg-amber-900/90 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 shadow-[0_0_12px_rgba(251,191,36,0.4)]'
+                  ? 'bg-rose-950/80 hover:bg-rose-900/90 border-rose-400 text-rose-300 ring-2 ring-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
                   : 'bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border-white/15 text-zinc-300 hover:text-white'
               }`}
               title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
@@ -804,7 +903,7 @@ function LudoPageContent() {
               onClick={() => setIsChatOpen(!isChatOpen)}
               className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border transition flex items-center justify-center shadow-md backdrop-blur-md ${
                 isChatOpen
-                  ? 'bg-[#1e1e1e] border-amber-400 text-amber-300'
+                  ? 'bg-[#1e1e1e] border-rose-400 text-rose-300'
                   : 'bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border-white/15 text-white'
               }`}
               title="Toggle Chat & Call"
@@ -828,8 +927,17 @@ function LudoPageContent() {
               onClick={() => {
                 if (gameState?.winnerColor) {
                   rematch();
-                } else if (confirm('Restart / Request Rematch?')) {
-                  rematch();
+                } else {
+                  showAlert(
+                    'Restart Match? 🔄',
+                    'Would you like to reset the board and request a rematch with all players in the room?',
+                    'info',
+                    {
+                      confirmText: 'Request Rematch',
+                      cancelText: 'Cancel',
+                      onConfirm: () => rematch()
+                    }
+                  );
                 }
               }}
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border border-white/15 text-white transition flex items-center justify-center shadow-md backdrop-blur-md"
@@ -871,7 +979,7 @@ function LudoPageContent() {
           <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-white/10 touch-none">
             {/* Drag Handle & Live Call status */}
             <div className="flex items-center gap-1.5 text-zinc-300 pointer-events-none">
-              <GripHorizontal className="w-4 h-4 text-amber-400/80" />
+              <GripHorizontal className="w-4 h-4 text-rose-400/80" />
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span className="text-[11px] font-black uppercase tracking-wider text-white">
                 Call ({videoGridParticipants.length})
@@ -906,7 +1014,7 @@ function LudoPageContent() {
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
                   isCameraOn
-                    ? 'bg-amber-950/80 border-amber-400/60 text-amber-300 hover:bg-amber-900 ring-1 ring-amber-400/40'
+                    ? 'bg-rose-950/80 border-rose-400/60 text-rose-300 hover:bg-rose-900 ring-1 ring-rose-400/40'
                     : 'bg-white/10 border-white/20 text-zinc-300 hover:bg-white/20 hover:text-white'
                 }`}
                 title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
@@ -958,7 +1066,7 @@ function LudoPageContent() {
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-1">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-600 to-rose-600 text-white font-bold text-xs flex items-center justify-center shadow">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-600 via-pink-600 to-rose-500 text-white font-bold text-xs flex items-center justify-center shadow">
                         {participant.displayName?.[0]?.toUpperCase() || 'U'}
                       </div>
                       <span className="text-[9px] text-zinc-400 font-semibold">Cam Off</span>
@@ -987,60 +1095,84 @@ function LudoPageContent() {
         </div>
       )}
 
-      {/* Media Notice (e.g. Camera or Mic fallback / permission reminder) */}
+      {/* Media Notice Modal */}
       {mediaNotice && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#1c0d16]/95 border border-amber-400 text-amber-200 text-xs px-4 py-2 rounded-full shadow-2xl backdrop-blur-md flex items-center gap-2.5 animate-in fade-in slide-in-from-top-2">
-          <span>📷 {mediaNotice}</span>
-          <button
-            onClick={clearMediaNotice}
-            className="p-0.5 hover:text-white rounded-full bg-white/10"
-            title="Dismiss"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <AlertModal
+          isOpen={!!mediaNotice}
+          onClose={clearMediaNotice}
+          title="Device Notice"
+          message={mediaNotice}
+          type="warning"
+          confirmText="Understood"
+        />
       )}
 
-      {/* Live Incoming Partner Game Invite Toast */}
+      {/* Live Incoming Partner Game Invite Modal */}
       {incomingInvite && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#0f111a]/95 backdrop-blur-2xl border border-amber-400/35 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(217,119,6,0.2),inset_0_1px_1px_rgba(255,255,255,0.15)] rounded-2xl sm:rounded-full px-4 sm:px-5 py-2.5 sm:py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-white animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl sm:rounded-full bg-gradient-to-br from-[#2a1d27] to-[#140c15] border border-amber-400/40 shadow-inner flex items-center justify-center shrink-0 text-xl">
-              🎲
-            </div>
-            <div className="text-left flex flex-col justify-center">
-              <span className="text-xs sm:text-[13px] font-bold text-white tracking-wide block">
-                <span className="text-amber-300 font-semibold">{incomingInvite.fromDisplayName}</span> invited you to play Ludo!
-              </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] text-white/40 tracking-wider uppercase font-medium">Room:</span>
-                <span className="text-[10px] text-amber-200 font-mono font-semibold tracking-wider px-1.5 py-0.5 rounded bg-amber-400/10 border border-amber-400/25">
-                  {incomingInvite.roomCode}
-                </span>
+        <AlertModal
+          isOpen={!!incomingInvite}
+          onClose={() => setIncomingInvite(null)}
+          title="Game Invite Received! 🎲"
+          message={
+            <div className="space-y-2 text-center">
+              <p className="text-white font-medium">
+                <span className="text-rose-300 font-bold">{incomingInvite.fromDisplayName}</span> invited you to play Ludo together!
+              </p>
+              <div className="inline-block px-3 py-1 rounded-xl bg-rose-500/15 border border-rose-500/30 font-mono text-xs text-rose-200">
+                Room: {incomingInvite.roomCode}
               </div>
             </div>
-          </div>
+          }
+          type="info"
+          confirmText="Accept & Play"
+          cancelText="Dismiss"
+          onConfirm={() => {
+            const code = incomingInvite.roomCode;
+            setIncomingInvite(null);
+            router.push(`/games/ludo?room=${code}`);
+          }}
+        />
+      )}
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const code = incomingInvite.roomCode;
-                setIncomingInvite(null);
-                router.push(`/games/ludo?room=${code}`);
-              }}
-              className="px-4 py-2 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-slate-950 font-black text-xs rounded-full shadow-[0_4px_14px_rgba(217,119,6,0.35)] transition-all transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>Accept & Play</span>
-              <Sparkles className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
-            </button>
-            <button
-              onClick={() => setIncomingInvite(null)}
-              className="px-3 py-2 text-white/50 hover:text-white text-xs font-semibold transition cursor-pointer hover:bg-white/5 rounded-full"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
+      {/* General Alert & Confirm Modal */}
+      {alertModalState && (
+        <AlertModal
+          isOpen={!!alertModalState}
+          onClose={() => setAlertModalState(null)}
+          title={alertModalState.title}
+          message={alertModalState.message}
+          type={alertModalState.type || 'info'}
+          confirmText={alertModalState.confirmText || 'Got It'}
+          cancelText={alertModalState.cancelText}
+          onConfirm={() => {
+            const cb = alertModalState.onConfirm;
+            setAlertModalState(null);
+            if (cb) cb();
+          }}
+        />
+      )}
+
+      {/* Opponent Left Victory Modal */}
+      {opponentLeftWin && (
+        <AlertModal
+          isOpen={!!opponentLeftWin}
+          onClose={clearOpponentLeftWin}
+          title="🎉 YOU WON THE MATCH! 🏆"
+          message={
+            <div className="space-y-2 text-center">
+              <p className="font-bold text-white text-base">
+                {opponentLeftWin.opponentDisplayName} has left the game.
+              </p>
+              <p className="text-rose-200/90 text-sm">
+                You are the winner by default!
+              </p>
+            </div>
+          }
+          type="success"
+          confirmText="Back to Lounge"
+          cancelText="Stay on Board"
+          onConfirm={() => router.push('/games')}
+        />
       )}
 
 
@@ -1065,7 +1197,7 @@ function LudoPageContent() {
               </>
             ) : (
               <>
-                <div className="w-10 h-10 mx-auto rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+                <div className="w-10 h-10 mx-auto rounded-full border-2 border-rose-500 border-t-transparent animate-spin" />
                 <h3 className="text-base font-bold text-white">Connecting to Room...</h3>
                 <p className="text-xs text-zinc-400">Room Code: {roomParam}</p>
                 <button
@@ -1115,7 +1247,7 @@ function LudoPageContent() {
 
                   <button
                     onClick={handleCopyRoomLink}
-                    className="px-4 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/30 transition flex items-center gap-1.5"
+                    className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/30 transition flex items-center gap-1.5"
                   >
                     {copiedRoomLink ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
                     <span>{copiedRoomLink ? 'Link Copied' : 'Share Link'}</span>
@@ -1147,7 +1279,7 @@ function LudoPageContent() {
                         <div
                           className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm mb-2 shadow ${
                             player
-                              ? 'bg-gradient-to-tr from-rose-600 to-amber-600 text-white'
+                              ? 'bg-gradient-to-tr from-rose-600 to-pink-600 text-white'
                               : 'bg-zinc-800 text-zinc-600'
                           }`}
                         >
@@ -1169,9 +1301,9 @@ function LudoPageContent() {
 
               {/* Invite Connected Partner CTA */}
               {partner && (
-                <div className="mt-6 w-full p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                <div className="mt-6 w-full p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between">
                   <div className="text-left flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-900 font-black flex items-center justify-center text-xs">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-black flex items-center justify-center text-xs">
                       {partner.displayName[0]}
                     </div>
                     <div>
@@ -1190,7 +1322,7 @@ function LudoPageContent() {
                   <button
                     onClick={handlePingPartner}
                     disabled={isPingingPartner}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 font-extrabold text-xs rounded-xl transition shadow flex items-center gap-1.5"
+                    className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs rounded-xl transition shadow flex items-center gap-1.5"
                   >
                     <Bell className="w-3.5 h-3.5" />
                     <span>{isPingingPartner ? 'Inviting...' : 'Invite Partner 🔔'}</span>
@@ -1199,7 +1331,7 @@ function LudoPageContent() {
               )}
 
               {partnerPingStatus && (
-                <div className="mt-3 text-xs text-amber-300 font-medium">
+                <div className="mt-3 text-xs text-rose-300 font-medium">
                   {partnerPingStatus}
                 </div>
               )}
@@ -1238,58 +1370,6 @@ function LudoPageContent() {
 
             {/* Center Column: The 3D Wooden Board with Flanking Cards & Bottom Controls */}
             <div className="flex-1 w-full max-w-2xl sm:max-w-3xl mx-auto flex flex-col items-center">
-              {/* Opponent Left / Disconnected Notification Banner */}
-              {isOpponentDisconnected && (
-                <div className="w-full max-w-xl mb-3.5 p-3.5 sm:p-4 rounded-3xl bg-[#1d0b17]/95 border-2 border-amber-500/50 shadow-2xl backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300 z-30">
-                  <div className="flex items-center gap-3 text-left w-full sm:w-auto">
-                    <div className="relative shrink-0">
-                      <div className="w-11 h-11 rounded-full bg-rose-500/20 border-2 border-rose-400 flex items-center justify-center font-bold text-sm text-rose-200 uppercase overflow-hidden shadow-md">
-                        {opponentPlayer?.avatarUrl ? (
-                          <img
-                            src={opponentPlayer.avatarUrl}
-                            alt={disconnectedOpponentName}
-                            className="w-full h-full object-cover grayscale opacity-75"
-                          />
-                        ) : (
-                          <span>{disconnectedOpponentName[0]}</span>
-                        )}
-                      </div>
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 ring-2 ring-[#1d0b17] animate-pulse" />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-black text-white">{disconnectedOpponentName}</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 uppercase tracking-wider">
-                          Left Match
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-300 mt-0.5">
-                        {nudgeFeedback || 'Player left or disconnected. Nudge them to return or copy room link!'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
-                    <button
-                      onClick={() => handleNudgePlayer(opponentPlayer?.userId || disconnectedPlayer?.userId, disconnectedOpponentName)}
-                      className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
-                    >
-                      <Bell className="w-3.5 h-3.5" />
-                      <span>Nudge {disconnectedOpponentName} 🔔</span>
-                    </button>
-
-                    <button
-                      onClick={handleCopyRoomLink}
-                      className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition border border-white/15 shadow-sm"
-                      title="Copy Game Link to Send to Partner"
-                    >
-                      {copiedRoomLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
               <LudoGame
                 room={room}
                 gameState={gameState}
@@ -1376,7 +1456,11 @@ function LudoPageContent() {
                 {/* Tab 1: Chat Stream */}
                 {activeSideTab === 'chat' && (
                   <>
-                    <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs">
+                    <div
+                      ref={chatContainerRef}
+                      onScroll={handleChatScroll}
+                      className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs scrollbar-none"
+                    >
                       {chatMessages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12">
                           <Heart className="w-8 h-8 mb-2 text-rose-500/40" />
@@ -1386,9 +1470,16 @@ function LudoPageContent() {
                         chatMessages.map(m => {
                           const isMe = m.userId === session?.user?.id;
                           const isSticker = parseStickerMessage(m.content);
+                          const isHighlighted = highlightedMsgId === m.id;
                           return (
-                            <div key={m.id} className="flex items-start gap-2.5">
-                              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
+                            <div
+                              key={m.id}
+                              id={`ludo-chat-msg-${m.id}`}
+                              className={`group relative flex items-start gap-2.5 rounded-2xl p-1.5 my-0.5 transition-all duration-300 ${
+                                isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
+                              }`}
+                            >
+                              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
                                 {m.userName[0]?.toUpperCase()}
                               </div>
                               <div className="flex-1 min-w-0">
@@ -1396,10 +1487,34 @@ function LudoPageContent() {
                                   <span className="text-[11px] font-bold text-rose-200 truncate">
                                     {isMe ? `${m.userName} (You)` : m.userName}
                                   </span>
-                                  <span className="text-[9px] text-zinc-400 font-mono shrink-0">
-                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                    <span className="text-[9px] text-zinc-400 font-mono">
+                                      {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    {/* Reply action button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setReplyingTo({ id: m.id, userName: m.userName, content: m.content });
+                                        chatInputRef.current?.focus({ preventScroll: true });
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                                      title="Reply to this message"
+                                    >
+                                      <CornerUpLeft className="w-3 h-3 text-rose-300" />
+                                    </button>
+                                  </div>
                                 </div>
+
+                                {/* Quoted reply card if replying to another message */}
+                                {m.replyTo && (
+                                  <ChatReplyQuote
+                                    replyTo={m.replyTo}
+                                    onJumpToMessage={handleJumpToMessage}
+                                    accentColor="rose"
+                                  />
+                                )}
+
                                 {isSticker ? (
                                   <StickerMessageView content={m.content} />
                                 ) : (
@@ -1424,7 +1539,7 @@ function LudoPageContent() {
                             key={emoji}
                             type="button"
                             onClick={() => sendReaction(emoji)}
-                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-rose-500/20 active:scale-95 transition-all text-base shrink-0 border border-white/10 hover:border-rose-400/40 flex items-center justify-center shadow-sm"
+                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-rose-500/20 active:scale-95 transition-all text-base shrink-0 border border-white/10 hover:border-rose-400/40 flex items-center justify-center shadow-sm cursor-pointer"
                             title={`React with ${emoji}`}
                           >
                             {emoji}
@@ -1438,8 +1553,11 @@ function LudoPageContent() {
                           <button
                             key={text}
                             type="button"
-                            onClick={() => sendChat(text)}
-                            className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-rose-500/20 active:scale-95 text-rose-200 hover:text-white text-[11px] font-semibold border border-white/10 hover:border-rose-400/40 whitespace-nowrap transition-all shrink-0 shadow-sm"
+                            onClick={() => {
+                              sendChat(text, replyingTo);
+                              setReplyingTo(null);
+                            }}
+                            className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-rose-500/20 active:scale-95 text-rose-200 hover:text-white text-[11px] font-semibold border border-white/10 hover:border-rose-400/40 whitespace-nowrap transition-all shrink-0 shadow-sm cursor-pointer"
                           >
                             {text}
                           </button>
@@ -1467,22 +1585,38 @@ function LudoPageContent() {
                               const now = Date.now();
                               if (now - lastStickerSentRef.current < 500) return;
                               lastStickerSentRef.current = now;
-                              sendChat(formatStickerMessage(stickerIdOrUrl, caption));
+                              sendChat(formatStickerMessage(stickerIdOrUrl, caption), replyingTo);
                               setShowStickerPicker(false);
+                              setReplyingTo(null);
                             }}
                             onClose={() => setShowStickerPicker(false)}
                           />
                         </div>
                       )}
 
+                      {/* Replying-to Preview Bar */}
+                      {replyingTo && (
+                        <ChatReplyingBanner
+                          replyingTo={replyingTo}
+                          onCancel={() => setReplyingTo(null)}
+                          accentColor="rose"
+                        />
+                      )}
+
                       <form onSubmit={handleSendChat} className="flex items-center gap-2">
                         <div className="flex-1 relative flex items-center">
                           <input
+                            ref={chatInputRef}
                             type="text"
                             value={chatInput}
                             onChange={handleChatInputChange}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape' && replyingTo) {
+                                setReplyingTo(null);
+                              }
+                            }}
                             onBlur={() => sendTyping(false)}
-                            placeholder="Type a message or send stickers..."
+                            placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Type a message or send stickers..."}
                             className="w-full pl-3.5 pr-16 py-2.5 bg-black/40 border border-rose-500/30 rounded-2xl text-xs text-white placeholder-rose-300/40 focus:outline-none focus:border-rose-400"
                           />
                           <div className="absolute right-2 flex items-center gap-1">
@@ -1490,7 +1624,7 @@ function LudoPageContent() {
                             <button
                               type="button"
                               onClick={() => setShowStickerPicker(prev => !prev)}
-                              className={`p-1 rounded-lg transition-colors ${
+                              className={`p-1 rounded-lg transition-colors cursor-pointer ${
                                 showStickerPicker
                                   ? 'text-pink-400 bg-pink-500/20'
                                   : 'text-zinc-400 hover:text-pink-300 hover:bg-white/10'
@@ -1503,7 +1637,7 @@ function LudoPageContent() {
                             <button
                               type="button"
                               onClick={() => setChatInput(prev => `${prev} 😊`)}
-                              className="p-1 rounded-lg text-rose-300/70 hover:text-white hover:bg-white/10 transition-colors"
+                              className="p-1 rounded-lg text-rose-300/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                               title="Add smile"
                             >
                               <Smile className="w-4 h-4" />
@@ -1513,7 +1647,7 @@ function LudoPageContent() {
 
                         <button
                           type="submit"
-                          className="p-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl text-xs font-bold transition shadow-md shadow-rose-900/50 shrink-0"
+                          className="p-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl text-xs font-bold transition shadow-md shadow-rose-900/50 shrink-0 cursor-pointer"
                         >
                           <Send className="w-4 h-4" />
                         </button>
@@ -1525,7 +1659,7 @@ function LudoPageContent() {
                 {/* Tab 2: Live Audio & Video Call */}
                 {activeSideTab === 'call' && (
                   <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs">
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-pink-500/10 border border-amber-500/20 text-center">
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-rose-500/10 via-pink-500/10 to-purple-500/10 border border-rose-500/20 text-center">
                       <p className="text-white font-bold text-xs mb-0.5">Live In-Game Video Call</p>
                       <p className="text-[11px] text-zinc-300">
                         {isCameraOn ? '📹 Your camera is on' : '📷 Camera is off'} • {isMicMuted ? '🔇 Mic muted' : '🎙️ Mic unmuted'}
@@ -1547,7 +1681,7 @@ function LudoPageContent() {
                             />
                           ) : (
                             <div className="flex flex-col items-center gap-1.5 text-zinc-400">
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-600 to-rose-600 text-white font-black text-base flex items-center justify-center shadow">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black text-base flex items-center justify-center shadow">
                                 {participant.displayName[0]?.toUpperCase()}
                               </div>
                               <span className="text-[11px] font-semibold text-zinc-300">Camera Off</span>
@@ -1591,7 +1725,7 @@ function LudoPageContent() {
                         onClick={toggleCamera}
                         className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow ${
                           isCameraOn
-                            ? 'bg-amber-600/30 border-amber-400 text-amber-200 hover:bg-amber-600/40'
+                            ? 'bg-rose-600/30 border-rose-500 text-rose-200 hover:bg-rose-600/40'
                             : 'bg-white/10 border-white/20 text-zinc-300 hover:bg-white/20'
                         }`}
                       >
@@ -1662,32 +1796,36 @@ function LudoPageContent() {
 
         {/* LOBBY VIEW (When not in an active room) */}
         {!roomParam && (
-          <div className="w-full max-w-4xl mx-auto space-y-6 sm:space-y-8 py-2 pb-12 animate-in fade-in zoom-in-95 duration-300">
+          <div className="w-full max-w-3xl mx-auto space-y-6 sm:space-y-7 py-3 pb-14 animate-in fade-in zoom-in-95 duration-300 relative z-10">
+            {/* Ambient Aurora Glow Orbs */}
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-rose-600/15 rounded-full blur-[120px] pointer-events-none -z-10" />
+            <div className="absolute top-1/2 -right-10 w-72 h-72 bg-pink-600/10 rounded-full blur-[100px] pointer-events-none -z-10" />
+
             {/* Header Hero */}
             <div className="text-center pt-2 pb-1">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-400/30 text-rose-200 text-xs font-semibold backdrop-blur-xl shadow-[0_0_20px_rgba(244,63,94,0.18)] mb-3 transition-all hover:scale-105">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/15 border border-rose-400/30 text-rose-200 text-xs font-semibold backdrop-blur-2xl shadow-[0_0_25px_rgba(244,63,94,0.25)] mb-3.5 transition-all hover:scale-105">
                 <Sparkles className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
                 <span className="tracking-wide">Couples & Best Friends Co-Play</span>
-                <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+                <Heart className="w-3 h-3 fill-rose-500 text-rose-500 animate-pulse" />
               </div>
-              <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-rose-100 to-amber-200 drop-shadow-[0_2px_24px_rgba(244,63,94,0.35)]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-rose-100 to-rose-300 drop-shadow-[0_4px_30px_rgba(244,63,94,0.35)]">
                 LudoLove Arena
               </h1>
-              <p className="text-sm sm:text-base text-rose-100/75 mt-2 max-w-xl mx-auto font-medium leading-relaxed drop-shadow">
+              <p className="text-sm sm:text-base text-rose-200/80 mt-2.5 max-w-lg mx-auto font-medium leading-relaxed drop-shadow">
                 Play real-time Ludo with your partner or create a private room with friends. Zero bots, pure cozy co-play.
               </p>
 
               {/* Feature Highlights Pill Bar */}
-              <div className="flex items-center justify-center gap-2.5 sm:gap-3 mt-3.5 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] font-semibold text-emerald-300 backdrop-blur-md shadow-sm">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="flex items-center justify-center gap-2.5 sm:gap-3 mt-4 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#180d19]/80 border border-rose-500/20 text-[11px] font-semibold text-rose-200/90 backdrop-blur-xl shadow-md">
+                  <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
                   Strict Zero-Bots
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] font-semibold text-amber-200 backdrop-blur-md shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#180d19]/80 border border-rose-500/20 text-[11px] font-semibold text-rose-200/90 backdrop-blur-xl shadow-md">
+                  <Sparkles className="w-3.5 h-3.5 text-pink-400" />
                   Live Voice & Cam
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] font-semibold text-rose-200 backdrop-blur-md shadow-sm">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#180d19]/80 border border-rose-500/20 text-[11px] font-semibold text-rose-200/90 backdrop-blur-xl shadow-md">
                   <Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400" />
                   Instant Co-Play
                 </span>
@@ -1700,38 +1838,39 @@ function LudoPageContent() {
               </div>
             )}
 
-            {/* If Partner is Connected: Quick Duo Action Bar */}
+            {/* If Partner is Connected: Quick Duo Action Card */}
             {partner && (
-              <div className="max-w-2xl mx-auto w-full relative overflow-hidden rounded-3xl p-4 sm:p-5 backdrop-blur-2xl bg-black/40 border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-rose-500/30">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
+              <div className="w-full relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-[#160c16]/90 border border-rose-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.65),0_0_30px_rgba(244,63,94,0.12)] transition-all duration-300 hover:border-rose-500/50">
+                <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-rose-600/15 blur-3xl pointer-events-none" />
+                <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
                     <div className="relative">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-700 via-rose-900 to-indigo-950 text-white font-black flex items-center justify-center text-lg shadow-lg ring-1 ring-amber-400/30">
+                      <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center text-xl shadow-[0_0_20px_rgba(244,63,94,0.35)] ring-2 ring-rose-400/40">
                         {partner.displayName[0]?.toUpperCase()}
                       </div>
                       <span
-                        className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-slate-950 ${
-                          partner.online ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'
+                        className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-[#160c16] ${
+                          partner.online ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-zinc-500'
                         }`}
                         title={partner.online ? 'Online' : 'Offline'}
                       />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-white">{partner.displayName}</span>
+                        <span className="text-base font-bold text-white tracking-tight">{partner.displayName}</span>
                         {partner.online ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                             Online
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[10px] font-medium">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[10px] font-medium">
                             <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
                             Offline
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-rose-300/80 font-mono block mt-0.5">
+                      <span className="text-xs text-rose-300/85 font-mono block mt-0.5">
                         Linked Co-Play Partner ♡
                       </span>
                     </div>
@@ -1742,7 +1881,7 @@ function LudoPageContent() {
                       <button
                         onClick={handlePlayWithPartner}
                         disabled={isMatchmaking}
-                        className="flex-1 sm:flex-initial px-6 py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-xs sm:text-sm rounded-2xl shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="flex-1 sm:flex-initial px-6 py-3.5 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs sm:text-sm rounded-2xl shadow-[0_10px_30px_rgba(244,63,94,0.4)] hover:shadow-[0_14px_35px_rgba(244,63,94,0.55)] transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                       >
                         <Play className="w-4 h-4 fill-current" />
                         <span>Play Together 🎮</span>
@@ -1751,9 +1890,9 @@ function LudoPageContent() {
                       <button
                         onClick={handlePingPartner}
                         disabled={isPingingPartner}
-                        className="flex-1 sm:flex-initial px-5 py-3 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-bold text-xs rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="flex-1 sm:flex-initial px-5 py-3.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-200 font-bold text-xs rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
                       >
-                        <Bell className="w-4 h-4 text-amber-400" />
+                        <Bell className="w-4 h-4 text-rose-400" />
                         <span>{isPingingPartner ? 'Pinging...' : 'Ping Partner 🔔'}</span>
                       </button>
                     )}
@@ -1768,84 +1907,85 @@ function LudoPageContent() {
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 hover:bg-black/60 border border-white/15 hover:border-rose-400/40 text-rose-200/90 hover:text-white text-xs font-semibold backdrop-blur-xl shadow-lg transition-all group active:scale-98"
+                  className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-[#160c16]/80 hover:bg-[#20101f] border border-rose-500/30 hover:border-rose-400/50 text-rose-200 hover:text-white text-xs font-semibold backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all group active:scale-98"
                 >
-                  <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-400 group-hover:scale-110 transition-transform" />
-                  <span>Pair with your partner once in <strong>Settings (⚙)</strong> to co-play anytime</span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
+                  <Heart className="w-4 h-4 fill-rose-500 text-rose-400 group-hover:scale-110 transition-transform" />
+                  <span>Pair with your partner once in <strong className="text-rose-100 underline decoration-rose-500/50">Settings (⚙)</strong> to co-play anytime</span>
+                  <ChevronRight className="w-4 h-4 text-rose-400 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
             )}
 
             {/* PRIVATE ROOM & TABLE CODE SECTION */}
-            <div className="max-w-2xl mx-auto w-full relative overflow-hidden rounded-3xl p-6 sm:p-7 backdrop-blur-2xl bg-black/40 border border-white/15 shadow-[0_20px_50px_rgba(0,0,0,0.55)] transition-all duration-300 hover:border-amber-500/30">
+            <div className="w-full relative overflow-hidden rounded-3xl p-6 sm:p-8 backdrop-blur-2xl bg-[#160c16]/90 border border-rose-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.7),0_0_35px_rgba(244,63,94,0.12)] transition-all duration-300 hover:border-rose-500/40">
               {/* Soft ambient backlight flare */}
-              <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+              <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-rose-600/15 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-pink-600/10 blur-3xl pointer-events-none" />
 
               <div className="relative z-10">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500/20 to-pink-500/20 border border-rose-500/30 flex items-center justify-center text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.2)]">
                       <Lock className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-white">Private Room</h3>
-                      <p className="text-xs text-rose-200/60 font-medium">Join a friend's table with a code, or host your own match</p>
+                      <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">Private Room</h3>
+                      <p className="text-xs text-rose-200/70 font-medium">Join a friend's table with a code, or host your own match</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300">
+                  <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-200 shadow-sm">
                     Friends Only 🔒
                   </span>
                 </div>
 
                 {/* Section A: Enter Code */}
-                <form onSubmit={handleJoinWithCode} className="space-y-2 mt-4">
+                <form onSubmit={handleJoinWithCode} className="space-y-2 mt-5">
                   <label className="text-[11px] font-bold text-rose-200/80 uppercase tracking-wider block">
                     Have a Room Code?
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2.5">
                     <input
                       type="text"
                       value={roomCodeInput}
                       onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
                       placeholder="E.G. LUDO-8F72"
-                      className="flex-1 px-4 py-3 bg-black/60 border border-white/15 rounded-2xl text-xs sm:text-sm text-white placeholder-zinc-500 font-mono uppercase tracking-widest focus:outline-none focus:border-amber-400"
+                      className="flex-1 px-4 py-3.5 bg-black/50 border border-rose-500/25 rounded-2xl text-xs sm:text-sm text-white placeholder-rose-200/30 font-mono uppercase tracking-widest focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/25 transition-all"
                     />
                     <button
                       type="submit"
                       disabled={isJoiningRoom}
-                      className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/15 text-white font-bold text-xs sm:text-sm rounded-2xl transition flex items-center gap-2 shrink-0 active:scale-98"
+                      className="px-6 sm:px-7 py-3.5 bg-white/10 hover:bg-white/15 border border-rose-500/30 hover:border-rose-400/50 text-white font-bold text-xs sm:text-sm rounded-2xl transition flex items-center gap-2 shrink-0 active:scale-98 shadow-md"
                     >
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <Play className="w-3.5 h-3.5 fill-current text-rose-300" />
                       <span>{isJoiningRoom ? 'Joining...' : 'Join Room'}</span>
                     </button>
                   </div>
                 </form>
 
                 {/* Divider */}
-                <div className="relative my-5 flex items-center justify-center">
-                  <div className="w-full border-t border-white/10" />
-                  <span className="absolute px-3 bg-[#160c14] text-[10px] uppercase font-bold text-zinc-400 rounded-full border border-white/10">
+                <div className="relative my-6 flex items-center justify-center">
+                  <div className="w-full border-t border-rose-500/20" />
+                  <span className="absolute px-4 bg-[#140a12] text-[10px] uppercase font-black tracking-wider text-rose-300/80 rounded-full border border-rose-500/25 py-0.5">
                     OR HOST A NEW TABLE
                   </span>
                 </div>
 
                 {/* Section B: Host Private Table */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-rose-200/80 uppercase tracking-wider">
                       Select Table Size:
                     </span>
-                    <div className="inline-flex gap-1.5 p-1 rounded-xl bg-black/40 border border-white/10">
+                    <div className="inline-flex gap-1.5 p-1 rounded-2xl bg-black/50 border border-rose-500/25">
                       {([2, 3, 4] as const).map(count => (
                         <button
                           key={count}
                           type="button"
                           onClick={() => setSelectedMaxPlayers(count)}
-                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                             selectedMaxPlayers === count
-                              ? 'bg-amber-500/30 text-amber-200 border border-amber-400/50 shadow'
-                              : 'text-zinc-400 hover:text-white'
+                              ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white border border-rose-400/50 shadow-[0_0_15px_rgba(244,63,94,0.4)]'
+                              : 'text-rose-200/60 hover:text-white hover:bg-white/5'
                           }`}
                         >
                           {count}P {count === 2 ? '(Duel)' : count === 3 ? '(3P)' : '(4P)'}
@@ -1858,9 +1998,9 @@ function LudoPageContent() {
                     type="button"
                     onClick={handleCreateCustomRoom}
                     disabled={isMatchmaking}
-                    className="w-full py-3.5 bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 font-extrabold text-xs sm:text-sm rounded-2xl shadow-lg transition-all transform hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs sm:text-sm rounded-2xl shadow-[0_12px_35px_rgba(244,63,94,0.45)] hover:shadow-[0_16px_40px_rgba(244,63,94,0.6)] transition-all transform hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer"
                   >
-                    <Crown className="w-4 h-4 text-amber-300" />
+                    <Crown className="w-4 h-4 text-white drop-shadow" />
                     <span>Create Private Room ({selectedMaxPlayers} Players) 👑</span>
                   </button>
                 </div>
@@ -1923,7 +2063,7 @@ function LudoPageContent() {
       {/* SETTINGS MODAL */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#140a12]/95 border border-rose-500/30 rounded-3xl p-5 sm:p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 scrollbar-thin scrollbar-thumb-rose-500/20">
+          <div className="bg-[#140a12]/95 border border-rose-500/30 rounded-3xl p-5 sm:p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 scrollbar-none">
             <div className="flex items-center justify-between pb-3 border-b border-rose-500/20 mb-4">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-rose-400" />
@@ -1965,7 +2105,7 @@ function LudoPageContent() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="relative">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-700 via-rose-900 to-indigo-950 text-white font-black flex items-center justify-center text-sm shadow ring-1 ring-amber-400/30">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center text-sm shadow ring-1 ring-rose-400/40">
                             {partner.displayName[0]?.toUpperCase()}
                           </div>
                           <span
@@ -1982,7 +2122,7 @@ function LudoPageContent() {
                             </span>
                           </div>
                           <span className="text-[11px] text-rose-300/80 font-mono">
-                            Code: <strong className="text-amber-300">{partner.partnerCode}</strong>
+                            Code: <strong className="text-rose-300">{partner.partnerCode}</strong>
                           </span>
                         </div>
                       </div>
@@ -2003,7 +2143,7 @@ function LudoPageContent() {
                           handlePlayWithPartner();
                         }}
                         disabled={isMatchmaking}
-                        className="flex-1 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2.5 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
                         <span>Play Together 🎮</span>
@@ -2012,9 +2152,9 @@ function LudoPageContent() {
                       <button
                         onClick={handlePingPartner}
                         disabled={isPingingPartner}
-                        className="px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 text-amber-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1"
+                        className="px-3.5 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1"
                       >
-                        <Bell className="w-3.5 h-3.5 text-amber-400" />
+                        <Bell className="w-3.5 h-3.5 text-rose-400" />
                         <span>Ping 🔔</span>
                       </button>
                     </div>
@@ -2028,7 +2168,7 @@ function LudoPageContent() {
                         <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wider block">
                           Your Personal Code
                         </span>
-                        <span className="font-mono text-xs sm:text-sm font-black text-amber-300 tracking-wider">
+                        <span className="font-mono text-xs sm:text-sm font-black text-rose-300 tracking-wider">
                           {myPartnerCode || session?.user?.partnerCode || '...'}
                         </span>
                       </div>
@@ -2058,7 +2198,7 @@ function LudoPageContent() {
                         <button
                           type="submit"
                           disabled={isConnectingPartner}
-                          className="px-4 py-2 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 shrink-0"
+                          className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 shrink-0"
                         >
                           <UserPlus className="w-3.5 h-3.5" />
                           <span>{isConnectingPartner ? 'Linking...' : 'Connect'}</span>
@@ -2072,7 +2212,7 @@ function LudoPageContent() {
                   <p className="text-xs text-rose-400 mt-2 font-medium bg-rose-950/60 p-2 rounded-xl border border-rose-500/30">{partnerConnectError}</p>
                 )}
                 {partnerPingStatus && (
-                  <p className="text-xs text-amber-300 mt-2 font-medium bg-amber-950/60 p-2 rounded-xl border border-amber-500/30">{partnerPingStatus}</p>
+                  <p className="text-xs text-rose-300 mt-2 font-medium bg-rose-950/60 p-2 rounded-xl border border-rose-500/30">{partnerPingStatus}</p>
                 )}
               </div>
 
@@ -2082,7 +2222,7 @@ function LudoPageContent() {
                   <Palette className="w-4 h-4 text-rose-400" />
                   <span className="font-semibold text-white">Board Theme</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-rose-500/20">
+                <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto pr-1 scrollbar-none">
                   {THEMES.map((theme) => {
                     const isSelected = selectedTheme === theme.id;
                     return (

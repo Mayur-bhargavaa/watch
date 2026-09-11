@@ -34,8 +34,12 @@ import {
   Radio,
   Users,
   GripHorizontal,
-  Minus
+  Minus,
+  CornerUpLeft
 } from 'lucide-react';
+import { ChatReplyTo } from '@synccinema/common';
+import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/ChatReplyUI';
+import { AlertModal, AlertModalType } from '../../../components/ui/AlertModal';
 import {
   getStoredSession,
   ensureSession,
@@ -185,11 +189,65 @@ function FourInARowContent() {
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
   const [nudgeFeedback, setNudgeFeedback] = useState<string | null>(null);
 
+  // Elegant Modal Alert State
+  const [alertModalState, setAlertModalState] = useState<{
+    title: string;
+    message: string | React.ReactNode;
+    type?: AlertModalType;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+  } | null>(null);
+
+  const showAlert = useCallback((
+    title: string,
+    message: string | React.ReactNode,
+    type: AlertModalType = 'info',
+    options?: {
+      confirmText?: string;
+      cancelText?: string;
+      onConfirm?: () => void;
+    }
+  ) => {
+    setAlertModalState({
+      title,
+      message,
+      type,
+      confirmText: options?.confirmText,
+      cancelText: options?.cancelText,
+      onConfirm: options?.onConfirm
+    });
+  }, []);
+
   // Audio Context for synthesized sound effects
   const audioCtxRef = useRef<AudioContext | null>(null);
   const lastStickerSentRef = useRef<number>(0);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const isUserScrolledUpRef = useRef<boolean>(false);
+  const prevMessagesCountRef = useRef<number>(0);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
   const [chatInput, setChatInput] = useState('');
+  const [replyingTo, setReplyingTo] = useState<ChatReplyTo | null>(null);
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+
+  const handleJumpToMessage = useCallback((msgId: string) => {
+    const el = document.getElementById(`four-chat-msg-${msgId}`);
+    if (el) {
+      isUserScrolledUpRef.current = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMsgId(msgId);
+      setTimeout(() => {
+        setHighlightedMsgId(prev => (prev === msgId ? null : prev));
+      }, 2000);
+    }
+  }, []);
+
+  const handleChatScroll = useCallback(() => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    isUserScrolledUpRef.current = scrollHeight - scrollTop - clientHeight > 60;
+  }, []);
 
   // Real-Time Room WebSocket Hook
   const {
@@ -202,7 +260,10 @@ function FourInARowContent() {
     connectionStatus,
     error: roomError,
     disconnectedPlayer,
+    opponentLeftWin,
+    clearOpponentLeftWin,
     nudgeAlert,
+    clearNudgeAlert,
     dropDisc,
     rematch,
     sendChat,
@@ -539,12 +600,23 @@ function FourInARowContent() {
 
   const handleDisconnectPartner = async () => {
     if (!session?.token) return;
-    try {
-      await disconnectUserPartner(session.token);
-      setPartner(null);
-    } catch (err: any) {
-      alert(err.message || 'Failed to disconnect partner');
-    }
+    showAlert(
+      'Disconnect Partner? 💔',
+      'Are you sure you want to disconnect from your partner? You can reconnect anytime with their partner code.',
+      'warning',
+      {
+        confirmText: 'Disconnect',
+        cancelText: 'Keep Partner',
+        onConfirm: async () => {
+          try {
+            await disconnectUserPartner(session.token);
+            setPartner(null);
+          } catch (err: any) {
+            showAlert('Disconnect Partner', err.message || 'Failed to disconnect partner', 'error');
+          }
+        }
+      }
+    );
   };
 
   const handlePingPartner = async () => {
@@ -642,7 +714,7 @@ function FourInARowContent() {
             setPartner(partnerRes.partner);
             setIsJoiningRoom(false);
             setRoomCodeInput('');
-            alert(`Connected with partner ${partnerRes.partner.displayName}! You can now challenge them to a match.`);
+            showAlert('Partner Connected! 💕', `Connected with partner ${partnerRes.partner.displayName}! You can now challenge them to a match.`, 'success');
             return;
           }
         } catch {
@@ -688,22 +760,48 @@ function FourInARowContent() {
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    sendChat(chatInput);
+    sendChat(chatInput, replyingTo);
     setChatInput('');
+    setReplyingTo(null);
+    isUserScrolledUpRef.current = false;
+    setTimeout(() => {
+      chatContainerRef.current?.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }, 50);
   };
 
   const handleSelectSticker = (stickerIdOrUrl: string, caption?: string) => {
     const now = Date.now();
     if (now - lastStickerSentRef.current < 500) return;
     lastStickerSentRef.current = now;
-    sendChat(formatStickerMessage(stickerIdOrUrl, caption || ''));
+    sendChat(formatStickerMessage(stickerIdOrUrl, caption || ''), replyingTo);
+    setReplyingTo(null);
     setShowStickerPicker(false);
+    isUserScrolledUpRef.current = false;
+    setTimeout(() => {
+      chatContainerRef.current?.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }, 50);
   };
 
-  // Auto-scroll chat to bottom
+  // Auto-scroll chat to bottom only on new messages if user isn't reading history
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (chatMessages.length > prevMessagesCountRef.current) {
+      prevMessagesCountRef.current = chatMessages.length;
+      if (!isUserScrolledUpRef.current && chatContainerRef.current) {
+        chatContainerRef.current.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    } else {
+      prevMessagesCountRef.current = chatMessages.length;
+    }
+  }, [chatMessages.length]);
 
   // Derived state
   const currentTheme = THEMES.find(t => t.id === activeTheme) || THEMES[0];
@@ -797,14 +895,57 @@ function FourInARowContent() {
         ))}
       </div>
 
-      {/* Turn Nudge Banner */}
+      {/* Turn Nudge Alert Modal */}
       {nudgeAlert && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 to-rose-500 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-3 border border-white/20 animate-bounce">
-          <Bell className="w-5 h-5 text-amber-200 animate-spin" />
-          <span className="text-xs sm:text-sm font-bold">
-            {nudgeAlert.fromDisplayName} nudged you! It's your turn to drop a disc!
-          </span>
-        </div>
+        <AlertModal
+          isOpen={!!nudgeAlert}
+          onClose={clearNudgeAlert}
+          title="It's Your Turn! 🔴"
+          message={`${nudgeAlert.fromDisplayName} nudged you! It's your turn to drop a disc.`}
+          type="warning"
+          confirmText="Got It"
+        />
+      )}
+
+      {/* Opponent Left Victory Modal */}
+      {opponentLeftWin && (
+        <AlertModal
+          isOpen={!!opponentLeftWin}
+          onClose={clearOpponentLeftWin}
+          title="🎉 YOU WON THE MATCH! 🏆"
+          message={
+            <div className="space-y-2 text-center">
+              <p className="font-bold text-white text-base">
+                {opponentLeftWin.opponentDisplayName} has left the game.
+              </p>
+              <p className="text-rose-200/90 text-sm">
+                You are the winner by default!
+              </p>
+            </div>
+          }
+          type="success"
+          confirmText="Back to Lounge"
+          cancelText="Stay on Board"
+          onConfirm={() => router.push('/games')}
+        />
+      )}
+
+      {/* General Alert & Confirm Modal */}
+      {alertModalState && (
+        <AlertModal
+          isOpen={!!alertModalState}
+          onClose={() => setAlertModalState(null)}
+          title={alertModalState.title}
+          message={alertModalState.message}
+          type={alertModalState.type || 'info'}
+          confirmText={alertModalState.confirmText || 'Got It'}
+          cancelText={alertModalState.cancelText}
+          onConfirm={() => {
+            const cb = alertModalState.onConfirm;
+            setAlertModalState(null);
+            if (cb) cb();
+          }}
+        />
       )}
 
       {/* =========================================================================
@@ -815,8 +956,19 @@ function FourInARowContent() {
           <button
             onClick={() => {
               if (roomParam) {
-                sendLeave();
-                router.push('/games/four-in-a-row');
+                showAlert(
+                  'Leave Match? 🚪',
+                  'Are you sure you want to leave this game? You will disconnect from the match and return to the lounge.',
+                  'warning',
+                  {
+                    confirmText: 'Leave Match',
+                    cancelText: 'Stay & Play',
+                    onConfirm: () => {
+                      sendLeave();
+                      router.push('/games/four-in-a-row');
+                    }
+                  }
+                );
               } else {
                 router.push('/games');
               }
@@ -860,10 +1012,23 @@ function FourInARowContent() {
             <button
               onClick={() => {
                 triggerSound('click');
-                rematch();
+                if (gameState?.winnerDisc || isDraw) {
+                  rematch();
+                } else {
+                  showAlert(
+                    'Restart Match? 🔄',
+                    'Would you like to reset the board and restart the match with your opponent?',
+                    'info',
+                    {
+                      confirmText: 'Restart Match',
+                      cancelText: 'Cancel',
+                      onConfirm: () => rematch()
+                    }
+                  );
+                }
               }}
               title="Rematch"
-              className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 active:scale-95 text-amber-300 transition border border-white/15 flex items-center justify-center shadow-md"
+              className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 active:scale-95 text-rose-300 transition border border-white/15 flex items-center justify-center shadow-md"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -873,7 +1038,7 @@ function FourInARowContent() {
           <button
             onClick={() => setShowRulesModal(true)}
             title="Help / Rules"
-            className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 active:scale-95 text-sky-300 transition border border-white/15 flex items-center justify-center shadow-md"
+            className="w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 active:scale-95 text-rose-300 transition border border-white/15 flex items-center justify-center shadow-md"
           >
             <HelpCircle className="w-4 h-4" />
           </button>
@@ -902,7 +1067,7 @@ function FourInARowContent() {
               }}
               className={`w-8 h-8 rounded-full border transition flex items-center justify-center shadow-md backdrop-blur-md ${
                 isCameraOn
-                  ? 'bg-amber-950/80 hover:bg-amber-900/90 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 shadow-[0_0_12px_rgba(251,191,36,0.4)]'
+                  ? 'bg-rose-950/80 hover:bg-rose-900/90 border-rose-400 text-rose-300 ring-2 ring-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
                   : 'bg-black/40 hover:bg-black/60 border-white/15 text-zinc-300 hover:text-white'
               }`}
               title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
@@ -962,7 +1127,7 @@ function FourInARowContent() {
           <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-white/10 touch-none">
             {/* Drag Handle & Live Call status */}
             <div className="flex items-center gap-1.5 text-zinc-300 pointer-events-none">
-              <GripHorizontal className="w-4 h-4 text-amber-400/80" />
+              <GripHorizontal className="w-4 h-4 text-rose-400/80" />
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span className="text-[11px] font-black uppercase tracking-wider text-white">
                 Call ({callParticipants.length}{room ? `/${Math.max(2, room.players.length)}` : ''})
@@ -997,7 +1162,7 @@ function FourInARowContent() {
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
                   isCameraOn
-                    ? 'bg-amber-950/80 border-amber-400/60 text-amber-300 hover:bg-amber-900 ring-1 ring-amber-400/40'
+                    ? 'bg-rose-950/80 border-rose-400/60 text-rose-300 hover:bg-rose-900 ring-1 ring-rose-400/40'
                     : 'bg-white/10 border-white/20 text-zinc-300 hover:bg-white/20 hover:text-white'
                 }`}
                 title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
@@ -1049,7 +1214,7 @@ function FourInARowContent() {
                     />
                   ) : (
                     <div className="flex flex-col items-center gap-1">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-600 to-rose-600 text-white font-bold text-xs flex items-center justify-center shadow">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center shadow">
                         {participant.displayName?.[0]?.toUpperCase() || 'U'}
                       </div>
                       <span className="text-[9px] text-zinc-400 font-semibold">Cam Off</span>
@@ -1120,7 +1285,7 @@ function FourInARowContent() {
 
             {/* Glowing Title */}
             <div>
-              <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight bg-gradient-to-r from-rose-200 via-pink-100 to-amber-200 bg-clip-text text-transparent drop-shadow-md">
+              <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight bg-gradient-to-r from-white via-rose-100 to-rose-300 bg-clip-text text-transparent drop-shadow-md">
                 Four in a Row
               </h1>
               <p className="text-xs sm:text-sm text-zinc-300 mt-2 max-w-lg mx-auto">
@@ -1170,7 +1335,7 @@ function FourInARowContent() {
                     onClick={handlePingPartner}
                     disabled={isPingingPartner}
                     title="Ping Partner"
-                    className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-amber-300 border border-white/10 transition"
+                    className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-rose-300 border border-white/10 transition"
                   >
                     <Bell className="w-4 h-4" />
                   </button>
@@ -1202,7 +1367,7 @@ function FourInARowContent() {
             <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-6 rounded-3xl bg-black/40 border border-white/15 backdrop-blur-2xl shadow-xl flex flex-col justify-between text-left space-y-4 hover:border-rose-500/50 transition">
                 <div className="space-y-2">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white shadow-md">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 to-pink-500 flex items-center justify-center text-white shadow-md">
                     <Crown className="w-5 h-5" />
                   </div>
                   <h3 className="text-base font-black text-white">Create Private Duel</h3>
@@ -1213,7 +1378,7 @@ function FourInARowContent() {
                 <button
                   onClick={handleCreateRoom}
                   disabled={isCreatingRoom}
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-600 via-pink-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 active:scale-95 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 active:scale-95 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>{isCreatingRoom ? 'Creating Room...' : 'Create Private Room 👑'}</span>
@@ -1445,58 +1610,6 @@ function FourInARowContent() {
 
             {/* Center Column: The 3D Chassis Board with Flanking Player Video Cards */}
             <div className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center">
-              {/* Opponent Left / Disconnected Notification Banner */}
-              {isOpponentDisconnected && (
-                <div className="w-full max-w-xl mb-3.5 p-3.5 sm:p-4 rounded-3xl bg-[#1d0b17]/95 border-2 border-amber-500/50 shadow-2xl backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4 duration-300 z-30">
-                  <div className="flex items-center gap-3 text-left w-full sm:w-auto">
-                    <div className="relative shrink-0">
-                      <div className="w-11 h-11 rounded-full bg-rose-500/20 border-2 border-rose-400 flex items-center justify-center font-bold text-sm text-rose-200 uppercase overflow-hidden shadow-md">
-                        {opponentPlayer?.avatarUrl ? (
-                          <img
-                            src={opponentPlayer.avatarUrl}
-                            alt={disconnectedOpponentName}
-                            className="w-full h-full object-cover grayscale opacity-75"
-                          />
-                        ) : (
-                          <span>{disconnectedOpponentName[0]}</span>
-                        )}
-                      </div>
-                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 ring-2 ring-[#1d0b17] animate-pulse" />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-black text-white">{disconnectedOpponentName}</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 uppercase tracking-wider">
-                          Left Match
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-300 mt-0.5">
-                        {nudgeFeedback || 'Player left or disconnected. Nudge them to return or copy room link!'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
-                    <button
-                      onClick={() => handleNudgePlayer(opponentPlayer?.userId || disconnectedPlayer?.userId, disconnectedOpponentName)}
-                      className="flex-1 sm:flex-initial px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-1.5 active:scale-95 cursor-pointer"
-                    >
-                      <Bell className="w-3.5 h-3.5" />
-                      <span>Nudge {disconnectedOpponentName} 🔔</span>
-                    </button>
-
-                    <button
-                      onClick={handleCopyRoomLink}
-                      className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition border border-white/15 shadow-sm"
-                      title="Copy Game Link to Send to Partner"
-                    >
-                      {copiedRoomLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Turn Banner with Active Turn Indicator */}
               <div className="w-full max-w-lg mb-3 flex items-center justify-between px-4 py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
                 <div className="flex items-center gap-2">
@@ -1766,7 +1879,11 @@ function FourInARowContent() {
                 {/* Tab 1: Chat Stream */}
                 {activeSideTab === 'chat' && (
                   <>
-                    <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs">
+                    <div
+                      ref={chatContainerRef}
+                      onScroll={handleChatScroll}
+                      className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs scrollbar-none"
+                    >
                       {chatMessages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12">
                           <Heart className="w-8 h-8 mb-2 text-rose-500/40" />
@@ -1776,8 +1893,15 @@ function FourInARowContent() {
                         chatMessages.map(m => {
                           const isMe = m.userId === session?.user?.id;
                           const isSticker = parseStickerMessage(m.content);
+                          const isHighlighted = highlightedMsgId === m.id;
                           return (
-                            <div key={m.id} className="flex items-start gap-2.5">
+                            <div
+                              key={m.id}
+                              id={`four-chat-msg-${m.id}`}
+                              className={`group relative flex items-start gap-2.5 p-1.5 my-0.5 rounded-2xl transition-all duration-300 ${
+                                isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
+                              }`}
+                            >
                               <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
                                 {m.userName[0]?.toUpperCase()}
                               </div>
@@ -1786,10 +1910,33 @@ function FourInARowContent() {
                                   <span className="text-[11px] font-bold text-rose-200 truncate">
                                     {isMe ? `${m.userName} (You)` : m.userName}
                                   </span>
-                                  <span className="text-[9px] text-zinc-400 font-mono shrink-0">
-                                    {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[9px] text-zinc-400 font-mono">
+                                      {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setReplyingTo({ id: m.id, userName: m.userName, content: m.content });
+                                        chatInputRef.current?.focus({ preventScroll: true });
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                                      title="Reply to this message"
+                                    >
+                                      <CornerUpLeft className="w-3 h-3 text-rose-300" />
+                                    </button>
+                                  </div>
                                 </div>
+
+                                {/* Quoted reply card if replying to another message */}
+                                {m.replyTo && (
+                                  <ChatReplyQuote
+                                    replyTo={m.replyTo}
+                                    onJumpToMessage={handleJumpToMessage}
+                                    accentColor="rose"
+                                  />
+                                )}
+
                                 {isSticker ? (
                                   <StickerMessageView content={m.content} />
                                 ) : (
@@ -1827,7 +1974,10 @@ function FourInARowContent() {
                           <button
                             key={phrase}
                             type="button"
-                            onClick={() => sendChat(phrase)}
+                            onClick={() => {
+                              sendChat(phrase, replyingTo);
+                              setReplyingTo(null);
+                            }}
                             className="px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 active:scale-95 text-[11px] font-medium text-rose-200 shrink-0 border border-rose-500/20 whitespace-nowrap transition-all shadow-sm"
                           >
                             {phrase}
@@ -1866,14 +2016,30 @@ function FourInARowContent() {
                       </div>
                     )}
 
+                    {/* Replying Banner */}
+                    {replyingTo && (
+                      <div className="pt-2">
+                        <ChatReplyingBanner
+                          replyingTo={replyingTo}
+                          onCancel={() => setReplyingTo(null)}
+                        />
+                      </div>
+                    )}
+
                     {/* Chat Input Bar */}
                     <form onSubmit={handleSendChat} className="flex items-center gap-2 pt-2 border-t border-rose-500/20">
                       <div className="flex-1 relative flex items-center">
                         <input
+                          ref={chatInputRef}
                           type="text"
                           value={chatInput}
                           onChange={e => setChatInput(e.target.value)}
-                          placeholder="Type a message or send stickers..."
+                          onKeyDown={e => {
+                            if (e.key === 'Escape' && replyingTo) {
+                              setReplyingTo(null);
+                            }
+                          }}
+                          placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Type a message or send stickers..."}
                           className="w-full pl-3.5 pr-16 py-2.5 rounded-2xl bg-white/5 border border-white/15 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-rose-400"
                         />
                         <div className="absolute right-2 flex items-center gap-1">
@@ -2104,9 +2270,9 @@ function FourInARowContent() {
           GAME SETTINGS MODAL (Partner Connection, Themes, SFX)
          ========================================================================= */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-full max-w-md p-6 rounded-3xl bg-black/85 border border-white/20 backdrop-blur-2xl shadow-2xl space-y-5 text-left max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md p-6 rounded-3xl bg-[#140a12]/95 border border-rose-500/30 backdrop-blur-2xl shadow-2xl space-y-5 text-left max-h-[90vh] overflow-y-auto scrollbar-none">
+            <div className="flex items-center justify-between border-b border-rose-500/20 pb-3">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-rose-400" />
                 <h3 className="text-base font-black text-white">Game Settings</h3>
@@ -2262,11 +2428,11 @@ function FourInARowContent() {
           RULES MODAL
          ========================================================================= */}
       {showRulesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-full max-w-md p-6 rounded-3xl bg-black/85 border border-white/20 backdrop-blur-2xl shadow-2xl space-y-4 text-left">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md p-6 rounded-3xl bg-[#140a12]/95 border border-rose-500/30 backdrop-blur-2xl shadow-2xl space-y-4 text-left">
+            <div className="flex items-center justify-between border-b border-rose-500/20 pb-3">
               <div className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-sky-400" />
+                <HelpCircle className="w-5 h-5 text-rose-400" />
                 <h3 className="text-base font-black text-white">Four in a Row Rules</h3>
               </div>
               <button
@@ -2277,26 +2443,26 @@ function FourInARowContent() {
               </button>
             </div>
 
-            <div className="text-xs text-zinc-300 space-y-3 leading-relaxed">
-              <div className="flex items-start gap-2.5">
+            <div className="text-xs text-rose-100/90 space-y-3 leading-relaxed">
+              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
                 <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">1</span>
                 <p>
                   <strong>Strict 2-Player Human Duel:</strong> Player 1 controls Red discs (🔴), and Player 2 controls Yellow discs (🟡).
                 </p>
               </div>
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
                 <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">2</span>
                 <p>
                   <strong>Gravity Drop:</strong> On your turn, tap or click any column. The disc falls down to the lowest empty slot.
                 </p>
               </div>
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
                 <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">3</span>
                 <p>
                   <strong>Win Condition:</strong> Connect 4 of your discs in a row horizontally, vertically, or diagonally before your opponent.
                 </p>
               </div>
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
                 <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">4</span>
                 <p>
                   <strong>Strict Zero-Bots Policy:</strong> Rooms only admit real humans. Match begins once both players are seated.
@@ -2306,7 +2472,7 @@ function FourInARowContent() {
 
             <button
               onClick={() => setShowRulesModal(false)}
-              className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition mt-2"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs shadow-lg shadow-rose-950/60 transition mt-2 cursor-pointer"
             >
               Got It!
             </button>

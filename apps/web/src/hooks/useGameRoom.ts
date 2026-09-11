@@ -5,7 +5,8 @@ import {
   GameRoom,
   GameRoomPlayer,
   LudoGameState,
-  LudoColor
+  LudoColor,
+  ChatReplyTo
 } from '@synccinema/common';
 import { WS_BASE, getStoredSession, ensureSession } from '../lib/api';
 
@@ -16,6 +17,7 @@ export interface GameChatMessage {
   avatarUrl?: string | null;
   content: string;
   timestamp: number;
+  replyTo?: ChatReplyTo | null;
 }
 
 export interface FloatingReaction {
@@ -116,6 +118,13 @@ export function useGameRoom(roomCode: string | null) {
     fromDisplayName: string;
     timestamp: number;
   } | null>(null);
+  const [opponentLeftWin, setOpponentLeftWin] = useState<{
+    opponentDisplayName: string;
+    winnerDisplayName: string;
+    winnerUserId: string;
+    winnerColor?: string;
+    message: string;
+  } | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
@@ -123,6 +132,8 @@ export function useGameRoom(roomCode: string | null) {
   const isUnmountedRef = useRef(false);
   const lastChatSendRef = useRef<number>(0);
   const myUserIdRef = useRef<string>('');
+  const roomRef = useRef<GameRoom | null>(null);
+  const gameStateRef = useRef<any>(null);
   const handleMessageRef = useRef<((msg: any) => void) | null>(null);
 
   // WebRTC & Audio/Video Call Listeners
@@ -231,6 +242,9 @@ export function useGameRoom(roomCode: string | null) {
             prev.forEach(m => map.set(m.id, m));
             payload.chatHistory.forEach((m: GameChatMessage) => map.set(m.id, m));
             const merged = Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+            if (prev.length === merged.length && prev.every((m, idx) => m.id === merged[idx].id)) {
+              return prev;
+            }
             try {
               if (roomCode) {
                 localStorage.setItem(`synccinema_gchat_${roomCode.toUpperCase()}`, JSON.stringify(merged));
@@ -265,16 +279,74 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'game:player_left': {
-        const { userId, displayName } = msg.payload;
+        const {
+          userId,
+          displayName,
+          isWinner,
+          winnerUserId,
+          winnerDisplayName,
+          winnerColor,
+          forfeitMessage,
+          gameState: updatedState
+        } = msg.payload;
+
         setRoom(prev => {
           if (!prev) return prev;
           return {
             ...prev,
+            status: isWinner ? 'FINISHED' : prev.status,
             players: prev.players.map(p =>
               p.userId === userId ? { ...p, isConnected: false, status: 'LEFT' as any } : p
             )
           };
         });
+
+        const currentUserId = myUserIdRef.current || myUserId;
+        const currentRoom = roomRef.current || room;
+        const remainingHuman = currentRoom?.players.find(p => p.userId !== userId);
+        const isMeLeaving = userId === currentUserId;
+
+        if (updatedState) {
+          setGameState(updatedState);
+        } else if (isWinner && winnerUserId) {
+          setGameState((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              winnerUserId,
+              winnerColor: winnerColor || prev.winnerColor,
+              winner: prev.winner || (winnerColor === 'red' ? 'R' : 'Y'),
+              statusMessage: forfeitMessage || `${displayName || 'Opponent'} left the game. You are the winner! 🏆`
+            };
+          });
+        }
+
+        if (!isMeLeaving) {
+          const winnerName = winnerDisplayName || remainingHuman?.displayName || 'You';
+          const winnerId = winnerUserId || remainingHuman?.userId || currentUserId;
+          const winnerCol = winnerColor || remainingHuman?.color;
+
+          setOpponentLeftWin({
+            opponentDisplayName: displayName || 'Opponent',
+            winnerDisplayName: winnerName,
+            winnerUserId: winnerId,
+            winnerColor: winnerCol,
+            message: forfeitMessage || `${displayName || 'Opponent'} has left the game. You are the winner! 🏆`
+          });
+
+          // Ensure local gameState displays this win immediately
+          setGameState((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              winnerUserId: winnerId,
+              winnerColor: winnerCol || prev.winnerColor,
+              winner: prev.winner || (winnerCol === 'red' ? 'R' : 'Y'),
+              statusMessage: forfeitMessage || `${displayName || 'Opponent'} left the game. You are the winner! 🏆`
+            };
+          });
+        }
+
         setDisconnectedPlayer({
           userId,
           displayName: displayName || 'Player',
@@ -334,6 +406,10 @@ export function useGameRoom(roomCode: string | null) {
 
         if (!isFromMe && isTargetedToMe) {
           playNudgeChime();
+          setNudgeAlert({
+            fromDisplayName: fromDisplayName || 'Partner',
+            timestamp: Date.now()
+          });
           try {
             if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
               navigator.vibrate([200, 100, 200]);
@@ -529,6 +605,8 @@ export function useGameRoom(roomCode: string | null) {
   };
 
   handleMessageRef.current = handleMessage;
+  roomRef.current = room;
+  gameStateRef.current = gameState;
 
   useEffect(() => {
     isUnmountedRef.current = false;
@@ -561,7 +639,7 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
-  const sendChat = useCallback((content: string) => {
+  const sendChat = useCallback((content: string, replyTo?: ChatReplyTo | null) => {
     const now = Date.now();
     if (now - lastChatSendRef.current < 350) return;
     lastChatSendRef.current = now;
@@ -570,7 +648,7 @@ export function useGameRoom(roomCode: string | null) {
     socketRef.current.send(
       JSON.stringify({
         type: 'game:chat',
-        payload: { content: content.trim() }
+        payload: { content: content.trim(), replyTo: replyTo || null }
       })
     );
   }, []);
@@ -734,6 +812,9 @@ export function useGameRoom(roomCode: string | null) {
     error,
     disconnectedPlayer,
     nudgeAlert,
+    clearNudgeAlert: () => setNudgeAlert(null),
+    opponentLeftWin,
+    clearOpponentLeftWin: () => setOpponentLeftWin(null),
     rollDice,
     moveToken,
     dropDisc,

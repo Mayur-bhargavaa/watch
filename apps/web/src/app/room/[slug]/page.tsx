@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   WifiOff,
@@ -23,8 +23,10 @@ import {
   Mic,
   MicOff,
   Copy,
-  Sparkles
+  Sparkles,
+  CornerUpLeft
 } from 'lucide-react';
+import { ChatReplyTo } from '@synccinema/common';
 import { useRoomSocket } from '../../../hooks/useRoomSocket';
 import { useWebRTC } from '../../../hooks/useWebRTC';
 import { CinemaPlayer } from '../../../components/player/CinemaPlayer';
@@ -35,6 +37,7 @@ import { GameLounge } from '../../../components/games/GameLounge';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
 import { StickerPicker, StickerMessageView } from '../../../components/chat/StickerPicker';
 import { parseStickerMessage, formatStickerMessage } from '../../../components/chat/StickersData';
+import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/ChatReplyUI';
 
 export interface RoomTheme {
   id: string;
@@ -186,18 +189,47 @@ export default function RoomPage() {
   const [activeSideTab, setActiveSideTab] = useState<'chat' | 'games' | 'call' | 'players'>('chat');
   const [chatInput, setChatInput] = useState('');
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<ChatReplyTo | null>(null);
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const isUserScrolledUpRef = useRef<boolean>(false);
+
+  const handleJumpToMessage = useCallback((msgId: string) => {
+    const el = document.getElementById(`chat-msg-${msgId}`);
+    if (el) {
+      isUserScrolledUpRef.current = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMsgId(msgId);
+      setTimeout(() => {
+        setHighlightedMsgId((prev) => (prev === msgId ? null : prev));
+      }, 2000);
+    }
+  }, []);
+
+  const handleChatScroll = useCallback(() => {
+    if (!chatContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+    isUserScrolledUpRef.current = scrollHeight - scrollTop - clientHeight > 60;
+  }, []);
+
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [chatBubbleToast, setChatBubbleToast] = useState<{ sender: string; text: string } | null>(null);
   const prevMessagesCountRef = useRef(chatMessages.length);
 
-  // Auto-scroll chat to bottom
+  // Auto-scroll chat to bottom only when a new message arrives and user isn't reading history
   useEffect(() => {
-    if (chatBottomRef.current && isChatOpen && activeSideTab === 'chat') {
-      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (chatMessages.length > prevMessagesCountRef.current) {
+      if (isChatOpen && activeSideTab === 'chat' && !isUserScrolledUpRef.current && chatContainerRef.current) {
+        chatContainerRef.current.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
     }
-  }, [chatMessages, isChatOpen, activeSideTab]);
+  }, [chatMessages.length, isChatOpen, activeSideTab]);
 
   // Unread messages tracking & popup preview toast when chat bubble is collapsed
   useEffect(() => {
@@ -705,7 +737,11 @@ export default function RoomPage() {
             {/* Tab 1: Chat Stream matching media_1788953825116.png */}
             {activeSideTab === 'chat' && (
               <>
-                <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs min-h-0 scrollbar-thin scrollbar-thumb-rose-500/20">
+                <div
+                  ref={chatContainerRef}
+                  onScroll={handleChatScroll}
+                  className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs min-h-0 scrollbar-none"
+                >
                   {chatMessages.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12 select-none">
                       <Heart className="w-8 h-8 mb-2 text-rose-500/40 animate-pulse" />
@@ -715,8 +751,17 @@ export default function RoomPage() {
                     chatMessages.map(m => {
                       const isMe = m.userId === myUserId;
                       const isSticker = parseStickerMessage(m.content);
+                      const isHighlighted = highlightedMsgId === m.id;
                       return (
-                        <div key={m.id} className={`flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+                        <div
+                          key={m.id}
+                          id={`chat-msg-${m.id}`}
+                          className={`group relative flex items-start gap-2.5 transition-all duration-300 rounded-2xl p-1.5 my-0.5 ${
+                            isMe ? 'flex-row-reverse' : ''
+                          } ${
+                            isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
+                          }`}
+                        >
                           <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
                             {m.userName ? m.userName[0]?.toUpperCase() : 'U'}
                           </div>
@@ -725,10 +770,34 @@ export default function RoomPage() {
                               <span className="text-[11px] font-bold text-rose-200 truncate">
                                 {isMe ? `${m.userName} (You)` : m.userName}
                               </span>
-                              <span className="text-[9px] text-zinc-500 font-mono shrink-0 ml-1">
-                                {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                <span className="text-[9px] text-zinc-500 font-mono">
+                                  {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                                {/* Reply action button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplyingTo({ id: m.id, userName: m.userName, content: m.content });
+                                    chatInputRef.current?.focus({ preventScroll: true });
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                                  title="Reply to this message"
+                                >
+                                  <CornerUpLeft className="w-3 h-3 text-rose-300" />
+                                </button>
+                              </div>
                             </div>
+
+                            {/* Quoted reply card if replying to another message */}
+                            {m.replyTo && (
+                              <ChatReplyQuote
+                                replyTo={m.replyTo}
+                                onJumpToMessage={handleJumpToMessage}
+                                accentColor="rose"
+                              />
+                            )}
+
                             {isSticker ? (
                               <StickerMessageView content={m.content} />
                             ) : (
@@ -767,7 +836,7 @@ export default function RoomPage() {
                       <button
                         key={text}
                         type="button"
-                        onClick={() => sendChatMessage(text, Math.floor(currentPos))}
+                        onClick={() => sendChatMessage(text, Math.floor(currentPos), replyingTo)}
                         className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-rose-500/20 active:scale-95 text-rose-200 hover:text-white text-[11px] font-semibold border border-white/10 hover:border-rose-400/40 whitespace-nowrap transition-all shrink-0 shadow-sm"
                       >
                         {text}
@@ -783,29 +852,53 @@ export default function RoomPage() {
                     <div className="absolute bottom-14 right-0 z-50 animate-in fade-in zoom-in-95 duration-150">
                       <StickerPicker
                         onSelectSticker={(stickerIdOrUrl, caption) => {
-                          sendChatMessage(formatStickerMessage(stickerIdOrUrl, caption), Math.floor(currentPos));
+                          sendChatMessage(formatStickerMessage(stickerIdOrUrl, caption), Math.floor(currentPos), replyingTo);
                           setShowStickerPicker(false);
+                          setReplyingTo(null);
                         }}
                         onClose={() => setShowStickerPicker(false)}
                       />
                     </div>
                   )}
 
+                  {/* Replying-to Preview Bar */}
+                  {replyingTo && (
+                    <ChatReplyingBanner
+                      replyingTo={replyingTo}
+                      onCancel={() => setReplyingTo(null)}
+                      accentColor="rose"
+                    />
+                  )}
+
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (!chatInput.trim()) return;
-                      sendChatMessage(chatInput.trim(), Math.floor(currentPos));
+                      sendChatMessage(chatInput.trim(), Math.floor(currentPos), replyingTo);
                       setChatInput('');
+                      setReplyingTo(null);
+                      isUserScrolledUpRef.current = false;
+                      setTimeout(() => {
+                        chatContainerRef.current?.scrollTo({
+                          top: chatContainerRef.current.scrollHeight,
+                          behavior: 'smooth'
+                        });
+                      }, 50);
                     }}
                     className="flex items-center gap-2"
                   >
                     <div className="flex-1 relative flex items-center">
                       <input
+                        ref={chatInputRef}
                         type="text"
                         value={chatInput}
                         onChange={e => setChatInput(e.target.value)}
-                        placeholder="Type a message or send stickers..."
+                        onKeyDown={e => {
+                          if (e.key === 'Escape' && replyingTo) {
+                            setReplyingTo(null);
+                          }
+                        }}
+                        placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Type a message or send stickers..."}
                         className="w-full px-3.5 py-2.5 bg-black/40 border border-rose-500/30 rounded-2xl text-xs text-white placeholder-rose-300/40 focus:outline-none focus:border-rose-400 pr-16 backdrop-blur-sm"
                       />
 
@@ -836,7 +929,7 @@ export default function RoomPage() {
 
                     <button
                       type="submit"
-                      className="p-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl text-xs font-bold transition shadow-md shadow-rose-900/50 active:scale-95 shrink-0"
+                      className="p-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl text-xs font-bold transition shadow-md shadow-rose-900/50 active:scale-95 shrink-0 cursor-pointer"
                       title="Send message"
                     >
                       <Send className="w-4 h-4" />
@@ -1032,7 +1125,7 @@ export default function RoomPage() {
               Personalize your watch party atmosphere. Your selection updates in real time and is saved for future visits:
             </p>
 
-            <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-rose-500/20">
+            <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1 scrollbar-none">
               {ROOM_THEMES.map((theme) => {
                 const isSelected = selectedTheme === theme.id;
                 return (

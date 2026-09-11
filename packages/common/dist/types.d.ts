@@ -70,6 +70,11 @@ export interface Reaction {
     serverTimestamp: number;
     createdAt: string;
 }
+export interface ChatReplyTo {
+    id: string;
+    userName: string;
+    content: string;
+}
 export interface ChatMessage {
     id: string;
     roomId: string;
@@ -78,6 +83,7 @@ export interface ChatMessage {
     userAvatar?: string | null;
     content: string;
     mediaTimestamp?: number | null;
+    replyTo?: ChatReplyTo | null;
     isDeleted: boolean;
     createdAt: string;
 }

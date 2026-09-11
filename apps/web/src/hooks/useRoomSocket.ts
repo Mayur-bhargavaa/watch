@@ -7,6 +7,7 @@ import {
   RoomPlaybackState,
   Reaction,
   ChatMessage,
+  ChatReplyTo,
   Role,
   WSMessage,
   ClockSyncSample,
@@ -97,10 +98,11 @@ export function useRoomSocket(slug: string) {
     });
   }, [send]);
 
-  const sendChatMessage = useCallback((content: string, mediaTimestamp?: number | null) => {
+  const sendChatMessage = useCallback((content: string, mediaTimestamp?: number | null, replyTo?: ChatReplyTo | null) => {
     send('chat:send', {
       content,
-      mediaTimestamp
+      mediaTimestamp,
+      replyTo: replyTo || null
     });
   }, [send]);
 

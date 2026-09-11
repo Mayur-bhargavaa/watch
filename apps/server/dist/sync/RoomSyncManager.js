@@ -503,6 +503,11 @@ export class RoomSyncManager {
             userAvatar: client.avatarUrl,
             content: sanitized,
             mediaTimestamp: payload.mediaTimestamp ?? null,
+            replyTo: payload.replyTo ? {
+                id: String(payload.replyTo.id),
+                userName: String(payload.replyTo.userName || 'User'),
+                content: String(payload.replyTo.content || '').slice(0, 300)
+            } : null,
             isDeleted: false,
             createdAt: new Date(now).toISOString()
         };

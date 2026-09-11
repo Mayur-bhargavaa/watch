@@ -4,20 +4,14 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import {
   Trophy,
   Sparkles,
-  RefreshCw,
   Crown,
   Volume2,
   VolumeX,
   ShieldCheck,
   Send,
-  Smile,
   Check,
-  RotateCcw,
   Heart,
   MoreHorizontal,
-  Users,
-  Lock,
-  Crosshair,
   Bell
 } from 'lucide-react';
 import {
@@ -701,8 +695,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     isHopArc: boolean;
   } | null>(null);
 
-  const [showGridDebug, setShowGridDebug] = useState(false);
-
   const prevTokensRef = useRef<Record<LudoColor, LudoToken[]> | null>(null);
 
   const getCellPixelCenter = (row: number, col: number): [number, number] => {
@@ -1266,30 +1258,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       <div
         className="relative w-full max-w-5xl flex flex-col items-center select-none my-2 sm:my-3 px-2 sm:px-4"
       >
-        {/* Top Room Status Pill & Alignment Debug Toggle */}
-        <div className="mb-2 sm:mb-3 flex items-center justify-center gap-2 z-20">
-          <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0a0c16]/85 backdrop-blur-md border border-amber-400/30 shadow-[0_4px_15px_rgba(0,0,0,0.5)] text-amber-200/90 text-xs font-semibold tracking-wide">
-            <Users className="w-3.5 h-3.5 text-amber-400" />
-            <span>{room.maxPlayers || 4} Players</span>
-            <span className="text-white/30">•</span>
-            <Lock className="w-3 h-3 text-amber-400/80" />
-            <span>{room.isPrivate ? 'Private Room' : 'Public Room'}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowGridDebug(prev => !prev)}
-            className={`p-1.5 rounded-full border text-xs transition cursor-pointer ${
-              showGridDebug
-                ? 'bg-amber-500/20 text-amber-300 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
-                : 'bg-[#0a0c16]/85 text-white/50 border-white/15 hover:text-white hover:border-white/30'
-            }`}
-            title="Toggle Grid & Alignment Crosshairs"
-          >
-            <Crosshair className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
         {/* 3-Column Arena: Left Players | Center Board | Right Players */}
         <div className="w-full flex items-center justify-center gap-2 sm:gap-3.5 md:gap-6">
           {/* Left Side Players: Corner 0 (Top-Left) and Corner 3 (Bottom-Left / "You") */}
@@ -2126,57 +2094,107 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               <line x1="240" y1="240" x2="360" y2="360" stroke="url(#baroqueGoldGrad)" strokeWidth="2.8" strokeLinecap="round" />
               <line x1="240" y1="360" x2="360" y2="240" stroke="url(#baroqueGoldGrad)" strokeWidth="2.8" strokeLinecap="round" />
 
-              {/* Imperial Victory Medallion with Radiant Golden Rosette and Ruby Heart matching Image 2 */}
+              {/* Center Home Imperial Royal Emblem matching reference */}
               <g transform={`translate(300, 300) rotate(${-boardRotation})`}>
-                {/* Outer Golden Rosette Ring */}
-                <circle cx="0" cy="0" r="40" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="2.4" opacity="0.9" />
-                <circle cx="0" cy="0" r="35" fill="none" stroke="#fff8db" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.75" />
-                {/* 8-Point Golden Star Behind Heart */}
-                <polygon
-                  points="0,-32 8,-12 30,-12 14,3 20,24 0,12 -20,24 -14,3 -30,-12 -8,-12"
-                  fill="url(#baroqueGoldGrad)"
-                  stroke="#fff8db"
-                  strokeWidth="0.6"
+                {/* 1. Outer Sculpted 24K Gold Frame Rings */}
+                <circle cx="0" cy="0" r="51" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" />
+                <circle cx="0" cy="0" r="48" fill="none" stroke="#78350f" strokeWidth="0.8" opacity="0.65" />
+
+                {/* 2. Concentric Orbit Track with White Dashed Tailor Stitching */}
+                <circle cx="0" cy="0" r="41.5" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="3.2" />
+                <circle
+                  cx="0"
+                  cy="0"
+                  r="41.5"
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth="1.3"
+                  strokeDasharray="3.5, 3"
                   opacity="0.9"
                 />
-                <circle cx="0" cy="0" r="23" fill="#180408" opacity="0.9" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" />
 
-                {/* Imperial Victory Crown Vector Icon */}
-                <g transform="translate(0, -1) scale(1.1)">
-                  {/* Drop Shadow */}
+                {/* 3. 5-Pointed Imperial Star (Tips touch outer gold ring, valleys under medallion) */}
+                <polygon
+                  points="0,-48 12.93,-17.80 45.65,-14.83 20.92,6.80 28.21,38.83 0,22 -28.21,38.83 -20.92,6.80 -45.65,-14.83 -12.93,-17.80"
+                  fill="#000000"
+                  opacity="0.38"
+                  transform="translate(0, 1.8)"
+                />
+                <polygon
+                  points="0,-48 12.93,-17.80 45.65,-14.83 20.92,6.80 28.21,38.83 0,22 -28.21,38.83 -20.92,6.80 -45.65,-14.83 -12.93,-17.80"
+                  fill="url(#baroqueGoldGrad)"
+                  stroke="#fff8db"
+                  strokeWidth="0.8"
+                  strokeLinejoin="round"
+                />
+
+                {/* 4. Inner Dark Obsidian Medallion Disc */}
+                <circle cx="0" cy="0" r="27.5" fill="#140608" stroke="url(#baroqueGoldGrad)" strokeWidth="2.6" />
+                <circle cx="0" cy="0" r="25.5" fill="none" stroke="#fff8db" strokeWidth="0.6" opacity="0.65" />
+
+                {/* Subtle Engraved Watermark Star behind Crown */}
+                <polygon
+                  points="0,-22 5.92,-8.15 20.92,-6.80 9.59,3.12 12.93,17.80 0,10.08 -12.93,17.80 -9.59,3.12 -20.92,-6.80 -5.92,-8.15"
+                  fill="#240c10"
+                  opacity="0.75"
+                />
+
+                {/* 5. Imperial 3-Peak Royal Crown */}
+                <g transform="translate(0, 0.5)">
+                  {/* Crown Drop Shadow */}
                   <path
-                    d="M -11 -6 L -14 7 L 14 7 L 11 -6 L 5 -1 L 0 -9 L -5 -1 Z"
+                    d="M -12.5 5 L -10.5 -6.5 L -5.2 -1.2 L 0 -11 L 5.2 -1.2 L 10.5 -6.5 L 12.5 5 Z"
                     fill="#000000"
                     opacity="0.45"
                     transform="translate(0, 1.5)"
                   />
-                  {/* 24K Sculpted Crown Icon Body */}
+                  {/* 24K Sculpted Crown Body */}
                   <path
-                    d="M -11 -6 L -14 7 L 14 7 L 11 -6 L 5 -1 L 0 -9 L -5 -1 Z"
+                    d="M -12.5 5 L -10.5 -6.5 L -5.2 -1.2 L 0 -11 L 5.2 -1.2 L 10.5 -6.5 L 12.5 5 Z"
                     fill="url(#baroqueGoldGrad)"
                     stroke="#543b0d"
-                    strokeWidth="0.9"
+                    strokeWidth="0.85"
                     strokeLinejoin="round"
                   />
-                  {/* Specular Edge Highlight */}
+                  {/* Specular Highlight along Top Crest Ridges */}
                   <path
-                    d="M -10.5 -5 L -13 6 L 13 6 L 10.5 -5 L 5 0 L 0 -7.5 L -5 0 Z"
+                    d="M -10.5 -6.5 L -5.2 -1.2 L 0 -11 L 5.2 -1.2 L 10.5 -6.5"
                     fill="none"
                     stroke="#fff8db"
-                    strokeWidth="0.7"
+                    strokeWidth="0.8"
+                    strokeLinecap="round"
                     opacity="0.9"
                   />
-                  {/* Crown Base Band with Gem Insets */}
-                  <rect x="-14" y="8" width="28" height="4.5" rx="1.5" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
-                  <circle cx="-8" cy="10.2" r="1.2" fill="#b91c1c" stroke="#fff8db" strokeWidth="0.3" />
-                  <circle cx="0" cy="10.2" r="1.4" fill="#1d4ed8" stroke="#fff8db" strokeWidth="0.3" />
-                  <circle cx="8" cy="10.2" r="1.2" fill="#047857" stroke="#fff8db" strokeWidth="0.3" />
-                  {/* 5 Crown Peak Pearls */}
-                  <circle cx="-11" cy="-6" r="1.4" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
-                  <circle cx="-5" cy="-1" r="1.1" fill="#fff8db" stroke="#543b0d" strokeWidth="0.3" />
-                  <circle cx="0" cy="-9" r="1.8" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
-                  <circle cx="5" cy="-1" r="1.1" fill="#fff8db" stroke="#543b0d" strokeWidth="0.3" />
-                  <circle cx="11" cy="-6" r="1.4" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
+
+                  {/* 3 Peak Spherical Pearls */}
+                  {/* Left Peak Pearl */}
+                  <circle cx="-10.5" cy="-6.5" r="1.6" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
+                  <circle cx="-10.9" cy="-6.9" r="0.6" fill="#ffffff" />
+
+                  {/* Tall Center Peak Pearl */}
+                  <circle cx="0" cy="-11" r="2.1" fill="#ffffff" stroke="#543b0d" strokeWidth="0.5" />
+                  <circle cx="-0.5" cy="-11.5" r="0.75" fill="#ffffff" />
+
+                  {/* Right Peak Pearl */}
+                  <circle cx="10.5" cy="-6.5" r="1.6" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
+                  <circle cx="10.1" cy="-6.9" r="0.6" fill="#ffffff" />
+
+                  {/* Crown Gold Headband */}
+                  <rect x="-13" y="6" width="26" height="4.8" rx="1.5" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                  <rect x="-12" y="6.6" width="24" height="1.2" rx="0.6" fill="#fff8db" opacity="0.6" />
+
+                  {/* 3 Studded Gemstones */}
+                  {/* Left: Ruby Red */}
+                  <circle cx="-7.5" cy="8.4" r="1.5" fill="#dc2626" stroke="#450a0a" strokeWidth="0.3" />
+                  <circle cx="-7.8" cy="8.1" r="0.5" fill="#ffffff" opacity="0.9" />
+
+                  {/* Center: Sapphire Blue */}
+                  <circle cx="0" cy="8.4" r="1.5" fill="#2563eb" stroke="#1e3a8a" strokeWidth="0.3" />
+                  <circle cx="-0.3" cy="8.1" r="0.5" fill="#ffffff" opacity="0.9" />
+
+                  {/* Right: Emerald Green */}
+                  <circle cx="7.5" cy="8.4" r="1.5" fill="#059669" stroke="#064e3b" strokeWidth="0.3" />
+                  <circle cx="7.2" cy="8.1" r="0.5" fill="#ffffff" opacity="0.9" />
                 </g>
               </g>
 
@@ -2288,87 +2306,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 );
               })}
               {/* 6. DEBUG GRID & PAWN ALIGNMENT CROSSHAIRS OVERLAY */}
-              {showGridDebug && (
-                <g id="ludoGridDebugOverlay" pointerEvents="none">
-                  {/* 15x15 Board Grid Cell Boundaries */}
-                  {Array.from({ length: 15 }).map((_, r) =>
-                    Array.from({ length: 15 }).map((_, c) => (
-                      <rect
-                        key={`debug-cell-${r}-${c}`}
-                        x={c * 40}
-                        y={r * 40}
-                        width={40}
-                        height={40}
-                        fill="none"
-                        stroke="rgba(255, 255, 255, 0.15)"
-                        strokeWidth="0.6"
-                      />
-                    ))
-                  )}
-
-                  {/* Track Tile Centers (Red Crosshairs + Index) */}
-                  {RING_COORDS.map(([r, c], idx) => {
-                    const cx = c * 40 + 20;
-                    const cy = r * 40 + 20;
-                    return (
-                      <g key={`debug-track-${idx}`}>
-                        <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} stroke="#ef4444" strokeWidth="1.2" />
-                        <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} stroke="#ef4444" strokeWidth="1.2" />
-                        <circle cx={cx} cy={cy} r="1.5" fill="#ffffff" />
-                        <text x={cx} y={cy - 8} fontSize="6.5" fill="#fca5a5" textAnchor="middle" fontWeight="bold">
-                          {idx}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {/* Runway Tile Centers (Magenta Crosshairs) */}
-                  {(['red', 'blue', 'yellow', 'green'] as LudoColor[]).flatMap((col) =>
-                    HOME_PATHS[col].map(([r, c], idx) => {
-                      const cx = c * 40 + 20;
-                      const cy = r * 40 + 20;
-                      return (
-                        <g key={`debug-runway-${col}-${idx}`}>
-                          <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} stroke="#ec4899" strokeWidth="1.2" />
-                          <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} stroke="#ec4899" strokeWidth="1.2" />
-                          <circle cx={cx} cy={cy} r="1.5" fill="#ffffff" />
-                        </g>
-                      );
-                    })
-                  )}
-
-                  {/* Yard Socket Centers (Cyan Crosshairs) */}
-                  {(['red', 'blue', 'green', 'yellow'] as LudoColor[]).flatMap((col) =>
-                    YARD_SOCKET_CENTERS[col].map((s, idx) => (
-                      <g key={`debug-yard-${col}-${idx}`}>
-                        <line x1={s.x - 8} y1={s.y} x2={s.x + 8} y2={s.y} stroke="#06b6d4" strokeWidth="1.2" />
-                        <line x1={s.x} y1={s.y - 8} x2={s.x + 8} y2={s.y + 8} stroke="#06b6d4" strokeWidth="1.2" />
-                        <circle cx={s.x} cy={s.y} r="2" fill="#ffffff" />
-                      </g>
-                    ))
-                  )}
-
-                  {/* Finish Sanctuary Slots (Emerald Crosshairs) */}
-                  {(['red', 'blue', 'green', 'yellow'] as LudoColor[]).flatMap((col) =>
-                    FINISH_SLOTS[col].map((s, idx) => (
-                      <g key={`debug-finish-${col}-${idx}`}>
-                        <line x1={s.x - 5} y1={s.y} x2={s.x + 5} y2={s.y} stroke="#10b981" strokeWidth="1.2" />
-                        <line x1={s.x} y1={s.y - 5} x2={s.x + 5} y2={s.y + 5} stroke="#10b981" strokeWidth="1.2" />
-                        <circle cx={s.x} cy={s.y} r="1.5" fill="#ffffff" />
-                      </g>
-                    ))
-                  )}
-
-                  {/* Active Pawn Footprint Contact Points (Bright Golden Crosshairs) */}
-                  {renderedPawns.map((p, idx) => (
-                    <g key={`debug-pawn-pos-${idx}`}>
-                      <circle cx={p.x} cy={p.groundY} r="3" fill="none" stroke="#facc15" strokeWidth="1.2" />
-                      <line x1={p.x - 6} y1={p.groundY} x2={p.x + 6} y2={p.groundY} stroke="#facc15" strokeWidth="1.2" />
-                      <line x1={p.x} y1={p.groundY - 6} x2={p.x} y2={p.groundY + 6} stroke="#facc15" strokeWidth="1.2" />
-                    </g>
-                  ))}
-                </g>
-              )}
               </g>
             </svg>
 
@@ -2399,113 +2336,67 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             )}
           </div>
 
-          {/* 3-Control Bottom Panel from reference UI */}
-          <div className="w-full flex items-center justify-center gap-6 sm:gap-8">
-            {/* 1. Left: Circular UNDO / Replay Button */}
-            <div className="flex flex-col items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (gameState.winnerColor && onRematch) {
-                    onRematch();
-                  } else {
-                    playSound('step');
-                  }
-                }}
-                className="w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-[#121422]/90 backdrop-blur-md border border-white/20 shadow-[0_4px_15px_rgba(0,0,0,0.5)] flex items-center justify-center text-white/80 hover:text-white hover:border-white/40 active:scale-95 transition cursor-pointer"
-                title={gameState.winnerColor ? 'Rematch' : 'Undo'}
-              >
-                {gameState.winnerColor ? (
-                  <RefreshCw className="w-5 h-5 text-amber-400" />
-                ) : (
-                  <RotateCcw className="w-5 h-5 text-white/90" />
-                )}
-              </button>
-              <span className="text-[10px] font-bold text-white/60 tracking-widest uppercase">
-                {gameState.winnerColor ? 'REMATCH' : 'UNDO'}
-              </span>
-            </div>
-
-            {/* 2. Center: Large Circular Button with 3D Crimson Cube Dice */}
-            <div className="flex flex-col items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  if (gameState.winnerColor && onRematch) {
-                    onRematch();
-                  } else if (canRoll) {
-                    onRollDice();
-                  } else if (canMove) {
-                    // choosing goti
-                  } else {
-                    // Friendly nudge (notifies only recipient)
-                    onNudgePlayer?.(turnPlayer?.userId, turnPlayer?.displayName);
-                    setJustNudged(true);
-                    setTimeout(() => setJustNudged(false), 2500);
-                  }
-                }}
-                className={`w-18 h-18 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer active:scale-95 ${
-                  canRoll
-                    ? 'bg-gradient-to-br from-[#b91c1c] via-[#991b1b] to-[#7f1d1d] shadow-[0_10px_25px_rgba(0,0,0,0.6),0_0_20px_rgba(185,28,28,0.4)] border-2 border-amber-400/60 animate-pulse'
-                    : canMove
-                    ? 'bg-gradient-to-br from-[#b91c1c] via-[#991b1b] to-[#7f1d1d] shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-amber-400/40'
-                    : gameState.winnerColor
-                    ? 'bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#78350f] shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-amber-300/60 animate-bounce'
-                    : justNudged
-                    ? 'bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-emerald-400/60'
-                    : 'bg-gradient-to-br from-[#2a1318] via-[#1a0b0e] to-[#0f0709] shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-amber-500/20 hover:border-amber-500/40'
-                }`}
-              >
-                {/* 3D Royal Crimson Cube with Gold-Tinted Pip Trim */}
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#7f1d1d] border border-amber-200/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu">
-                  {renderDiceFace(gameState.diceValue || 6, 'sm')}
-                </div>
-              </button>
-
-              {/* Bold Label */}
-              <span className={`text-[11px] sm:text-xs font-black tracking-widest uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] ${
+          {/* Central 3D Crimson Dice Control Button */}
+          <div className="flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (gameState.winnerColor && onRematch) {
+                  onRematch();
+                } else if (canRoll) {
+                  onRollDice();
+                } else if (canMove) {
+                  // choosing goti
+                } else {
+                  // Friendly nudge (notifies only recipient)
+                  onNudgePlayer?.(turnPlayer?.userId, turnPlayer?.displayName);
+                  setJustNudged(true);
+                  setTimeout(() => setJustNudged(false), 2500);
+                }
+              }}
+              className={`w-18 h-18 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer active:scale-95 ${
                 canRoll
-                  ? 'text-amber-300 animate-pulse'
+                  ? 'bg-gradient-to-br from-[#b91c1c] via-[#991b1b] to-[#7f1d1d] shadow-[0_10px_25px_rgba(0,0,0,0.6),0_0_20px_rgba(185,28,28,0.4)] border-2 border-amber-400/60 animate-pulse'
                   : canMove
-                  ? 'text-amber-300'
+                  ? 'bg-gradient-to-br from-[#b91c1c] via-[#991b1b] to-[#7f1d1d] shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-amber-400/40'
+                  : gameState.winnerColor
+                  ? 'bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#78350f] shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-amber-300/60 animate-bounce'
                   : justNudged
-                  ? 'text-emerald-300 animate-pulse'
-                  : 'text-white/80'
-              }`}>
-                {gameState.winnerColor
-                  ? 'REMATCH'
-                  : canRoll
-                  ? 'ROLL THE DICE'
-                  : canMove
-                  ? 'CHOOSE GOTI'
-                  : isMyTurn
-                  ? 'YOUR TURN'
-                  : justNudged ? (
-                    <span className="inline-flex items-center gap-1">
-                      <span>NUDGED!</span>
-                      <Bell className="w-3 h-3 text-emerald-300" />
-                    </span>
-                  ) : 'NUDGE'}
-              </span>
-            </div>
+                  ? 'bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-emerald-400/60'
+                  : 'bg-gradient-to-br from-[#2a1318] via-[#1a0b0e] to-[#0f0709] shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-amber-500/20 hover:border-amber-500/40'
+              }`}
+            >
+              {/* 3D Royal Crimson Cube with Gold-Tinted Pip Trim */}
+              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#7f1d1d] border border-amber-200/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu">
+                {renderDiceFace(gameState.diceValue || 6, 'sm')}
+              </div>
+            </button>
 
-            {/* 3. Right: Circular EMOJI Button */}
-            <div className="flex flex-col items-center gap-1">
-              <button
-                type="button"
-                onClick={() => {
-                  onSendReaction?.('❤️');
-                  playSound('step');
-                }}
-                className="w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-[#121422]/90 backdrop-blur-md border border-white/20 shadow-[0_4px_15px_rgba(0,0,0,0.5)] flex items-center justify-center text-white/80 hover:text-white hover:border-white/40 active:scale-95 transition cursor-pointer"
-                title="Send Emoji / Reaction"
-              >
-                <Smile className="w-5 h-5 text-white/90" />
-              </button>
-              <span className="text-[10px] font-bold text-white/60 tracking-widest uppercase">
-                EMOJI
-              </span>
-            </div>
+            {/* Bold Label */}
+            <span className={`text-[11px] sm:text-xs font-black tracking-widest uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] ${
+              canRoll
+                ? 'text-amber-300 animate-pulse'
+                : canMove
+                ? 'text-amber-300'
+                : justNudged
+                ? 'text-emerald-300 animate-pulse'
+                : 'text-white/80'
+            }`}>
+              {gameState.winnerColor
+                ? 'REMATCH'
+                : canRoll
+                ? 'ROLL THE DICE'
+                : canMove
+                ? 'CHOOSE GOTI'
+                : isMyTurn
+                ? 'YOUR TURN'
+                : justNudged ? (
+                  <span className="inline-flex items-center gap-1">
+                    <span>NUDGED!</span>
+                    <Bell className="w-3 h-3 text-emerald-300" />
+                  </span>
+                ) : 'NUDGE'}
+            </span>
           </div>
         </div>
       </div>

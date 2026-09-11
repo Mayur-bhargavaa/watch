@@ -65,15 +65,51 @@ export declare const ReactionSendPayloadSchema: z.ZodObject<{
     mediaTimestamp: number;
 }>;
 export type ReactionSendPayload = z.infer<typeof ReactionSendPayloadSchema>;
+export declare const ChatReplyToSchema: z.ZodObject<{
+    id: z.ZodString;
+    userName: z.ZodString;
+    content: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    userName: string;
+    content: string;
+}, {
+    id: string;
+    userName: string;
+    content: string;
+}>;
 export declare const ChatSendPayloadSchema: z.ZodObject<{
     content: z.ZodString;
     mediaTimestamp: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    replyTo: z.ZodNullable<z.ZodOptional<z.ZodObject<{
+        id: z.ZodString;
+        userName: z.ZodString;
+        content: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        id: string;
+        userName: string;
+        content: string;
+    }, {
+        id: string;
+        userName: string;
+        content: string;
+    }>>>;
 }, "strip", z.ZodTypeAny, {
     content: string;
     mediaTimestamp?: number | null | undefined;
+    replyTo?: {
+        id: string;
+        userName: string;
+        content: string;
+    } | null | undefined;
 }, {
     content: string;
     mediaTimestamp?: number | null | undefined;
+    replyTo?: {
+        id: string;
+        userName: string;
+        content: string;
+    } | null | undefined;
 }>;
 export type ChatSendPayload = z.infer<typeof ChatSendPayloadSchema>;
 export declare const MediaChangePayloadSchema: z.ZodObject<{

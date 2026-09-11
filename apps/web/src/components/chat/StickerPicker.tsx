@@ -182,7 +182,7 @@ export function StickerPicker({ onSelectSticker, onClose }: StickerPickerProps) 
       </div>
 
       {/* Stickers Grid */}
-      <div className="grid grid-cols-3 gap-2 overflow-y-auto pr-1 max-h-64 sm:max-h-72 scrollbar-thin scrollbar-thumb-rose-500/30">
+      <div className="grid grid-cols-3 gap-2 overflow-y-auto pr-1 max-h-64 sm:max-h-72 scrollbar-none">
         {filteredStickers.length === 0 ? (
           <div className="col-span-3 py-8 text-center text-rose-300/60 flex flex-col items-center justify-center gap-1">
             <span className="text-2xl">🐼❓</span>
