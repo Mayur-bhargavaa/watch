@@ -14,7 +14,9 @@ import {
   Check,
   RotateCcw,
   Heart,
-  MoreHorizontal
+  MoreHorizontal,
+  Users,
+  Lock
 } from 'lucide-react';
 import {
   GameRoom,
@@ -419,12 +421,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     }
   }, [myColor]);
 
-  // Corner pods dynamically positioned floating prominently out from the board corners matching reference design
+  // Corner cards dynamically positioned floating prominently out from the board corners matching Image 2 benchmark
   const CORNER_CLASSES: Record<number, { className: string; side: 'left' | 'right' }> = {
-    0: { className: 'absolute -top-8 sm:-top-10 -left-6 sm:-left-8 z-30 pointer-events-auto', side: 'left' },
-    1: { className: 'absolute -top-8 sm:-top-10 -right-6 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
-    2: { className: 'absolute -bottom-8 sm:-bottom-10 -right-6 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
-    3: { className: 'absolute -bottom-8 sm:-bottom-10 -left-6 sm:-left-8 z-30 pointer-events-auto', side: 'left' }
+    0: { className: 'absolute -top-5 sm:-top-7 -left-4 sm:-left-8 z-30 pointer-events-auto', side: 'left' },
+    1: { className: 'absolute -top-5 sm:-top-7 -right-4 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
+    2: { className: 'absolute -bottom-5 sm:-bottom-7 -right-4 sm:-right-8 z-30 pointer-events-auto', side: 'right' },
+    3: { className: 'absolute -bottom-5 sm:-bottom-7 -left-4 sm:-left-8 z-30 pointer-events-auto', side: 'left' }
   };
 
   const ORIG_CORNER_INDEX: Record<LudoColor, number> = {
@@ -898,7 +900,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     );
   };
 
-  // Render sculpted 3D luxury pawn figurine with unique color silhouette, emblems, and crowns
+  // Render sculpted 3D luxury pawn figurine matching Image 2 benchmark
   const renderLuxuryPawn = (color: LudoColor, isLegal: boolean, isMyColor: boolean = false) => {
     const headGradient = `url(#${color}PawnHead)`;
     const bodyGradient = `url(#${color}PawnBody)`;
@@ -911,8 +913,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           <ellipse
             cx="0"
             cy="2"
-            rx="14.5"
-            ry="6.2"
+            rx="15"
+            ry="6.5"
             fill="none"
             stroke={neonColor}
             strokeWidth="1.4"
@@ -922,33 +924,34 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         )}
 
         {/* Tier 1: Ambient Base Ground Shadow */}
-        <ellipse cx="0" cy="3.5" rx="14" ry="5.5" fill="#000000" opacity="0.38" />
+        <ellipse cx="0" cy="3.5" rx="14" ry="5.5" fill="#000000" opacity="0.42" />
         
         {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring */}
-        <ellipse cx="0" cy="2" rx="13.5" ry="5.2" fill="url(#goldMetallicGradient)" stroke="#78350f" strokeWidth="0.8" />
+        <ellipse cx="0" cy="2" rx="13.8" ry="5.4" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+        <ellipse cx="0" cy="1.6" rx="12.6" ry="4.8" fill="none" stroke="#fff8db" strokeWidth="0.6" opacity="0.8" />
         
         {/* Tier 3: Upper Beveled Gemstone Base Step */}
-        <ellipse cx="0" cy="0.8" rx="11" ry="4.2" fill={headGradient} stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.6" />
+        <ellipse cx="0" cy="0.8" rx="11.2" ry="4.4" fill={headGradient} stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.6" />
         
         {/* Tier 4: Gold Torus Collar Base Rim */}
-        <ellipse cx="0" cy="-0.2" rx="8.5" ry="3.0" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
+        <ellipse cx="0" cy="-0.2" rx="8.8" ry="3.2" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
         {/* Base Specular Gloss Arc */}
-        <path d="M -7 -1 A 8 3 0 0 1 7 -1" fill="none" stroke="#ffffff" strokeWidth="0.9" opacity="0.6" />
+        <path d="M -7.2 -1 A 8 3 0 0 1 7.2 -1" fill="none" stroke="#ffffff" strokeWidth="1.0" opacity="0.65" />
 
         {/* Sculpted Flared Pawn Body (Hourglass bell curve seamlessly covering and wrapping the base) */}
         <path
-          d="M -8.2 0 C -7.5 -4, -5 -7, -3.6 -9 L 3.6 -9 C 5 -7, 7.5 -4, 8.2 0 C 4.5 2.2, -4.5 2.2, -8.2 0 Z"
+          d="M -8.4 0 C -7.6 -4.2, -5.2 -7.5, -3.8 -9.5 L 3.8 -9.5 C 5.2 -7.5, 7.6 -4.2, 8.4 0 C 4.6 2.4, -4.6 2.4, -8.4 0 Z"
           fill={bodyGradient}
         />
         {/* Specular curved vertical gloss streak down the left torso */}
         <path
-          d="M -6.2 -0.2 C -5.5 -3.8, -3.2 -6.5, -2.2 -8.5 C -1.5 -8.5, -2.0 -3.8, -4.0 -0.2 Z"
+          d="M -6.4 -0.2 C -5.6 -3.8, -3.4 -6.8, -2.4 -9 C -1.6 -9, -2.2 -4, -4.2 -0.2 Z"
           fill="#ffffff"
-          opacity="0.4"
+          opacity="0.45"
         />
         {/* Ambient shadow gradient down the right contour */}
         <path
-          d="M 6.2 -0.2 C 5.5 -3.8, 3.2 -6.5, 2.2 -8.5 C 1.5 -8.5, 2.0 -3.8, 4.0 -0.2 Z"
+          d="M 6.4 -0.2 C 5.6 -3.8, 3.4 -6.8, 2.4 -9 C 1.6 -9, 2.2 -4, 4.2 -0.2 Z"
           fill="#000000"
           opacity="0.25"
         />
@@ -958,7 +961,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           /* Glowing Royal Ruby Heart Emblem */
           <path
             d="M 0,-2 C 0,-2 -2.8,-4.5 -2.8,-6.2 C -2.8,-7.5 -1.8,-8.2 -0.6,-8.2 C 0,-8.2 0,-7.8 0,-7.8 C 0,-7.8 0,-8.2 0.6,-8.2 C 1.8,-8.2 2.8,-7.5 2.8,-6.2 C 2.8,-4.5 0,-2 0,-2 Z"
-            transform="translate(0, 2.5) scale(0.9)"
+            transform="translate(0, 2.2) scale(0.9)"
             fill="#ff2e79"
             stroke="#ffffff"
             strokeWidth="0.5"
@@ -995,34 +998,35 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         )}
 
         {/* Lower Polished Gold Torus Waist Ring */}
-        <ellipse cx="0" cy="-9" rx="4.8" ry="1.8" fill="url(#goldMetallicGradient)" stroke="#92400e" strokeWidth="0.5" />
+        <ellipse cx="0" cy="-9.5" rx="5.0" ry="1.9" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
         
         {/* Tapered Slender Neck Column */}
-        <path d="M -2.6 -9 C -2.6 -12.5, 2.6 -12.5, 2.6 -9 Z" fill={bodyGradient} />
+        <path d="M -2.8 -9.5 C -2.8 -13, 2.8 -13, 2.8 -9.5 Z" fill={bodyGradient} />
 
-        {/* Upper Gold Neck Collar Bead */}
-        <ellipse cx="0" cy="-12.5" rx="4.0" ry="1.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.8" />
+        {/* Upper Gold Neck Collar Bead matching Image 2 */}
+        <ellipse cx="0" cy="-13" rx="4.5" ry="1.7" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
+        <ellipse cx="0" cy="-13.3" rx="3.8" ry="1.3" fill="none" stroke="#fff8db" strokeWidth="0.5" opacity="0.8" />
 
-        {/* Spherical Luxury Gemstone Head Knob (Centered at cy=-19.5, r=8.2) */}
+        {/* Spherical Luxury Gemstone Head Knob (Centered at cy=-20.5, r=8.6) matching Image 2 */}
         <circle
           cx="0"
-          cy="-19.5"
-          r="8.2"
+          cy="-20.5"
+          r="8.6"
           fill={headGradient}
           stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.7)'}
-          strokeWidth={isLegal ? '2.2' : '1.0'}
+          strokeWidth={isLegal ? '2.4' : '1.0'}
         />
 
         {/* 3D Spherical Specular Highlights (glass reflection & curved gleam) */}
-        <circle cx="-2.6" cy="-22.2" r="2.2" fill="#ffffff" opacity="0.95" />
-        <circle cx="-0.8" cy="-24.2" r="1.1" fill="#ffffff" opacity="0.85" />
-        <ellipse cx="2.5" cy="-16.8" rx="2.0" ry="1.0" transform="rotate(30 2.5 -16.8)" fill="#ffffff" opacity="0.28" />
+        <circle cx="-2.8" cy="-23.5" r="2.3" fill="#ffffff" opacity="0.95" />
+        <circle cx="-0.8" cy="-25.5" r="1.1" fill="#ffffff" opacity="0.85" />
+        <ellipse cx="2.6" cy="-17.5" rx="2.2" ry="1.1" transform="rotate(30 2.6 -17.5)" fill="#ffffff" opacity="0.32" />
 
-        {/* Unique Color Head Crown Finials (Distinct silhouettes for every color!) */}
+        {/* Unique Color Head Crown Finials matching Image 2 */}
         {color === 'red' && (
           /* Red: Imperial Triple-Peak Royal Crown with glowing Ruby Heart */
-          <g transform="translate(0, -27.7)">
-            <path d="M -6.5 0 L -8.5 -5.5 L -3.5 -3 L 0 -7 L 3.5 -3 L 8.5 -5.5 L 6.5 0 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+          <g transform="translate(0, -29)">
+            <path d="M -6.5 0 L -8.5 -5.5 L -3.5 -3 L 0 -7 L 3.5 -3 L 8.5 -5.5 L 6.5 0 Z" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
             <circle cx="0" cy="-7.8" r="1.5" fill="#ff2e79" stroke="#ffffff" strokeWidth="0.3" />
             <circle cx="-8.5" cy="-5.8" r="0.8" fill="#ffffff" />
             <circle cx="8.5" cy="-5.8" r="0.8" fill="#ffffff" />
@@ -1030,16 +1034,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         )}
         {color === 'blue' && (
           /* Blue: Regal 4-Point Starlight Sapphire Diamond Crest */
-          <g transform="translate(0, -27.7)">
-            <polygon points="0,-9 3.8,-4.5 8,-3.5 4,-0.5 5,4.5 0,1.2 -5,4.5 -4,-0.5 -8,-3.5 -3.8,-4.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+          <g transform="translate(0, -29)">
+            <polygon points="0,-9 3.8,-4.5 8,-3.5 4,-0.5 5,4.5 0,1.2 -5,4.5 -4,-0.5 -8,-3.5 -3.8,-4.5" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
             <circle cx="0" cy="-3.5" r="1.6" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.3" />
             <circle cx="0" cy="-9.5" r="0.8" fill="#ffffff" />
           </g>
         )}
         {color === 'green' && (
           /* Green: Celtic Emerald Tri-Spire Laurel Crown */
-          <g transform="translate(0, -27.7)">
-            <path d="M -6.5 1 C -8 -4.5, -4 -6, -2.5 -3 C -1.2 -8, 1.2 -8, 2.5 -3 C 4 -6, 8 -4.5, 6.5 1 Z" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+          <g transform="translate(0, -29)">
+            <path d="M -6.5 1 C -8 -4.5, -4 -6, -2.5 -3 C -1.2 -8, 1.2 -8, 2.5 -3 C 4 -6, 8 -4.5, 6.5 1 Z" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
             <circle cx="-6" cy="-5.5" r="1.0" fill="#ffffff" />
             <circle cx="0" cy="-8.5" r="1.5" fill="#34d399" stroke="#ffffff" strokeWidth="0.3" />
             <circle cx="6" cy="-5.5" r="1.0" fill="#ffffff" />
@@ -1047,8 +1051,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         )}
         {color === 'yellow' && (
           /* Yellow: Radiant Solar Sunburst Crown with golden rays & amber jewel */
-          <g transform="translate(0, -27.7)">
-            <polygon points="0,-9.5 2.2,-4.5 7,-6 4,-1.5 7,2 2.2,1 0,5 -2.2,1 -7,2 -4,-1.5 -7,-6 -2.2,-4.5" fill="url(#goldMetallicGradient)" stroke="#ffffff" strokeWidth="0.4" />
+          <g transform="translate(0, -29)">
+            <polygon points="0,-9.5 2.2,-4.5 7,-6 4,-1.5 7,2 2.2,1 0,5 -2.2,1 -7,2 -4,-1.5 -7,-6 -2.2,-4.5" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
             <circle cx="0" cy="-2" r="1.8" fill="#fbbf24" stroke="#ffffff" strokeWidth="0.4" />
             <circle cx="0" cy="-10" r="0.8" fill="#ffffff" />
           </g>
@@ -1057,32 +1061,37 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     );
   };
 
-  // Render Floating Dark Glass Player Pod matching the reference UI
+  // Render Floating Dark Glass Player Card matching the Image 2 benchmark
   const renderCornerBadge = (color: LudoColor, side: 'left' | 'right') => {
     const p = playerByColor[color];
     const isCurrentTurn = gameState.currentTurnColor === color;
     const cfg = COLOR_CONFIG[color];
     const isMe = p?.userId === myPlayer?.userId;
     const isHost = p?.seat === 0;
+    const tokens = gameState.tokens?.[color] || [];
 
-    // Faded empty pod for colors/seats not in the current game
+    // Faded empty card for colors/seats not in the current game
     if (!p) {
       return (
-        <div className={`relative flex items-center ${side === 'right' ? 'flex-row-reverse' : 'flex-row'} z-30 select-none opacity-30 hover:opacity-50 transition-opacity`}>
-          <div className="relative z-20 flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-[#0a0c16]/50 backdrop-blur-md border border-white/10 shadow-md">
+        <div className="relative flex flex-col items-center z-30 select-none opacity-25 hover:opacity-40 transition-opacity">
+          <div className="relative z-20 flex flex-col items-center justify-between w-20 sm:w-24 py-2.5 px-2 rounded-2xl bg-[#0a0c16]/50 backdrop-blur-md border border-white/10 shadow-md">
             <div
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-dashed flex items-center justify-center text-white/30 text-xs font-bold"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-dashed flex items-center justify-center text-white/30 text-xs font-bold mb-1"
               style={{ borderColor: `${cfg.neon}40`, backgroundColor: `${cfg.fill}15` }}
             >
-              <span className="text-white/30 text-[10px] sm:text-xs">—</span>
+              <span className="text-white/30 text-xs">—</span>
             </div>
-            <div className="flex flex-col min-w-0 pr-1">
-              <span className="font-semibold text-white/40 text-[10px] sm:text-[11px] tracking-wide">
-                Not in Game
-              </span>
-              <span className="text-[8px] sm:text-[9px] font-bold text-white/20 uppercase tracking-wider">
-                {color}
-              </span>
+            <span className="font-semibold text-white/40 text-[10px] sm:text-[11px] tracking-wide text-center">
+              Empty
+            </span>
+            <span className="text-[8px] font-bold text-white/20 uppercase tracking-wider mt-0.5">
+              {color}
+            </span>
+            {/* 4 Empty Dots */}
+            <div className="flex items-center justify-center gap-1.5 mt-2 pt-1 border-t border-white/5 w-full">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="w-2 h-2 rounded-full border border-white/15 bg-white/5" />
+              ))}
             </div>
           </div>
         </div>
@@ -1102,18 +1111,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       activeStream.getVideoTracks().some(t => t.enabled && t.readyState !== 'ended')
     );
 
-    const isPlayerMuted = isMe ? isMicMuted : (pStream?.isMuted ?? true);
-
     return (
-      <div className={`relative flex items-center ${side === 'right' ? 'flex-row-reverse' : 'flex-row'} z-30 select-none group`}>
+      <div className="relative flex flex-col items-center z-30 select-none group">
         {/* Remote audio receiver so we hear opponent speaking */}
         {!isMe && pStream?.stream && (
           <RemoteAudioPlayer stream={pStream.stream} />
         )}
 
-        {/* Floating Dark Glass Capsule matching reference UI */}
+        {/* Floating Dark Crystal Card matching Image 2 reference UI */}
         <div
-          className={`relative z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0a0c16]/85 backdrop-blur-xl border transition-all duration-300 shadow-[0_8px_25px_rgba(0,0,0,0.65)] ${
+          className={`relative z-20 flex flex-col items-center justify-between w-20 sm:w-24 py-2.5 px-2 rounded-2xl sm:rounded-[22px] bg-[#0a0c16]/90 backdrop-blur-xl border transition-all duration-300 shadow-[0_8px_25px_rgba(0,0,0,0.65)] ${
             isDisconnected
               ? 'opacity-40 grayscale-[60%] border-rose-500/25'
               : isCurrentTurn
@@ -1125,9 +1132,24 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             borderColor: isCurrentTurn ? cfg.neon : undefined
           }}
         >
+          {/* Nudge / menu button at top-right corner of card */}
+          {!isMe && (
+            <button
+              type="button"
+              className="absolute top-1.5 right-1.5 text-white/30 hover:text-white transition p-0.5 cursor-pointer z-30 opacity-0 group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNudgePlayer?.(p.userId, p.displayName);
+              }}
+              title={`Nudge ${p.displayName}`}
+            >
+              <MoreHorizontal className="w-3 h-3" />
+            </button>
+          )}
+
           {/* Avatar container with Neon Ring */}
-          <div className="relative shrink-0">
-            {/* Crown for Host ("You") */}
+          <div className="relative shrink-0 mt-0.5">
+            {/* Crown for Host */}
             {isHost && (
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                 <Crown className="w-4 h-4 text-amber-300 fill-amber-400 animate-pulse" />
@@ -1136,14 +1158,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
             {/* Glowing Neon Avatar Ring */}
             <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full p-0.5 border flex items-center justify-center transition-all ${
+              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 border flex items-center justify-center transition-all ${
                 (isMe ? !isMicMuted : pStream?.isSpeaking)
                   ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.9)]'
                   : ''
               }`}
               style={{
                 borderColor: cfg.neon,
-                boxShadow: `0 0 12px ${cfg.glow}`,
+                boxShadow: `0 0 10px ${cfg.glow}`,
                 backgroundColor: '#0f111a'
               }}
             >
@@ -1171,46 +1193,56 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           </div>
 
           {/* Player Name / Tag */}
-          <div className="flex flex-col min-w-0 pr-0.5">
-            <span className="font-bold text-white text-xs sm:text-sm tracking-wide truncate max-w-[80px] sm:max-w-[95px] drop-shadow-sm">
-              {isMe ? 'You' : p.displayName}
+          <div className="flex flex-col items-center min-w-0 mt-1.5 text-center w-full">
+            <span className="font-bold text-white text-xs sm:text-[13px] tracking-wide truncate max-w-[70px] sm:max-w-[80px] drop-shadow-sm">
+              {p.displayName}
             </span>
             {isDisconnected ? (
-              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-400/90 leading-none flex items-center gap-1">
+              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-400/90 leading-none mt-0.5 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
                 Offline
               </span>
             ) : isCurrentTurn ? (
-              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300/90 leading-none">
-                Turn
+              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-300 leading-none mt-0.5 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]">
+                {isMe ? 'Your Turn' : 'Thinking...'}
               </span>
-            ) : null}
+            ) : isMe ? (
+              <span className="text-[8px] sm:text-[9px] font-bold text-white/50 leading-none mt-0.5">
+                You
+              </span>
+            ) : (
+              <span className="text-[8px] sm:text-[9px] font-bold text-white/40 leading-none mt-0.5">
+                Ready!
+              </span>
+            )}
           </div>
 
-          {/* Heart Icon with Neon Glow */}
-          <Heart
-            className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:scale-110"
-            style={{
-              color: cfg.neon,
-              fill: isCurrentTurn ? cfg.neon : `${cfg.neon}40`,
-              filter: `drop-shadow(0 0 4px ${cfg.glow})`
-            }}
-          />
-
-          {/* Three Dots Menu Icon */}
-          <button
-            type="button"
-            className="text-white/40 hover:text-white/80 transition p-0.5 cursor-pointer shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isMe) {
-                onNudgePlayer?.(p.userId, p.displayName);
-              }
-            }}
-            title={!isMe ? `Nudge ${p.displayName}` : undefined}
-          >
-            <MoreHorizontal className="w-3.5 h-3.5" />
-          </button>
+          {/* 4-Dot Token Status Tracker matching Image 2 */}
+          <div className="flex items-center justify-center gap-1.5 mt-2 pt-1.5 border-t border-white/10 w-full">
+            {[0, 1, 2, 3].map((tokenIdx) => {
+              const tok = tokens[tokenIdx];
+              const isHome = tok && tok.step >= 56;
+              const isOnBoard = tok && tok.step >= 0 && tok.step < 56;
+              return (
+                <div
+                  key={tokenIdx}
+                  className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-300 ${
+                    isHome
+                      ? 'ring-1 ring-white shadow-[0_0_8px_#ffffff] bg-white'
+                      : isOnBoard
+                      ? 'shadow-[0_0_6px_currentColor]'
+                      : 'opacity-40 border border-white/30'
+                  }`}
+                  style={{
+                    backgroundColor: isHome ? '#ffffff' : isOnBoard ? cfg.neon : `${cfg.fill}35`,
+                    borderColor: cfg.neon,
+                    color: cfg.neon
+                  }}
+                  title={isHome ? 'Token Home!' : isOnBoard ? 'Token on Track' : 'Token in Yard'}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -1235,8 +1267,18 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
       {/* Board & Player Ribbons Container - Perfectly sized to fit screen without scrolling */}
       <div
-        className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-5 sm:my-7 px-5 sm:px-8"
+        className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-4 sm:my-6 px-5 sm:px-8"
       >
+        {/* Top Room Status Pill matching Image 2 benchmark */}
+        <div className="mb-3 sm:mb-4 flex items-center justify-center z-20">
+          <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0a0c16]/85 backdrop-blur-md border border-amber-400/30 shadow-[0_4px_15px_rgba(0,0,0,0.5)] text-amber-200/90 text-xs font-semibold tracking-wide">
+            <Users className="w-3.5 h-3.5 text-amber-400" />
+            <span>{room.maxPlayers || 4} Players</span>
+            <span className="text-white/30">•</span>
+            <Lock className="w-3 h-3 text-amber-400/80" />
+            <span>{room.isPrivate ? 'Private Room' : 'Public Room'}</span>
+          </div>
+        </div>
 
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
         <div className="relative w-full aspect-square rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
@@ -1460,223 +1502,365 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   <stop offset="85%" stopColor="#064e3b" />
                   <stop offset="100%" stopColor="#022c22" />
                 </linearGradient>
+
+                {/* Antique Baroque 24K Sculpted Gold Gradients matching Image 2 */}
+                <linearGradient id="baroqueGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fff8db" />
+                  <stop offset="15%" stopColor="#f7d479" />
+                  <stop offset="35%" stopColor="#d4a343" />
+                  <stop offset="55%" stopColor="#aa7c11" />
+                  <stop offset="80%" stopColor="#e5b95c" />
+                  <stop offset="100%" stopColor="#543b0d" />
+                </linearGradient>
+                <linearGradient id="mahoganyFrameGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#2e1b10" />
+                  <stop offset="40%" stopColor="#1a0f08" />
+                  <stop offset="100%" stopColor="#0c0704" />
+                </linearGradient>
               </defs>
 
-              {/* Board Base Surface: Dark Obsidian Slate with Dual Golden Inlay and Corner Filigree */}
-              <rect x="-16" y="-16" width="632" height="632" rx="26" fill="#0b0d14" />
-              <rect x="-12" y="-12" width="624" height="624" rx="22" fill="#131622" stroke="#2c2838" strokeWidth="2" />
-              <rect x="-6" y="-6" width="612" height="612" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" opacity="0.85" />
-              <rect x="-2" y="-2" width="604" height="604" rx="14" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="5, 4" opacity="0.6" />
+              {/* Board Base Surface: Heavy Carved Mahogany & 24K Sculpted Baroque Outer Gold Frame matching Image 2 */}
+              <rect x="-16" y="-16" width="632" height="632" rx="26" fill="url(#mahoganyFrameGrad)" stroke="#3e2311" strokeWidth="1.5" />
+              {/* Heavy 24K Antique Gold Baroque Stepped Relief Molding */}
+              <rect x="-13" y="-13" width="626" height="626" rx="23" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="4.5" />
+              <rect x="-9.5" y="-9.5" width="619" height="619" rx="20" fill="none" stroke="#fff8db" strokeWidth="1.2" opacity="0.85" />
+              <rect x="-6" y="-6" width="612" height="612" rx="16" fill="none" stroke="#3b2606" strokeWidth="2.5" />
+              <rect x="-2" y="-2" width="604" height="604" rx="13" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.8" strokeDasharray="6, 3" opacity="0.9" />
+              <rect x="0" y="0" width="600" height="600" rx="10" fill="#0d0f17" filter="url(#trayInnerShadow)" />
 
-              {/* 4 Ornate Golden Corner Filigree Brackets */}
-              <path d="M -4 20 L -4 8 A 12 12 0 0 1 8 -4 L 20 -4 M 0 16 L 0 10 A 10 10 0 0 1 10 0 L 16 0" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
-              <path d="M 604 20 L 604 8 A 12 12 0 0 0 592 -4 L 580 -4 M 600 16 L 600 10 A 10 10 0 0 0 590 0 L 584 0" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
-              <path d="M -4 580 L -4 592 A 12 12 0 0 0 8 604 L 20 604 M 0 584 L 0 590 A 10 10 0 0 0 10 600 L 16 600" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
-              <path d="M 604 580 L 604 592 A 12 12 0 0 1 592 604 L 580 604 M 600 584 L 600 590 A 10 10 0 0 1 590 600 L 584 600" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.5" />
+              {/* 4 Ornate Baroque / Rococo Filigree Corner Carvings matching Image 2 */}
+              {/* Top-Left Corner Filigree */}
+              <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.8" fill="none" strokeLinecap="round">
+                <path d="M -11 28 C -11 6, 6 -11, 28 -11" />
+                <path d="M -8 20 C -8 2, 2 -8, 20 -8" stroke="#fff8db" strokeWidth="1" opacity="0.9" />
+                <path d="M -4 34 C -4 14, 14 -4, 34 -4" />
+                <path d="M -12 -12 C -6 -6, -6 -6, 2 2" strokeWidth="2.4" />
+                <circle cx="5" cy="5" r="2.8" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                <circle cx="-3" cy="22" r="1.6" fill="#fff8db" />
+                <circle cx="22" cy="-3" r="1.6" fill="#fff8db" />
+              </g>
+              {/* Top-Right Corner Filigree */}
+              <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.8" fill="none" strokeLinecap="round">
+                <path d="M 611 28 C 611 6, 594 -11, 572 -11" />
+                <path d="M 608 20 C 608 2, 598 -8, 580 -8" stroke="#fff8db" strokeWidth="1" opacity="0.9" />
+                <path d="M 604 34 C 604 14, 586 -4, 566 -4" />
+                <path d="M 612 -12 C 606 -6, 606 -6, 598 2" strokeWidth="2.4" />
+                <circle cx="595" cy="5" r="2.8" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                <circle cx="603" cy="22" r="1.6" fill="#fff8db" />
+                <circle cx="578" cy="-3" r="1.6" fill="#fff8db" />
+              </g>
+              {/* Bottom-Left Corner Filigree */}
+              <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.8" fill="none" strokeLinecap="round">
+                <path d="M -11 572 C -11 594, 6 611, 28 611" />
+                <path d="M -8 580 C -8 598, 2 608, 20 608" stroke="#fff8db" strokeWidth="1" opacity="0.9" />
+                <path d="M -4 566 C -4 586, 14 604, 34 604" />
+                <path d="M -12 612 C -6 606, -6 606, 2 598" strokeWidth="2.4" />
+                <circle cx="5" cy="595" r="2.8" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                <circle cx="-3" cy="578" r="1.6" fill="#fff8db" />
+                <circle cx="22" cy="603" r="1.6" fill="#fff8db" />
+              </g>
+              {/* Bottom-Right Corner Filigree */}
+              <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.8" fill="none" strokeLinecap="round">
+                <path d="M 611 572 C 611 594, 594 611, 572 611" />
+                <path d="M 608 580 C 608 598, 598 608, 580 608" stroke="#fff8db" strokeWidth="1" opacity="0.9" />
+                <path d="M 604 566 C 604 586, 586 604, 566 604" />
+                <path d="M 612 612 C 606 606, 606 606, 598 598" strokeWidth="2.4" />
+                <circle cx="595" cy="595" r="2.8" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                <circle cx="603" cy="578" r="1.6" fill="#fff8db" />
+                <circle cx="578" cy="603" r="1.6" fill="#fff8db" />
+              </g>
 
               {/* Rotated Board Play Surface (active player yard always faces bottom-left) */}
               <g transform={boardRotation ? `rotate(${boardRotation}, 300, 300)` : undefined}>
-                {/* 1. YARDS (4 Luxury Royal Palace Chambers with 3D Pedestals & Illuminated Crests) */}
+                {/* 1. YARDS (4 Luxury Royal Palace Chambers with 3D Pedestals & Embossed Crown Crests) */}
                 {/* Red Yard (Top-Left in base coordinates) */}
                 <g style={{ opacity: isColorInGame('red') ? 1 : 0.28, filter: isColorInGame('red') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="10" y="10" width="220" height="220" rx="22" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="14" y="14" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="17" y="17" width="206" height="206" rx="15" fill="none" stroke="#ff2e79" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="10" y="10" width="220" height="220" rx="22" fill="url(#rubyYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
+                  <rect x="14" y="14" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
+                  <rect x="17" y="17" width="206" height="206" rx="15" fill="none" stroke="#ff2e79" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="120" cy="120" r="80" fill="none" stroke="#ff2e79" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="120" cy="120" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="120" cy="120" r="82" fill="none" stroke="#ff2e79" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="120" cy="120" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
-                  {/* Glowing Royal Red/Pink Heart Crest with Crown */}
+                  {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
+                  <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" fill="none" opacity="0.85">
+                    <path d="M 28 46 C 28 34, 34 28, 46 28 M 28 38 C 30 30, 30 30, 38 28" />
+                    <circle cx="32" cy="32" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 212 46 C 212 34, 206 28, 194 28 M 212 38 C 210 30, 210 30, 202 28" />
+                    <circle cx="208" cy="32" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 28 194 C 28 206, 34 212, 46 212 M 28 202 C 30 210, 30 210, 38 212" />
+                    <circle cx="32" cy="208" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 212 194 C 212 206, 206 212, 194 212 M 212 202 C 210 210, 210 210, 202 212" />
+                    <circle cx="208" cy="208" r="1.5" fill="url(#baroqueGoldGrad)" />
+                  </g>
+
+                  {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(120, 120) rotate(${-boardRotation})`}>
-                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
-                    <circle cx="0" cy="0" r="33" fill="none" stroke="#ff2e79" strokeWidth="1.2" opacity="0.5" />
-                    <g transform="scale(1.45)">
+                    <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="#ff2e79" strokeWidth="1.4" opacity="0.45" />
+                    <g transform="scale(1.4)">
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(255, 46, 121, 0.22)" opacity="0.9" />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="rgba(255, 46, 121, 0.15)"
-                        stroke="#ff2e79"
-                        strokeWidth="3.2"
-                        filter="url(#neonGlowPink)"
+                        d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
+                        fill="#000000"
+                        opacity="0.45"
+                        transform="translate(0, 1.8)"
                       />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="1.2"
-                        opacity="0.9"
+                        d="M -21,5 C -11,8 11,8 21,5 L 19,10 C 11,13 -11,13 -19,10 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#543b0d"
+                        strokeWidth="0.8"
                       />
-                      {/* Imperial Crown atop Heart */}
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#ff2e79" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#ff2e79" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
-                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
-                        fill="url(#goldMetallicGradient)"
-                        stroke="#ffffff"
-                        strokeWidth="0.4"
+                        d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#fff8db"
+                        strokeWidth="0.9"
+                        strokeLinejoin="round"
                       />
-                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                      <path d="M 0,-17 L 0,5 M -9,-3 L -7,5 M 9,-3 L 7,5" stroke="#543b0d" strokeWidth="0.7" opacity="0.6" />
+                      <path d="M 0,-17 L 1.5,5 M -9,-3 L -8,5 M 9,-3 L 8,5" stroke="#fff8db" strokeWidth="0.6" opacity="0.8" />
+                      <circle cx="-19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="-9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
+                      <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#ff2e79" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
-                  {/* 4 3D Recessed Gold Socket Pedestals */}
+                  {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
                   {YARD_PAWN_SLOTS.red.map((slot, i) => (
                     <g key={`ry-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#1c0308" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
 
                 {/* Blue Yard (Top-Right in base coordinates) */}
                 <g style={{ opacity: isColorInGame('blue') ? 1 : 0.28, filter: isColorInGame('blue') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="370" y="10" width="220" height="220" rx="22" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="374" y="14" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="377" y="17" width="206" height="206" rx="15" fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="370" y="10" width="220" height="220" rx="22" fill="url(#sapphireYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
+                  <rect x="374" y="14" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
+                  <rect x="377" y="17" width="206" height="206" rx="15" fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="480" cy="120" r="80" fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="480" cy="120" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="480" cy="120" r="82" fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="480" cy="120" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
-                  {/* Glowing Royal Blue Heart Crest with Crown */}
+                  {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
+                  <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" fill="none" opacity="0.85">
+                    <path d="M 388 46 C 388 34, 394 28, 406 28 M 388 38 C 390 30, 390 30, 398 28" />
+                    <circle cx="392" cy="32" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 572 46 C 572 34, 566 28, 554 28 M 572 38 C 570 30, 570 30, 562 28" />
+                    <circle cx="568" cy="32" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 388 194 C 388 206, 394 212, 406 212 M 388 202 C 390 210, 390 210, 398 212" />
+                    <circle cx="392" cy="208" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 572 194 C 572 206, 566 212, 554 212 M 572 202 C 570 210, 570 210, 562 212" />
+                    <circle cx="568" cy="208" r="1.5" fill="url(#baroqueGoldGrad)" />
+                  </g>
+
+                  {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(480, 120) rotate(${-boardRotation})`}>
-                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
-                    <circle cx="0" cy="0" r="33" fill="none" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" />
-                    <g transform="scale(1.45)">
+                    <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="#38bdf8" strokeWidth="1.4" opacity="0.45" />
+                    <g transform="scale(1.4)">
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(56, 189, 248, 0.22)" opacity="0.9" />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="rgba(56, 189, 248, 0.15)"
-                        stroke="#38bdf8"
-                        strokeWidth="3.2"
-                        filter="url(#neonGlowBlue)"
+                        d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
+                        fill="#000000"
+                        opacity="0.45"
+                        transform="translate(0, 1.8)"
                       />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="1.2"
-                        opacity="0.9"
+                        d="M -21,5 C -11,8 11,8 21,5 L 19,10 C 11,13 -11,13 -19,10 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#543b0d"
+                        strokeWidth="0.8"
                       />
-                      {/* Imperial Crown atop Heart */}
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#38bdf8" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#38bdf8" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
-                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
-                        fill="url(#goldMetallicGradient)"
-                        stroke="#ffffff"
-                        strokeWidth="0.4"
+                        d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#fff8db"
+                        strokeWidth="0.9"
+                        strokeLinejoin="round"
                       />
-                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                      <path d="M 0,-17 L 0,5 M -9,-3 L -7,5 M 9,-3 L 7,5" stroke="#543b0d" strokeWidth="0.7" opacity="0.6" />
+                      <path d="M 0,-17 L 1.5,5 M -9,-3 L -8,5 M 9,-3 L 8,5" stroke="#fff8db" strokeWidth="0.6" opacity="0.8" />
+                      <circle cx="-19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="-9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
+                      <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#38bdf8" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
-                  {/* 4 3D Recessed Gold Socket Pedestals */}
+                  {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
                   {YARD_PAWN_SLOTS.blue.map((slot, i) => (
                     <g key={`by-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#061338" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
 
                 {/* Green Yard (Bottom-Left in base coordinates) */}
                 <g style={{ opacity: isColorInGame('green') ? 1 : 0.28, filter: isColorInGame('green') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="10" y="370" width="220" height="220" rx="22" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="14" y="374" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="17" y="377" width="206" height="206" rx="15" fill="none" stroke="#10b981" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="10" y="370" width="220" height="220" rx="22" fill="url(#emeraldYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
+                  <rect x="14" y="374" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
+                  <rect x="17" y="377" width="206" height="206" rx="15" fill="none" stroke="#10b981" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="120" cy="480" r="80" fill="none" stroke="#10b981" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="120" cy="480" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="120" cy="480" r="82" fill="none" stroke="#10b981" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="120" cy="480" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
-                  {/* Glowing Royal Green Heart Crest with Crown */}
+                  {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
+                  <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" fill="none" opacity="0.85">
+                    <path d="M 28 406 C 28 394, 34 388, 46 388 M 28 398 C 30 390, 30 390, 38 388" />
+                    <circle cx="32" cy="392" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 212 406 C 212 394, 206 388, 194 388 M 212 398 C 210 390, 210 390, 202 388" />
+                    <circle cx="208" cy="392" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 28 554 C 28 566, 34 572, 46 572 M 28 562 C 30 570, 30 570, 38 572" />
+                    <circle cx="32" cy="568" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 212 554 C 212 566, 206 572, 194 572 M 212 562 C 210 570, 210 570, 202 572" />
+                    <circle cx="208" cy="568" r="1.5" fill="url(#baroqueGoldGrad)" />
+                  </g>
+
+                  {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(120, 480) rotate(${-boardRotation})`}>
-                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
-                    <circle cx="0" cy="0" r="33" fill="none" stroke="#10b981" strokeWidth="1.2" opacity="0.5" />
-                    <g transform="scale(1.45)">
+                    <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="#10b981" strokeWidth="1.4" opacity="0.45" />
+                    <g transform="scale(1.4)">
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(52, 211, 153, 0.22)" opacity="0.9" />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="rgba(52, 211, 153, 0.15)"
-                        stroke="#34d399"
-                        strokeWidth="3.2"
-                        filter="url(#neonGlowGreen)"
+                        d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
+                        fill="#000000"
+                        opacity="0.45"
+                        transform="translate(0, 1.8)"
                       />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="1.2"
-                        opacity="0.9"
+                        d="M -21,5 C -11,8 11,8 21,5 L 19,10 C 11,13 -11,13 -19,10 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#543b0d"
+                        strokeWidth="0.8"
                       />
-                      {/* Imperial Crown atop Heart */}
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#10b981" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#10b981" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
-                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
-                        fill="url(#goldMetallicGradient)"
-                        stroke="#ffffff"
-                        strokeWidth="0.4"
+                        d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#fff8db"
+                        strokeWidth="0.9"
+                        strokeLinejoin="round"
                       />
-                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                      <path d="M 0,-17 L 0,5 M -9,-3 L -7,5 M 9,-3 L 7,5" stroke="#543b0d" strokeWidth="0.7" opacity="0.6" />
+                      <path d="M 0,-17 L 1.5,5 M -9,-3 L -8,5 M 9,-3 L 8,5" stroke="#fff8db" strokeWidth="0.6" opacity="0.8" />
+                      <circle cx="-19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="-9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
+                      <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#10b981" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
-                  {/* 4 3D Recessed Gold Socket Pedestals */}
+                  {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
                   {YARD_PAWN_SLOTS.green.map((slot, i) => (
                     <g key={`gy-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#02140a" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
 
                 {/* Yellow Yard (Bottom-Right in base coordinates) */}
                 <g style={{ opacity: isColorInGame('yellow') ? 1 : 0.28, filter: isColorInGame('yellow') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="370" y="370" width="220" height="220" rx="22" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="374" y="374" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="377" y="377" width="206" height="206" rx="15" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="370" y="370" width="220" height="220" rx="22" fill="url(#amberYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
+                  <rect x="374" y="374" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
+                  <rect x="377" y="377" width="206" height="206" rx="15" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="480" cy="480" r="80" fill="none" stroke="#f59e0b" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="480" cy="480" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="480" cy="480" r="82" fill="none" stroke="#f59e0b" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="480" cy="480" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
-                  {/* Glowing Royal Gold Heart Crest with Crown */}
+                  {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
+                  <g stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" fill="none" opacity="0.85">
+                    <path d="M 388 406 C 388 394, 394 388, 406 388 M 388 398 C 390 390, 390 390, 398 388" />
+                    <circle cx="392" cy="392" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 572 406 C 572 394, 566 388, 554 388 M 572 398 C 570 390, 570 390, 562 388" />
+                    <circle cx="568" cy="392" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 388 554 C 388 566, 394 572, 406 572 M 388 562 C 390 570, 390 570, 398 572" />
+                    <circle cx="392" cy="568" r="1.5" fill="url(#baroqueGoldGrad)" />
+                    <path d="M 572 554 C 572 566, 566 572, 554 572 M 572 562 C 570 570, 570 570, 562 572" />
+                    <circle cx="568" cy="568" r="1.5" fill="url(#baroqueGoldGrad)" />
+                  </g>
+
+                  {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(480, 480) rotate(${-boardRotation})`}>
-                    <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
-                    <circle cx="0" cy="0" r="33" fill="none" stroke="#fbbf24" strokeWidth="1.2" opacity="0.5" />
-                    <g transform="scale(1.45)">
+                    <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="#fbbf24" strokeWidth="1.4" opacity="0.45" />
+                    <g transform="scale(1.4)">
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(251, 191, 36, 0.22)" opacity="0.9" />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="rgba(251, 191, 36, 0.15)"
-                        stroke="#fbbf24"
-                        strokeWidth="3.2"
-                        filter="url(#neonGlowGold)"
+                        d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
+                        fill="#000000"
+                        opacity="0.45"
+                        transform="translate(0, 1.8)"
                       />
                       <path
-                        d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                        fill="none"
-                        stroke="#ffffff"
-                        strokeWidth="1.2"
-                        opacity="0.9"
+                        d="M -21,5 C -11,8 11,8 21,5 L 19,10 C 11,13 -11,13 -19,10 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#543b0d"
+                        strokeWidth="0.8"
                       />
-                      {/* Imperial Crown atop Heart */}
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#fbbf24" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#fbbf24" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
-                        d="M -7 -17 L -10 -24 L -3.5 -20.5 L 0 -26 L 3.5 -20.5 L 10 -24 L 7 -17 Z"
-                        fill="url(#goldMetallicGradient)"
-                        stroke="#ffffff"
-                        strokeWidth="0.4"
+                        d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
+                        fill="url(#baroqueGoldGrad)"
+                        stroke="#fff8db"
+                        strokeWidth="0.9"
+                        strokeLinejoin="round"
                       />
-                      <circle cx="0" cy="-26" r="0.8" fill="#ffffff" />
+                      <path d="M 0,-17 L 0,5 M -9,-3 L -7,5 M 9,-3 L 7,5" stroke="#543b0d" strokeWidth="0.7" opacity="0.6" />
+                      <path d="M 0,-17 L 1.5,5 M -9,-3 L -8,5 M 9,-3 L 8,5" stroke="#fff8db" strokeWidth="0.6" opacity="0.8" />
+                      <circle cx="-19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="-9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
+                      <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#fbbf24" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
-                  {/* 4 3D Recessed Gold Socket Pedestals */}
+                  {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
                   {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
                     <g key={`yy-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#1c1001" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
@@ -1738,67 +1922,68 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       </>
                     )}
 
-                    {/* Start tile golden royal emblem badge */}
-                    {(isRedStart || isBlueStart || isYellowStart || isGreenStart) && (
-                      <circle
-                        cx={tileX + 18}
-                        cy={tileY + 18}
-                        r="14"
-                        fill="none"
-                        stroke="url(#goldMetallicGradient)"
-                        strokeWidth="1"
-                        opacity="0.6"
-                      />
+                    {/* Start Tile Directional Launch Arrows matching Image 2 */}
+                    {isRedStart && (
+                      <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
+                        <polygon points="-7,-4 2,-4 2,-8 8,0 2,8 2,4 -7,4" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
+                        <polygon points="-7,-4 2,-4 2,-8 8,0 2,8 2,4 -7,4" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
+                        <polygon points="-6,-3 1,-3 1,-6 6,0 1,6 1,3 -6,3" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                      </g>
+                    )}
+                    {isBlueStart && (
+                      <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
+                        <polygon points="-4,-7 -4,2 -8,2 0,8 8,2 4,2 4,-7" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
+                        <polygon points="-4,-7 -4,2 -8,2 0,8 8,2 4,2 4,-7" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
+                        <polygon points="-3,-6 -3,1 -6,1 0,6 6,1 3,1 3,-6" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                      </g>
+                    )}
+                    {isYellowStart && (
+                      <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
+                        <polygon points="7,-4 -2,-4 -2,-8 -8,0 -2,8 -2,4 7,4" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
+                        <polygon points="7,-4 -2,-4 -2,-8 -8,0 -2,8 -2,4 7,4" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
+                        <polygon points="6,-3 -1,-3 -1,-6 -6,0 -1,6 -1,3 6,3" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                      </g>
+                    )}
+                    {isGreenStart && (
+                      <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
+                        <polygon points="-4,7 -4,-2 -8,-2 0,-8 8,-2 4,-2 4,7" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
+                        <polygon points="-4,7 -4,-2 -8,-2 0,-8 8,-2 4,-2 4,7" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
+                        <polygon points="-3,6 -3,-1 -6,-1 0,-6 6,-1 3,-1 3,6" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                      </g>
                     )}
 
-                    {/* Gleaming 3D Embossed Golden Star on Safe Haven Tiles */}
-                    {isSafe && (
+                    {/* Gleaming 3D Embossed Faceted Golden Star on Safe Haven Tiles matching Image 2 */}
+                    {isSafe && !isRedStart && !isBlueStart && !isYellowStart && !isGreenStart && (
                       <g transform={`translate(${tileX}, ${tileY})`}>
                         {/* Golden celestial radiance glow */}
                         <circle cx="18" cy="18" r="14" fill="url(#starGoldGlow)" opacity="0.35" />
                         {/* Drop shadow star */}
                         <polygon
-                          points="18,5 21.5,13.5 30.5,14.5 24,20.5 26,29.5 18,25 10,29.5 12,20.5 5.5,14.5 14.5,13.5"
-                          transform="translate(0, 1.2)"
-                          fill="#451a03"
-                          opacity="0.5"
-                        />
-                        {/* 3D 24K Gold Embossed Star Body */}
-                        <polygon
-                          points="18,5 21.5,13.5 30.5,14.5 24,20.5 26,29.5 18,25 10,29.5 12,20.5 5.5,14.5 14.5,13.5"
-                          fill="url(#goldMetallicGradient)"
-                          stroke="#fffbeb"
-                          strokeWidth="1"
-                          strokeLinejoin="round"
-                        />
-                        {/* Internal golden star facets */}
-                        <polygon
-                          points="18,18 18,5 21.5,13.5"
-                          fill="#ffffff"
-                          opacity="0.4"
-                        />
-                        <polygon
-                          points="18,18 30.5,14.5 24,20.5"
-                          fill="#78350f"
-                          opacity="0.3"
-                        />
-                        <polygon
-                          points="18,18 26,29.5 18,25"
-                          fill="#78350f"
-                          opacity="0.3"
-                        />
-                        <polygon
-                          points="18,18 10,29.5 12,20.5"
-                          fill="#ffffff"
-                          opacity="0.35"
-                        />
-                        <polygon
-                          points="18,18 5.5,14.5 14.5,13.5"
-                          fill="#ffffff"
+                          points="18,5 21.8,13.2 30.5,14.5 24.2,20.5 25.8,29.5 18,25.2 10.2,29.5 11.8,20.5 5.5,14.5 14.2,13.2"
+                          transform="translate(0, 1.5)"
+                          fill="#381a04"
                           opacity="0.45"
                         />
+                        {/* 10 Alternating Light/Shadow Facets */}
+                        <polygon points="18,18 18,5 21.8,13.2" fill="#fffdf0" />
+                        <polygon points="18,18 21.8,13.2 30.5,14.5" fill="#f59e0b" />
+                        <polygon points="18,18 30.5,14.5 24.2,20.5" fill="#d97706" />
+                        <polygon points="18,18 24.2,20.5 25.8,29.5" fill="#92400e" />
+                        <polygon points="18,18 25.8,29.5 18,25.2" fill="#b45309" />
+                        <polygon points="18,18 18,25.2 10.2,29.5" fill="#f59e0b" />
+                        <polygon points="18,18 10.2,29.5 11.8,20.5" fill="#d97706" />
+                        <polygon points="18,18 11.8,20.5 5.5,14.5" fill="#fde047" />
+                        <polygon points="18,18 5.5,14.5 14.2,13.2" fill="#fffdf0" />
+                        <polygon points="18,18 14.2,13.2 18,5" fill="#fde047" />
+                        {/* Outer 24K Gold Rim */}
+                        <polygon
+                          points="18,5 21.8,13.2 30.5,14.5 24.2,20.5 25.8,29.5 18,25.2 10.2,29.5 11.8,20.5 5.5,14.5 14.2,13.2"
+                          fill="none"
+                          stroke="#fff8db"
+                          strokeWidth="0.8"
+                        />
                         {/* Central sparkling gem pip */}
-                        <circle cx="18" cy="18" r="2.2" fill="#ffffff" filter="url(#goldGlowFilter)" />
+                        <circle cx="18" cy="18" r="1.8" fill="#ffffff" />
                       </g>
                     )}
                   </g>
@@ -1947,29 +2132,29 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </g>
 
               {/* 24K Gold Separator Struts between 4 Home Triangles */}
-              <line x1="240" y1="240" x2="360" y2="360" stroke="url(#goldMetallicGradient)" strokeWidth="2.4" strokeLinecap="round" />
-              <line x1="240" y1="360" x2="360" y2="240" stroke="url(#goldMetallicGradient)" strokeWidth="2.4" strokeLinecap="round" />
+              <line x1="240" y1="240" x2="360" y2="360" stroke="url(#baroqueGoldGrad)" strokeWidth="2.8" strokeLinecap="round" />
+              <line x1="240" y1="360" x2="360" y2="240" stroke="url(#baroqueGoldGrad)" strokeWidth="2.8" strokeLinecap="round" />
 
-              {/* Imperial Victory Medallion with Radiant Golden Rosette and Ruby Heart */}
+              {/* Imperial Victory Medallion with Radiant Golden Rosette and Ruby Heart matching Image 2 */}
               <g transform={`translate(300, 300) rotate(${-boardRotation})`}>
                 {/* Outer Golden Rosette Ring */}
-                <circle cx="0" cy="0" r="38" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="2" opacity="0.8" />
-                <circle cx="0" cy="0" r="34" fill="none" stroke="#fbbf24" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.6" />
+                <circle cx="0" cy="0" r="40" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="2.4" opacity="0.9" />
+                <circle cx="0" cy="0" r="35" fill="none" stroke="#fff8db" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.75" />
                 {/* 8-Point Golden Star Behind Heart */}
                 <polygon
                   points="0,-32 8,-12 30,-12 14,3 20,24 0,12 -20,24 -14,3 -30,-12 -8,-12"
-                  fill="url(#goldMetallicGradient)"
-                  stroke="#ffffff"
+                  fill="url(#baroqueGoldGrad)"
+                  stroke="#fff8db"
                   strokeWidth="0.6"
-                  opacity="0.85"
+                  opacity="0.9"
                 />
-                <circle cx="0" cy="0" r="22" fill="#180408" opacity="0.85" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" />
+                <circle cx="0" cy="0" r="23" fill="#180408" opacity="0.9" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" />
 
                 {/* Radiant Glowing Neon Ruby Heart */}
                 <g transform="translate(0, -2) scale(1.35)">
                   <path
                     d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(255, 23, 68, 0.3)"
+                    fill="rgba(255, 23, 68, 0.35)"
                     stroke="#ff1744"
                     strokeWidth="3.6"
                     filter="url(#neonGlowRedCenter)"
@@ -1981,6 +2166,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     strokeWidth="1.4"
                     opacity="0.95"
                   />
+                  {/* Miniature Imperial Crown Finial atop Center Heart */}
+                  <path
+                    d="M -6 -17 L -8.5 -23 L -3 -20 L 0 -25 L 3 -20 L 8.5 -23 L 6 -17 Z"
+                    fill="url(#baroqueGoldGrad)"
+                    stroke="#fff8db"
+                    strokeWidth="0.5"
+                  />
+                  <circle cx="0" cy="-25" r="0.9" fill="#ffffff" />
                 </g>
               </g>
 
