@@ -605,8 +605,6 @@ export function useGameRoom(roomCode: string | null) {
   };
 
   handleMessageRef.current = handleMessage;
-  roomRef.current = room;
-  gameStateRef.current = gameState;
 
   useEffect(() => {
     isUnmountedRef.current = false;
