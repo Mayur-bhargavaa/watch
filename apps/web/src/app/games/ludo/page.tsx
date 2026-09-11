@@ -1003,16 +1003,21 @@ function LudoPageContent() {
 
       {/* Live Incoming Partner Game Invite Toast */}
       {incomingInvite && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-rose-600 via-pink-600 to-amber-500 p-4 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-center gap-4 text-white border-2 border-white/20 animate-bounce">
-          <div className="flex items-center gap-2.5">
-            <span className="text-2xl">🎲</span>
-            <div className="text-left">
-              <span className="text-xs font-black block">
-                {incomingInvite.fromDisplayName} invited you to play Ludo!
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-[#0f111a]/95 backdrop-blur-2xl border border-amber-400/35 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(217,119,6,0.2),inset_0_1px_1px_rgba(255,255,255,0.15)] rounded-2xl sm:rounded-full px-4 sm:px-5 py-2.5 sm:py-3 flex flex-col sm:flex-row items-center gap-3 sm:gap-5 text-white animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl sm:rounded-full bg-gradient-to-br from-[#2a1d27] to-[#140c15] border border-amber-400/40 shadow-inner flex items-center justify-center shrink-0 text-xl">
+              🎲
+            </div>
+            <div className="text-left flex flex-col justify-center">
+              <span className="text-xs sm:text-[13px] font-bold text-white tracking-wide block">
+                <span className="text-amber-300 font-semibold">{incomingInvite.fromDisplayName}</span> invited you to play Ludo!
               </span>
-              <span className="text-[10px] text-amber-200 font-mono">
-                Room: {incomingInvite.roomCode}
-              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-white/40 tracking-wider uppercase font-medium">Room:</span>
+                <span className="text-[10px] text-amber-200 font-mono font-semibold tracking-wider px-1.5 py-0.5 rounded bg-amber-400/10 border border-amber-400/25">
+                  {incomingInvite.roomCode}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1023,13 +1028,14 @@ function LudoPageContent() {
                 setIncomingInvite(null);
                 router.push(`/games/ludo?room=${code}`);
               }}
-              className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-black text-xs rounded-xl shadow-lg transition"
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-400 hover:to-amber-600 text-slate-950 font-black text-xs rounded-full shadow-[0_4px_14px_rgba(217,119,6,0.35)] transition-all transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
-              Accept & Play 🚀
+              <span>Accept & Play</span>
+              <Sparkles className="w-3.5 h-3.5 text-slate-950 fill-slate-950" />
             </button>
             <button
               onClick={() => setIncomingInvite(null)}
-              className="px-2.5 py-2 text-white/80 hover:text-white text-xs font-bold transition"
+              className="px-3 py-2 text-white/50 hover:text-white text-xs font-semibold transition cursor-pointer hover:bg-white/5 rounded-full"
             >
               Dismiss
             </button>
@@ -1700,7 +1706,7 @@ function LudoPageContent() {
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center text-lg shadow-lg ring-2 ring-rose-400/40">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-700 via-rose-900 to-indigo-950 text-white font-black flex items-center justify-center text-lg shadow-lg ring-1 ring-amber-400/30">
                         {partner.displayName[0]?.toUpperCase()}
                       </div>
                       <span
@@ -1959,7 +1965,7 @@ function LudoPageContent() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="relative">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center text-sm shadow">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-700 via-rose-900 to-indigo-950 text-white font-black flex items-center justify-center text-sm shadow ring-1 ring-amber-400/30">
                             {partner.displayName[0]?.toUpperCase()}
                           </div>
                           <span
