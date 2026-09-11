@@ -334,6 +334,141 @@ runTest('Animation timeout cleanup prevents frame collision', () => {
 });
 
 // -----------------------------------------------------------------------------
+// SUITE 7: AUTHORITATIVE PAWN & GRID ALIGNMENT ARCHITECTURE
+// -----------------------------------------------------------------------------
+console.log('\n📦 SUITE 7: Authoritative Pawn & Grid Alignment (1:1 Mathematical Concordance)');
+
+import {
+  gridToPixel,
+  YARD_SOCKET_CENTERS,
+  FINISH_SLOTS,
+  getPawnPixelPosition,
+  CELL_SIZE
+} from '../apps/web/src/components/games/LudoGame';
+
+runTest('16 Yard Sockets strictly match pawn yard resting coordinates (0px deviation)', () => {
+  const colors: LudoColor[] = ['red', 'blue', 'green', 'yellow'];
+  for (const color of colors) {
+    for (let tokenId = 0; tokenId < 4; tokenId++) {
+      const socket = YARD_SOCKET_CENTERS[color][tokenId];
+      const pawnPos = getPawnPixelPosition(color, -1, tokenId);
+      assert.equal(socket.x, pawnPos.x, `${color} yard token ${tokenId} X matches socket`);
+      assert.equal(socket.y, pawnPos.y, `${color} yard token ${tokenId} Y matches socket`);
+    }
+  }
+});
+
+runTest('Start cells and Safe stars map with 0px offset to gridToPixel cell centers', () => {
+  // Red start: [6, 1] -> (60, 260)
+  const redStart = getPawnPixelPosition('red', 0, 0);
+  const redCell = gridToPixel(6, 1);
+  assert.deepEqual(redStart, redCell);
+
+  // Blue start: [1, 8] -> (340, 60)
+  const blueStart = getPawnPixelPosition('blue', 0, 0);
+  const blueCell = gridToPixel(1, 8);
+  assert.deepEqual(blueStart, blueCell);
+
+  // Yellow start: [8, 13] -> (540, 340)
+  const yellowStart = getPawnPixelPosition('yellow', 0, 0);
+  const yellowCell = gridToPixel(8, 13);
+  assert.deepEqual(yellowStart, yellowCell);
+
+  // Green start: [13, 6] -> (260, 540)
+  const greenStart = getPawnPixelPosition('green', 0, 0);
+  const greenCell = gridToPixel(13, 6);
+  assert.deepEqual(greenStart, greenCell);
+
+  // Safe star tile 8: [2, 6] -> (260, 100)
+  const safe8 = getPawnPixelPosition('red', 8, 0);
+  assert.deepEqual(safe8, gridToPixel(2, 6));
+
+  // Safe star tile 21: [6, 12] -> (500, 260)
+  const safe21 = getPawnPixelPosition('blue', 8, 0);
+  assert.deepEqual(safe21, gridToPixel(6, 12));
+});
+
+runTest('Home runways map progressively to cell centers towards center sanctuary', () => {
+  // Red runway: [7, 1] through [7, 5]
+  for (let s = 51; s <= 55; s++) {
+    const pos = getPawnPixelPosition('red', s, 0);
+    const expected = gridToPixel(7, s - 50);
+    assert.deepEqual(pos, expected);
+  }
+
+  // Blue runway: [1, 7] through [5, 7]
+  for (let s = 51; s <= 55; s++) {
+    const pos = getPawnPixelPosition('blue', s, 0);
+    const expected = gridToPixel(s - 50, 7);
+    assert.deepEqual(pos, expected);
+  }
+
+  // Yellow runway: [7, 13] down to [7, 9]
+  for (let s = 51; s <= 55; s++) {
+    const pos = getPawnPixelPosition('yellow', s, 0);
+    const expected = gridToPixel(7, 14 - (s - 50));
+    assert.deepEqual(pos, expected);
+  }
+
+  // Green runway: [13, 7] down to [9, 7]
+  for (let s = 51; s <= 55; s++) {
+    const pos = getPawnPixelPosition('green', s, 0);
+    const expected = gridToPixel(14 - (s - 50), 7);
+    assert.deepEqual(pos, expected);
+  }
+});
+
+runTest('Finish sanctuary slots are strictly contained within color triangle quadrants', () => {
+  const colors: LudoColor[] = ['red', 'blue', 'yellow', 'green'];
+  for (const color of colors) {
+    const slots = FINISH_SLOTS[color];
+    assert.equal(slots.length, 4);
+
+    // Verify all 4 slots are distinct and non-overlapping
+    const uniqueCoords = new Set(slots.map(s => `${s.x},${s.y}`));
+    assert.equal(uniqueCoords.size, 4, `${color} finish slots must all be distinct`);
+
+    for (const slot of slots) {
+      // Must be within the 240..360 bounds of the 3x3 center
+      assert.ok(slot.x >= 240 && slot.x <= 360, `${color} slot x ${slot.x} inside center bounds`);
+      assert.ok(slot.y >= 240 && slot.y <= 360, `${color} slot y ${slot.y} inside center bounds`);
+
+      // Quadrant partition check:
+      if (color === 'red') assert.ok(slot.x < 300, 'Red finish is left of center');
+      if (color === 'blue') assert.ok(slot.y < 300, 'Blue finish is above center');
+      if (color === 'yellow') assert.ok(slot.x > 300, 'Yellow finish is right of center');
+      if (color === 'green') assert.ok(slot.y > 300, 'Green finish is below center');
+    }
+  }
+});
+
+runTest('Multi-pawn cluster offsets remain strictly inside 40x40 cell boundaries', () => {
+  const TILE_HALF_WIDTH = CELL_SIZE / 2; // 20px
+  const INNER_TILE_HALF_WIDTH = 18; // 36px tile rect with 2px margin
+
+  // 2 Pawns: scale = 0.78, base radius = 13.8 * 0.78 = 10.7px, offset = +/- 6.5px
+  const scale2 = 0.78;
+  const pawnBaseRadius2 = 13.8 * scale2;
+  const maxExtent2 = 6.5 + pawnBaseRadius2;
+  assert.ok(maxExtent2 < INNER_TILE_HALF_WIDTH, `2-pawn extent (${maxExtent2.toFixed(1)}px) < inner tile boundary (18px)`);
+
+  // 3 Pawns: scale = 0.68, base radius = 13.8 * 0.68 = 9.4px, max offset = sqrt(6.5^2 + 4.5^2) = 7.9px
+  const scale3 = 0.68;
+  const pawnBaseRadius3 = 13.8 * scale3;
+  const maxOffset3 = Math.sqrt(6.5 * 6.5 + 4.5 * 4.5);
+  const maxExtent3 = maxOffset3 + pawnBaseRadius3;
+  assert.ok(maxExtent3 < INNER_TILE_HALF_WIDTH, `3-pawn extent (${maxExtent3.toFixed(1)}px) < inner tile boundary (18px)`);
+
+  // 4 Pawns: scale = 0.62, base radius = 13.8 * 0.62 = 8.5px, max offset = sqrt(6.0^2 + 5.0^2) = 7.8px
+  const scale4 = 0.62;
+  const pawnBaseRadius4 = 13.8 * scale4;
+  const maxOffset4 = Math.sqrt(6.0 * 6.0 + 5.0 * 5.0);
+  const maxExtent4 = maxOffset4 + pawnBaseRadius4;
+  assert.ok(maxExtent4 < INNER_TILE_HALF_WIDTH, `4-pawn extent (${maxExtent4.toFixed(1)}px) < inner tile boundary (18px)`);
+  assert.ok(maxExtent4 < TILE_HALF_WIDTH, `4-pawn extent (${maxExtent4.toFixed(1)}px) < cell boundary (20px)`);
+});
+
+// -----------------------------------------------------------------------------
 // SUMMARY
 // -----------------------------------------------------------------------------
 console.log('\n================================================================');

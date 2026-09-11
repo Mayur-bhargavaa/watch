@@ -16,7 +16,8 @@ import {
   Heart,
   MoreHorizontal,
   Users,
-  Lock
+  Lock,
+  Crosshair
 } from 'lucide-react';
 import {
   GameRoom,
@@ -271,13 +272,121 @@ const HOME_PATHS: Record<LudoColor, Array<[number, number]>> = {
 // Safe Tile Indices
 const SAFE_STAR_TILES = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 
-// Fixed pawn slots inside the 4 yards (symmetrically centered around yard hearts at dx, dy = +/- 46px)
-const YARD_PAWN_SLOTS: Record<LudoColor, Array<[number, number]>> = {
-  red:    [[1.85, 1.85], [1.85, 4.15], [4.15, 1.85], [4.15, 4.15]], // Top-Left (center: 120, 120)
-  blue:   [[1.85, 10.85], [1.85, 13.15], [4.15, 10.85], [4.15, 13.15]], // Top-Right (center: 480, 120)
-  green:  [[10.85, 1.85], [10.85, 4.15], [13.15, 1.85], [13.15, 4.15]], // Bottom-Left (center: 120, 480)
-  yellow: [[10.85, 10.85], [10.85, 13.15], [13.15, 10.85], [13.15, 13.15]] // Bottom-Right (center: 480, 480)
+// Grid & Dimension constants (Single Source of Truth)
+export const BOARD_GRID_SIZE = 15;
+export const BOARD_PIXEL_SIZE = 600;
+export const CELL_SIZE = BOARD_PIXEL_SIZE / BOARD_GRID_SIZE; // 40px
+
+export interface LogicalPosition {
+  type: 'yard' | 'track' | 'runway' | 'finish';
+  row?: number;
+  col?: number;
+  yardIndex?: number;
+  finishIndex?: number;
+}
+
+export function gridToPixel(row: number, col: number): { x: number; y: number } {
+  return {
+    x: col * CELL_SIZE + CELL_SIZE / 2,
+    y: row * CELL_SIZE + CELL_SIZE / 2
+  };
+}
+
+// 4 Yard Socket Centers (Top-Left 120,120; Top-Right 480,120; Bottom-Left 120,480; Bottom-Right 480,480)
+// dx, dy = +/- 46px from yard center
+export const YARD_SOCKET_CENTERS: Record<LudoColor, Array<{ x: number; y: number }>> = {
+  red: [
+    { x: 74, y: 74 },
+    { x: 166, y: 74 },
+    { x: 74, y: 166 },
+    { x: 166, y: 166 }
+  ],
+  blue: [
+    { x: 434, y: 74 },
+    { x: 526, y: 74 },
+    { x: 434, y: 166 },
+    { x: 526, y: 166 }
+  ],
+  green: [
+    { x: 74, y: 434 },
+    { x: 166, y: 434 },
+    { x: 74, y: 526 },
+    { x: 166, y: 526 }
+  ],
+  yellow: [
+    { x: 434, y: 434 },
+    { x: 526, y: 434 },
+    { x: 434, y: 526 },
+    { x: 526, y: 526 }
+  ]
 };
+
+// 4 Dedicated Landing Slots inside each Victory Triangle Quadrant
+export const FINISH_SLOTS: Record<LudoColor, Array<{ x: number; y: number }>> = {
+  red: [
+    { x: 256, y: 288 },
+    { x: 256, y: 312 },
+    { x: 274, y: 293 },
+    { x: 274, y: 307 }
+  ],
+  blue: [
+    { x: 288, y: 256 },
+    { x: 312, y: 256 },
+    { x: 293, y: 274 },
+    { x: 307, y: 274 }
+  ],
+  yellow: [
+    { x: 344, y: 288 },
+    { x: 344, y: 312 },
+    { x: 326, y: 293 },
+    { x: 326, y: 307 }
+  ],
+  green: [
+    { x: 288, y: 344 },
+    { x: 312, y: 344 },
+    { x: 293, y: 326 },
+    { x: 307, y: 326 }
+  ]
+};
+
+export function getTrackCell(color: LudoColor, step: number): { row: number; col: number } {
+  const ringIndex = (COLOR_START_TILES[color] + step) % 52;
+  const [row, col] = RING_COORDS[ringIndex];
+  return { row, col };
+}
+
+export function getRunwayCell(color: LudoColor, step: number): { row: number; col: number } {
+  const runwayIndex = Math.max(0, Math.min(4, step - 51));
+  const [row, col] = HOME_PATHS[color][runwayIndex];
+  return { row, col };
+}
+
+export function getPawnLogicalPosition(color: LudoColor, step: number, tokenId: number): LogicalPosition {
+  if (step === -1) {
+    return { type: 'yard', yardIndex: tokenId % 4 };
+  }
+  if (step >= 56) {
+    return { type: 'finish', finishIndex: tokenId % 4 };
+  }
+  if (step >= 51 && step <= 55) {
+    const { row, col } = getRunwayCell(color, step);
+    return { type: 'runway', row, col };
+  }
+  const { row, col } = getTrackCell(color, step);
+  return { type: 'track', row, col };
+}
+
+export function getPawnPixelPosition(color: LudoColor, step: number, tokenId: number): { x: number; y: number } {
+  const logical = getPawnLogicalPosition(color, step, tokenId);
+  if (logical.type === 'yard') {
+    return YARD_SOCKET_CENTERS[color][logical.yardIndex ?? (tokenId % 4)];
+  }
+  if (logical.type === 'finish') {
+    return FINISH_SLOTS[color][logical.finishIndex ?? (tokenId % 4)];
+  }
+  return gridToPixel(logical.row!, logical.col!);
+}
+
 
 export const LudoGame: React.FC<LudoGameProps> = ({
   room,
@@ -597,43 +706,18 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     isHopArc: boolean;
   } | null>(null);
 
+  const [showGridDebug, setShowGridDebug] = useState(false);
+
   const prevTokensRef = useRef<Record<LudoColor, LudoToken[]> | null>(null);
 
   const getCellPixelCenter = (row: number, col: number): [number, number] => {
-    const tileSize = 600 / 15; // 40px
-    return [col * tileSize + tileSize / 2, row * tileSize + tileSize / 2];
+    const pt = gridToPixel(row, col);
+    return [pt.x, pt.y];
   };
 
   const getStepCoordinates = (color: LudoColor, step: number, tokenId: number): [number, number] => {
-    if (step === -1) {
-      const slot = YARD_PAWN_SLOTS[color][tokenId] || [2, 2];
-      return [slot[1] * 40, slot[0] * 40];
-    }
-    if (step >= 0 && step <= 50) {
-      const ringPos = (COLOR_START_TILES[color] + step) % 52;
-      const coord = RING_COORDS[ringPos];
-      if (coord) {
-        return getCellPixelCenter(coord[0], coord[1]);
-      }
-    }
-    if (step >= 51 && step <= 55) {
-      const homeIndex = step - 51;
-      const coord = HOME_PATHS[color][homeIndex];
-      if (coord) {
-        return getCellPixelCenter(coord[0], coord[1]);
-      }
-    }
-    if (step === 56) {
-      const centerOffsets: Record<LudoColor, [number, number]> = {
-        red: [265, 300],
-        blue: [300, 265],
-        yellow: [335, 300],
-        green: [300, 335]
-      };
-      const offset = centerOffsets[color];
-      return [offset[0] + (tokenId % 2 === 0 ? -6 : 6), offset[1] + (tokenId < 2 ? -6 : 6)];
-    }
-    return [300, 300];
+    const pt = getPawnPixelPosition(color, step, tokenId);
+    return [pt.x, pt.y];
   };
 
   useEffect(() => {
@@ -774,7 +858,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       });
     }
 
-    // Group track pawns by tile location
+    // Group track and runway pawns by cell location (so co-located pawns don't occlude)
     const tileGroups = new Map<string, typeof rawList>();
 
     rawList.forEach((item) => {
@@ -784,9 +868,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       } else if (item.step >= 0 && item.step <= 50) {
         key = `track_${(COLOR_START_TILES[item.color] + item.step) % 52}`;
       } else if (item.step >= 51 && item.step <= 55) {
-        key = `home_${item.color}_${item.step}`;
+        key = `runway_${item.color}_${item.step}`;
       } else {
-        key = `finish_${item.color}`;
+        key = `finish_${item.color}_${item.token.id}`;
       }
 
       if (!tileGroups.has(key)) tileGroups.set(key, []);
@@ -809,7 +893,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     tileGroups.forEach((group) => {
       const count = group.length;
       group.forEach((item, indexInGroup) => {
-        const [baseX, baseY] = getStepCoordinates(item.color, item.step, item.token.id);
+        const basePos = getPawnPixelPosition(item.color, item.step, item.token.id);
 
         // Scale factor: Grand, prominent 3D figurine fitting the socket saucer & tiles
         const PAWN_BASE_SCALE = 0.92;
@@ -817,25 +901,33 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         let offsetX = 0;
         let offsetY = 0;
 
-        if (count > 1 && item.step >= 0) {
-          const multiScale = count > 2 ? 0.70 : 0.80;
-          scale = PAWN_BASE_SCALE * multiScale;
+        // Apply co-location offset cluster strictly within cell boundaries (only for shared track/runway cells)
+        if (count > 1 && item.step >= 0 && item.step <= 55) {
           if (count === 2) {
+            scale = 0.78;
             offsetX = indexInGroup === 0 ? -6.5 : 6.5;
             offsetY = 0;
           } else if (count === 3) {
-            if (indexInGroup === 0) { offsetX = -6.5; offsetY = -3.5; }
-            else if (indexInGroup === 1) { offsetX = 6.5; offsetY = -3.5; }
-            else { offsetX = 0; offsetY = 3.5; }
+            scale = 0.68;
+            if (indexInGroup === 0) {
+              offsetX = -6.5;
+              offsetY = -4.5;
+            } else if (indexInGroup === 1) {
+              offsetX = 6.5;
+              offsetY = -4.5;
+            } else {
+              offsetX = 0;
+              offsetY = 5.0;
+            }
           } else {
-            offsetX = indexInGroup % 2 === 0 ? -6 : 6;
-            offsetY = indexInGroup < 2 ? -3.5 : 3.5;
+            scale = 0.62;
+            offsetX = indexInGroup % 2 === 0 ? -6.0 : 6.0;
+            offsetY = indexInGroup < 2 ? -5.0 : 5.0;
           }
         }
 
-        const finalX = baseX + offsetX;
-        // 3D Tabletop Isometric Perspective: Base rests naturally in the socket center dot / tile center
-        const groundY = baseY + offsetY;
+        const finalX = basePos.x + offsetX;
+        const groundY = basePos.y + offsetY;
 
         pawns.push({
           token: item.token,
@@ -923,8 +1015,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           />
         )}
 
-        {/* Tier 1: Ambient Base Ground Shadow */}
-        <ellipse cx="0" cy="3.5" rx="14" ry="5.5" fill="#000000" opacity="0.42" />
+        {/* Tier 1: Pedestal Underside Bevel Occlusion */}
+        <ellipse cx="0" cy="2.2" rx="13.2" ry="5.0" fill="#000000" opacity="0.22" />
         
         {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring */}
         <ellipse cx="0" cy="2" rx="13.8" ry="5.4" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
@@ -1269,8 +1361,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       <div
         className="relative w-full max-w-[min(92vw,calc(100dvh-230px),440px)] sm:max-w-[min(85vw,calc(100dvh-220px),480px)] md:max-w-[min(75vw,calc(100dvh-210px),510px)] lg:max-w-[min(48vw,calc(100dvh-200px),530px)] flex flex-col items-center select-none my-4 sm:my-6 px-5 sm:px-8"
       >
-        {/* Top Room Status Pill matching Image 2 benchmark */}
-        <div className="mb-3 sm:mb-4 flex items-center justify-center z-20">
+        {/* Top Room Status Pill & Alignment Debug Toggle */}
+        <div className="mb-3 sm:mb-4 flex items-center justify-center gap-2 z-20">
           <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0a0c16]/85 backdrop-blur-md border border-amber-400/30 shadow-[0_4px_15px_rgba(0,0,0,0.5)] text-amber-200/90 text-xs font-semibold tracking-wide">
             <Users className="w-3.5 h-3.5 text-amber-400" />
             <span>{room.maxPlayers || 4} Players</span>
@@ -1278,6 +1370,19 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             <Lock className="w-3 h-3 text-amber-400/80" />
             <span>{room.isPrivate ? 'Private Room' : 'Public Room'}</span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowGridDebug(prev => !prev)}
+            className={`p-1.5 rounded-full border text-xs transition cursor-pointer ${
+              showGridDebug
+                ? 'bg-amber-500/20 text-amber-300 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                : 'bg-[#0a0c16]/85 text-white/50 border-white/15 hover:text-white hover:border-white/30'
+            }`}
+            title="Toggle Grid & Alignment Crosshairs"
+          >
+            <Crosshair className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
@@ -1634,14 +1739,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </g>
 
                   {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
-                  {YARD_PAWN_SLOTS.red.map((slot, i) => (
+                  {YARD_SOCKET_CENTERS.red.map((socket, i) => (
                     <g key={`ry-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
+                      <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
@@ -1707,14 +1812,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </g>
 
                   {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
-                  {YARD_PAWN_SLOTS.blue.map((slot, i) => (
+                  {YARD_SOCKET_CENTERS.blue.map((socket, i) => (
                     <g key={`by-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
+                      <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
@@ -1780,14 +1885,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </g>
 
                   {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
-                  {YARD_PAWN_SLOTS.green.map((slot, i) => (
+                  {YARD_SOCKET_CENTERS.green.map((socket, i) => (
                     <g key={`gy-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
+                      <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
@@ -1853,14 +1958,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </g>
 
                   {/* 4 3D Recessed Gold Socket Pedestals matching Image 2 */}
-                  {YARD_PAWN_SLOTS.yellow.map((slot, i) => (
+                  {YARD_SOCKET_CENTERS.yellow.map((socket, i) => (
                     <g key={`yy-${i}`} filter="url(#pedestalRingShadow)">
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="14.5" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="0.8" opacity="0.85" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
+                      <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
+                      <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
+                      <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
                   ))}
                 </g>
@@ -2290,6 +2395,88 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </g>
                 );
               })}
+              {/* 6. DEBUG GRID & PAWN ALIGNMENT CROSSHAIRS OVERLAY */}
+              {showGridDebug && (
+                <g id="ludoGridDebugOverlay" pointerEvents="none">
+                  {/* 15x15 Board Grid Cell Boundaries */}
+                  {Array.from({ length: 15 }).map((_, r) =>
+                    Array.from({ length: 15 }).map((_, c) => (
+                      <rect
+                        key={`debug-cell-${r}-${c}`}
+                        x={c * 40}
+                        y={r * 40}
+                        width={40}
+                        height={40}
+                        fill="none"
+                        stroke="rgba(255, 255, 255, 0.15)"
+                        strokeWidth="0.6"
+                      />
+                    ))
+                  )}
+
+                  {/* Track Tile Centers (Red Crosshairs + Index) */}
+                  {RING_COORDS.map(([r, c], idx) => {
+                    const cx = c * 40 + 20;
+                    const cy = r * 40 + 20;
+                    return (
+                      <g key={`debug-track-${idx}`}>
+                        <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} stroke="#ef4444" strokeWidth="1.2" />
+                        <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} stroke="#ef4444" strokeWidth="1.2" />
+                        <circle cx={cx} cy={cy} r="1.5" fill="#ffffff" />
+                        <text x={cx} y={cy - 8} fontSize="6.5" fill="#fca5a5" textAnchor="middle" fontWeight="bold">
+                          {idx}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Runway Tile Centers (Magenta Crosshairs) */}
+                  {(['red', 'blue', 'yellow', 'green'] as LudoColor[]).flatMap((col) =>
+                    HOME_PATHS[col].map(([r, c], idx) => {
+                      const cx = c * 40 + 20;
+                      const cy = r * 40 + 20;
+                      return (
+                        <g key={`debug-runway-${col}-${idx}`}>
+                          <line x1={cx - 6} y1={cy} x2={cx + 6} y2={cy} stroke="#ec4899" strokeWidth="1.2" />
+                          <line x1={cx} y1={cy - 6} x2={cx} y2={cy + 6} stroke="#ec4899" strokeWidth="1.2" />
+                          <circle cx={cx} cy={cy} r="1.5" fill="#ffffff" />
+                        </g>
+                      );
+                    })
+                  )}
+
+                  {/* Yard Socket Centers (Cyan Crosshairs) */}
+                  {(['red', 'blue', 'green', 'yellow'] as LudoColor[]).flatMap((col) =>
+                    YARD_SOCKET_CENTERS[col].map((s, idx) => (
+                      <g key={`debug-yard-${col}-${idx}`}>
+                        <line x1={s.x - 8} y1={s.y} x2={s.x + 8} y2={s.y} stroke="#06b6d4" strokeWidth="1.2" />
+                        <line x1={s.x} y1={s.y - 8} x2={s.x + 8} y2={s.y + 8} stroke="#06b6d4" strokeWidth="1.2" />
+                        <circle cx={s.x} cy={s.y} r="2" fill="#ffffff" />
+                      </g>
+                    ))
+                  )}
+
+                  {/* Finish Sanctuary Slots (Emerald Crosshairs) */}
+                  {(['red', 'blue', 'green', 'yellow'] as LudoColor[]).flatMap((col) =>
+                    FINISH_SLOTS[col].map((s, idx) => (
+                      <g key={`debug-finish-${col}-${idx}`}>
+                        <line x1={s.x - 5} y1={s.y} x2={s.x + 5} y2={s.y} stroke="#10b981" strokeWidth="1.2" />
+                        <line x1={s.x} y1={s.y - 5} x2={s.x + 5} y2={s.y + 5} stroke="#10b981" strokeWidth="1.2" />
+                        <circle cx={s.x} cy={s.y} r="1.5" fill="#ffffff" />
+                      </g>
+                    ))
+                  )}
+
+                  {/* Active Pawn Footprint Contact Points (Bright Golden Crosshairs) */}
+                  {renderedPawns.map((p, idx) => (
+                    <g key={`debug-pawn-pos-${idx}`}>
+                      <circle cx={p.x} cy={p.groundY} r="3" fill="none" stroke="#facc15" strokeWidth="1.2" />
+                      <line x1={p.x - 6} y1={p.groundY} x2={p.x + 6} y2={p.groundY} stroke="#facc15" strokeWidth="1.2" />
+                      <line x1={p.x} y1={p.groundY - 6} x2={p.x} y2={p.groundY + 6} stroke="#facc15" strokeWidth="1.2" />
+                    </g>
+                  ))}
+                </g>
+              )}
               </g>
             </svg>
 
