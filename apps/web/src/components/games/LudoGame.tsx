@@ -1001,15 +1001,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
     return (
       <g filter="url(#tile3DShadow)">
-        {/* ── GROUP A: FLAT BASE PEDESTAL (no skew — sits flush in the socket circle) ── */}
+        {/* ── BASE PEDESTAL (Circular 24K Gold Beveled Ring — aligns 1:1 with socket circles and cell centers) ── */}
         <g transform="translate(0, 0)">
           {/* Tier 0: Player Distinction Halo */}
           {isMyColor && (
-            <ellipse
+            <circle
               cx="0"
               cy="0"
-              rx="15"
-              ry="6.5"
+              r="15"
               fill="none"
               stroke={neonColor}
               strokeWidth="1.4"
@@ -1018,95 +1017,105 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             />
           )}
           {/* Tier 1: Pedestal Underside Bevel Occlusion */}
-          <ellipse cx="0" cy="0.2" rx="13.2" ry="5.0" fill="#000000" opacity="0.22" />
-          {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring */}
-          <ellipse cx="0" cy="0" rx="13.8" ry="5.4" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
-          <ellipse cx="0" cy="-0.4" rx="12.6" ry="4.8" fill="none" stroke="#fff8db" strokeWidth="0.6" opacity="0.8" />
+          <circle cx="0" cy="0" r="14.2" fill="#000000" opacity="0.25" />
+          {/* Tier 2: Heavy 24K Gold Beveled Pedestal Ring (r=13.8 — 69% of cell size) */}
+          <circle cx="0" cy="0" r="13.8" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+          <circle cx="0" cy="0" r="12.6" fill="none" stroke="#fff8db" strokeWidth="0.6" opacity="0.8" />
           {/* Tier 3: Upper Beveled Gemstone Base Step */}
-          <ellipse cx="0" cy="-1.2" rx="11.2" ry="4.4" fill={headGradient} stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.6" />
+          <circle cx="0" cy="0" r="11.2" fill={headGradient} stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.6" />
           {/* Tier 4: Gold Torus Collar Base Rim */}
-          <ellipse cx="0" cy="-2.2" rx="8.8" ry="3.2" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
-          <path d="M -7.2 -3 A 8 3 0 0 1 7.2 -3" fill="none" stroke="#ffffff" strokeWidth="1.0" opacity="0.65" />
+          <circle cx="0" cy="0" r="8.8" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
+          <circle cx="0" cy="0" r="7.8" fill="none" stroke="#ffffff" strokeWidth="0.6" opacity="0.65" />
         </g>
 
-        {/* ── GROUP B: TILTED UPPER BODY (skewed for 3D depth — rises from the base) ── */}
-        <g transform="skewX(-7) scale(0.9, 1)">
-          {/* Sculpted Flared Pawn Body anchored to match base collar at y=-2 */}
+        {/* ── 3D FIGURINE BODY (Rises from the base with luxury shading & depth) ── */}
+        <g>
+          {/* Sculpted Flared Pawn Body anchored to base collar at y=0 */}
           <path
-            d="M -8.4 -2 C -7.6 -6.2, -5.2 -9.5, -3.8 -11.5 L 3.8 -11.5 C 5.2 -9.5, 7.6 -6.2, 8.4 -2 C 4.6 0.4, -4.6 0.4, -8.4 -2 Z"
+            d="M -8.4 0 C -7.6 -4.2, -5.2 -7.5, -3.8 -9.5 L 3.8 -9.5 C 5.2 -7.5, 7.6 -4.2, 8.4 0 C 4.6 2.4, -4.6 2.4, -8.4 0 Z"
             fill={bodyGradient}
           />
-          {/* Specular curved vertical gloss streak */}
+          {/* Specular curved vertical gloss streak down the left torso */}
           <path
-            d="M -6.4 -2.2 C -5.6 -5.8, -3.4 -8.8, -2.4 -11 C -1.6 -11, -2.2 -6, -4.2 -2.2 Z"
+            d="M -6.4 -0.2 C -5.6 -3.8, -3.4 -6.8, -2.4 -9 C -1.6 -9, -2.2 -4, -4.2 -0.2 Z"
             fill="#ffffff"
             opacity="0.45"
           />
-          {/* Ambient shadow gradient right contour */}
+          {/* Ambient shadow gradient down the right contour */}
           <path
-            d="M 6.4 -2.2 C 5.6 -5.8, 3.4 -8.8, 2.4 -11 C 1.6 -11, 2.2 -6, 4.2 -2.2 Z"
+            d="M 6.4 -0.2 C 5.6 -3.8, 3.4 -6.8, 2.4 -9 C 1.6 -9, 2.2 -4, 4.2 -0.2 Z"
             fill="#000000"
             opacity="0.25"
           />
 
-          {/* Chest Emblem */}
+          {/* Unique Color Chest Emblem (Crisp Vector Heraldic Icons) */}
           {color === 'red' && (
             <path
-              d="M 0,-9.2 L 3.2,-7.4 L 3.2,-4.2 C 3.2,-1.4 0,0.6 0,0.6 C 0,0.6 -3.2,-1.4 -3.2,-4.2 L -3.2,-7.4 Z"
+              d="M 0,-7.2 L 3.2,-5.4 L 3.2,-2.2 C 3.2,0.6 0,2.6 0,2.6 C 0,2.6 -3.2,0.6 -3.2,-2.2 L -3.2,-5.4 Z"
               transform="translate(0, -0.5) scale(0.9)"
-              fill="#ff2e79" stroke="#ffffff" strokeWidth="0.5" strokeLinejoin="round"
+              fill="#ff2e79"
+              stroke="#ffffff"
+              strokeWidth="0.5"
+              strokeLinejoin="round"
             />
           )}
           {color === 'blue' && (
             <polygon
-              points="0,-9.2 3.2,-5.8 0,-2.4 -3.2,-5.8"
+              points="0,-7.2 3.2,-3.8 0,-0.4 -3.2,-3.8"
               transform="translate(0, -0.5) scale(0.9)"
-              fill="#38bdf8" stroke="#ffffff" strokeWidth="0.5"
+              fill="#38bdf8"
+              stroke="#ffffff"
+              strokeWidth="0.5"
             />
           )}
           {color === 'green' && (
             <path
-              d="M 0,-9.2 C 1.2,-7.2 3.2,-5.8 3.2,-4.0 C 3.2,-2.2 1.4,-1.0 0,-0.6 C -1.4,-1.0 -3.2,-2.2 -3.2,-4.0 C -3.2,-5.8 -1.2,-7.2 0,-9.2 Z"
+              d="M 0,-7.2 C 1.2,-5.2 3.2,-3.8 3.2,-2.0 C 3.2,-0.2 1.4,1.0 0,1.4 C -1.4,1.0 -3.2,-0.2 -3.2,-2.0 C -3.2,-3.8 -1.2,-5.2 0,-7.2 Z"
               transform="translate(0, -0.5) scale(0.9)"
-              fill="#34d399" stroke="#ffffff" strokeWidth="0.5"
+              fill="#34d399"
+              stroke="#ffffff"
+              strokeWidth="0.5"
             />
           )}
           {color === 'yellow' && (
             <polygon
-              points="0,-9.2 1.0,-6.4 3.5,-6.4 1.5,-4.8 2.2,-2.2 0,-3.7 -2.2,-2.2 -1.5,-4.8 -3.5,-6.4 -1.0,-6.4"
+              points="0,-7.2 1.0,-4.4 3.5,-4.4 1.5,-2.8 2.2,-0.2 0,-1.7 -2.2,-0.2 -1.5,-2.8 -3.5,-4.4 -1.0,-4.4"
               transform="translate(0, -0.5) scale(0.9)"
-              fill="#fbbf24" stroke="#ffffff" strokeWidth="0.5" strokeLinejoin="round"
+              fill="#fbbf24"
+              stroke="#ffffff"
+              strokeWidth="0.5"
+              strokeLinejoin="round"
             />
           )}
 
           {/* Lower Polished Gold Torus Waist Ring */}
-          <ellipse cx="0" cy="-11.5" rx="5.0" ry="1.9" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
+          <ellipse cx="0" cy="-9.5" rx="5.0" ry="1.9" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
 
           {/* Tapered Slender Neck Column */}
-          <path d="M -2.8 -11.5 C -2.8 -15, 2.8 -15, 2.8 -11.5 Z" fill={bodyGradient} />
+          <path d="M -2.8 -9.5 C -2.8 -13, 2.8 -13, 2.8 -9.5 Z" fill={bodyGradient} />
 
-          {/* Upper Gold Neck Collar Bead */}
-          <ellipse cx="0" cy="-15" rx="4.5" ry="1.7" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
-          <ellipse cx="0" cy="-15.3" rx="3.8" ry="1.3" fill="none" stroke="#fff8db" strokeWidth="0.5" opacity="0.8" />
+          {/* Upper Gold Neck Collar Bead matching Image 2 */}
+          <ellipse cx="0" cy="-13" rx="4.5" ry="1.7" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.5" />
+          <ellipse cx="0" cy="-13.3" rx="3.8" ry="1.3" fill="none" stroke="#fff8db" strokeWidth="0.5" opacity="0.8" />
 
-          {/* Spherical Luxury Gemstone Head Knob */}
+          {/* Spherical Luxury Gemstone Head Knob (Centered at cy=-20.5, r=8.6) matching Image 2 */}
           <circle
             cx="0"
-            cy="-22.5"
+            cy="-20.5"
             r="8.6"
             fill={headGradient}
             stroke={isLegal ? '#ffffff' : 'rgba(255,255,255,0.7)'}
             strokeWidth={isLegal ? '2.4' : '1.0'}
           />
 
-          {/* 3D Spherical Specular Highlights */}
-          <circle cx="-2.8" cy="-25.5" r="2.3" fill="#ffffff" opacity="0.95" />
-          <circle cx="-0.8" cy="-27.5" r="1.1" fill="#ffffff" opacity="0.85" />
-          <ellipse cx="2.6" cy="-19.5" rx="2.2" ry="1.1" transform="rotate(30 2.6 -19.5)" fill="#ffffff" opacity="0.32" />
+          {/* 3D Spherical Specular Highlights (glass reflection & curved gleam) */}
+          <circle cx="-2.8" cy="-23.5" r="2.3" fill="#ffffff" opacity="0.95" />
+          <circle cx="-0.8" cy="-25.5" r="1.1" fill="#ffffff" opacity="0.85" />
+          <ellipse cx="2.6" cy="-17.5" rx="2.2" ry="1.1" transform="rotate(30 2.6 -17.5)" fill="#ffffff" opacity="0.32" />
 
-          {/* Crown Finials */}
+          {/* Unique Color Head Crown Finials matching Image 2 */}
           {color === 'red' && (
-            <g transform="translate(0, -31)">
+            <g transform="translate(0, -29)">
               <path d="M -6.5 0 L -8.5 -5.5 L -3.5 -3 L 0 -7 L 3.5 -3 L 8.5 -5.5 L 6.5 0 Z" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
               <circle cx="0" cy="-7.8" r="1.5" fill="#ff2e79" stroke="#ffffff" strokeWidth="0.3" />
               <circle cx="-8.5" cy="-5.8" r="0.8" fill="#ffffff" />
@@ -1114,14 +1123,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             </g>
           )}
           {color === 'blue' && (
-            <g transform="translate(0, -31)">
+            <g transform="translate(0, -29)">
               <polygon points="0,-9 3.8,-4.5 8,-3.5 4,-0.5 5,4.5 0,1.2 -5,4.5 -4,-0.5 -8,-3.5 -3.8,-4.5" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
               <circle cx="0" cy="-3.5" r="1.6" fill="#38bdf8" stroke="#ffffff" strokeWidth="0.3" />
               <circle cx="0" cy="-9.5" r="0.8" fill="#ffffff" />
             </g>
           )}
           {color === 'green' && (
-            <g transform="translate(0, -31)">
+            <g transform="translate(0, -29)">
               <path d="M -6.5 1 C -8 -4.5, -4 -6, -2.5 -3 C -1.2 -8, 1.2 -8, 2.5 -3 C 4 -6, 8 -4.5, 6.5 1 Z" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
               <circle cx="-6" cy="-5.5" r="1.0" fill="#ffffff" />
               <circle cx="0" cy="-8.5" r="1.5" fill="#34d399" stroke="#ffffff" strokeWidth="0.3" />
@@ -1129,7 +1138,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             </g>
           )}
           {color === 'yellow' && (
-            <g transform="translate(0, -31)">
+            <g transform="translate(0, -29)">
               <polygon points="0,-9.5 2.2,-4.5 7,-6 4,-1.5 7,2 2.2,1 0,5 -2.2,1 -7,2 -4,-1.5 -7,-6 -2.2,-4.5" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
               <circle cx="0" cy="-2" r="1.8" fill="#fbbf24" stroke="#ffffff" strokeWidth="0.4" />
               <circle cx="0" cy="-10" r="0.8" fill="#ffffff" />
@@ -2307,23 +2316,21 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         transition: isHopping ? 'transform 0.25s ease-out' : 'transform 0.22s ease-in'
                       }}
                     >
-                      <ellipse
+                      <circle
                         cx={0}
                         cy={0}
-                        rx={(isHopping ? 16 : 14) * scale}
-                        ry={(isHopping ? 7.5 : 5.8) * scale}
+                        r={(isHopping ? 15.5 : 14) * scale}
                         fill="#000000"
-                        opacity={isHopping ? 0.12 : (isInGame ? 0.40 : 0.08)}
+                        opacity={isHopping ? 0.12 : (isInGame ? 0.35 : 0.08)}
                         filter="url(#castShadowBlur)"
                         style={{ transition: 'all 0.22s ease' }}
                       />
-                      <ellipse
+                      <circle
                         cx={0}
                         cy={0}
-                        rx={11 * scale}
-                        ry={4.5 * scale}
+                        r={11 * scale}
                         fill="#000000"
-                        opacity={isHopping ? 0.18 : (isInGame ? 0.58 : 0.12)}
+                        opacity={isHopping ? 0.18 : (isInGame ? 0.45 : 0.12)}
                         filter="url(#contactShadowBlur)"
                         style={{ transition: 'all 0.22s ease' }}
                       />
@@ -2332,33 +2339,29 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     {/* B. Legal Move Ground Selection Halo */}
                     {isLegal && !isHopping && (
                       <g transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}>
-                        <ellipse
+                        <circle
                           cx={0}
                           cy={0}
-                          rx={16 * scale}
-                          ry={7.2 * scale}
+                          r={16 * scale}
                           fill={cfg.fill}
                           opacity="0.35"
                         >
-                          <animate attributeName="rx" values={`${14.5 * scale};${17.5 * scale};${14.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
-                          <animate attributeName="ry" values={`${6.5 * scale};${8.0 * scale};${6.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                          <animate attributeName="r" values={`${14.5 * scale};${17.5 * scale};${14.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
                           <animate attributeName="opacity" values="0.45;0.15;0.45" dur="1.3s" repeatCount="indefinite" />
-                        </ellipse>
+                        </circle>
 
-                        <ellipse
+                        <circle
                           cx={0}
                           cy={0}
-                          rx={15 * scale}
-                          ry={6.8 * scale}
+                          r={15 * scale}
                           fill="none"
                           stroke="#f59e0b"
                           strokeWidth="2.0"
                           opacity="0.9"
                         >
                           <animate attributeName="opacity" values="1.0;0.4;1.0" dur="1.3s" repeatCount="indefinite" />
-                          <animate attributeName="rx" values={`${13.5 * scale};${16 * scale};${13.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
-                          <animate attributeName="ry" values={`${6.0 * scale};${7.2 * scale};${6.0 * scale}`} dur="1.3s" repeatCount="indefinite" />
-                        </ellipse>
+                          <animate attributeName="r" values={`${13.5 * scale};${16 * scale};${13.5 * scale}`} dur="1.3s" repeatCount="indefinite" />
+                        </circle>
                       </g>
                     )}
 
