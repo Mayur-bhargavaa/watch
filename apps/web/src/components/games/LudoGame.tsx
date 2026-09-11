@@ -1156,9 +1156,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     if (!p) {
       return (
         <div className="relative flex flex-col items-center z-30 select-none opacity-25 hover:opacity-40 transition-opacity">
-          <div className="relative z-20 flex flex-col items-center justify-between w-20 sm:w-24 py-2.5 px-2 rounded-2xl bg-[#0a0c16]/50 backdrop-blur-md border border-white/10 shadow-md">
+          <div className="relative z-20 flex flex-col items-center justify-between w-[76px] sm:w-20 md:w-24 py-2 sm:py-2.5 px-1 sm:px-2 rounded-2xl bg-[#0a0c16]/50 backdrop-blur-md border border-white/10 shadow-md">
             <div
-              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-dashed flex items-center justify-center text-white/30 text-xs font-bold mb-1"
+              className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full border border-dashed flex items-center justify-center text-white/30 text-xs font-bold mb-1"
               style={{ borderColor: `${cfg.neon}40`, backgroundColor: `${cfg.fill}15` }}
             >
               <span className="text-white/30 text-xs">—</span>
@@ -1202,7 +1202,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
         {/* Floating Dark Crystal Card matching Image 2 reference UI */}
         <div
-          className={`relative z-20 flex flex-col items-center justify-between w-20 sm:w-24 py-2.5 px-2 rounded-2xl sm:rounded-[22px] bg-[#0a0c16]/90 backdrop-blur-xl border transition-all duration-300 shadow-[0_8px_25px_rgba(0,0,0,0.65)] ${
+          className={`relative z-20 flex flex-col items-center justify-between w-[76px] sm:w-20 md:w-24 py-2 sm:py-2.5 px-1 sm:px-2 rounded-2xl sm:rounded-[22px] bg-[#0a0c16]/90 backdrop-blur-xl border transition-all duration-300 shadow-[0_8px_25px_rgba(0,0,0,0.65)] ${
             isDisconnected
               ? 'opacity-40 grayscale-[60%] border-rose-500/25'
               : isCurrentTurn
@@ -1240,7 +1240,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
             {/* Glowing Neon Avatar Ring */}
             <div
-              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 border flex items-center justify-center transition-all ${
+              className={`w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full p-0.5 border flex items-center justify-center transition-all ${
                 (isMe ? !isMicMuted : pStream?.isSpeaking)
                   ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.9)]'
                   : ''
@@ -1276,7 +1276,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
           {/* Player Name / Tag */}
           <div className="flex flex-col items-center min-w-0 mt-1.5 text-center w-full">
-            <span className="font-bold text-white text-xs sm:text-[13px] tracking-wide truncate max-w-[70px] sm:max-w-[80px] drop-shadow-sm">
+            <span className="font-bold text-white text-[11px] sm:text-xs md:text-[13px] tracking-wide truncate max-w-[62px] sm:max-w-[70px] md:max-w-[80px] drop-shadow-sm">
               {p.displayName}
             </span>
             {isDisconnected ? (
@@ -1335,21 +1335,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     const p = playerByColor[col];
     // In 2-player mode or unassigned seats, render invisible spacer to anchor opponent
     if (!p && (room?.maxPlayers === 2 || !isColorInGame(col))) {
-      return <div className="w-20 sm:w-24 pointer-events-none invisible" aria-hidden="true" />;
+      return <div className="w-[76px] sm:w-20 md:w-24 pointer-events-none invisible" aria-hidden="true" />;
     }
     return renderCornerBadge(col, phys === 0 || phys === 3 ? 'left' : 'right');
   }, [getColorAtPhysicalCorner, playerByColor, room?.maxPlayers, isColorInGame]);
 
-  const hasTopRowPlayers = Boolean(
-    playerByColor[getColorAtPhysicalCorner(0)] ||
-    playerByColor[getColorAtPhysicalCorner(1)] ||
-    isColorInGame(getColorAtPhysicalCorner(0)) ||
-    isColorInGame(getColorAtPhysicalCorner(1)) ||
-    (room?.maxPlayers ?? 4) > 2
-  );
-
   return (
-    <div className="flex flex-col items-center justify-between w-full max-w-2xl mx-auto select-none relative">
+    <div className="flex flex-col items-center justify-between w-full max-w-5xl mx-auto select-none relative">
       {/* Floating Reactions Overlay */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
         {floatingReactions.map(r => (
@@ -1365,12 +1357,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         ))}
       </div>
 
-      {/* Board & Player Ribbons Container - Perfectly sized to fit screen without scrolling */}
+      {/* Board & Side Player Arena Container */}
       <div
-        className="relative w-full max-w-[min(92vw,calc(100dvh-320px),440px)] sm:max-w-[min(85vw,calc(100dvh-300px),470px)] md:max-w-[min(75vw,calc(100dvh-280px),500px)] lg:max-w-[min(48vw,calc(100dvh-260px),520px)] flex flex-col items-center select-none my-2 sm:my-3 px-2 sm:px-4"
+        className="relative w-full max-w-5xl flex flex-col items-center select-none my-2 sm:my-3 px-2 sm:px-4"
       >
         {/* Top Room Status Pill & Alignment Debug Toggle */}
-        <div className="mb-2 sm:mb-2.5 flex items-center justify-center gap-2 z-20">
+        <div className="mb-2 sm:mb-3 flex items-center justify-center gap-2 z-20">
           <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#0a0c16]/85 backdrop-blur-md border border-amber-400/30 shadow-[0_4px_15px_rgba(0,0,0,0.5)] text-amber-200/90 text-xs font-semibold tracking-wide">
             <Users className="w-3.5 h-3.5 text-amber-400" />
             <span>{room.maxPlayers || 4} Players</span>
@@ -1393,16 +1385,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           </button>
         </div>
 
-        {/* Top Player Row - Positioned completely outside the board perimeter */}
-        {hasTopRowPlayers && (
-          <div className="w-full flex items-center justify-between mb-2.5 sm:mb-3.5 px-0.5 z-20">
+        {/* 3-Column Arena: Left Players | Center Board | Right Players */}
+        <div className="w-full flex items-center justify-center gap-2 sm:gap-3.5 md:gap-6">
+          {/* Left Side Players: Corner 0 (Top-Left) and Corner 3 (Bottom-Left / "You") */}
+          <div className="flex flex-col justify-between self-stretch shrink-0 py-1 sm:py-2 z-20">
             {renderPlayerAtPhysicalCorner(0)}
-            {renderPlayerAtPhysicalCorner(1)}
+            {renderPlayerAtPhysicalCorner(3)}
           </div>
-        )}
 
-        {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
-        <div className="relative w-full aspect-square rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
+          {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
+          <div className="relative w-full aspect-square max-w-[min(calc(100vw-180px),calc(100dvh-230px),480px)] sm:max-w-[min(calc(100vw-220px),calc(100dvh-220px),510px)] md:max-w-[min(calc(100vw-260px),calc(100dvh-200px),540px)] rounded-[32px] sm:rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
           {/* 3D Rolling Center Dice */}
           {centerDiceAnimation && !animatingPawn && gameState.diceValue !== null && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50">
@@ -2499,12 +2491,13 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
           </div>
 
-          {/* Bottom Player Row - Positioned completely outside the board perimeter */}
-          <div className="w-full flex items-center justify-between mt-2.5 sm:mt-3.5 px-0.5 z-20">
-            {renderPlayerAtPhysicalCorner(3)}
+          {/* Right Side Players: Corner 1 (Top-Right / Opponent) and Corner 2 (Bottom-Right) */}
+          <div className="flex flex-col justify-between self-stretch shrink-0 py-1 sm:py-2 z-20">
+            {renderPlayerAtPhysicalCorner(1)}
             {renderPlayerAtPhysicalCorner(2)}
           </div>
         </div>
+      </div>
 
         {/* BOTTOM CONTROLS MATCHING REFERENCE IMAGE (Undo button, Large Glowing Red Dice, Emoji button) */}
         <div className="w-full flex flex-col items-center mt-4 sm:mt-5 max-w-xs sm:max-w-sm px-2 z-20">
