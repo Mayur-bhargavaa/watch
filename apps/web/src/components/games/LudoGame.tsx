@@ -269,12 +269,12 @@ const HOME_PATHS: Record<LudoColor, Array<[number, number]>> = {
 // Safe Tile Indices
 const SAFE_STAR_TILES = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 
-// Fixed pawn slots inside the 4 yards (symmetrically centered around yard hearts at dx, dy = +/- 48px)
+// Fixed pawn slots inside the 4 yards (symmetrically centered around yard hearts at dx, dy = +/- 46px)
 const YARD_PAWN_SLOTS: Record<LudoColor, Array<[number, number]>> = {
-  red:    [[2.0, 2.0], [2.0, 4.4], [4.4, 2.0], [4.4, 4.4]], // Top-Left (center: 128, 128)
-  blue:   [[2.0, 10.6], [2.0, 13.0], [4.4, 10.6], [4.4, 13.0]], // Top-Right (center: 472, 128)
-  green:  [[10.6, 2.0], [10.6, 4.4], [13.0, 2.0], [13.0, 4.4]], // Bottom-Left (center: 128, 472)
-  yellow: [[10.6, 10.6], [10.6, 13.0], [13.0, 10.6], [13.0, 13.0]] // Bottom-Right (center: 472, 472)
+  red:    [[1.85, 1.85], [1.85, 4.15], [4.15, 1.85], [4.15, 4.15]], // Top-Left (center: 120, 120)
+  blue:   [[1.85, 10.85], [1.85, 13.15], [4.15, 10.85], [4.15, 13.15]], // Top-Right (center: 480, 120)
+  green:  [[10.85, 1.85], [10.85, 4.15], [13.15, 1.85], [13.15, 4.15]], // Bottom-Left (center: 120, 480)
+  yellow: [[10.85, 10.85], [10.85, 13.15], [13.15, 10.85], [13.15, 13.15]] // Bottom-Right (center: 480, 480)
 };
 
 export const LudoGame: React.FC<LudoGameProps> = ({
@@ -1479,15 +1479,15 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 {/* 1. YARDS (4 Luxury Royal Palace Chambers with 3D Pedestals & Illuminated Crests) */}
                 {/* Red Yard (Top-Left in base coordinates) */}
                 <g style={{ opacity: isColorInGame('red') ? 1 : 0.28, filter: isColorInGame('red') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="16" y="16" width="224" height="224" rx="24" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="20" y="20" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="23" y="23" width="210" height="210" rx="17" fill="none" stroke="#ff2e79" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="10" y="10" width="220" height="220" rx="22" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="14" y="14" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="17" y="17" width="206" height="206" rx="15" fill="none" stroke="#ff2e79" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="128" cy="128" r="82" fill="none" stroke="#ff2e79" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="128" cy="128" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="120" cy="120" r="80" fill="none" stroke="#ff2e79" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="120" cy="120" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
 
                   {/* Glowing Royal Red/Pink Heart Crest with Crown */}
-                  <g transform={`translate(128, 128) rotate(${-boardRotation})`}>
+                  <g transform={`translate(120, 120) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
                     <circle cx="0" cy="0" r="33" fill="none" stroke="#ff2e79" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.45)">
@@ -1530,15 +1530,15 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                 {/* Blue Yard (Top-Right in base coordinates) */}
                 <g style={{ opacity: isColorInGame('blue') ? 1 : 0.28, filter: isColorInGame('blue') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="360" y="16" width="224" height="224" rx="24" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="364" y="20" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="367" y="23" width="210" height="210" rx="17" fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="370" y="10" width="220" height="220" rx="22" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="374" y="14" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="377" y="17" width="206" height="206" rx="15" fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="472" cy="128" r="82" fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="472" cy="128" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="480" cy="120" r="80" fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="480" cy="120" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
 
                   {/* Glowing Royal Blue Heart Crest with Crown */}
-                  <g transform={`translate(472, 128) rotate(${-boardRotation})`}>
+                  <g transform={`translate(480, 120) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
                     <circle cx="0" cy="0" r="33" fill="none" stroke="#38bdf8" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.45)">
@@ -1571,7 +1571,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {YARD_PAWN_SLOTS.blue.map((slot, i) => (
                     <g key={`by-${i}`} filter="url(#pedestalRingShadow)">
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="19.5" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.8" />
-                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#030d21" filter="url(#recessedSaucerShadow)" />
+                      <circle cx={slot[1] * 40} cy={slot[0] * 40} r="17.8" fill="#061338" filter="url(#recessedSaucerShadow)" />
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="15.8" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="12" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.6" strokeDasharray="2, 2" />
                       <circle cx={slot[1] * 40} cy={slot[0] * 40} r="2.5" fill="url(#goldMetallicGradient)" opacity="0.7" />
@@ -1581,15 +1581,15 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                 {/* Green Yard (Bottom-Left in base coordinates) */}
                 <g style={{ opacity: isColorInGame('green') ? 1 : 0.28, filter: isColorInGame('green') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="16" y="360" width="224" height="224" rx="24" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="20" y="364" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="23" y="367" width="210" height="210" rx="17" fill="none" stroke="#10b981" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="10" y="370" width="220" height="220" rx="22" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="14" y="374" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="17" y="377" width="206" height="206" rx="15" fill="none" stroke="#10b981" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="128" cy="472" r="82" fill="none" stroke="#10b981" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="128" cy="472" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="120" cy="480" r="80" fill="none" stroke="#10b981" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="120" cy="480" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
 
                   {/* Glowing Royal Green Heart Crest with Crown */}
-                  <g transform={`translate(128, 472) rotate(${-boardRotation})`}>
+                  <g transform={`translate(120, 480) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
                     <circle cx="0" cy="0" r="33" fill="none" stroke="#10b981" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.45)">
@@ -1632,15 +1632,15 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                 {/* Yellow Yard (Bottom-Right in base coordinates) */}
                 <g style={{ opacity: isColorInGame('yellow') ? 1 : 0.28, filter: isColorInGame('yellow') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
-                  <rect x="360" y="360" width="224" height="224" rx="24" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
-                  <rect x="364" y="364" width="216" height="216" rx="20" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
-                  <rect x="367" y="367" width="210" height="210" rx="17" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
+                  <rect x="370" y="370" width="220" height="220" rx="22" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="2.5" filter="url(#trayInnerShadow)" />
+                  <rect x="374" y="374" width="212" height="212" rx="18" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="1.2" opacity="0.65" />
+                  <rect x="377" y="377" width="206" height="206" rx="15" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.4" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="472" cy="472" r="82" fill="none" stroke="#f59e0b" strokeWidth="0.5" opacity="0.25" />
-                  <circle cx="472" cy="472" r="56" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
+                  <circle cx="480" cy="480" r="80" fill="none" stroke="#f59e0b" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="480" cy="480" r="54" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.6" opacity="0.3" strokeDasharray="2, 2" />
 
                   {/* Glowing Royal Gold Heart Crest with Crown */}
-                  <g transform={`translate(472, 472) rotate(${-boardRotation})`}>
+                  <g transform={`translate(480, 480) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="42" fill="none" stroke="url(#goldMetallicGradient)" strokeWidth="0.8" strokeDasharray="3, 3" opacity="0.65" />
                     <circle cx="0" cy="0" r="33" fill="none" stroke="#fbbf24" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.45)">
