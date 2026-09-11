@@ -1002,7 +1002,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     return (
       <g filter="url(#tile3DShadow)">
         {/* Anchor goti figurine contact base precisely at local origin (0, 0) */}
-        <g transform="translate(0, -2)">
+        {/* Slight forward lean (skewX + perspective scale) for premium 3D depth — base contact stays at (0, 0) */}
+        <g transform="translate(0, -2) skewX(-7) scale(0.9, 1)">
           {/* Tier 0: Player Distinction Halo (hugs the goti base pedestal cleanly without spilling) */}
         {isMyColor && (
           <ellipse
