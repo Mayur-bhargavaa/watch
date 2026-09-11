@@ -17,7 +17,8 @@ import {
   MoreHorizontal,
   Users,
   Lock,
-  Crosshair
+  Crosshair,
+  Bell
 } from 'lucide-react';
 import {
   GameRoom,
@@ -1048,44 +1049,47 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           opacity="0.25"
         />
 
-        {/* Unique Color Chest Emblem (Instantly reveals goti identity) */}
+        {/* Unique Color Chest Emblem (Crisp Vector Heraldic Icons) */}
         {color === 'red' && (
-          /* Glowing Royal Ruby Heart Emblem */
+          /* Ruby Royal Shield Icon */
           <path
-            d="M 0,-2 C 0,-2 -2.8,-4.5 -2.8,-6.2 C -2.8,-7.5 -1.8,-8.2 -0.6,-8.2 C 0,-8.2 0,-7.8 0,-7.8 C 0,-7.8 0,-8.2 0.6,-8.2 C 1.8,-8.2 2.8,-7.5 2.8,-6.2 C 2.8,-4.5 0,-2 0,-2 Z"
-            transform="translate(0, 2.2) scale(0.9)"
+            d="M 0,-7.2 L 3.2,-5.4 L 3.2,-2.2 C 3.2,0.6 0,2.6 0,2.6 C 0,2.6 -3.2,0.6 -3.2,-2.2 L -3.2,-5.4 Z"
+            transform="translate(0, -0.5) scale(0.9)"
             fill="#ff2e79"
             stroke="#ffffff"
             strokeWidth="0.5"
+            strokeLinejoin="round"
           />
         )}
         {color === 'blue' && (
-          /* Sapphire Imperial Diamond Emblem */
+          /* Sapphire Imperial Diamond Icon */
           <polygon
-            points="0,-7 2.8,-4.2 0,-1.4 -2.8,-4.2"
+            points="0,-7.2 3.2,-3.8 0,-0.4 -3.2,-3.8"
+            transform="translate(0, -0.5) scale(0.9)"
             fill="#38bdf8"
             stroke="#ffffff"
             strokeWidth="0.5"
           />
         )}
         {color === 'green' && (
-          /* Emerald 4-Leaf Clover Emblem */
-          <g transform="translate(0, -4.2) scale(0.72)">
-            <circle cx="-1.8" cy="0" r="1.4" fill="#34d399" />
-            <circle cx="1.8" cy="0" r="1.4" fill="#34d399" />
-            <circle cx="0" cy="-1.8" r="1.4" fill="#34d399" />
-            <circle cx="0" cy="1.8" r="1.4" fill="#34d399" />
-            <circle cx="0" cy="0" r="0.8" fill="#ffffff" />
-          </g>
+          /* Emerald Heraldic Crest Icon */
+          <path
+            d="M 0,-7.2 C 1.2,-5.2 3.2,-3.8 3.2,-2.0 C 3.2,-0.2 1.4,1.0 0,1.4 C -1.4,1.0 -3.2,-0.2 -3.2,-2.0 C -3.2,-3.8 -1.2,-5.2 0,-7.2 Z"
+            transform="translate(0, -0.5) scale(0.9)"
+            fill="#34d399"
+            stroke="#ffffff"
+            strokeWidth="0.5"
+          />
         )}
         {color === 'yellow' && (
-          /* Golden Star Emblem */
+          /* Golden Star Icon */
           <polygon
-            points="0,-7 1.0,-4.3 3.6,-4.3 1.5,-2.7 2.3,0 0,-1.6 -2.3,0 -1.5,-2.7 -3.6,-4.3 -1.0,-4.3"
-            transform="translate(0, 0.4) scale(0.85)"
+            points="0,-7.2 1.0,-4.4 3.5,-4.4 1.5,-2.8 2.2,-0.2 0,-1.7 -2.2,-0.2 -1.5,-2.8 -3.5,-4.4 -1.0,-4.4"
+            transform="translate(0, -0.5) scale(0.9)"
             fill="#fbbf24"
             stroke="#ffffff"
-            strokeWidth="0.4"
+            strokeWidth="0.5"
+            strokeLinejoin="round"
           />
         )}
 
@@ -2027,68 +2031,63 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       </>
                     )}
 
-                    {/* Start Tile Directional Launch Arrows matching Image 2 */}
+                    {/* Start Tile Directional Launch Arrow Icons */}
                     {isRedStart && (
                       <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
-                        <polygon points="-7,-4 2,-4 2,-8 8,0 2,8 2,4 -7,4" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
-                        <polygon points="-7,-4 2,-4 2,-8 8,0 2,8 2,4 -7,4" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
-                        <polygon points="-6,-3 1,-3 1,-6 6,0 1,6 1,3 -6,3" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                        <path d="M -7 0 L 5 0 M 1 -5 L 6 0 L 1 5" stroke="#000000" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" transform="translate(0, 1)" />
+                        <path d="M -7 0 L 5 0 M 1 -5 L 6 0 L 1 5" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M -6.5 0 L 4.5 0 M 1 -4 L 5 0 L 1 4" stroke="#fff8db" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
                       </g>
                     )}
                     {isBlueStart && (
                       <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
-                        <polygon points="-4,-7 -4,2 -8,2 0,8 8,2 4,2 4,-7" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
-                        <polygon points="-4,-7 -4,2 -8,2 0,8 8,2 4,2 4,-7" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
-                        <polygon points="-3,-6 -3,1 -6,1 0,6 6,1 3,1 3,-6" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                        <path d="M 0 -7 L 0 5 M -5 1 L 0 6 L 5 1" stroke="#000000" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" transform="translate(0, 1)" />
+                        <path d="M 0 -7 L 0 5 M -5 1 L 0 6 L 5 1" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M 0 -6.5 L 0 4.5 M -4 1 L 0 5 L 4 1" stroke="#fff8db" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
                       </g>
                     )}
                     {isYellowStart && (
                       <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
-                        <polygon points="7,-4 -2,-4 -2,-8 -8,0 -2,8 -2,4 7,4" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
-                        <polygon points="7,-4 -2,-4 -2,-8 -8,0 -2,8 -2,4 7,4" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
-                        <polygon points="6,-3 -1,-3 -1,-6 -6,0 -1,6 -1,3 6,3" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                        <path d="M 7 0 L -5 0 M -1 -5 L -6 0 L -1 5" stroke="#000000" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" transform="translate(0, 1)" />
+                        <path d="M 7 0 L -5 0 M -1 -5 L -6 0 L -1 5" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M 6.5 0 L -4.5 0 M -1 -4 L -5 0 L -1 4" stroke="#fff8db" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
                       </g>
                     )}
                     {isGreenStart && (
                       <g transform={`translate(${tileX + 18}, ${tileY + 18})`}>
-                        <polygon points="-4,7 -4,-2 -8,-2 0,-8 8,-2 4,-2 4,7" fill="#000000" opacity="0.4" transform="translate(0, 1.2)" />
-                        <polygon points="-4,7 -4,-2 -8,-2 0,-8 8,-2 4,-2 4,7" fill="#ffffff" stroke="#fff8db" strokeWidth="0.8" />
-                        <polygon points="-3,6 -3,-1 -6,-1 0,-6 6,-1 3,-1 3,6" fill="url(#baroqueGoldGrad)" opacity="0.35" />
+                        <path d="M 0 7 L 0 -5 M -5 -1 L 0 -6 L 5 -1" stroke="#000000" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" transform="translate(0, 1)" />
+                        <path d="M 0 7 L 0 -5 M -5 -1 L 0 -6 L 5 -1" stroke="#ffffff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M 0 6.5 L 0 -4.5 M -4 -1 L 0 -5 L 4 -1" stroke="#fff8db" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
                       </g>
                     )}
 
-                    {/* Gleaming 3D Embossed Faceted Golden Star on Safe Haven Tiles matching Image 2 */}
+                    {/* Clean 24K Gold Vector Star Icon on Safe Haven Tiles */}
                     {isSafe && !isRedStart && !isBlueStart && !isYellowStart && !isGreenStart && (
                       <g transform={`translate(${tileX}, ${tileY})`}>
-                        {/* Golden celestial radiance glow */}
-                        <circle cx="18" cy="18" r="14" fill="url(#starGoldGlow)" opacity="0.35" />
-                        {/* Drop shadow star */}
-                        <polygon
-                          points="18,5 21.8,13.2 30.5,14.5 24.2,20.5 25.8,29.5 18,25.2 10.2,29.5 11.8,20.5 5.5,14.5 14.2,13.2"
-                          transform="translate(0, 1.5)"
-                          fill="#381a04"
-                          opacity="0.45"
+                        {/* Drop shadow star icon */}
+                        <path
+                          d="M 18 7.5 L 20.8 13.2 L 27 14.1 L 22.5 18.5 L 23.6 24.6 L 18 21.7 L 12.4 24.6 L 13.5 18.5 L 9 14.1 L 15.2 13.2 Z"
+                          fill="rgba(0,0,0,0.45)"
+                          transform="translate(0, 1.2)"
                         />
-                        {/* 10 Alternating Light/Shadow Facets */}
-                        <polygon points="18,18 18,5 21.8,13.2" fill="#fffdf0" />
-                        <polygon points="18,18 21.8,13.2 30.5,14.5" fill="#f59e0b" />
-                        <polygon points="18,18 30.5,14.5 24.2,20.5" fill="#d97706" />
-                        <polygon points="18,18 24.2,20.5 25.8,29.5" fill="#92400e" />
-                        <polygon points="18,18 25.8,29.5 18,25.2" fill="#b45309" />
-                        <polygon points="18,18 18,25.2 10.2,29.5" fill="#f59e0b" />
-                        <polygon points="18,18 10.2,29.5 11.8,20.5" fill="#d97706" />
-                        <polygon points="18,18 11.8,20.5 5.5,14.5" fill="#fde047" />
-                        <polygon points="18,18 5.5,14.5 14.2,13.2" fill="#fffdf0" />
-                        <polygon points="18,18 14.2,13.2 18,5" fill="#fde047" />
-                        {/* Outer 24K Gold Rim */}
-                        <polygon
-                          points="18,5 21.8,13.2 30.5,14.5 24.2,20.5 25.8,29.5 18,25.2 10.2,29.5 11.8,20.5 5.5,14.5 14.2,13.2"
+                        {/* 24K Antique Gold Metallic Star Icon */}
+                        <path
+                          d="M 18 7.5 L 20.8 13.2 L 27 14.1 L 22.5 18.5 L 23.6 24.6 L 18 21.7 L 12.4 24.6 L 13.5 18.5 L 9 14.1 L 15.2 13.2 Z"
+                          fill="url(#baroqueGoldGrad)"
+                          stroke="#543b0d"
+                          strokeWidth="1.0"
+                          strokeLinejoin="round"
+                        />
+                        {/* Inner specular bevel line */}
+                        <path
+                          d="M 18 10.2 L 20 14.2 L 24.5 14.8 L 21.2 18 L 22 22.4 L 18 20.3 L 14 22.4 L 14.8 18 L 11.5 14.8 L 16 14.2 Z"
                           fill="none"
                           stroke="#fff8db"
-                          strokeWidth="0.8"
+                          strokeWidth="0.7"
+                          opacity="0.9"
                         />
-                        {/* Central sparkling gem pip */}
-                        <circle cx="18" cy="18" r="1.8" fill="#ffffff" />
+                        {/* Central star gleam */}
+                        <circle cx="18" cy="17.2" r="1.3" fill="#ffffff" opacity="0.9" />
                       </g>
                     )}
                   </g>
@@ -2255,30 +2254,42 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 />
                 <circle cx="0" cy="0" r="23" fill="#180408" opacity="0.9" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" />
 
-                {/* Radiant Glowing Neon Ruby Heart */}
-                <g transform="translate(0, -2) scale(1.35)">
+                {/* Imperial Victory Crown Vector Icon */}
+                <g transform="translate(0, -1) scale(1.1)">
+                  {/* Drop Shadow */}
                   <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="rgba(255, 23, 68, 0.35)"
-                    stroke="#ff1744"
-                    strokeWidth="3.6"
-                    filter="url(#neonGlowRedCenter)"
+                    d="M -11 -6 L -14 7 L 14 7 L 11 -6 L 5 -1 L 0 -9 L -5 -1 Z"
+                    fill="#000000"
+                    opacity="0.45"
+                    transform="translate(0, 1.5)"
                   />
+                  {/* 24K Sculpted Crown Icon Body */}
                   <path
-                    d="M 0,16 C 0,16 -16,4 -16,-6 C -16,-13 -10,-17 -3,-17 C 0,-17 0,-14 0,-14 C 0,-14 0,-17 3,-17 C 10,-17 16,-13 16,-6 C 16,4 0,16 0,16 Z"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="1.4"
-                    opacity="0.95"
-                  />
-                  {/* Miniature Imperial Crown Finial atop Center Heart */}
-                  <path
-                    d="M -6 -17 L -8.5 -23 L -3 -20 L 0 -25 L 3 -20 L 8.5 -23 L 6 -17 Z"
+                    d="M -11 -6 L -14 7 L 14 7 L 11 -6 L 5 -1 L 0 -9 L -5 -1 Z"
                     fill="url(#baroqueGoldGrad)"
-                    stroke="#fff8db"
-                    strokeWidth="0.5"
+                    stroke="#543b0d"
+                    strokeWidth="0.9"
+                    strokeLinejoin="round"
                   />
-                  <circle cx="0" cy="-25" r="0.9" fill="#ffffff" />
+                  {/* Specular Edge Highlight */}
+                  <path
+                    d="M -10.5 -5 L -13 6 L 13 6 L 10.5 -5 L 5 0 L 0 -7.5 L -5 0 Z"
+                    fill="none"
+                    stroke="#fff8db"
+                    strokeWidth="0.7"
+                    opacity="0.9"
+                  />
+                  {/* Crown Base Band with Gem Insets */}
+                  <rect x="-14" y="8" width="28" height="4.5" rx="1.5" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
+                  <circle cx="-8" cy="10.2" r="1.2" fill="#ff2e79" stroke="#fff8db" strokeWidth="0.3" />
+                  <circle cx="0" cy="10.2" r="1.4" fill="#38bdf8" stroke="#fff8db" strokeWidth="0.3" />
+                  <circle cx="8" cy="10.2" r="1.2" fill="#34d399" stroke="#fff8db" strokeWidth="0.3" />
+                  {/* 5 Crown Peak Pearls */}
+                  <circle cx="-11" cy="-6" r="1.4" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
+                  <circle cx="-5" cy="-1" r="1.1" fill="#fff8db" stroke="#543b0d" strokeWidth="0.3" />
+                  <circle cx="0" cy="-9" r="1.8" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
+                  <circle cx="5" cy="-1" r="1.1" fill="#fff8db" stroke="#543b0d" strokeWidth="0.3" />
+                  <circle cx="11" cy="-6" r="1.4" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
                 </g>
               </g>
 
@@ -2494,15 +2505,19 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
         {/* BOTTOM CONTROLS MATCHING REFERENCE IMAGE (Undo button, Large Glowing Red Dice, Emoji button) */}
         <div className="w-full flex flex-col items-center mt-4 sm:mt-5 max-w-xs sm:max-w-sm px-2 z-20">
-          {/* Turn text status banner */}
           <div className="text-rose-200/90 font-sans font-bold text-xs sm:text-sm tracking-wider uppercase mb-2 text-center select-none drop-shadow-[0_0_8px_rgba(255,46,121,0.5)]">
-            {gameState.winnerColor
-              ? `🏆 ${gameState.winnerColor.toUpperCase()} Won the Match!`
-              : turnPlayer && !turnPlayer.isConnected
-              ? `${turnPlayer.displayName} has left • tap to nudge`
-              : isMyTurn
-              ? "it's your turn"
-              : `it's ${turnPlayer?.displayName?.toLowerCase() || 'partner'}'s turn`}
+            {gameState.winnerColor ? (
+              <span className="inline-flex items-center justify-center gap-1.5">
+                <Trophy className="w-4 h-4 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]" />
+                <span>{gameState.winnerColor.toUpperCase()} Won the Match!</span>
+              </span>
+            ) : turnPlayer && !turnPlayer.isConnected ? (
+              `${turnPlayer.displayName} has left • tap to nudge`
+            ) : isMyTurn ? (
+              "it's your turn"
+            ) : (
+              `it's ${turnPlayer?.displayName?.toLowerCase() || 'partner'}'s turn`
+            )}
           </div>
 
           {/* 3-Control Bottom Panel from reference UI */}
@@ -2586,9 +2601,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   ? 'CHOOSE GOTI'
                   : isMyTurn
                   ? 'YOUR TURN'
-                  : justNudged
-                  ? 'NUDGED! 🔔'
-                  : 'NUDGE'}
+                  : justNudged ? (
+                    <span className="inline-flex items-center gap-1">
+                      <span>NUDGED!</span>
+                      <Bell className="w-3 h-3 text-emerald-300" />
+                    </span>
+                  ) : 'NUDGE'}
               </span>
             </div>
 
