@@ -896,8 +896,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       group.forEach((item, indexInGroup) => {
         const basePos = getPawnPixelPosition(item.color, item.step, item.token.id);
 
-        // Scale factor: Grand, prominent 3D figurine fitting the socket saucer & tiles
-        const PAWN_BASE_SCALE = 0.92;
+        // Scale factor: Grand, prominent 3D figurine fitting the socket saucer & tiles (69-70% of cell size)
+        const PAWN_BASE_SCALE = 1.0;
         let scale = PAWN_BASE_SCALE;
         let offsetX = 0;
         let offsetY = 0;
@@ -905,25 +905,25 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         // Apply co-location offset cluster strictly within cell boundaries (only for shared track/runway cells)
         if (count > 1 && item.step >= 0 && item.step <= 55) {
           if (count === 2) {
-            scale = 0.78;
-            offsetX = indexInGroup === 0 ? -6.5 : 6.5;
+            scale = 0.72;
+            offsetX = indexInGroup === 0 ? -6.0 : 6.0;
             offsetY = 0;
           } else if (count === 3) {
-            scale = 0.68;
+            scale = 0.64;
             if (indexInGroup === 0) {
-              offsetX = -6.5;
-              offsetY = -4.5;
+              offsetX = -5.5;
+              offsetY = -3.8;
             } else if (indexInGroup === 1) {
-              offsetX = 6.5;
-              offsetY = -4.5;
+              offsetX = 5.5;
+              offsetY = -3.8;
             } else {
               offsetX = 0;
-              offsetY = 5.0;
+              offsetY = 4.5;
             }
           } else {
-            scale = 0.62;
-            offsetX = indexInGroup % 2 === 0 ? -6.0 : 6.0;
-            offsetY = indexInGroup < 2 ? -5.0 : 5.0;
+            scale = 0.58;
+            offsetX = indexInGroup % 2 === 0 ? -5.0 : 5.0;
+            offsetY = indexInGroup < 2 ? -4.0 : 4.0;
           }
         }
 
@@ -1001,7 +1001,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
     return (
       <g filter="url(#tile3DShadow)">
-        {/* Tier 0: Player Distinction Halo (hugs the goti base pedestal cleanly without spilling) */}
+        {/* Anchor goti figurine contact base precisely at local origin (0, 0) */}
+        <g transform="translate(0, -2)">
+          {/* Tier 0: Player Distinction Halo (hugs the goti base pedestal cleanly without spilling) */}
         {isMyColor && (
           <ellipse
             cx="0"
@@ -1153,6 +1155,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             <circle cx="0" cy="-10" r="0.8" fill="#ffffff" />
           </g>
         )}
+        </g>
       </g>
     );
   };
@@ -2326,7 +2329,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     >
                       <ellipse
                         cx={0}
-                        cy={2 * scale}
+                        cy={0}
                         rx={(isHopping ? 16 : 14) * scale}
                         ry={(isHopping ? 7.5 : 5.8) * scale}
                         fill="#000000"
@@ -2336,7 +2339,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       />
                       <ellipse
                         cx={0}
-                        cy={2 * scale}
+                        cy={0}
                         rx={11 * scale}
                         ry={4.5 * scale}
                         fill="#000000"
@@ -2351,7 +2354,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <g transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}>
                         <ellipse
                           cx={0}
-                          cy={2 * scale}
+                          cy={0}
                           rx={16 * scale}
                           ry={7.2 * scale}
                           fill={cfg.fill}
@@ -2364,7 +2367,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                         <ellipse
                           cx={0}
-                          cy={2 * scale}
+                          cy={0}
                           rx={15 * scale}
                           ry={6.8 * scale}
                           fill="none"

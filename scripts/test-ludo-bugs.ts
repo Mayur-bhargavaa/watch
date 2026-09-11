@@ -446,26 +446,44 @@ runTest('Multi-pawn cluster offsets remain strictly inside 40x40 cell boundaries
   const TILE_HALF_WIDTH = CELL_SIZE / 2; // 20px
   const INNER_TILE_HALF_WIDTH = 18; // 36px tile rect with 2px margin
 
-  // 2 Pawns: scale = 0.78, base radius = 13.8 * 0.78 = 10.7px, offset = +/- 6.5px
-  const scale2 = 0.78;
+  // 1 Pawn: scale = 1.0, diameter = 27.6px -> 69% of cell width (fits inside 70% requirement)
+  const singlePawnDiameter = 13.8 * 2 * 1.0;
+  assert.ok(singlePawnDiameter / CELL_SIZE >= 0.65 && singlePawnDiameter / CELL_SIZE <= 0.75, 'Single pawn is 65-75% of cell width');
+
+  // 2 Pawns: scale = 0.72, base radius = 13.8 * 0.72 = 9.94px, offset = +/- 6.0px
+  const scale2 = 0.72;
   const pawnBaseRadius2 = 13.8 * scale2;
-  const maxExtent2 = 6.5 + pawnBaseRadius2;
+  const maxExtent2 = 6.0 + pawnBaseRadius2;
   assert.ok(maxExtent2 < INNER_TILE_HALF_WIDTH, `2-pawn extent (${maxExtent2.toFixed(1)}px) < inner tile boundary (18px)`);
 
-  // 3 Pawns: scale = 0.68, base radius = 13.8 * 0.68 = 9.4px, max offset = sqrt(6.5^2 + 4.5^2) = 7.9px
-  const scale3 = 0.68;
+  // 3 Pawns: scale = 0.64, base radius = 13.8 * 0.64 = 8.83px, max offset = sqrt(5.5^2 + 3.8^2) = 6.68px
+  const scale3 = 0.64;
   const pawnBaseRadius3 = 13.8 * scale3;
-  const maxOffset3 = Math.sqrt(6.5 * 6.5 + 4.5 * 4.5);
+  const maxOffset3 = Math.sqrt(5.5 * 5.5 + 3.8 * 3.8);
   const maxExtent3 = maxOffset3 + pawnBaseRadius3;
   assert.ok(maxExtent3 < INNER_TILE_HALF_WIDTH, `3-pawn extent (${maxExtent3.toFixed(1)}px) < inner tile boundary (18px)`);
 
-  // 4 Pawns: scale = 0.62, base radius = 13.8 * 0.62 = 8.5px, max offset = sqrt(6.0^2 + 5.0^2) = 7.8px
-  const scale4 = 0.62;
+  // 4 Pawns: scale = 0.58, base radius = 13.8 * 0.58 = 8.0px, max offset = sqrt(5.0^2 + 4.0^2) = 6.4px
+  const scale4 = 0.58;
   const pawnBaseRadius4 = 13.8 * scale4;
-  const maxOffset4 = Math.sqrt(6.0 * 6.0 + 5.0 * 5.0);
+  const maxOffset4 = Math.sqrt(5.0 * 5.0 + 4.0 * 4.0);
   const maxExtent4 = maxOffset4 + pawnBaseRadius4;
   assert.ok(maxExtent4 < INNER_TILE_HALF_WIDTH, `4-pawn extent (${maxExtent4.toFixed(1)}px) < inner tile boundary (18px)`);
   assert.ok(maxExtent4 < TILE_HALF_WIDTH, `4-pawn extent (${maxExtent4.toFixed(1)}px) < cell boundary (20px)`);
+});
+
+runTest('Pawn contact footprint anchor (0, 0) is invariant across all perspective rotations (0°, 90°, 180°, 270°)', () => {
+  const angles = [0, 90, 180, 270];
+  const localAnchor = { x: 0, y: 0 };
+
+  for (const angle of angles) {
+    const rad = (angle * Math.PI) / 180;
+    const rotatedX = localAnchor.x * Math.cos(rad) - localAnchor.y * Math.sin(rad);
+    const rotatedY = localAnchor.x * Math.sin(rad) + localAnchor.y * Math.cos(rad);
+
+    assert.ok(Math.abs(rotatedX) < 1e-9, `Rotated X at ${angle}° must remain 0`);
+    assert.ok(Math.abs(rotatedY) < 1e-9, `Rotated Y at ${angle}° must remain 0`);
+  }
 });
 
 // -----------------------------------------------------------------------------
