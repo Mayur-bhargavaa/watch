@@ -142,59 +142,59 @@ const COLOR_CONFIG: Record<LudoColor, {
 }> = {
   red: {
     name: 'Red',
-    fill: '#e11d48',
-    border: '#be123c',
-    light: '#ffe4e6',
-    glow: 'rgba(255, 46, 121, 0.75)',
-    neon: '#ff2e79',
-    yardBg: '#881337',
-    yardBorder: '#fda4af',
-    homeRow: '#e11d48',
-    dotColor: 'bg-rose-500',
-    gradientStart: '#fb7185',
-    gradientEnd: '#9f1239'
+    fill: '#b91c1c',
+    border: '#7f1d1d',
+    light: '#fee2e2',
+    glow: 'rgba(185, 28, 28, 0.35)',
+    neon: '#dc2626',
+    yardBg: '#450a0a',
+    yardBorder: '#b91c1c',
+    homeRow: '#b91c1c',
+    dotColor: 'bg-red-600',
+    gradientStart: '#dc2626',
+    gradientEnd: '#7f1d1d'
   },
   blue: {
     name: 'Blue',
-    fill: '#2563eb',
-    border: '#1d4ed8',
-    light: '#e0f2fe',
-    glow: 'rgba(56, 189, 248, 0.75)',
-    neon: '#38bdf8',
-    yardBg: '#1e3a8a',
-    yardBorder: '#93c5fd',
-    homeRow: '#2563eb',
-    dotColor: 'bg-blue-500',
-    gradientStart: '#60a5fa',
-    gradientEnd: '#1e40af'
+    fill: '#1d4ed8',
+    border: '#1e3a8a',
+    light: '#dbeafe',
+    glow: 'rgba(29, 78, 216, 0.35)',
+    neon: '#2563eb',
+    yardBg: '#0f172a',
+    yardBorder: '#1d4ed8',
+    homeRow: '#1d4ed8',
+    dotColor: 'bg-blue-600',
+    gradientStart: '#2563eb',
+    gradientEnd: '#1e3a8a'
   },
   yellow: {
     name: 'Yellow',
-    fill: '#f59e0b',
-    border: '#d97706',
+    fill: '#b45309',
+    border: '#78350f',
     light: '#fef3c7',
-    glow: 'rgba(251, 191, 36, 0.75)',
-    neon: '#fbbf24',
-    yardBg: '#78350f',
-    yardBorder: '#fde68a',
-    homeRow: '#f59e0b',
-    dotColor: 'bg-amber-400',
-    gradientStart: '#fde047',
-    gradientEnd: '#b45309'
+    glow: 'rgba(180, 83, 9, 0.35)',
+    neon: '#d97706',
+    yardBg: '#361b04',
+    yardBorder: '#b45309',
+    homeRow: '#b45309',
+    dotColor: 'bg-amber-600',
+    gradientStart: '#d97706',
+    gradientEnd: '#78350f'
   },
   green: {
     name: 'Green',
-    fill: '#10b981',
-    border: '#059669',
+    fill: '#047857',
+    border: '#064e3b',
     light: '#d1fae5',
-    glow: 'rgba(52, 211, 153, 0.75)',
-    neon: '#34d399',
-    yardBg: '#064e3b',
-    yardBorder: '#a7f3d0',
-    homeRow: '#10b981',
-    dotColor: 'bg-emerald-500',
-    gradientStart: '#4ade80',
-    gradientEnd: '#047857'
+    glow: 'rgba(4, 120, 87, 0.35)',
+    neon: '#059669',
+    yardBg: '#022c22',
+    yardBorder: '#047857',
+    homeRow: '#047857',
+    dotColor: 'bg-emerald-600',
+    gradientStart: '#059669',
+    gradientEnd: '#064e3b'
   }
 };
 
@@ -989,7 +989,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
   // Render pixel-perfect 3D Astronaut pawn figurine matching the user reference
   const renderLuxuryPawn = (color: LudoColor, isLegal: boolean, isMyColor: boolean = false) => {
-    const neonColor = color === 'red' ? '#ff2e79' : color === 'blue' ? '#38bdf8' : color === 'green' ? '#34d399' : '#fbbf24';
+    const playerAccent = COLOR_CONFIG[color].neon;
     const pw = 35;
     const ph = 56; // pw * 1.6
 
@@ -1005,10 +1005,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               rx="15"
               ry="7.5"
               fill="none"
-              stroke={neonColor}
-              strokeWidth="1.4"
+              stroke={playerAccent}
+              strokeWidth="1.2"
               strokeDasharray="3, 2"
-              opacity="0.95"
+              opacity="0.85"
             />
           )}
 
@@ -1038,7 +1038,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             rx="14.5"
             ry="6.5"
             fill="none"
-            stroke="#fbbf24"
+            stroke="#d97706"
             strokeWidth="1.6"
             opacity="0.9"
             className="animate-pulse"
@@ -1064,7 +1064,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           <div className="relative z-20 flex flex-col items-center justify-between w-[76px] sm:w-20 md:w-24 py-2 sm:py-2.5 px-1 sm:px-2 rounded-2xl bg-[#0a0c16]/50 backdrop-blur-md border border-white/10 shadow-md">
             <div
               className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full border border-dashed flex items-center justify-center text-white/30 text-xs font-bold mb-1"
-              style={{ borderColor: `${cfg.neon}40`, backgroundColor: `${cfg.fill}15` }}
+              style={{ borderColor: `${cfg.border}60`, backgroundColor: `${cfg.fill}15` }}
             >
               <span className="text-white/30 text-xs">—</span>
             </div>
@@ -1115,8 +1115,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               : 'border-white/15 hover:border-white/25'
           }`}
           style={{
-            boxShadow: isCurrentTurn ? `0 0 20px ${cfg.glow}, 0 8px 25px rgba(0,0,0,0.7)` : undefined,
-            borderColor: isCurrentTurn ? cfg.neon : undefined
+            boxShadow: isCurrentTurn ? `0 0 14px ${cfg.glow}, 0 8px 25px rgba(0,0,0,0.7)` : undefined,
+            borderColor: isCurrentTurn ? cfg.border : undefined
           }}
         >
           {/* Nudge / menu button at top-right corner of card */}
@@ -1143,16 +1143,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </div>
             )}
 
-            {/* Glowing Neon Avatar Ring */}
+            {/* Refined Gemstone Avatar Ring */}
             <div
               className={`w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full p-0.5 border flex items-center justify-center transition-all ${
                 (isMe ? !isMicMuted : pStream?.isSpeaking)
-                  ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.9)]'
+                  ? 'ring-2 ring-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
                   : ''
               }`}
               style={{
-                borderColor: cfg.neon,
-                boxShadow: `0 0 10px ${cfg.glow}`,
+                borderColor: cfg.border,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
                 backgroundColor: '#0f111a'
               }}
             >
@@ -1190,7 +1190,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 Offline
               </span>
             ) : isCurrentTurn ? (
-              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-300 leading-none mt-0.5 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]">
+              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-300 leading-none mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                 {isMe ? 'Your Turn' : 'Thinking...'}
               </span>
             ) : isMe ? (
@@ -1215,14 +1215,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   key={tokenIdx}
                   className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-300 ${
                     isHome
-                      ? 'ring-1 ring-white shadow-[0_0_8px_#ffffff] bg-white'
+                      ? 'ring-1 ring-white shadow-[0_0_6px_#ffffff] bg-white'
                       : isOnBoard
-                      ? 'shadow-[0_0_6px_currentColor]'
+                      ? 'ring-1 ring-white/30 shadow-[0_1px_3px_rgba(0,0,0,0.5)]'
                       : 'opacity-40 border border-white/30'
                   }`}
                   style={{
                     backgroundColor: isHome ? '#ffffff' : isOnBoard ? cfg.neon : `${cfg.fill}35`,
-                    borderColor: cfg.neon,
+                    borderColor: cfg.border,
                     color: cfg.neon
                   }}
                   title={isHome ? 'Token Home!' : isOnBoard ? 'Token on Track' : 'Token in Yard'}
@@ -1357,31 +1357,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#000000" floodOpacity="0.6" />
                 </filter>
 
-                {/* Neon Glow Filters matching reference image */}
-                <filter id="neonGlowPink" x="-50%" y="-50%" width="200%" height="200%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#ff2e79" floodOpacity="0.9" />
-                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#ff2e79" floodOpacity="0.6" />
-                </filter>
-                <filter id="neonGlowBlue" x="-50%" y="-50%" width="200%" height="200%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#38bdf8" floodOpacity="0.9" />
-                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#38bdf8" floodOpacity="0.6" />
-                </filter>
-                <filter id="neonGlowGreen" x="-50%" y="-50%" width="200%" height="200%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#34d399" floodOpacity="0.9" />
-                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#34d399" floodOpacity="0.6" />
-                </filter>
-                <filter id="neonGlowGold" x="-50%" y="-50%" width="200%" height="200%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="#fbbf24" floodOpacity="0.9" />
-                  <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#fbbf24" floodOpacity="0.6" />
-                </filter>
-                <filter id="neonGlowRedCenter" x="-60%" y="-60%" width="220%" height="220%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ff1744" floodOpacity="0.95" />
-                  <feDropShadow dx="0" dy="0" stdDeviation="12" floodColor="#ff2e79" floodOpacity="0.75" />
-                </filter>
-
                 {/* 3D Star Glow and Pedestal Shadow Filters */}
                 <filter id="starGoldGlow" x="-40%" y="-40%" width="180%" height="180%">
-                  <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#fbbf24" floodOpacity="0.9" />
+                  <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="#d97706" floodOpacity="0.5" />
                   <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#000000" floodOpacity="0.6" />
                 </filter>
                 <filter id="pedestalRingShadow" x="-30%" y="-30%" width="160%" height="160%">
@@ -1419,23 +1397,23 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                 {/* Colored Stone Tile Gradients */}
                 <linearGradient id="rubyTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fb7185" />
-                  <stop offset="40%" stopColor="#e11d48" />
-                  <stop offset="100%" stopColor="#881337" />
+                  <stop offset="0%" stopColor="#b91c1c" />
+                  <stop offset="40%" stopColor="#991b1b" />
+                  <stop offset="100%" stopColor="#450a0a" />
                 </linearGradient>
                 <linearGradient id="sapphireTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#60a5fa" />
-                  <stop offset="40%" stopColor="#2563eb" />
+                  <stop offset="0%" stopColor="#2563eb" />
+                  <stop offset="40%" stopColor="#1d4ed8" />
                   <stop offset="100%" stopColor="#1e3a8a" />
                 </linearGradient>
                 <linearGradient id="emeraldTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#4ade80" />
-                  <stop offset="40%" stopColor="#10b981" />
+                  <stop offset="0%" stopColor="#059669" />
+                  <stop offset="40%" stopColor="#047857" />
                   <stop offset="100%" stopColor="#064e3b" />
                 </linearGradient>
                 <linearGradient id="amberTileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#fde047" />
-                  <stop offset="40%" stopColor="#f59e0b" />
+                  <stop offset="0%" stopColor="#d97706" />
+                  <stop offset="40%" stopColor="#b45309" />
                   <stop offset="100%" stopColor="#78350f" />
                 </linearGradient>
 
@@ -1595,9 +1573,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 <g style={{ opacity: isColorInGame('red') ? 1 : 0.28, filter: isColorInGame('red') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="10" y="10" width="220" height="220" rx="22" fill="url(#rubyYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
                   <rect x="14" y="14" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
-                  <rect x="17" y="17" width="206" height="206" rx="15" fill="none" stroke="#ff2e79" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
+                  <rect x="17" y="17" width="206" height="206" rx="15" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="120" cy="120" r="82" fill="none" stroke="#ff2e79" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="120" cy="120" r="82" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.5" opacity="0.25" />
                   <circle cx="120" cy="120" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
                   {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
@@ -1615,9 +1593,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(120, 120) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
-                    <circle cx="0" cy="0" r="38" fill="none" stroke="#ff2e79" strokeWidth="1.4" opacity="0.45" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.4)">
-                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(255, 46, 121, 0.22)" opacity="0.9" />
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(185, 28, 28, 0.2)" opacity="0.9" />
                       <path
                         d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
                         fill="#000000"
@@ -1630,9 +1608,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         stroke="#543b0d"
                         strokeWidth="0.8"
                       />
-                      <circle cx="-10" cy="7.5" r="1.5" fill="#ff2e79" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#b91c1c" stroke="#fffdf0" strokeWidth="0.4" />
                       <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
-                      <circle cx="10" cy="7.5" r="1.5" fill="#ff2e79" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#b91c1c" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
                         d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
                         fill="url(#baroqueGoldGrad)"
@@ -1647,7 +1625,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
                       <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
                       <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
-                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#ff2e79" stroke="#fffdf0" strokeWidth="0.4" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#b91c1c" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
@@ -1657,7 +1635,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#rubyYardGrad)" stroke="#ff2e79" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#rubyYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.85" />
                       <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
                       <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
@@ -1668,9 +1646,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 <g style={{ opacity: isColorInGame('blue') ? 1 : 0.28, filter: isColorInGame('blue') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="370" y="10" width="220" height="220" rx="22" fill="url(#sapphireYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
                   <rect x="374" y="14" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
-                  <rect x="377" y="17" width="206" height="206" rx="15" fill="none" stroke="#38bdf8" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
+                  <rect x="377" y="17" width="206" height="206" rx="15" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="480" cy="120" r="82" fill="none" stroke="#38bdf8" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="480" cy="120" r="82" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.5" opacity="0.25" />
                   <circle cx="480" cy="120" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
                   {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
@@ -1688,9 +1666,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(480, 120) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
-                    <circle cx="0" cy="0" r="38" fill="none" stroke="#38bdf8" strokeWidth="1.4" opacity="0.45" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.4)">
-                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(56, 189, 248, 0.22)" opacity="0.9" />
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(29, 78, 216, 0.2)" opacity="0.9" />
                       <path
                         d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
                         fill="#000000"
@@ -1703,9 +1681,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         stroke="#543b0d"
                         strokeWidth="0.8"
                       />
-                      <circle cx="-10" cy="7.5" r="1.5" fill="#38bdf8" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#1d4ed8" stroke="#fffdf0" strokeWidth="0.4" />
                       <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
-                      <circle cx="10" cy="7.5" r="1.5" fill="#38bdf8" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#1d4ed8" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
                         d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
                         fill="url(#baroqueGoldGrad)"
@@ -1720,7 +1698,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
                       <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
                       <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
-                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#38bdf8" stroke="#fffdf0" strokeWidth="0.4" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#1d4ed8" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
@@ -1730,7 +1708,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#sapphireYardGrad)" stroke="#38bdf8" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#sapphireYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.85" />
                       <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
                       <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
@@ -1741,9 +1719,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 <g style={{ opacity: isColorInGame('green') ? 1 : 0.28, filter: isColorInGame('green') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="10" y="370" width="220" height="220" rx="22" fill="url(#emeraldYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
                   <rect x="14" y="374" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
-                  <rect x="17" y="377" width="206" height="206" rx="15" fill="none" stroke="#10b981" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
+                  <rect x="17" y="377" width="206" height="206" rx="15" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="120" cy="480" r="82" fill="none" stroke="#10b981" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="120" cy="480" r="82" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.5" opacity="0.25" />
                   <circle cx="120" cy="480" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
                   {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
@@ -1761,9 +1739,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(120, 480) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
-                    <circle cx="0" cy="0" r="38" fill="none" stroke="#10b981" strokeWidth="1.4" opacity="0.45" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.4)">
-                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(52, 211, 153, 0.22)" opacity="0.9" />
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(4, 120, 87, 0.2)" opacity="0.9" />
                       <path
                         d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
                         fill="#000000"
@@ -1776,9 +1754,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         stroke="#543b0d"
                         strokeWidth="0.8"
                       />
-                      <circle cx="-10" cy="7.5" r="1.5" fill="#10b981" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#047857" stroke="#fffdf0" strokeWidth="0.4" />
                       <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
-                      <circle cx="10" cy="7.5" r="1.5" fill="#10b981" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#047857" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
                         d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
                         fill="url(#baroqueGoldGrad)"
@@ -1793,7 +1771,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
                       <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
                       <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
-                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#10b981" stroke="#fffdf0" strokeWidth="0.4" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#047857" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
@@ -1803,7 +1781,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#emeraldYardGrad)" stroke="#10b981" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#emeraldYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.85" />
                       <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
                       <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
@@ -1814,9 +1792,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 <g style={{ opacity: isColorInGame('yellow') ? 1 : 0.28, filter: isColorInGame('yellow') ? undefined : 'grayscale(55%)', transition: 'opacity 0.4s ease, filter 0.4s ease' }}>
                   <rect x="370" y="370" width="220" height="220" rx="22" fill="url(#amberYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="3.2" filter="url(#trayInnerShadow)" />
                   <rect x="374" y="374" width="212" height="212" rx="18" fill="none" stroke="#fff8db" strokeWidth="1.0" opacity="0.75" />
-                  <rect x="377" y="377" width="206" height="206" rx="15" fill="none" stroke="#f59e0b" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
+                  <rect x="377" y="377" width="206" height="206" rx="15" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.45" strokeDasharray="4, 3" />
                   {/* Concentric ornamental quadrant arcs */}
-                  <circle cx="480" cy="480" r="82" fill="none" stroke="#f59e0b" strokeWidth="0.5" opacity="0.25" />
+                  <circle cx="480" cy="480" r="82" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.5" opacity="0.25" />
                   <circle cx="480" cy="480" r="54" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.6" opacity="0.3" strokeDasharray="3, 3" />
 
                   {/* 4 Ornate Gold Corner Filigree Brackets inside yard */}
@@ -1834,9 +1812,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   {/* Embossed Royal Crown Crest in Yard Center matching Image 2 */}
                   <g transform={`translate(480, 480) rotate(${-boardRotation})`}>
                     <circle cx="0" cy="0" r="46" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" strokeDasharray="4, 3" opacity="0.7" />
-                    <circle cx="0" cy="0" r="38" fill="none" stroke="#fbbf24" strokeWidth="1.4" opacity="0.45" />
+                    <circle cx="0" cy="0" r="38" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="1.2" opacity="0.5" />
                     <g transform="scale(1.4)">
-                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(251, 191, 36, 0.22)" opacity="0.9" />
+                      <ellipse cx="0" cy="-3" rx="26" ry="15" fill="rgba(180, 83, 9, 0.2)" opacity="0.9" />
                       <path
                         d="M -22,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 22,5 Z"
                         fill="#000000"
@@ -1849,9 +1827,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         stroke="#543b0d"
                         strokeWidth="0.8"
                       />
-                      <circle cx="-10" cy="7.5" r="1.5" fill="#fbbf24" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="-10" cy="7.5" r="1.5" fill="#b45309" stroke="#fffdf0" strokeWidth="0.4" />
                       <circle cx="0" cy="8.5" r="1.8" fill="#fffdf0" stroke="#543b0d" strokeWidth="0.4" />
-                      <circle cx="10" cy="7.5" r="1.5" fill="#fbbf24" stroke="#fffdf0" strokeWidth="0.4" />
+                      <circle cx="10" cy="7.5" r="1.5" fill="#b45309" stroke="#fffdf0" strokeWidth="0.4" />
                       <path
                         d="M -21,5 L -19,-11 L -9,-3 L 0,-17 L 9,-3 L 19,-11 L 21,5 C 11,7.5 -11,7.5 -21,5 Z"
                         fill="url(#baroqueGoldGrad)"
@@ -1866,7 +1844,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx="0" cy="-17" r="2.6" fill="#fffdf0" stroke="#78350f" strokeWidth="0.6" />
                       <circle cx="9" cy="-3" r="1.7" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
                       <circle cx="19" cy="-11" r="2.0" fill="#fffdf0" stroke="#78350f" strokeWidth="0.5" />
-                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#fbbf24" stroke="#fffdf0" strokeWidth="0.4" />
+                      <path d="M 0,-9 L -3,-3 L 0,3 L 3,-3 Z" fill="#b45309" stroke="#fffdf0" strokeWidth="0.4" />
                     </g>
                   </g>
 
@@ -1876,7 +1854,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       <circle cx={socket.x} cy={socket.y} r="20" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="18.5" fill="none" stroke="#fff8db" strokeWidth="0.8" opacity="0.8" />
                       <circle cx={socket.x} cy={socket.y} r="16.5" fill="#080a10" filter="url(#recessedSaucerShadow)" />
-                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#amberYardGrad)" stroke="#f59e0b" strokeWidth="0.8" opacity="0.85" />
+                      <circle cx={socket.x} cy={socket.y} r="14.5" fill="url(#amberYardGrad)" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" opacity="0.85" />
                       <circle cx={socket.x} cy={socket.y} r="11" fill="none" stroke="url(#baroqueGoldGrad)" strokeWidth="0.8" strokeDasharray="2.5, 2" opacity="0.6" />
                       <circle cx={socket.x} cy={socket.y} r="2.8" fill="url(#baroqueGoldGrad)" stroke="#fff8db" strokeWidth="0.4" />
                     </g>
@@ -1894,10 +1872,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 let fill = 'url(#marbleTileGrad)';
                 let stroke = '#c8bcab';
 
-                if (isRedStart) { fill = 'url(#rubyTileGrad)'; stroke = '#f43f5e'; }
-                else if (isBlueStart) { fill = 'url(#sapphireTileGrad)'; stroke = '#3b82f6'; }
-                else if (isYellowStart) { fill = 'url(#amberTileGrad)'; stroke = '#eab308'; }
-                else if (isGreenStart) { fill = 'url(#emeraldTileGrad)'; stroke = '#10b981'; }
+                if (isRedStart) { fill = 'url(#rubyTileGrad)'; stroke = '#b91c1c'; }
+                else if (isBlueStart) { fill = 'url(#sapphireTileGrad)'; stroke = '#1d4ed8'; }
+                else if (isYellowStart) { fill = 'url(#amberTileGrad)'; stroke = '#b45309'; }
+                else if (isGreenStart) { fill = 'url(#emeraldTileGrad)'; stroke = '#047857'; }
 
                 const tileX = c * 40 + 2;
                 const tileY = r * 40 + 2;
@@ -2017,7 +1995,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         width="36"
                         height="36"
                         fill="url(#rubyTileGrad)"
-                        stroke="#fb7185"
+                        stroke="#991b1b"
                         strokeWidth="1"
                         rx="5"
                       />
@@ -2050,7 +2028,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         width="36"
                         height="36"
                         fill="url(#sapphireTileGrad)"
-                        stroke="#60a5fa"
+                        stroke="#1e40af"
                         strokeWidth="1"
                         rx="5"
                       />
@@ -2083,7 +2061,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         width="36"
                         height="36"
                         fill="url(#amberTileGrad)"
-                        stroke="#facc15"
+                        stroke="#b45309"
                         strokeWidth="1"
                         rx="5"
                       />
@@ -2116,7 +2094,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                         width="36"
                         height="36"
                         fill="url(#emeraldTileGrad)"
-                        stroke="#4ade80"
+                        stroke="#065f46"
                         strokeWidth="1"
                         rx="5"
                       />
@@ -2190,9 +2168,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   />
                   {/* Crown Base Band with Gem Insets */}
                   <rect x="-14" y="8" width="28" height="4.5" rx="1.5" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.8" />
-                  <circle cx="-8" cy="10.2" r="1.2" fill="#ff2e79" stroke="#fff8db" strokeWidth="0.3" />
-                  <circle cx="0" cy="10.2" r="1.4" fill="#38bdf8" stroke="#fff8db" strokeWidth="0.3" />
-                  <circle cx="8" cy="10.2" r="1.2" fill="#34d399" stroke="#fff8db" strokeWidth="0.3" />
+                  <circle cx="-8" cy="10.2" r="1.2" fill="#b91c1c" stroke="#fff8db" strokeWidth="0.3" />
+                  <circle cx="0" cy="10.2" r="1.4" fill="#1d4ed8" stroke="#fff8db" strokeWidth="0.3" />
+                  <circle cx="8" cy="10.2" r="1.2" fill="#047857" stroke="#fff8db" strokeWidth="0.3" />
                   {/* 5 Crown Peak Pearls */}
                   <circle cx="-11" cy="-6" r="1.4" fill="#ffffff" stroke="#543b0d" strokeWidth="0.4" />
                   <circle cx="-5" cy="-1" r="1.1" fill="#fff8db" stroke="#543b0d" strokeWidth="0.3" />
@@ -2404,12 +2382,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         </div>
       </div>
 
-        {/* BOTTOM CONTROLS MATCHING REFERENCE IMAGE (Undo button, Large Glowing Red Dice, Emoji button) */}
+        {/* BOTTOM CONTROLS (Undo button, Luxury Crimson & Gold Dice Button, Emoji button) */}
         <div className="w-full flex flex-col items-center mt-4 sm:mt-5 max-w-xs sm:max-w-sm px-2 z-20">
-          <div className="text-rose-200/90 font-sans font-bold text-xs sm:text-sm tracking-wider uppercase mb-2 text-center select-none drop-shadow-[0_0_8px_rgba(255,46,121,0.5)]">
+          <div className="text-amber-100/90 font-sans font-bold text-xs sm:text-sm tracking-wider uppercase mb-2 text-center select-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
             {gameState.winnerColor ? (
               <span className="inline-flex items-center justify-center gap-1.5">
-                <Trophy className="w-4 h-4 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]" />
+                <Trophy className="w-4 h-4 text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" />
                 <span>{gameState.winnerColor.toUpperCase()} Won the Match!</span>
               </span>
             ) : turnPlayer && !turnPlayer.isConnected ? (
@@ -2448,7 +2426,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </span>
             </div>
 
-            {/* 2. Center: Large Circular Glowing Button with 3D Red Cube Dice */}
+            {/* 2. Center: Large Circular Button with 3D Crimson Cube Dice */}
             <div className="flex flex-col items-center gap-1.5">
               <button
                 type="button"
@@ -2468,26 +2446,26 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 }}
                 className={`w-18 h-18 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer active:scale-95 ${
                   canRoll
-                    ? 'bg-gradient-to-br from-[#ff2e79] via-[#e11d48] to-[#9f1239] shadow-[0_0_35px_rgba(255,46,121,0.85),0_10px_25px_rgba(0,0,0,0.6)] border-2 border-rose-300/60 animate-pulse'
+                    ? 'bg-gradient-to-br from-[#b91c1c] via-[#991b1b] to-[#7f1d1d] shadow-[0_10px_25px_rgba(0,0,0,0.6),0_0_20px_rgba(185,28,28,0.4)] border-2 border-amber-400/60 animate-pulse'
                     : canMove
-                    ? 'bg-gradient-to-br from-[#ff2e79] via-[#e11d48] to-[#9f1239] shadow-[0_0_25px_rgba(255,46,121,0.6),0_10px_25px_rgba(0,0,0,0.6)] border-2 border-rose-300/40'
+                    ? 'bg-gradient-to-br from-[#b91c1c] via-[#991b1b] to-[#7f1d1d] shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-amber-400/40'
                     : gameState.winnerColor
-                    ? 'bg-gradient-to-br from-[#f59e0b] via-[#d97706] to-[#b45309] shadow-[0_0_25px_rgba(245,158,11,0.7)] border-2 border-amber-300/60 animate-bounce'
+                    ? 'bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#78350f] shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-amber-300/60 animate-bounce'
                     : justNudged
-                    ? 'bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 shadow-[0_0_25px_rgba(16,185,129,0.7)] border-2 border-emerald-300/60'
-                    : 'bg-gradient-to-br from-[#e11d48]/70 via-[#9f1239]/70 to-[#50071c]/80 shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-white/20 hover:brightness-110'
+                    ? 'bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-900 shadow-[0_10px_25px_rgba(0,0,0,0.6)] border-2 border-emerald-400/60'
+                    : 'bg-gradient-to-br from-[#2a1318] via-[#1a0b0e] to-[#0f0709] shadow-[0_4px_20px_rgba(0,0,0,0.5)] border border-amber-500/20 hover:border-amber-500/40'
                 }`}
               >
-                {/* 3D Glossy Red Cube with White Pips */}
-                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#ff4777] to-[#be123c] border border-white/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu">
+                {/* 3D Royal Crimson Cube with Gold-Tinted Pip Trim */}
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#7f1d1d] border border-amber-200/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu">
                   {renderDiceFace(gameState.diceValue || 6, 'sm')}
                 </div>
               </button>
 
-              {/* Bold Glowing Label */}
-              <span className={`text-[11px] sm:text-xs font-black tracking-widest uppercase drop-shadow-[0_0_8px_rgba(255,46,121,0.7)] ${
+              {/* Bold Label */}
+              <span className={`text-[11px] sm:text-xs font-black tracking-widest uppercase drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] ${
                 canRoll
-                  ? 'text-rose-300 animate-pulse'
+                  ? 'text-amber-300 animate-pulse'
                   : canMove
                   ? 'text-amber-300'
                   : justNudged
