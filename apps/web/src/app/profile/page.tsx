@@ -478,9 +478,9 @@ function ProfileContent() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. CINEMA PASS ROW (ALL DETAILS IN A SINGLE ROW)                          */}
+        {/* 3. TWO CONTAINERS: 1) PROFILE & DETAILS  2) 3D FLIP PASS                 */}
         {/* ========================================================================= */}
-        <div className="w-full max-w-6xl mx-auto py-2 space-y-4">
+        <div className="w-full max-w-7xl mx-auto py-2 space-y-4">
           
           {/* Notifications */}
           {saveSuccess && (
@@ -497,290 +497,80 @@ function ProfileContent() {
             </div>
           )}
 
-          {/* 3D FLIP PASS CONTAINER */}
-          <div className="perspective-1000 w-full select-none">
-            <div
-              className={`relative w-full transition-transform duration-700 transform-style-3d ${
-                isFlipped ? 'rotate-y-180' : ''
-              }`}
-            >
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            {/* ===================================================================== */}
+            {/* CONTAINER 1: IMAGE, NAME & ALL PROFILE DETAILS                        */}
+            {/* ===================================================================== */}
+            <div className="lg:col-span-5 rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 p-6 sm:p-7 shadow-sm flex flex-col items-center text-center space-y-4">
               
-              {/* ================= CARD FRONT: ALL PASS DETAILS ================= */}
-              <div className="backface-hidden relative rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col lg:flex-row items-stretch">
-                
-                {/* Top Red Accent Strip */}
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600" />
-
-                {/* Left Section: Avatar with Round Border & Camera Icon */}
-                <div className="p-6 sm:p-7 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-white/[0.01]">
-                  <div className="relative group">
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
-                      <img
-                        src={avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
-                        alt={displayName || 'Persona'}
-                        className="w-full h-full object-cover object-center"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowAvatarModal(true);
-                      }}
-                      className="absolute bottom-0 right-0 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg transition flex items-center justify-center border-2 border-white dark:border-[#14151b] active:scale-95"
-                      title="Change Avatar"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>CINEMA VIP</span>
-                  </div>
+              {/* Circular Avatar with Round Border & Camera Icon */}
+              <div className="relative group">
+                <div className="w-28 h-28 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
+                  <img
+                    src={avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
+                    alt={displayName || 'Persona'}
+                    className="w-full h-full object-cover object-center"
+                  />
                 </div>
 
-                {/* Middle Section: All Details In One Horizontal Flow Across Columns */}
-                <div className="flex-1 p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-center">
-                  
-                  {/* Detail 1: Pass Holder */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                      <User className="w-3 h-3 text-rose-600" />
-                      <span>Pass Holder</span>
-                    </div>
-                    <div className="text-lg font-black text-slate-900 dark:text-white truncate">
-                      {session.user.displayName || 'User'}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-                      <Mail className="w-3 h-3 shrink-0 text-slate-400" />
-                      <span className="truncate">{session.user.email || 'cinema@stitchbyte.com'}</span>
-                    </div>
-                  </div>
-
-                  {/* Detail 2: Age & Birthdate */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-rose-600" />
-                      <span>Age & Birthdate</span>
-                    </div>
-                    <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                      {calculatedAge !== null ? (
-                        <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs">
-                          🎂 {calculatedAge} years old
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-400 font-medium">Age not set</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-zinc-400">
-                      {dateOfBirth ? `Born: ${dateOfBirth}` : 'Click edit to set DOB'}
-                    </div>
-                  </div>
-
-                  {/* Detail 3: Relationship */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                      <Heart className="w-3 h-3 text-rose-600 fill-rose-600/30" />
-                      <span>Relationship</span>
-                    </div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white">
-                      {session.user.isMarried ? '💍 Married' : 'Single'}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-zinc-400 truncate">
-                      {isMarried && anniversaryDuration
-                        ? anniversaryDuration
-                        : isMarried && anniversaryDate
-                        ? `Since ${anniversaryDate}`
-                        : 'Solo Cinema Member'}
-                    </div>
-                  </div>
-
-                  {/* Detail 4: Partner Pass Code */}
-                  <div className="space-y-1.5">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-amber-500" />
-                      <span>Partner Pass Code</span>
-                    </div>
-                    <div className="inline-flex items-center gap-2 p-2 px-3 rounded-xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
-                      <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400 tracking-wider">
-                        {session.user.partnerCode || 'SYNC-VIP'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyPartnerCode();
-                        }}
-                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition"
-                        title="Copy Partner Code"
-                      >
-                        {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    <div className="text-[10px] text-slate-400 dark:text-zinc-500">
-                      Share to sync watch rooms
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Right Pass Stub / Actions */}
-                <div className="p-6 sm:p-7 border-t lg:border-t-0 lg:border-l border-dashed border-slate-200 dark:border-white/10 flex flex-row lg:flex-col items-center justify-between gap-3 bg-slate-50/40 dark:bg-white/[0.01] shrink-0">
-                  
-                  {/* Flip Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsFlipped(true)}
-                    className="w-full py-2 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 font-semibold text-xs transition active:scale-95 flex items-center justify-center gap-1.5 border border-slate-200 dark:border-white/10"
-                    title="Flip Card to View Privileges"
-                  >
-                    <RotateCw className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Flip Pass</span>
-                  </button>
-
-                  {/* Edit Details Action Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowEditModal(true);
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <Sliders className="w-3.5 h-3.5" />
-                    <span>Edit Details</span>
-                  </button>
-                </div>
-
-              </div>
-
-              {/* ================= CARD BACK: VIP PRIVILEGES & SECURITY ================= */}
-              <div className="backface-hidden rotate-y-180 absolute inset-0 rounded-3xl bg-slate-900 text-white border border-slate-700/80 dark:border-white/15 shadow-xl overflow-hidden flex flex-col lg:flex-row items-stretch">
-                
-                {/* Magnetic Strip Header */}
-                <div className="absolute top-0 inset-x-0 h-2 bg-black/90" />
-
-                {/* Left: Security Chip & Tier */}
-                <div className="p-6 sm:p-7 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-white/10 shrink-0 bg-black/30">
-                  {/* EMV Gold Smart Chip */}
-                  <div className="w-12 h-9 rounded-lg bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 border border-yellow-100/60 shadow-md flex flex-col justify-between p-1.5">
-                    <div className="flex justify-between">
-                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
-                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
-                    </div>
-                    <div className="h-px w-full bg-amber-900/40" />
-                    <div className="flex justify-between">
-                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
-                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-1.5 text-amber-300 text-[10px] font-mono font-black uppercase tracking-wider">
-                    <Wifi className="w-3 h-3 rotate-90" />
-                    <span>TIER 1 VIP</span>
-                  </div>
-                </div>
-
-                {/* Middle: Signature & VIP Perks */}
-                <div className="flex-1 p-6 sm:p-7 flex flex-col justify-center space-y-4">
-                  
-                  {/* Authorized Signature Panel */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-8 rounded-lg bg-white/95 text-zinc-900 flex items-center px-4 font-mono font-bold text-xs tracking-wider shadow-inner">
-                      <span>{session.user.displayName || 'Authorized Member'}</span>
-                      <span className="ml-auto text-[9px] text-zinc-400 font-sans uppercase">Authorized</span>
-                    </div>
-                    <div className="px-3 py-1.5 rounded-lg bg-black/60 border border-white/20 font-mono text-xs font-black text-amber-300">
-                      4K-VIP
-                    </div>
-                  </div>
-
-                  {/* 3 VIP Privileges */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-zinc-300">
-                    <div className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                      <span className="text-[11px] font-medium">Zero-latency 4K sync</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                      <span className="text-[11px] font-medium">Duo Love-Seat streams</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                      <span className="text-[11px] font-medium">Unlimited Arcade Lounge</span>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Right: Flip Back Action & Barcode */}
-                <div className="p-6 sm:p-7 border-t lg:border-t-0 lg:border-l border-dashed border-white/10 flex flex-row lg:flex-col items-center justify-between gap-3 bg-black/30 shrink-0">
-                  
-                  {/* Mini Barcode */}
-                  <div className="flex flex-col items-center space-y-1 select-none">
-                    <div className="h-6 flex items-center space-x-1 opacity-80">
-                      <div className="w-1 h-full bg-white" />
-                      <div className="w-0.5 h-full bg-white" />
-                      <div className="w-2 h-full bg-white" />
-                      <div className="w-0.5 h-full bg-white" />
-                      <div className="w-1.5 h-full bg-white" />
-                      <div className="w-0.5 h-full bg-white" />
-                      <div className="w-2 h-full bg-white" />
-                    </div>
-                    <span className="font-mono text-[8px] tracking-widest text-zinc-400 uppercase">
-                      STITCHBYTE PASS
-                    </span>
-                  </div>
-
-                  {/* Flip Back Button */}
-                  <button
-                    type="button"
-                    onClick={() => setIsFlipped(false)}
-                    className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 text-zinc-900 font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <RotateCw className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Flip Front</span>
-                  </button>
-                </div>
-
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-        {/* Edit Details Modal */}
-        {showEditModal && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-[#181922] border border-slate-200 dark:border-white/10 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-black text-slate-900 dark:text-white">Edit Profile Details</h3>
                 <button
                   type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm transition"
+                  onClick={() => setShowAvatarModal(true)}
+                  className="absolute bottom-0 right-0 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg transition flex items-center justify-center border-2 border-white dark:border-[#14151b] active:scale-95"
+                  title="Change Avatar"
                 >
-                  ✕
+                  <Camera className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <form
-                onSubmit={async (e) => {
-                  await handleSaveProfile(e);
-                  setShowEditModal(false);
-                }}
-                className="space-y-4 text-left"
-              >
+              {/* VIP Live Badge */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>CINEMA VIP LIVE</span>
+              </div>
+
+              {/* Name & Email */}
+              <div>
+                <h1 className="text-xl font-black text-slate-900 dark:text-white">
+                  {session.user.displayName || 'User'}
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                  {session.user.email || 'cinema@stitchbyte.com'}
+                </p>
+              </div>
+
+              {/* All Details (Form Fields) */}
+              <form onSubmit={handleSaveProfile} className="w-full space-y-3.5 text-left pt-2">
+                
+                {/* Partner Sync Code */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
+                    Partner Sync Code
+                  </label>
+                  <div className="flex items-center justify-between p-2.5 px-3 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
+                    <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400">
+                      {session.user.partnerCode || 'SYNC-VIP'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyPartnerCode}
+                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition"
+                      title="Copy Partner Code"
+                    >
+                      {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
                 {/* Display Name */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
                     Display Name
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
-                      <User className="w-4 h-4" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
+                      <User className="w-3.5 h-3.5" />
                     </div>
                     <input
                       type="text"
@@ -788,39 +578,39 @@ function ProfileContent() {
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       maxLength={30}
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
                     />
                   </div>
                 </div>
 
                 {/* Email Address */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
                     Email Address
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
-                      <Mail className="w-4 h-4" />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
+                      <Mail className="w-3.5 h-3.5" />
                     </div>
                     <input
                       type="email"
                       disabled
                       value={session.user.email || 'cinema@stitchbyte.com'}
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-zinc-400 text-xs font-medium cursor-not-allowed"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-100/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-zinc-400 text-xs font-medium cursor-not-allowed"
                     />
                   </div>
                 </div>
 
-                {/* Date of Birth */}
+                {/* Date of Birth & Age */}
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-rose-600" />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-rose-600" />
                       <span>Date of Birth</span>
                     </label>
                     {calculatedAge !== null && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        🎂 {calculatedAge} years old
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                        🎂 {calculatedAge} yrs
                       </span>
                     )}
                   </div>
@@ -829,20 +619,20 @@ function ProfileContent() {
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
                     max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
                   />
                 </div>
 
                 {/* Relationship Status */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
                     Relationship Status
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => { setIsMarried(false); setAnniversaryDate(''); }}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
                         !isMarried
                           ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                           : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
@@ -853,7 +643,7 @@ function ProfileContent() {
                     <button
                       type="button"
                       onClick={() => setIsMarried(true)}
-                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
                         isMarried
                           ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                           : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
@@ -864,16 +654,16 @@ function ProfileContent() {
                   </div>
                 </div>
 
-                {/* Anniversary Date */}
+                {/* Anniversary Date (if married) */}
                 {isMarried && (
-                  <div className="p-3.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-1.5 animate-in fade-in">
+                  <div className="p-3 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-1 animate-in fade-in">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
-                        <Heart className="w-3.5 h-3.5 fill-current text-rose-600" />
+                      <label className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
+                        <Heart className="w-3 h-3 fill-current text-rose-600" />
                         <span>Anniversary Date</span>
                       </label>
                       {anniversaryDuration && (
-                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-300">
+                        <span className="text-[9px] font-bold text-rose-600 dark:text-rose-300">
                           {anniversaryDuration}
                         </span>
                       )}
@@ -884,42 +674,201 @@ function ProfileContent() {
                       value={anniversaryDate}
                       onChange={(e) => setAnniversaryDate(e.target.value)}
                       max={new Date().toISOString().split('T')[0]}
-                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-black/50 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-black/50 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
                     />
                   </div>
                 )}
 
-                {/* Submit button */}
-                <div className="pt-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowEditModal(false)}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300 font-bold text-xs transition hover:bg-slate-200"
-                  >
-                    Cancel
-                  </button>
+                {/* Save Changes Button */}
+                <div className="pt-2">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 flex items-center justify-center gap-2"
                   >
                     {saving ? (
                       <>
                         <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                        <span>Saving...</span>
+                        <span>Saving Changes...</span>
                       </>
                     ) : (
                       <>
                         <Save className="w-3.5 h-3.5" />
-                        <span>Save Changes</span>
+                        <span>Save Profile Details</span>
                       </>
                     )}
                   </button>
                 </div>
+
               </form>
             </div>
+
+            {/* ===================================================================== */}
+            {/* CONTAINER 2: 3D FLIP PASS                                             */}
+            {/* ===================================================================== */}
+            <div className="lg:col-span-7 flex flex-col justify-center">
+              <div className="perspective-1000 w-full select-none">
+                <div
+                  onClick={() => setIsFlipped(!isFlipped)}
+                  className={`relative w-full cursor-pointer transition-transform duration-700 transform-style-3d min-h-[360px] sm:min-h-[400px] ${
+                    isFlipped ? 'rotate-y-180' : ''
+                  }`}
+                >
+                  
+                  {/* CARD FRONT: TITANIUM VIP PASS */}
+                  <div className="backface-hidden absolute inset-0 rounded-3xl p-7 text-white overflow-hidden shadow-xl bg-gradient-to-br from-[#12131c] via-[#1a121d] to-[#0c0d12] border border-rose-500/40 flex flex-col justify-between">
+                    
+                    {/* Top Accent Sheen */}
+                    <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600" />
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-rose-600/20 rounded-full blur-3xl pointer-events-none" />
+
+                    {/* Top Row: Brand & Wireless NFC */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="p-2 bg-gradient-to-br from-rose-600 to-red-700 rounded-xl text-white shadow-lg shadow-rose-600/40">
+                          <Film className="w-4 h-4 fill-current" />
+                        </div>
+                        <div className="flex flex-col leading-none">
+                          <span className="text-sm font-black tracking-widest uppercase text-white flex items-center gap-1.5">
+                            STITCHBYTE <span className="text-rose-500 text-xs font-black">TITANIUM</span>
+                          </span>
+                          <span className="text-[8.5px] font-extrabold text-rose-300/80 tracking-widest uppercase mt-0.5">
+                            All-Access Cinema VIP Pass
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Wifi className="w-4 h-4 text-amber-300 rotate-90" />
+                        <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-black/50 border border-amber-400/40 text-amber-300 font-black tracking-widest shadow-inner">
+                          TIER 1
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Middle Row: Gold Chip & Tap To Flip indicator */}
+                    <div className="flex items-center justify-between my-auto py-4">
+                      <div className="flex items-center gap-3.5">
+                        {/* EMV Smart Chip */}
+                        <div className="w-12 h-9 rounded-lg bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 border border-yellow-100/60 shadow-md flex flex-col justify-between p-1.5">
+                          <div className="flex justify-between">
+                            <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                            <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                          </div>
+                          <div className="h-px w-full bg-amber-900/40" />
+                          <div className="flex justify-between">
+                            <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                            <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col">
+                          <span className="text-[9px] font-mono font-bold text-zinc-400 tracking-wider">
+                            TAP PASS TO FLIP
+                          </span>
+                          <span className="text-[8.5px] text-amber-300 font-mono flex items-center gap-1 mt-0.5">
+                            <RotateCw className="w-2.5 h-2.5" /> 3D AUTHENTICATED
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-amber-300">
+                        <Crown className="w-5 h-5" />
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Holder & Partner Code */}
+                    <div className="flex items-end justify-between pt-2 border-t border-white/10">
+                      <div>
+                        <div className="text-[8.5px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">
+                          Pass Holder
+                        </div>
+                        <div className="text-lg sm:text-xl font-black text-white tracking-wider uppercase font-mono">
+                          {session.user.displayName || 'Watch Member'}
+                        </div>
+                        <div className="text-[10px] text-rose-300 font-medium mt-0.5">
+                          {calculatedAge ? `Age: ${calculatedAge} · ` : ''}
+                          {session.user.isMarried ? '💍 Married' : 'Single'}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-[8.5px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">
+                          Partner Pass Code
+                        </div>
+                        <div className="font-mono text-sm sm:text-base font-black text-amber-300 tracking-widest bg-black/40 px-3 py-1 rounded-xl border border-white/10 shadow-inner">
+                          {session.user.partnerCode || 'SYNC-VIP'}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* CARD BACK: VIP PRIVILEGES & SECURITY */}
+                  <div className="backface-hidden rotate-y-180 absolute inset-0 rounded-3xl p-7 text-white overflow-hidden shadow-xl bg-slate-900 border border-slate-700/80 dark:border-white/15 flex flex-col justify-between">
+                    
+                    {/* Magnetic Strip Header */}
+                    <div className="-mx-7 -mt-7 h-10 bg-black/90 border-b border-white/10 flex items-center px-7">
+                      <span className="text-[9px] font-mono tracking-widest text-zinc-500">
+                        MAGNETIC STRIP // STITCHBYTE ENCRYPTED PASS
+                      </span>
+                    </div>
+
+                    {/* Signature Panel */}
+                    <div className="flex items-center justify-between gap-4 mt-2">
+                      <div className="flex-1 h-9 rounded-lg bg-white text-zinc-900 flex items-center px-4 font-mono font-bold text-xs tracking-wider shadow-inner">
+                        <span>{session.user.displayName || 'Authorized Member'}</span>
+                        <span className="ml-auto text-[9px] text-zinc-400 font-sans uppercase">Authorized</span>
+                      </div>
+                      <div className="px-3 py-1 rounded-lg bg-black/60 border border-white/20 font-mono text-xs font-black text-amber-300">
+                        4K-VIP
+                      </div>
+                    </div>
+
+                    {/* Perks list */}
+                    <div className="space-y-2 text-xs text-zinc-200 font-medium py-2">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <span>Zero latency 4K video synchronization</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <span>Duo Love-Seat room with synced couple lighting</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <span>Unlimited arcade gameplay (Ludo 3D & Connect 4)</span>
+                      </div>
+                    </div>
+
+                    {/* Barcode Strip */}
+                    <div className="pt-2 flex items-center justify-between border-t border-white/10">
+                      <div className="h-7 flex items-center space-x-1 opacity-80 select-none">
+                        <div className="w-1 h-full bg-white" />
+                        <div className="w-0.5 h-full bg-white" />
+                        <div className="w-2 h-full bg-white" />
+                        <div className="w-0.5 h-full bg-white" />
+                        <div className="w-1.5 h-full bg-white" />
+                        <div className="w-0.5 h-full bg-white" />
+                        <div className="w-2.5 h-full bg-white" />
+                        <div className="w-0.5 h-full bg-white" />
+                        <div className="w-1 h-full bg-white" />
+                        <div className="w-2 h-full bg-white" />
+                      </div>
+                      <span className="font-mono text-[9px] text-zinc-400">
+                        TAP TO FLIP FRONT ⟳
+                      </span>
+                    </div>
+
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
           </div>
-        )}
+
+        </div>
 
         {/* Avatar Customization Modal */}
         {showAvatarModal && (
