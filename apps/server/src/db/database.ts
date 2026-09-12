@@ -49,6 +49,13 @@ export class DatabaseService {
         date_of_birth TEXT,
         anniversary_date TEXT,
         is_married INTEGER DEFAULT 0,
+        relationship_status TEXT,
+        gender TEXT,
+        pronouns TEXT,
+        location TEXT,
+        bio TEXT,
+        favorite_genres TEXT,
+        viewing_vibe TEXT,
         age INTEGER,
         created_at TEXT NOT NULL
       );
@@ -238,6 +245,34 @@ export class DatabaseService {
       this.db.exec("ALTER TABLE users ADD COLUMN age INTEGER");
     } catch {}
 
+    try {
+      this.db.exec("ALTER TABLE users ADD COLUMN relationship_status TEXT");
+    } catch {}
+
+    try {
+      this.db.exec("ALTER TABLE users ADD COLUMN gender TEXT");
+    } catch {}
+
+    try {
+      this.db.exec("ALTER TABLE users ADD COLUMN pronouns TEXT");
+    } catch {}
+
+    try {
+      this.db.exec("ALTER TABLE users ADD COLUMN location TEXT");
+    } catch {}
+
+    try {
+      this.db.exec("ALTER TABLE users ADD COLUMN bio TEXT");
+    } catch {}
+
+    try {
+      this.db.exec("ALTER TABLE users ADD COLUMN favorite_genres TEXT");
+    } catch {}
+
+    try {
+      this.db.exec("ALTER TABLE users ADD COLUMN viewing_vibe TEXT");
+    } catch {}
+
     // On server startup, reset any stale connected status from previous runs
     try {
       this.db.exec("UPDATE room_members SET is_connected = 0 WHERE is_connected = 1");
@@ -330,11 +365,14 @@ export class DatabaseService {
     };
   }
 
-  getUserById(id: string): User | null {
-    const stmt = this.db.prepare(`SELECT * FROM users WHERE id = ?`);
-    const row = stmt.get(id) as any;
-    if (!row) return null;
+  private mapUserRow(row: any): User {
     const partnerCode = row.partner_code || this.ensureUserPartnerCode(row.id, row.display_name);
+    let favoriteGenres: string[] = [];
+    if (row.favorite_genres) {
+      try {
+        favoriteGenres = JSON.parse(row.favorite_genres);
+      } catch {}
+    }
     return {
       id: row.id,
       email: row.email,
@@ -345,9 +383,23 @@ export class DatabaseService {
       dateOfBirth: row.date_of_birth || null,
       anniversaryDate: row.anniversary_date || null,
       isMarried: row.is_married != null ? Boolean(row.is_married) : null,
+      relationshipStatus: row.relationship_status || null,
+      gender: row.gender || null,
+      pronouns: row.pronouns || null,
+      location: row.location || null,
+      bio: row.bio || null,
+      favoriteGenres,
+      viewingVibe: row.viewing_vibe || null,
       age: row.age != null ? Number(row.age) : null,
       createdAt: row.created_at
     };
+  }
+
+  getUserById(id: string): User | null {
+    const stmt = this.db.prepare(`SELECT * FROM users WHERE id = ?`);
+    const row = stmt.get(id) as any;
+    if (!row) return null;
+    return this.mapUserRow(row);
   }
 
   getUserByEmail(email: string): { user: User; passwordHash?: string } | null {
@@ -355,19 +407,7 @@ export class DatabaseService {
     const row = stmt.get(email) as any;
     if (!row) return null;
     return {
-      user: {
-        id: row.id,
-        email: row.email,
-        displayName: row.display_name,
-        avatarUrl: row.avatar_url,
-        isAnonymous: Boolean(row.is_anonymous),
-        partnerCode: row.partner_code,
-        dateOfBirth: row.date_of_birth || null,
-        anniversaryDate: row.anniversary_date || null,
-        isMarried: row.is_married != null ? Boolean(row.is_married) : null,
-        age: row.age != null ? Number(row.age) : null,
-        createdAt: row.created_at
-      },
+      user: this.mapUserRow(row),
       passwordHash: row.password_hash
     };
   }
@@ -380,6 +420,13 @@ export class DatabaseService {
       dateOfBirth?: string;
       anniversaryDate?: string;
       isMarried?: boolean;
+      relationshipStatus?: string;
+      gender?: string;
+      pronouns?: string;
+      location?: string;
+      bio?: string;
+      favoriteGenres?: string[];
+      viewingVibe?: string;
       age?: number;
     }
   ): User | null {
@@ -393,6 +440,13 @@ export class DatabaseService {
         date_of_birth = COALESCE(?, date_of_birth),
         anniversary_date = COALESCE(?, anniversary_date),
         is_married = COALESCE(?, is_married),
+        relationship_status = COALESCE(?, relationship_status),
+        gender = COALESCE(?, gender),
+        pronouns = COALESCE(?, pronouns),
+        location = COALESCE(?, location),
+        bio = COALESCE(?, bio),
+        favorite_genres = COALESCE(?, favorite_genres),
+        viewing_vibe = COALESCE(?, viewing_vibe),
         age = COALESCE(?, age)
       WHERE id = ?
     `);
@@ -403,6 +457,13 @@ export class DatabaseService {
       updates.dateOfBirth ?? null,
       updates.anniversaryDate ?? null,
       updates.isMarried !== undefined ? (updates.isMarried ? 1 : 0) : null,
+      updates.relationshipStatus ?? null,
+      updates.gender ?? null,
+      updates.pronouns ?? null,
+      updates.location ?? null,
+      updates.bio ?? null,
+      updates.favoriteGenres !== undefined ? JSON.stringify(updates.favoriteGenres) : null,
+      updates.viewingVibe ?? null,
       updates.age ?? null,
       id
     );

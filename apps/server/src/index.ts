@@ -193,6 +193,13 @@ export async function createServer(dbPath = './synccinema.db') {
         dateOfBirth?: string;
         anniversaryDate?: string;
         isMarried?: boolean;
+        relationshipStatus?: string;
+        gender?: string;
+        pronouns?: string;
+        location?: string;
+        bio?: string;
+        favoriteGenres?: string[];
+        viewingVibe?: string;
         age?: number;
       };
 
@@ -205,12 +212,23 @@ export async function createServer(dbPath = './synccinema.db') {
         }
       }
 
+      const isMarried = body.isMarried !== undefined 
+        ? body.isMarried 
+        : (body.relationshipStatus === 'married');
+
       const updated = db.updateUser(payload.id, {
         displayName: body.displayName?.trim(),
         avatarUrl: body.avatarUrl,
         dateOfBirth: body.dateOfBirth,
-        anniversaryDate: body.isMarried ? body.anniversaryDate : undefined,
-        isMarried: body.isMarried,
+        anniversaryDate: body.anniversaryDate,
+        isMarried,
+        relationshipStatus: body.relationshipStatus,
+        gender: body.gender,
+        pronouns: body.pronouns,
+        location: body.location?.trim(),
+        bio: body.bio?.trim(),
+        favoriteGenres: body.favoriteGenres,
+        viewingVibe: body.viewingVibe,
         age: calculatedAge
       });
 

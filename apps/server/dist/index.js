@@ -158,12 +158,22 @@ export async function createServer(dbPath = './synccinema.db') {
                     calculatedAge = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
                 }
             }
+            const isMarried = body.isMarried !== undefined
+                ? body.isMarried
+                : (body.relationshipStatus === 'married');
             const updated = db.updateUser(payload.id, {
                 displayName: body.displayName?.trim(),
                 avatarUrl: body.avatarUrl,
                 dateOfBirth: body.dateOfBirth,
-                anniversaryDate: body.isMarried ? body.anniversaryDate : undefined,
-                isMarried: body.isMarried,
+                anniversaryDate: body.anniversaryDate,
+                isMarried,
+                relationshipStatus: body.relationshipStatus,
+                gender: body.gender,
+                pronouns: body.pronouns,
+                location: body.location?.trim(),
+                bio: body.bio?.trim(),
+                favoriteGenres: body.favoriteGenres,
+                viewingVibe: body.viewingVibe,
                 age: calculatedAge
             });
             if (!updated) {

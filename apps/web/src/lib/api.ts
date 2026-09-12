@@ -15,6 +15,13 @@ export interface UserSession {
     dateOfBirth?: string | null;
     anniversaryDate?: string | null;
     isMarried?: boolean | null;
+    relationshipStatus?: string | null;
+    gender?: string | null;
+    pronouns?: string | null;
+    location?: string | null;
+    bio?: string | null;
+    favoriteGenres?: string[] | null;
+    viewingVibe?: string | null;
     age?: number | null;
   };
 }
@@ -130,6 +137,13 @@ export async function updateUserProfile(updates: {
   dateOfBirth?: string;
   anniversaryDate?: string;
   isMarried?: boolean;
+  relationshipStatus?: string;
+  gender?: string;
+  pronouns?: string;
+  location?: string;
+  bio?: string;
+  favoriteGenres?: string[];
+  viewingVibe?: string;
   age?: number;
 }): Promise<UserSession['user']> {
   const current = getStoredSession();

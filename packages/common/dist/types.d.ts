@@ -12,6 +12,13 @@ export interface User {
     dateOfBirth?: string | null;
     anniversaryDate?: string | null;
     isMarried?: boolean | null;
+    relationshipStatus?: string | null;
+    gender?: string | null;
+    pronouns?: string | null;
+    location?: string | null;
+    bio?: string | null;
+    favoriteGenres?: string[] | null;
+    viewingVibe?: string | null;
     age?: number | null;
     createdAt: string;
 }
