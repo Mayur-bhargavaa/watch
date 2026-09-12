@@ -94,6 +94,36 @@ export async function registerUser(
   return session;
 }
 
+export async function fetchCurrentUser(token?: string): Promise<UserSession | null> {
+  const current = getStoredSession();
+  const authToken = token || current?.token;
+  if (!authToken) return null;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/me`, {
+      headers: {
+        Authorization: `Bearer ${authToken}`
+      }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.user && current) {
+      const updatedSession: UserSession = {
+        ...current,
+        user: {
+          ...current.user,
+          ...data.user
+        }
+      };
+      setStoredSession(updatedSession);
+      return updatedSession;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function ensureSession(preferredName?: string): Promise<UserSession> {
   const existing = getStoredSession();
   if (existing) return existing;

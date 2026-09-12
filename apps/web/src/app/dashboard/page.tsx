@@ -34,6 +34,7 @@ import {
   clearStoredSession,
   createPartyRoom,
   getUserRooms,
+  fetchCurrentUser,
   UserSession
 } from '../../lib/api';
 import { GameLounge } from '../../components/games/GameLounge';
@@ -322,6 +323,14 @@ export default function DashboardPage() {
     setSettingsName(current.user.displayName || '');
     setLoading(false);
 
+    // Sync fresh user profile & avatar directly from DB
+    fetchCurrentUser(current.token).then((fresh) => {
+      if (fresh) {
+        setSession(fresh);
+        if (fresh.user.displayName) setSettingsName(fresh.user.displayName);
+      }
+    });
+
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const tab = urlParams.get('tab');
@@ -556,6 +565,35 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* User Profile Card in Sidebar with Selected Avatar */}
+          <div
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center space-x-3 p-2.5 rounded-2xl bg-[#1b1c24] border border-white/[0.06] hover:border-white/20 transition cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-full ring-2 ring-[#d2281e]/50 overflow-hidden bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shadow-md shrink-0">
+              {session?.user.avatarUrl ? (
+                <img
+                  src={session.user.avatarUrl}
+                  alt={session.user.displayName || 'Avatar'}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white font-bold">
+                  {(session?.user.displayName || 'U')[0].toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-white truncate group-hover:text-[#d2281e] transition">
+                {session?.user.displayName || 'User'}
+              </div>
+              <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1">
+                {session?.user.age ? <span>🎂 {session.user.age}y · </span> : null}
+                <span>{session?.user.isMarried ? '💍 Married' : 'Cinema Fan'}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Navigation Groups */}
           <div className="space-y-6">
             {/* Nav Group 1: Menu */}
@@ -764,13 +802,23 @@ export default function DashboardPage() {
             {/* User Profile Avatar */}
             <button
               onClick={() => setShowSettingsModal(true)}
-              className="flex items-center space-x-2.5 p-1 pl-1.5 pr-3 rounded-full bg-[#1b1c24] hover:bg-[#242531] border border-white/[0.06] transition text-left"
-              title="Open Settings"
+              className="flex items-center space-x-2.5 p-1 pl-1.5 pr-3 rounded-full bg-[#1b1c24] hover:bg-[#242531] border border-white/[0.08] transition text-left group"
+              title="Open Settings & Profile"
             >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                {(session?.user.displayName || 'U')[0].toUpperCase()}
+              <div className="w-8 h-8 rounded-full ring-2 ring-[#d2281e]/60 overflow-hidden bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shadow-md shrink-0">
+                {session?.user.avatarUrl ? (
+                  <img
+                    src={session.user.avatarUrl}
+                    alt={session.user.displayName || 'Avatar'}
+                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white font-bold">
+                    {(session?.user.displayName || 'U')[0].toUpperCase()}
+                  </div>
+                )}
               </div>
-              <span className="text-xs font-semibold text-zinc-200 hidden sm:inline max-w-[100px] truncate">
+              <span className="text-xs font-semibold text-zinc-200 hidden sm:inline max-w-[120px] truncate">
                 {session?.user.displayName || 'Guest'}
               </span>
             </button>
@@ -1498,13 +1546,33 @@ export default function DashboardPage() {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300">
-                <Sliders className="w-5 h-5" />
+            <div className="flex items-center space-x-3.5">
+              <div className="w-14 h-14 rounded-full ring-2 ring-[#d2281e]/50 overflow-hidden bg-zinc-900 flex items-center justify-center text-white shadow-xl shrink-0">
+                {session?.user.avatarUrl ? (
+                  <img
+                    src={session.user.avatarUrl}
+                    alt={session.user.displayName || 'Avatar'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white font-bold text-lg">
+                    {(session?.user.displayName || 'U')[0].toUpperCase()}
+                  </div>
+                )}
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Party Preferences</h3>
-                <p className="text-xs text-zinc-400">Manage your profile and room defaults</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-bold text-white flex items-center gap-1.5 truncate">
+                  <span>{session?.user.displayName || 'Profile & Preferences'}</span>
+                  {session?.user.isMarried && <span className="text-xs">💍</span>}
+                </h3>
+                <p className="text-xs text-zinc-400 truncate">
+                  {session?.user.email || 'Manage your profile and room defaults'}
+                </p>
+                {session?.user.age ? (
+                  <p className="text-[10.5px] text-zinc-400 font-semibold mt-0.5">
+                    🎂 Age: {session.user.age} · {session.user.isMarried && session.user.anniversaryDate ? `Anniversary: ${session.user.anniversaryDate}` : 'Watch Cinema Member'}
+                  </p>
+                ) : null}
               </div>
             </div>
 
