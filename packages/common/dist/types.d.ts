@@ -9,6 +9,10 @@ export interface User {
     avatarUrl?: string | null;
     isAnonymous: boolean;
     partnerCode?: string;
+    dateOfBirth?: string | null;
+    anniversaryDate?: string | null;
+    isMarried?: boolean | null;
+    age?: number | null;
     createdAt: string;
 }
 export interface RoomMember {

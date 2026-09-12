@@ -26,6 +26,11 @@ export class DatabaseService {
         display_name TEXT NOT NULL,
         avatar_url TEXT,
         is_anonymous INTEGER DEFAULT 0,
+        partner_code TEXT,
+        date_of_birth TEXT,
+        anniversary_date TEXT,
+        is_married INTEGER DEFAULT 0,
+        age INTEGER,
         created_at TEXT NOT NULL
       );
 
@@ -197,12 +202,47 @@ export class DatabaseService {
             this.db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_partner_code ON users(partner_code)");
         }
         catch { }
+        try {
+            this.db.exec("ALTER TABLE users ADD COLUMN date_of_birth TEXT");
+        }
+        catch { }
+        try {
+            this.db.exec("ALTER TABLE users ADD COLUMN anniversary_date TEXT");
+        }
+        catch { }
+        try {
+            this.db.exec("ALTER TABLE users ADD COLUMN is_married INTEGER DEFAULT 0");
+        }
+        catch { }
+        try {
+            this.db.exec("ALTER TABLE users ADD COLUMN age INTEGER");
+        }
+        catch { }
         // On server startup, reset any stale connected status from previous runs
         try {
             this.db.exec("UPDATE room_members SET is_connected = 0 WHERE is_connected = 1");
             this.db.exec("UPDATE game_room_players SET is_connected = 0 WHERE is_connected = 1");
         }
         catch { }
+    }
+    clearAllUsers() {
+        try {
+            this.db.exec(`
+        DELETE FROM reactions;
+        DELETE FROM chat_messages;
+        DELETE FROM room_members;
+        DELETE FROM partner_connections;
+        DELETE FROM game_room_players;
+        DELETE FROM playback_events;
+        DELETE FROM rooms;
+        DELETE FROM game_rooms;
+        DELETE FROM users;
+        VACUUM;
+      `);
+        }
+        catch (e) {
+            console.error('Failed to clear users database:', e.message);
+        }
     }
     resetAllMembersDisconnected() {
         try {
@@ -212,16 +252,20 @@ export class DatabaseService {
     }
     // --- Users ---
     createUser(user, passwordHash) {
-        const partnerCode = this.generateUniquePartnerCode(user.displayName);
+        const partnerCode = user.partnerCode || this.generateUniquePartnerCode(user.displayName);
         const stmt = this.db.prepare(`
-      INSERT INTO users (id, email, password_hash, display_name, avatar_url, is_anonymous, partner_code, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password_hash, display_name, avatar_url, is_anonymous, partner_code, date_of_birth, anniversary_date, is_married, age, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         display_name = excluded.display_name,
         avatar_url = COALESCE(excluded.avatar_url, users.avatar_url),
-        partner_code = COALESCE(users.partner_code, excluded.partner_code)
+        partner_code = COALESCE(users.partner_code, excluded.partner_code),
+        date_of_birth = COALESCE(excluded.date_of_birth, users.date_of_birth),
+        anniversary_date = COALESCE(excluded.anniversary_date, users.anniversary_date),
+        is_married = COALESCE(excluded.is_married, users.is_married),
+        age = COALESCE(excluded.age, users.age)
     `);
-        stmt.run(user.id, user.email || null, passwordHash || null, user.displayName, user.avatarUrl || null, user.isAnonymous ? 1 : 0, partnerCode, user.createdAt);
+        stmt.run(user.id, user.email || null, passwordHash || null, user.displayName, user.avatarUrl || null, user.isAnonymous ? 1 : 0, partnerCode, user.dateOfBirth || null, user.anniversaryDate || null, user.isMarried ? 1 : 0, user.age != null ? user.age : null, user.createdAt);
         const saved = this.getUserById(user.id);
         return saved || {
             id: user.id,
@@ -230,6 +274,10 @@ export class DatabaseService {
             avatarUrl: user.avatarUrl,
             isAnonymous: Boolean(user.isAnonymous),
             partnerCode,
+            dateOfBirth: user.dateOfBirth,
+            anniversaryDate: user.anniversaryDate,
+            isMarried: user.isMarried,
+            age: user.age,
             createdAt: user.createdAt
         };
     }
@@ -246,6 +294,10 @@ export class DatabaseService {
             avatarUrl: row.avatar_url,
             isAnonymous: Boolean(row.is_anonymous),
             partnerCode,
+            dateOfBirth: row.date_of_birth || null,
+            anniversaryDate: row.anniversary_date || null,
+            isMarried: row.is_married != null ? Boolean(row.is_married) : null,
+            age: row.age != null ? Number(row.age) : null,
             createdAt: row.created_at
         };
     }
@@ -261,6 +313,11 @@ export class DatabaseService {
                 displayName: row.display_name,
                 avatarUrl: row.avatar_url,
                 isAnonymous: Boolean(row.is_anonymous),
+                partnerCode: row.partner_code,
+                dateOfBirth: row.date_of_birth || null,
+                anniversaryDate: row.anniversary_date || null,
+                isMarried: row.is_married != null ? Boolean(row.is_married) : null,
+                age: row.age != null ? Number(row.age) : null,
                 createdAt: row.created_at
             },
             passwordHash: row.password_hash

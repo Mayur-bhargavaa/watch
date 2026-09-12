@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -12,14 +12,17 @@ import {
   EyeOff,
   Sparkles,
   ArrowRight,
+  ArrowLeft,
   CheckCircle2,
   Gamepad2,
   Video,
   Heart,
   ChevronLeft,
-  ShieldCheck
+  ShieldCheck,
+  Calendar
 } from 'lucide-react';
-import { loginUser, registerUser, getStoredSession, UserSession } from '../../lib/api';
+import { loginUser, registerUser, getStoredSession } from '../../lib/api';
+import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
 function LoginFormContent() {
   const router = useRouter();
@@ -28,12 +31,38 @@ function LoginFormContent() {
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
 
   const [isLogin, setIsLogin] = useState<boolean>(initialTab);
+  const [signupStep, setSignupStep] = useState<1 | 2 | 3>(1);
+
+  // Phase 1: Account credentials
+  const [displayName, setDisplayName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
-  const [displayName, setDisplayName] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  // Phase 2: Personal milestones & dates
+  const [dateOfBirth, setDateOfBirth] = useState<string>('');
+  const [isMarried, setIsMarried] = useState<boolean>(false);
+  const [anniversaryDate, setAnniversaryDate] = useState<string>('');
+
+  // Phase 3: Avatar Persona
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Calculate age automatically from Date of Birth
+  const calculatedAge = useMemo(() => {
+    if (!dateOfBirth) return null;
+    const birth = new Date(dateOfBirth);
+    if (isNaN(birth.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age >= 0 && age <= 125 ? age : null;
+  }, [dateOfBirth]);
 
   // If already logged in, redirect immediately
   useEffect(() => {
@@ -47,31 +76,89 @@ function LoginFormContent() {
   useEffect(() => {
     if (searchParams.get('tab') === 'signup') {
       setIsLogin(false);
+      setSignupStep(1);
     } else if (searchParams.get('tab') === 'login') {
       setIsLogin(true);
     }
   }, [searchParams]);
 
+  // Handle Step 1 validation -> Step 2
+  const handleNextToStep2 = () => {
+    setError(null);
+    if (!displayName.trim()) {
+      setError('Please enter your display name to continue.');
+      return;
+    }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please provide a valid email address.');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+    setSignupStep(2);
+  };
+
+  // Handle Step 2 validation -> Step 3
+  const handleNextToStep3 = () => {
+    setError(null);
+    if (dateOfBirth && calculatedAge === null) {
+      setError('Please enter a valid date of birth in the past.');
+      return;
+    }
+    if (isMarried && !anniversaryDate) {
+      setError('Please enter your wedding or partner anniversary date.');
+      return;
+    }
+    setSignupStep(3);
+  };
+
+  // Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
-    try {
-      if (isLogin) {
+    // If logging in
+    if (isLogin) {
+      setLoading(true);
+      try {
         await loginUser(email.trim(), password, displayName.trim() || undefined);
         router.push(redirectUrl);
-      } else {
-        if (!displayName.trim()) {
-          setError('Display name is required for registration.');
-          setLoading(false);
-          return;
-        }
-        await registerUser(email.trim(), password, displayName.trim());
-        router.push(redirectUrl);
+      } catch (err: any) {
+        setError(err.message || 'Authentication failed. Please check your credentials.');
+      } finally {
+        setLoading(false);
       }
+      return;
+    }
+
+    // If registering on step 1 or 2, guide them forward
+    if (signupStep === 1) {
+      handleNextToStep2();
+      return;
+    }
+    if (signupStep === 2) {
+      handleNextToStep3();
+      return;
+    }
+
+    // Step 3: Complete registration
+    setLoading(true);
+    try {
+      await registerUser({
+        email: email.trim(),
+        password,
+        displayName: displayName.trim(),
+        avatarUrl: avatarUrl || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+        anniversaryDate: isMarried && anniversaryDate ? anniversaryDate : undefined,
+        isMarried,
+        age: calculatedAge ?? undefined
+      });
+      router.push(redirectUrl);
     } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please check your credentials.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -184,10 +271,10 @@ function LoginFormContent() {
       {/* ===================================================================== */}
       {/* RIGHT COLUMN: The Auth Form Card                                     */}
       {/* ===================================================================== */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-12 lg:p-16 max-w-xl mx-auto">
+      <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-14 max-w-xl mx-auto">
         
         {/* Top bar with back to home link */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-500 hover:text-zinc-950 transition group"
@@ -213,21 +300,31 @@ function LoginFormContent() {
         </div>
 
         {/* Form Container */}
-        <div className="my-auto py-4 space-y-6">
+        <div className="my-auto py-2 space-y-5">
           
           {/* Header Title & Subtitle */}
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-zinc-950 tracking-tight">
-              {isLogin ? 'Welcome back to Watch' : 'Create your free account'}
-            </h1>
-            <p className="text-xs sm:text-sm text-zinc-500 mt-1.5 leading-relaxed">
               {isLogin
-                ? 'Sign in to access your private rooms, paired partner, and saved games.'
-                : 'Join couples and friends streaming videos and playing 2-player games in sync.'}
+                ? 'Welcome back to Watch'
+                : signupStep === 1
+                ? 'Create your free account'
+                : signupStep === 2
+                ? 'Personalize your milestones'
+                : 'Build your Bitmoji persona'}
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-500 mt-1 leading-relaxed">
+              {isLogin
+                ? 'Sign in to access your private cinema rooms, paired partner, and games.'
+                : signupStep === 1
+                ? 'Step 1 of 3: Start with your basic account credentials.'
+                : signupStep === 2
+                ? 'Step 2 of 3: Birthday and anniversary celebrations for synchronized themes.'
+                : 'Step 3 of 3: Customize your 3D/Bitmoji character persona.'}
             </p>
           </div>
 
-          {/* Segmented Tab Switcher */}
+          {/* Segmented Tab Switcher (Sign In vs Create Account) */}
           <div className="flex rounded-2xl bg-zinc-100 p-1 border border-zinc-200">
             <button
               type="button"
@@ -253,115 +350,358 @@ function LoginFormContent() {
             </button>
           </div>
 
+          {/* Stepper Progress Bar for 3-Phase Signup */}
+          {!isLogin && (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider">
+                <span className={signupStep === 1 ? 'text-[#d2281e]' : signupStep > 1 ? 'text-zinc-800' : 'text-zinc-400'}>
+                  1. Account
+                </span>
+                <span className="text-zinc-300">→</span>
+                <span className={signupStep === 2 ? 'text-[#d2281e]' : signupStep > 2 ? 'text-zinc-800' : 'text-zinc-400'}>
+                  2. About You
+                </span>
+                <span className="text-zinc-300">→</span>
+                <span className={signupStep === 3 ? 'text-[#d2281e]' : 'text-zinc-400'}>
+                  3. Bitmoji Persona
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#d2281e] transition-all duration-300"
+                  style={{ width: signupStep === 1 ? '33.3%' : signupStep === 2 ? '66.6%' : '100%' }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Error Banner */}
           {error && (
-            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-[#d2281e] text-xs flex items-center gap-2.5 animate-in fade-in">
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[#d2281e] text-xs flex items-center gap-2.5 animate-in fade-in">
               <span className="w-2 h-2 rounded-full bg-[#d2281e] shrink-0" />
               <span className="font-semibold leading-relaxed">{error}</span>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* Display Name (Only for Registration) */}
-            {!isLogin && (
+          {/* ================================================================= */}
+          {/* SIGN IN FORM                                                      */}
+          {/* ================================================================= */}
+          {isLogin ? (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email Address */}
               <div>
                 <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
-                  Display Name
+                  Email Address
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                    <User className="w-4 h-4" />
+                    <Mail className="w-4 h-4" />
                   </div>
                   <input
-                    type="text"
-                    required={!isLogin}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Alex"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="alex@example.com"
                     className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
                   />
                 </div>
               </div>
-            )}
 
-            {/* Email Address */}
-            <div>
-              <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                  <Mail className="w-4 h-4" />
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
+                  Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-10 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-400 hover:text-zinc-600 transition"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="alex@example.com"
-                  className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
-                />
               </div>
-            </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
-                  <Lock className="w-4 h-4" />
+              {/* Submit Button in Pure #d2281e */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-5 rounded-xl bg-[#d2281e] hover:bg-[#b82017] disabled:opacity-50 text-white font-black text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 mt-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In & Continue</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* ================================================================= */
+            /* 3-PHASE SIGNUP FLOW                                               */
+            /* ================================================================= */
+            <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {/* PHASE 1: Basic Identity & Credentials */}
+              {signupStep === 1 && (
+                <div className="space-y-4 animate-in fade-in">
+                  {/* Display Name */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
+                      Display Name
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="e.g. Maya"
+                        className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Email Address */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                        <Mail className="w-4 h-4" />
+                      </div>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="maya@example.com"
+                        className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="At least 6 characters"
+                        className="w-full pl-10 pr-10 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-400 hover:text-zinc-600 transition"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Continue Button to Step 2 */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleNextToStep2}
+                      className="w-full py-3.5 px-5 rounded-xl bg-[#d2281e] hover:bg-[#b82017] text-white font-black text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <span>Continue to Step 2</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-10 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-400 hover:text-zinc-600 transition"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Submit Button in Pure #d2281e */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-5 rounded-xl bg-[#d2281e] hover:bg-[#b82017] disabled:opacity-50 text-white font-black text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 mt-2"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                  </svg>
-                  <span>Processing...</span>
-                </>
-              ) : isLogin ? (
-                <>
-                  <span>Sign In & Continue</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Create Free Account</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
               )}
-            </button>
-          </form>
+
+              {/* PHASE 2: Personal Milestones (DOB, Age, Marital status & Anniversary) */}
+              {signupStep === 2 && (
+                <div className="space-y-4 animate-in fade-in">
+                  
+                  {/* Date of Birth Input */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#d2281e]" />
+                        <span>Date of Birth</span>
+                      </label>
+                      {calculatedAge !== null && (
+                        <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                          <span>🎂</span> {calculatedAge} years old
+                        </span>
+                      )}
+                    </div>
+
+                    <input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3.5 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
+                    />
+                    <p className="text-[11px] text-zinc-400 mt-1">
+                      Age is automatically calculated for party notifications & birthday themes.
+                    </p>
+                  </div>
+
+                  {/* Marital / Relationship Status */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
+                      Are you married?
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setIsMarried(false); setAnniversaryDate(''); }}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+                          !isMarried
+                            ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
+                            : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100'
+                        }`}
+                      >
+                        Single / Not Married
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsMarried(true)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                          isMarried
+                            ? 'bg-[#d2281e] text-white border-[#d2281e] shadow-md shadow-[#d2281e]/30'
+                            : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100'
+                        }`}
+                      >
+                        <span>💍 Yes, Married</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Anniversary Date (Conditioned on isMarried) */}
+                  {isMarried && (
+                    <div className="p-3.5 rounded-2xl bg-red-50/60 border border-[#d2281e]/20 space-y-2 animate-in fade-in slide-in-from-top-2">
+                      <label className="text-xs font-bold text-[#d2281e] uppercase tracking-wider flex items-center gap-1.5">
+                        <Heart className="w-3.5 h-3.5 fill-current" />
+                        <span>Wedding / Couple Anniversary Date</span>
+                      </label>
+                      <input
+                        type="date"
+                        required={isMarried}
+                        value={anniversaryDate}
+                        onChange={(e) => setAnniversaryDate(e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-red-200 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] transition"
+                      />
+                      <p className="text-[10.5px] text-zinc-500">
+                        🥂 We'll celebrate your anniversary with synchronized fireworks & romantic cinema lighting!
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Actions in single row */}
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setError(null); setSignupStep(1); }}
+                      className="w-1/3 py-3 px-4 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-bold text-xs transition flex items-center justify-center gap-1"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleNextToStep3}
+                      className="w-2/3 py-3 px-5 rounded-xl bg-[#d2281e] hover:bg-[#b82017] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <span>Continue to Avatar Studio</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* PHASE 3: Avatar Persona Builder (Bitmoji Style) */}
+              {signupStep === 3 && (
+                <div className="space-y-4 animate-in fade-in">
+                  <AvatarStudio
+                    displayName={displayName}
+                    value={avatarUrl}
+                    onChange={setAvatarUrl}
+                  />
+
+                  {/* Navigation & Submit in a row */}
+                  <div className="pt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => { setError(null); setSignupStep(2); }}
+                      className="w-1/3 py-3 px-4 rounded-xl border border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-bold text-xs transition flex items-center justify-center gap-1"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      <span>Back</span>
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-2/3 py-3.5 px-5 rounded-xl bg-[#d2281e] hover:bg-[#b82017] disabled:opacity-50 text-white font-black text-xs sm:text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          <span>Creating Profile...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Complete & Join Watch</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </form>
+          )}
 
           {/* Alternate Switch Link */}
           <div className="text-center pt-2 text-xs text-zinc-500">
@@ -370,7 +710,7 @@ function LoginFormContent() {
                 Don't have an account yet?{' '}
                 <button
                   type="button"
-                  onClick={() => { setIsLogin(false); setError(null); }}
+                  onClick={() => { setIsLogin(false); setSignupStep(1); setError(null); }}
                   className="font-bold text-[#d2281e] hover:underline"
                 >
                   Create one for free
@@ -392,7 +732,7 @@ function LoginFormContent() {
         </div>
 
         {/* Bottom Legal / Trust note */}
-        <div className="pt-6 border-t border-zinc-200 text-center">
+        <div className="pt-4 border-t border-zinc-200 text-center">
           <p className="text-[11px] text-zinc-400">
             By continuing, you agree to Watch terms & privacy. Encrypted & 100% private.
           </p>

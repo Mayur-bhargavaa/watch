@@ -7,10 +7,15 @@ export interface UserSession {
   token: string;
   user: {
     id: string;
+    email?: string | null;
     displayName: string;
     partnerCode?: string;
     avatarUrl?: string;
     isAnonymous: boolean;
+    dateOfBirth?: string | null;
+    anniversaryDate?: string | null;
+    isMarried?: boolean | null;
+    age?: number | null;
   };
 }
 
@@ -52,11 +57,31 @@ export async function loginUser(email: string, password?: string, displayName?: 
   return session;
 }
 
-export async function registerUser(email: string, password: string, displayName: string): Promise<UserSession> {
+export interface RegisterPayload {
+  email: string;
+  password?: string;
+  displayName: string;
+  avatarUrl?: string;
+  dateOfBirth?: string;
+  anniversaryDate?: string;
+  isMarried?: boolean;
+  age?: number;
+}
+
+export async function registerUser(
+  payloadOrEmail: string | RegisterPayload,
+  password?: string,
+  displayName?: string
+): Promise<UserSession> {
+  const body =
+    typeof payloadOrEmail === 'object'
+      ? payloadOrEmail
+      : { email: payloadOrEmail, password, displayName: displayName || '' };
+
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, displayName })
+    body: JSON.stringify(body)
   });
 
   if (!res.ok) {

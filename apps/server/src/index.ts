@@ -114,7 +114,16 @@ export async function createServer(dbPath = './synccinema.db') {
   });
 
   app.post('/api/auth/register', async (request, reply) => {
-    const body = request.body as { email?: string; password?: string; displayName?: string };
+    const body = request.body as {
+      email?: string;
+      password?: string;
+      displayName?: string;
+      avatarUrl?: string;
+      dateOfBirth?: string;
+      anniversaryDate?: string;
+      isMarried?: boolean;
+      age?: number;
+    };
     if (!body.email || !body.displayName) {
       return reply.code(400).send({ error: 'Email and display name required' });
     }
@@ -124,14 +133,27 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(409).send({ error: 'Email already registered' });
     }
 
+    let calculatedAge = body.age;
+    if (calculatedAge == null && body.dateOfBirth) {
+      const birth = new Date(body.dateOfBirth);
+      if (!isNaN(birth.getTime())) {
+        const diffMs = Date.now() - birth.getTime();
+        calculatedAge = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
+      }
+    }
+
     const userId = `usr_${nanoid(10)}`;
     const user = db.createUser(
       {
         id: userId,
         email: body.email,
         displayName: body.displayName,
-        avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+        avatarUrl: body.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
         isAnonymous: false,
+        dateOfBirth: body.dateOfBirth,
+        anniversaryDate: body.isMarried ? body.anniversaryDate : undefined,
+        isMarried: Boolean(body.isMarried),
+        age: calculatedAge,
         createdAt: new Date().toISOString()
       },
       body.password // in production, hash with argon2/bcrypt
