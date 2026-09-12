@@ -812,40 +812,13 @@ export default function DashboardPage() {
             )}
           </form>
 
-          {/* Top Right Notifications & User Profile */}
-          <div className="flex items-center space-x-3 shrink-0">
-            {/* Live Room Limit Indicator */}
+          {/* Top Right Header with Max 6 Indicator in exact original spot */}
+          <div className="flex items-center space-x-3 shrink-0 pr-36 sm:pr-44">
+            {/* Live Room Limit Indicator (In exact original position) */}
             <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/10 text-[11px] text-zinc-300">
               <Users className="w-3.5 h-3.5 text-rose-500" />
               <span>Max 6 per room</span>
             </div>
-
-            {/* User Profile Avatar with 3D Standing Character Presentation */}
-            <Link
-              href="/profile"
-              className="relative flex items-center space-x-2.5 py-1 px-1.5 pr-3.5 rounded-full bg-[#1b1c24] hover:bg-[#242531] border border-white/[0.08] hover:border-[#d2281e]/40 transition text-left group shadow-lg"
-              title="Open Profile & Settings"
-            >
-              {/* Standing Character Stage */}
-              <div className="relative w-10 h-12 -my-2 rounded-t-2xl rounded-b-md overflow-hidden bg-gradient-to-b from-zinc-900 to-black border border-[#d2281e]/60 shadow-md shrink-0 flex flex-col items-center justify-end">
-                <img
-                  src={getStandingBitmojiUrl(session?.user.avatarUrl)}
-                  alt={session?.user.displayName || 'Avatar'}
-                  className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-110"
-                />
-                {/* Ledge / Bar bottom counter matching reference image */}
-                <div className="relative z-10 w-full h-1.5 bg-[#d2281e] shadow-[0_0_8px_rgba(210,40,30,0.8)]" />
-              </div>
-
-              <div className="flex flex-col leading-tight min-w-0">
-                <span className="text-xs font-bold text-white group-hover:text-[#d2281e] transition max-w-[110px] truncate">
-                  {session?.user.displayName || 'Guest'}
-                </span>
-                <span className="text-[8.5px] font-bold text-zinc-400 tracking-wider uppercase flex items-center gap-1">
-                  {session?.user.isMarried ? '💍 Married' : 'Cinema VIP'}
-                </span>
-              </div>
-            </Link>
           </div>
         </div>
 
@@ -863,26 +836,21 @@ export default function DashboardPage() {
         {/* VIEW 1: BROWSE CINEMA                                                     */}
         {/* ========================================================================= */}
         {activeNav === 'browse' && (
-          <div className="space-y-8 animate-fadeIn pt-4 sm:pt-6">
-            {/* Featured IMAX Hero Banner with User's Selected Bitmoji Standing on Top of the Border Right Side */}
+          <div className="space-y-8 animate-fadeIn pt-10 sm:pt-14">
+            {/* Featured IMAX Hero Banner with User's Selected Bitmoji Behind the Container */}
             <div className="relative">
-              {/* Selected Bitmoji standing right on top of the card's upper border on the right */}
-              <div className="absolute -top-16 sm:-top-20 right-8 sm:right-16 z-20 pointer-events-auto select-none group">
+              {/* Selected Bitmoji standing higher up and BEHIND the container card on the right side */}
+              <div className="absolute -top-20 sm:-top-28 right-4 sm:right-8 z-0 pointer-events-auto select-none group">
                 <Link
                   href="/profile"
-                  className="block transition-transform duration-300 hover:scale-110 active:scale-95"
+                  className="block transition-transform duration-300 hover:-translate-y-2 active:scale-95"
                   title={`${session?.user.displayName || 'Your'} Bitmoji • Click to customize in Profile`}
                 >
-                  <div className="relative flex flex-col items-center">
-                    {/* Selected Bitmoji Torso (Transparent background, flat bottom resting on top border) */}
-                    <img
-                      src={getStandingBitmojiUrl(session?.user.avatarUrl)}
-                      alt={session?.user.displayName || 'Selected Bitmoji'}
-                      className="h-20 sm:h-24 w-auto object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.9)] filter"
-                    />
-                    {/* Glowing pure #d2281e perch highlight grounding it on top of the border */}
-                    <div className="w-14 sm:w-16 h-[2.5px] bg-gradient-to-r from-transparent via-[#d2281e] to-transparent shadow-[0_0_8px_rgba(210,40,30,0.9)] -mt-[1px]" />
-                  </div>
+                  <img
+                    src={getStandingBitmojiUrl(session?.user.avatarUrl)}
+                    alt={session?.user.displayName || 'Selected Bitmoji'}
+                    className="h-28 sm:h-36 w-auto object-contain drop-shadow-[0_16px_30px_rgba(0,0,0,0.95)] filter transition-transform duration-300 group-hover:scale-105"
+                  />
                 </Link>
               </div>
 
