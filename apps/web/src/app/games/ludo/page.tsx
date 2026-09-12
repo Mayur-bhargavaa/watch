@@ -41,7 +41,10 @@ import {
   Crown,
   Zap,
   Lock,
-  CornerUpLeft
+  CornerUpLeft,
+  Star,
+  Film,
+  User
 } from 'lucide-react';
 import { ChatReplyTo } from '@synccinema/common';
 import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/ChatReplyUI';
@@ -807,29 +810,39 @@ function LudoPageContent() {
   const disconnectedOpponentName = opponentPlayer?.displayName || disconnectedPlayer?.displayName || 'Partner';
 
   return (
-    <div className="min-h-screen bg-[#120712] text-white flex flex-col font-sans selection:bg-rose-600 selection:text-white relative overflow-x-hidden">
-      {/* Customizable Game Theme Background */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
-        style={{
-          backgroundImage: `url('${currentTheme.bgUrl}')`
-        }}
-      />
-      {/* Live Animated Candle Flames, Flickering Glow, Mug Steam & Floating Warm Embers */}
-      <DynamicThemeEffects themeId={currentTheme.id} />
+    <div className="min-h-screen bg-[#111217] text-white flex flex-col font-sans selection:bg-rose-600 selection:text-white relative overflow-x-hidden">
+      {/* Active Match Background & Atmosphere */}
+      {roomParam ? (
+        <>
+          <div
+            className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
+            style={{
+              backgroundImage: `url('${currentTheme.bgUrl}')`
+            }}
+          />
+          {/* Live Animated Theme Atmosphere */}
+          <DynamicThemeEffects themeId={currentTheme.id} />
 
-      {/* Subtle warm rose tint */}
-      <div className="fixed inset-0 pointer-events-none z-0 bg-rose-950/[0.05] backdrop-blur-[0.2px]" />
+          {/* Subtle dark cinema overlay */}
+          <div className="fixed inset-0 pointer-events-none z-0 bg-black/40 backdrop-blur-[0.2px]" />
+        </>
+      ) : (
+        /* Sleek Modern Obsidian/Cinema Background for Lobby */
+        <div className="fixed inset-0 pointer-events-none z-0 bg-[#111217]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(244,63,94,0.06),rgba(255,255,255,0))]" />
+          <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
+        </div>
+      )}
 
-      {/* TOP NAVIGATION BAR (Exact replica of reference UI) */}
-      <header className="h-16 px-4 sm:px-8 bg-transparent flex items-center justify-between shrink-0 sticky top-0 z-40">
-        {/* Left: [← Back to Lounge] Pill Button */}
-        <div>
+      {/* TOP NAVIGATION BAR */}
+      <header className="h-16 px-4 sm:px-8 bg-[#14151b]/80 border-b border-white/[0.08] flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl">
+        {/* Left: [Back to Games] + Branding */}
+        <div className="flex items-center gap-3">
           <button
             onClick={() => {
               if (roomParam) {
                 showAlert(
-                  'Leave Match? 🚪',
+                  'Leave Match?',
                   'Are you sure you want to leave this game? You will disconnect from the match and return to the lounge.',
                   'warning',
                   {
@@ -845,40 +858,59 @@ function LudoPageContent() {
                 router.push('/games');
               }
             }}
-            className="px-4 py-2 rounded-full bg-black/60 hover:bg-black/80 text-rose-300 hover:text-rose-200 border border-white/15 shadow-xl flex items-center gap-2 font-bold text-xs uppercase tracking-wider active:scale-95 transition-all backdrop-blur-xl group"
-            title={roomParam ? 'Leave Match' : 'Back to Lounge'}
+            className="px-3.5 py-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border border-white/[0.08] shadow-sm flex items-center gap-2 font-semibold text-xs transition-all active:scale-95 group"
+            title={roomParam ? 'Leave Match' : 'Back to Games Lounge'}
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-            <span>{roomParam ? 'LEAVE' : 'Back to Lounge'}</span>
+            <span>{roomParam ? 'Leave Match' : 'Games'}</span>
           </button>
+
+          <div className="h-4 w-px bg-white/[0.1] hidden sm:block" />
+
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="font-extrabold text-white text-sm tracking-tight">
+              Watch<span className="text-rose-500">.</span>
+            </span>
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400">
+              Ludo Arena
+            </span>
+          </div>
         </div>
 
-        {/* Center Header: Show Call pill if floating window was closed */}
-        {roomParam && isPipClosed && (
-          <button
-            onClick={() => setIsPipClosed(false)}
-            className="px-3.5 py-1.5 rounded-full bg-[#1e1e1e]/90 hover:bg-[#2b2b2b] text-rose-300 border border-rose-400/40 shadow-lg text-xs font-bold flex items-center gap-1.5 transition backdrop-blur-md animate-fade-in"
-            title="Open Floating Video Call"
-          >
-            <Video className="w-3.5 h-3.5 text-rose-300" />
-            <span>Show Video Call</span>
-          </button>
+        {/* Center Header: Room Param or Show Call pill */}
+        {roomParam && (
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] flex items-center gap-2 font-mono text-xs text-zinc-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Room: <strong className="text-white font-bold">{roomParam}</strong></span>
+            </div>
+            {isPipClosed && (
+              <button
+                onClick={() => setIsPipClosed(false)}
+                className="px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 shadow text-xs font-semibold flex items-center gap-1.5 transition"
+                title="Open Floating Video Call"
+              >
+                <Video className="w-3.5 h-3.5 text-rose-400" />
+                <span>Show Video</span>
+              </button>
+            )}
+          </div>
         )}
 
-        {/* Right: Round Glassmorphic Buttons [Mic] [Cam] [Chat] [?] [⟲] [⚙] */}
-        <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* Right: Glassmorphic Control Buttons */}
+        <div className="flex items-center gap-2">
           {/* Audio / Mic Toggle Button */}
           {roomParam && (
             <button
               onClick={toggleMic}
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border transition flex items-center justify-center shadow-md backdrop-blur-md ${
+              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-sm ${
                 isMicMuted
-                  ? 'bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border-white/15 text-rose-400'
-                  : 'bg-emerald-950/80 hover:bg-emerald-900/90 border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/50 shadow-[0_0_12px_rgba(52,211,153,0.4)]'
+                  ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white'
+                  : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-300 ring-2 ring-emerald-500/20'
               }`}
               title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
             >
-              {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 animate-pulse" />}
+              {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
           )}
 
@@ -886,10 +918,10 @@ function LudoPageContent() {
           {roomParam && (
             <button
               onClick={toggleCamera}
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border transition flex items-center justify-center shadow-md backdrop-blur-md ${
+              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-sm ${
                 isCameraOn
-                  ? 'bg-rose-950/80 hover:bg-rose-900/90 border-rose-400 text-rose-300 ring-2 ring-rose-400/50 shadow-[0_0_12px_rgba(244,63,94,0.4)]'
-                  : 'bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border-white/15 text-zinc-300 hover:text-white'
+                  ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-300 ring-2 ring-rose-500/20'
+                  : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white'
               }`}
               title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
             >
@@ -901,27 +933,27 @@ function LudoPageContent() {
           {roomParam && (
             <button
               onClick={() => setIsChatOpen(!isChatOpen)}
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border transition flex items-center justify-center shadow-md backdrop-blur-md ${
+              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-sm ${
                 isChatOpen
-                  ? 'bg-[#1e1e1e] border-rose-400 text-rose-300'
-                  : 'bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border-white/15 text-white'
+                  ? 'bg-rose-600 border-rose-500 text-white'
+                  : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
               }`}
-              title="Toggle Chat & Call"
+              title="Toggle Chat"
             >
               <MessageSquare className="w-4 h-4" />
             </button>
           )}
 
-          {/* Help / Rules Button [?] */}
+          {/* Help / Rules Button */}
           <button
             onClick={() => setShowRulesModal(true)}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border border-white/15 text-white transition flex items-center justify-center font-bold text-base shadow-md backdrop-blur-md"
+            className="w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-300 hover:text-white transition flex items-center justify-center shadow-sm"
             title="Ludo Rules & Guide"
           >
-            ?
+            <HelpCircle className="w-4 h-4" />
           </button>
 
-          {/* Rematch / Restart Button [⟲] */}
+          {/* Rematch / Restart Button */}
           {roomParam && (
             <button
               onClick={() => {
@@ -929,7 +961,7 @@ function LudoPageContent() {
                   rematch();
                 } else {
                   showAlert(
-                    'Restart Match? 🔄',
+                    'Restart Match?',
                     'Would you like to reset the board and request a rematch with all players in the room?',
                     'info',
                     {
@@ -940,17 +972,17 @@ function LudoPageContent() {
                   );
                 }
               }}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border border-white/15 text-white transition flex items-center justify-center shadow-md backdrop-blur-md"
+              className="w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-300 hover:text-white transition flex items-center justify-center shadow-sm"
               title="Rematch / Restart"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
           )}
 
-          {/* Settings Button [⚙] */}
+          {/* Settings Button */}
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1e1e1e]/85 hover:bg-[#2a2a2a] border border-white/15 text-white transition flex items-center justify-center shadow-md backdrop-blur-md"
+            className="w-9 h-9 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-300 hover:text-white transition flex items-center justify-center shadow-sm"
             title="Settings"
           >
             <Settings className="w-4 h-4" />
@@ -1112,7 +1144,7 @@ function LudoPageContent() {
         <AlertModal
           isOpen={!!incomingInvite}
           onClose={() => setIncomingInvite(null)}
-          title="Game Invite Received! 🎲"
+          title="Game Invite Received"
           message={
             <div className="space-y-2 text-center">
               <p className="text-white font-medium">
@@ -1157,7 +1189,7 @@ function LudoPageContent() {
         <AlertModal
           isOpen={!!opponentLeftWin}
           onClose={clearOpponentLeftWin}
-          title="🎉 YOU WON THE MATCH! 🏆"
+          title="Match Won!"
           message={
             <div className="space-y-2 text-center">
               <p className="font-bold text-white text-base">
@@ -1214,24 +1246,24 @@ function LudoPageContent() {
         {/* ROOM VIEW: WAITING ROOM */}
         {roomParam && isWaiting && (
           <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-5 py-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-full bg-[#1c0c16]/90 border border-rose-500/20 rounded-3xl p-6 shadow-2xl text-center flex flex-col items-center backdrop-blur-xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold mb-3">
+            <div className="w-full bg-[#14151b] border border-white/[0.08] rounded-2xl p-6 sm:p-8 shadow-2xl text-center flex flex-col items-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold mb-3">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Strict Zero-Bots Matchmaking</span>
               </div>
 
-              <h2 className="text-2xl font-black text-white">Waiting for Players</h2>
-              <p className="text-xs text-rose-200/70 mt-1 max-w-md">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Waiting for Players</h2>
+              <p className="text-xs text-zinc-400 mt-1 max-w-md">
                 Match will begin automatically when <strong>{room.maxPlayers} human players</strong> join. No bots will ever be injected.
               </p>
 
               {/* Temporary Room Code Badge */}
-              <div className="mt-5 p-4 rounded-2xl bg-black/40 border border-rose-500/20 flex flex-col sm:flex-row items-center gap-4 w-full justify-between">
+              <div className="mt-5 p-4 rounded-xl bg-black/30 border border-white/[0.06] flex flex-col sm:flex-row items-center gap-4 w-full justify-between">
                 <div className="text-left">
-                  <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wider block">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
                     Temporary Room Code
                   </span>
-                  <span className="text-2xl font-mono font-black text-rose-400 tracking-wider">
+                  <span className="text-2xl font-mono font-bold text-rose-400 tracking-wider">
                     {room.roomCode}
                   </span>
                 </div>
@@ -1239,7 +1271,7 @@ function LudoPageContent() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCopyRoomCode}
-                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold border border-white/10 transition flex items-center gap-1.5"
+                    className="px-3.5 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-zinc-200 hover:text-white rounded-xl text-xs font-semibold border border-white/[0.08] transition flex items-center gap-1.5"
                   >
                     {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedRoomCode ? 'Code Copied' : 'Copy Code'}</span>
@@ -1247,7 +1279,7 @@ function LudoPageContent() {
 
                   <button
                     onClick={handleCopyRoomLink}
-                    className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-rose-600/30 transition flex items-center gap-1.5"
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold shadow transition flex items-center gap-1.5"
                   >
                     {copiedRoomLink ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
                     <span>{copiedRoomLink ? 'Link Copied' : 'Share Link'}</span>
@@ -1257,9 +1289,9 @@ function LudoPageContent() {
 
               {/* Player Slots Progress */}
               <div className="mt-6 w-full">
-                <div className="flex items-center justify-between text-xs font-bold mb-2 text-rose-200">
+                <div className="flex items-center justify-between text-xs font-semibold mb-2.5 text-zinc-300">
                   <span>Joined Seats ({room.players.length}/{room.maxPlayers})</span>
-                  <span className="text-emerald-400 font-mono">
+                  <span className="text-emerald-400 font-mono text-[11px]">
                     {room.maxPlayers - room.players.length} seat(s) remaining
                   </span>
                 </div>
@@ -1270,28 +1302,40 @@ function LudoPageContent() {
                     return (
                       <div
                         key={seatIdx}
-                        className={`p-3.5 rounded-2xl border flex flex-col items-center justify-center text-center transition ${
+                        className={`p-3.5 rounded-xl border flex flex-col items-center justify-center text-center transition ${
                           player
-                            ? 'bg-rose-500/10 border-rose-500/40 text-white shadow-lg'
-                            : 'bg-black/20 border-dashed border-white/10 text-zinc-500'
+                            ? 'bg-white/[0.04] border-white/[0.1] text-white shadow'
+                            : 'bg-white/[0.02] border-dashed border-white/[0.06] text-zinc-500'
                         }`}
                       >
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm mb-2 shadow ${
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm mb-2 shadow ${
                             player
                               ? 'bg-gradient-to-tr from-rose-600 to-pink-600 text-white'
-                              : 'bg-zinc-800 text-zinc-600'
+                              : 'bg-white/[0.05] text-zinc-600'
                           }`}
                         >
                           {player ? player.displayName[0]?.toUpperCase() : seatIdx + 1}
                         </div>
 
-                        <span className="text-xs font-bold truncate max-w-full">
+                        <span className="text-xs font-semibold truncate max-w-full">
                           {player ? player.displayName : 'Waiting...'}
                         </span>
 
-                        <span className="text-[10px] text-rose-300/70 mt-0.5">
-                          {player ? (player.seat === 0 ? '👑 Host' : '👤 Player') : 'Empty Seat'}
+                        <span className="text-[10px] text-zinc-400 mt-1 flex items-center justify-center">
+                          {player ? (
+                            player.seat === 0 ? (
+                              <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
+                                <Crown className="w-3 h-3" /> Host
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-zinc-400 font-medium">
+                                <User className="w-3 h-3" /> Player
+                              </span>
+                            )
+                          ) : (
+                            'Empty Seat'
+                          )}
                         </span>
                       </div>
                     );
@@ -1301,18 +1345,18 @@ function LudoPageContent() {
 
               {/* Invite Connected Partner CTA */}
               {partner && (
-                <div className="mt-6 w-full p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between">
+                <div className="mt-6 w-full p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-between">
                   <div className="text-left flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-black flex items-center justify-center text-xs">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold flex items-center justify-center text-xs">
                       {partner.displayName[0]}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <div className="text-xs font-semibold text-white flex items-center gap-1.5">
                         <span>Partner: {partner.displayName}</span>
                         {partner.online ? (
                           <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
                         ) : (
-                          <span className="w-2 h-2 rounded-full bg-zinc-500" title="Offline" />
+                          <span className="w-2 h-2 rounded-full bg-zinc-600" title="Offline" />
                         )}
                       </div>
                       <span className="text-[10px] text-zinc-400 font-mono">{partner.partnerCode}</span>
@@ -1322,10 +1366,10 @@ function LudoPageContent() {
                   <button
                     onClick={handlePingPartner}
                     disabled={isPingingPartner}
-                    className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold text-xs rounded-xl transition shadow flex items-center gap-1.5"
+                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition shadow flex items-center gap-1.5"
                   >
                     <Bell className="w-3.5 h-3.5" />
-                    <span>{isPingingPartner ? 'Inviting...' : 'Invite Partner 🔔'}</span>
+                    <span>{isPingingPartner ? 'Inviting...' : 'Invite Partner'}</span>
                   </button>
                 </div>
               )}
@@ -1766,7 +1810,7 @@ function LudoPageContent() {
                             <div>
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-white text-xs">{p.displayName}</span>
-                                {p.seat === 0 && <span className="text-[10px]">👑</span>}
+                                {p.seat === 0 && <Crown className="w-3 h-3 text-amber-400 inline" />}
                                 {isMe && (
                                   <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 font-bold">
                                     You
@@ -1796,61 +1840,55 @@ function LudoPageContent() {
 
         {/* LOBBY VIEW (When not in an active room) */}
         {!roomParam && (
-          <div className="w-full max-w-3xl mx-auto space-y-6 sm:space-y-7 py-3 pb-14 animate-in fade-in zoom-in-95 duration-300 relative z-10">
-            {/* Ambient Aurora Glow Orbs */}
-            <div className="absolute top-10 left-1/2 -translate-x-1/2 w-96 h-96 bg-rose-600/15 rounded-full blur-[120px] pointer-events-none -z-10" />
-            <div className="absolute top-1/2 -right-10 w-72 h-72 bg-pink-600/10 rounded-full blur-[100px] pointer-events-none -z-10" />
-
+          <div className="w-full max-w-4xl mx-auto space-y-6 sm:space-y-8 py-6 pb-16 animate-in fade-in zoom-in-95 duration-300 relative z-10">
             {/* Header Hero */}
-            <div className="text-center pt-2 pb-1">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-500/15 border border-rose-400/30 text-rose-200 text-xs font-semibold backdrop-blur-2xl shadow-[0_0_25px_rgba(244,63,94,0.25)] mb-3.5 transition-all hover:scale-105">
-                <Sparkles className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
-                <span className="tracking-wide">Couples & Best Friends Co-Play</span>
-                <Heart className="w-3 h-3 fill-rose-500 text-rose-500 animate-pulse" />
+            <div className="text-center pt-2 pb-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold mb-4">
+                <Dice5 className="w-3.5 h-3.5" />
+                <span>Classic Real-Time Board Game</span>
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-rose-100 to-rose-300 drop-shadow-[0_4px_30px_rgba(244,63,94,0.35)]">
-                LudoLove Arena
+              <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
+                Ludo Arena
               </h1>
-              <p className="text-sm sm:text-base text-rose-200/80 mt-2.5 max-w-lg mx-auto font-medium leading-relaxed drop-shadow">
-                Play real-time Ludo with your partner or create a private room with friends. Zero bots, pure cozy co-play.
+              <p className="text-sm sm:text-base text-zinc-400 mt-2 max-w-lg mx-auto leading-relaxed">
+                Play real-time Ludo with your partner or create a private room with friends. Zero bots, pure co-play.
               </p>
 
-              {/* Feature Highlights Pill Bar */}
-              <div className="flex items-center justify-center gap-2.5 sm:gap-3 mt-4 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#180d19]/80 border border-rose-500/20 text-[11px] font-semibold text-rose-200/90 backdrop-blur-xl shadow-md">
-                  <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
+              {/* Feature Highlights Bar */}
+              <div className="flex items-center justify-center gap-2.5 mt-5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#14151b] border border-white/[0.08] text-xs font-medium text-zinc-300">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   Strict Zero-Bots
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#180d19]/80 border border-rose-500/20 text-[11px] font-semibold text-rose-200/90 backdrop-blur-xl shadow-md">
-                  <Sparkles className="w-3.5 h-3.5 text-pink-400" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#14151b] border border-white/[0.08] text-xs font-medium text-zinc-300">
+                  <Video className="w-3.5 h-3.5 text-sky-400" />
                   Live Voice & Cam
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#180d19]/80 border border-rose-500/20 text-[11px] font-semibold text-rose-200/90 backdrop-blur-xl shadow-md">
-                  <Heart className="w-3.5 h-3.5 fill-rose-400 text-rose-400" />
-                  Instant Co-Play
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#14151b] border border-white/[0.08] text-xs font-medium text-zinc-300">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  Low-Latency Sync
                 </span>
               </div>
             </div>
 
             {lobbyError && (
-              <div className="p-3.5 bg-rose-950/80 border border-rose-500/40 text-rose-200 rounded-2xl text-xs font-semibold text-center backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-2">
+              <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-2xl text-xs font-semibold text-center">
                 {lobbyError}
               </div>
             )}
 
-            {/* If Partner is Connected: Quick Duo Action Card */}
+            {/* If Partner is Connected: Duo Action Card */}
             {partner && (
-              <div className="w-full relative overflow-hidden rounded-3xl p-5 sm:p-6 backdrop-blur-2xl bg-[#160c16]/90 border border-rose-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.65),0_0_30px_rgba(244,63,94,0.12)] transition-all duration-300 hover:border-rose-500/50">
-                <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-rose-600/15 blur-3xl pointer-events-none" />
-                <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
+              <div className="w-full bg-[#14151b] border border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
                     <div className="relative">
-                      <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center text-xl shadow-[0_0_20px_rgba(244,63,94,0.35)] ring-2 ring-rose-400/40">
+                      <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold flex items-center justify-center text-lg shadow-md">
                         {partner.displayName[0]?.toUpperCase()}
                       </div>
                       <span
-                        className={`absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-[#160c16] ${
-                          partner.online ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse' : 'bg-zinc-500'
+                        className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#14151b] ${
+                          partner.online ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'
                         }`}
                         title={partner.online ? 'Online' : 'Offline'}
                       />
@@ -1859,19 +1897,19 @@ function LudoPageContent() {
                       <div className="flex items-center gap-2">
                         <span className="text-base font-bold text-white tracking-tight">{partner.displayName}</span>
                         {partner.online ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                             Online
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[10px] font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-500 text-[10px] font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
                             Offline
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-rose-300/85 font-mono block mt-0.5">
-                        Linked Co-Play Partner ♡
+                      <span className="text-xs text-zinc-400 block mt-0.5">
+                        Linked Co-Play Partner
                       </span>
                     </div>
                   </div>
@@ -1881,19 +1919,19 @@ function LudoPageContent() {
                       <button
                         onClick={handlePlayWithPartner}
                         disabled={isMatchmaking}
-                        className="flex-1 sm:flex-initial px-6 py-3.5 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs sm:text-sm rounded-2xl shadow-[0_10px_30px_rgba(244,63,94,0.4)] hover:shadow-[0_14px_35px_rgba(244,63,94,0.55)] transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                        className="flex-1 sm:flex-initial px-6 py-3 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm rounded-xl shadow transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                       >
                         <Play className="w-4 h-4 fill-current" />
-                        <span>Play Together 🎮</span>
+                        <span>Play Together</span>
                       </button>
                     ) : (
                       <button
                         onClick={handlePingPartner}
                         disabled={isPingingPartner}
-                        className="flex-1 sm:flex-initial px-5 py-3.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-200 font-bold text-xs rounded-2xl transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
+                        className="flex-1 sm:flex-initial px-5 py-3 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-200 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-2"
                       >
-                        <Bell className="w-4 h-4 text-rose-400" />
-                        <span>{isPingingPartner ? 'Pinging...' : 'Ping Partner 🔔'}</span>
+                        <Bell className="w-4 h-4 text-zinc-400" />
+                        <span>{isPingingPartner ? 'Pinging...' : 'Ping Partner'}</span>
                       </button>
                     )}
                   </div>
@@ -1901,109 +1939,147 @@ function LudoPageContent() {
               </div>
             )}
 
-            {/* If Not Paired: Subtle Link to Settings */}
+            {/* If Not Paired: Gentle Tip to Link Partner in Settings */}
             {!partner && (
               <div className="text-center">
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(true)}
-                  className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-[#160c16]/80 hover:bg-[#20101f] border border-rose-500/30 hover:border-rose-400/50 text-rose-200 hover:text-white text-xs font-semibold backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] transition-all group active:scale-98"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#14151b] hover:bg-white/[0.05] border border-white/[0.08] text-zinc-400 hover:text-zinc-200 text-xs font-medium transition group"
                 >
-                  <Heart className="w-4 h-4 fill-rose-500 text-rose-400 group-hover:scale-110 transition-transform" />
-                  <span>Pair with your partner once in <strong className="text-rose-100 underline decoration-rose-500/50">Settings (⚙)</strong> to co-play anytime</span>
-                  <ChevronRight className="w-4 h-4 text-rose-400 group-hover:translate-x-0.5 transition-transform" />
+                  <Heart className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
+                  <span>Connect with your partner in <strong className="text-zinc-200 underline decoration-white/20">Settings</strong> to co-play anytime</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
             )}
 
-            {/* PRIVATE ROOM & TABLE CODE SECTION */}
-            <div className="w-full relative overflow-hidden rounded-3xl p-6 sm:p-8 backdrop-blur-2xl bg-[#160c16]/90 border border-rose-500/30 shadow-[0_25px_60px_rgba(0,0,0,0.7),0_0_35px_rgba(244,63,94,0.12)] transition-all duration-300 hover:border-rose-500/40">
-              {/* Soft ambient backlight flare */}
-              <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-rose-600/15 blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-pink-600/10 blur-3xl pointer-events-none" />
-
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500/20 to-pink-500/20 border border-rose-500/30 flex items-center justify-center text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.2)]">
-                      <Lock className="w-4 h-4" />
+            {/* 2-Column Grid: Host Private Table & Join with Code */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Card 1: Host Table */}
+              <div className="bg-[#14151b] border border-white/[0.08] rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+                      <Crown className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">Private Room</h3>
-                      <p className="text-xs text-rose-200/70 font-medium">Join a friend's table with a code, or host your own match</p>
+                      <h3 className="text-base font-bold text-white tracking-tight">Host Private Table</h3>
+                      <p className="text-xs text-zinc-400 font-medium">Create a new room and invite players</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-200 shadow-sm">
-                    Friends Only 🔒
-                  </span>
-                </div>
 
-                {/* Section A: Enter Code */}
-                <form onSubmit={handleJoinWithCode} className="space-y-2 mt-5">
-                  <label className="text-[11px] font-bold text-rose-200/80 uppercase tracking-wider block">
-                    Have a Room Code?
-                  </label>
-                  <div className="flex gap-2.5">
-                    <input
-                      type="text"
-                      value={roomCodeInput}
-                      onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
-                      placeholder="E.G. LUDO-8F72"
-                      className="flex-1 px-4 py-3.5 bg-black/50 border border-rose-500/25 rounded-2xl text-xs sm:text-sm text-white placeholder-rose-200/30 font-mono uppercase tracking-widest focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/25 transition-all"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isJoiningRoom}
-                      className="px-6 sm:px-7 py-3.5 bg-white/10 hover:bg-white/15 border border-rose-500/30 hover:border-rose-400/50 text-white font-bold text-xs sm:text-sm rounded-2xl transition flex items-center gap-2 shrink-0 active:scale-98 shadow-md"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current text-rose-300" />
-                      <span>{isJoiningRoom ? 'Joining...' : 'Join Room'}</span>
-                    </button>
-                  </div>
-                </form>
-
-                {/* Divider */}
-                <div className="relative my-6 flex items-center justify-center">
-                  <div className="w-full border-t border-rose-500/20" />
-                  <span className="absolute px-4 bg-[#140a12] text-[10px] uppercase font-black tracking-wider text-rose-300/80 rounded-full border border-rose-500/25 py-0.5">
-                    OR HOST A NEW TABLE
-                  </span>
-                </div>
-
-                {/* Section B: Host Private Table */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-rose-200/80 uppercase tracking-wider">
-                      Select Table Size:
-                    </span>
-                    <div className="inline-flex gap-1.5 p-1 rounded-2xl bg-black/50 border border-rose-500/25">
+                  <div className="space-y-3 mt-5">
+                    <label className="text-xs font-semibold text-zinc-300 block">
+                      Select Table Size
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
                       {([2, 3, 4] as const).map(count => (
                         <button
                           key={count}
                           type="button"
                           onClick={() => setSelectedMaxPlayers(count)}
-                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all border ${
                             selectedMaxPlayers === count
-                              ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white border border-rose-400/50 shadow-[0_0_15px_rgba(244,63,94,0.4)]'
-                              : 'text-rose-200/60 hover:text-white hover:bg-white/5'
+                              ? 'bg-rose-600 border-rose-500 text-white shadow-sm'
+                              : 'bg-white/[0.03] border-white/[0.06] text-zinc-400 hover:text-white hover:bg-white/[0.06]'
                           }`}
                         >
-                          {count}P {count === 2 ? '(Duel)' : count === 3 ? '(3P)' : '(4P)'}
+                          {count} Players {count === 2 ? '(Duel)' : ''}
                         </button>
                       ))}
                     </div>
                   </div>
+                </div>
 
+                <div className="mt-6 pt-4 border-t border-white/[0.06]">
                   <button
                     type="button"
                     onClick={handleCreateCustomRoom}
                     disabled={isMatchmaking}
-                    className="w-full py-4 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs sm:text-sm rounded-2xl shadow-[0_12px_35px_rgba(244,63,94,0.45)] hover:shadow-[0_16px_40px_rgba(244,63,94,0.6)] transition-all transform hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer"
+                    className="w-full py-3.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-sm rounded-xl shadow transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
                   >
-                    <Crown className="w-4 h-4 text-white drop-shadow" />
-                    <span>Create Private Room ({selectedMaxPlayers} Players) 👑</span>
+                    <Crown className="w-4 h-4" />
+                    <span>Create {selectedMaxPlayers}-Player Room</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Card 2: Join with Code */}
+              <div className="bg-[#14151b] border border-white/[0.08] rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-zinc-300">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white tracking-tight">Join with Code</h3>
+                      <p className="text-xs text-zinc-400 font-medium">Enter a room code shared by your friend</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleJoinWithCode} className="space-y-3 mt-5">
+                    <label className="text-xs font-semibold text-zinc-300 block">
+                      Room Code
+                    </label>
+                    <input
+                      type="text"
+                      value={roomCodeInput}
+                      onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
+                      placeholder="E.G. LUDO-8F72"
+                      className="w-full px-4 py-3 bg-[#0f1015] border border-white/[0.1] rounded-xl text-sm text-white placeholder-zinc-500 font-mono uppercase tracking-widest focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isJoiningRoom || !roomCodeInput.trim()}
+                      className="w-full mt-4 py-3.5 bg-white/[0.08] hover:bg-white/[0.12] border border-white/[0.1] text-white font-semibold text-sm rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Play className="w-4 h-4 fill-current text-zinc-300" />
+                      <span>{isJoiningRoom ? 'Joining...' : 'Join Table'}</span>
+                    </button>
+                  </form>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-white/[0.06] text-center">
+                  <span className="text-xs text-zinc-500">
+                    Need help? Click the <button type="button" onClick={() => setShowRulesModal(true)} className="text-rose-400 underline hover:text-rose-300">Rules</button> guide above.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Rules Reference Strip */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+              <div className="p-3.5 rounded-xl bg-[#14151b] border border-white/[0.06] flex flex-col gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400">
+                  <Dice5 className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white">Roll a 6</span>
+                <p className="text-[11px] text-zinc-400 leading-tight">Unlocks pawns from yard onto the board track.</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#14151b] border border-white/[0.06] flex flex-col gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400">
+                  <RefreshCw className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white">Bonus Turn</span>
+                <p className="text-[11px] text-zinc-400 leading-tight">Rolling a 6 or capturing grants an extra roll.</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#14151b] border border-white/[0.06] flex flex-col gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white">Capture Rivals</span>
+                <p className="text-[11px] text-zinc-400 leading-tight">Land on opponents to send them back home.</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-[#14151b] border border-white/[0.06] flex flex-col gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-400">
+                  <Star className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-white">Safe Zones</span>
+                <p className="text-[11px] text-zinc-400 leading-tight">Star tiles protect pawns from being captured.</p>
               </div>
             </div>
           </div>
@@ -2013,8 +2089,8 @@ function LudoPageContent() {
       {/* RULES MODAL */}
       {showRulesModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#140a12]/95 border border-rose-500/30 rounded-3xl p-6 max-w-md w-full shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-rose-500/20 mb-4">
+          <div className="bg-[#14151b] border border-white/[0.1] rounded-2xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] mb-4">
               <div className="flex items-center gap-2">
                 <HelpCircle className="w-5 h-5 text-rose-400" />
                 <h3 className="text-base font-bold text-white">How to Play Ludo</h3>
@@ -2027,34 +2103,34 @@ function LudoPageContent() {
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-rose-100/90 leading-relaxed">
-              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
-                <span className="text-base">🎲</span>
-                <p><strong>Roll a 6:</strong> You must roll a 6 to release a pawn from your Yard onto your Start tile.</p>
+            <div className="space-y-3 text-xs text-zinc-300 leading-relaxed">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <Dice5 className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <p><strong className="text-white">Roll a 6:</strong> You must roll a 6 to release a pawn from your Yard onto your Start tile.</p>
               </div>
-              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
-                <span className="text-base">🔄</span>
-                <p><strong>Bonus Turn:</strong> Rolling a 6 grants you an immediate extra turn!</p>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <RefreshCw className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <p><strong className="text-white">Bonus Turn:</strong> Rolling a 6 grants you an immediate extra turn!</p>
               </div>
-              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
-                <span className="text-base">⚔️</span>
-                <p><strong>Capturing:</strong> Land on an opponent's pawn to capture it and send it back to their yard, earning a bonus turn.</p>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <Zap className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <p><strong className="text-white">Capturing:</strong> Land on an opponent's pawn to capture it and send it back to their yard, earning a bonus turn.</p>
               </div>
-              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
-                <span className="text-base">⭐</span>
-                <p><strong>Safe Zones:</strong> Tiles marked with a Star are safe zones. Pawns cannot be captured on star tiles.</p>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <Star className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                <p><strong className="text-white">Safe Zones:</strong> Tiles marked with a Star are safe zones. Pawns cannot be captured on star tiles.</p>
               </div>
-              <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
-                <span className="text-base">🏆</span>
-                <p><strong>Victory:</strong> Move all 4 pawns completely around the board and into your Home triangle to win!</p>
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <Crown className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <p><strong className="text-white">Victory:</strong> Move all 4 pawns completely around the board and into your Home triangle to win!</p>
               </div>
             </div>
 
             <button
               onClick={() => setShowRulesModal(false)}
-              className="mt-5 w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition"
+              className="mt-5 w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition"
             >
-              Got It!
+              Got It
             </button>
           </div>
         </div>
@@ -2063,8 +2139,8 @@ function LudoPageContent() {
       {/* SETTINGS MODAL */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#140a12]/95 border border-rose-500/30 rounded-3xl p-5 sm:p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-150 scrollbar-none">
-            <div className="flex items-center justify-between pb-3 border-b border-rose-500/20 mb-4">
+          <div className="bg-[#14151b] border border-white/[0.1] rounded-2xl p-5 sm:p-6 max-w-md w-full max-h-[88vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-150 scrollbar-none">
+            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] mb-4">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-rose-400" />
                 <h3 className="text-base font-bold text-white">Game Settings</h3>
@@ -2078,22 +2154,22 @@ function LudoPageContent() {
             </div>
 
             <div className="space-y-4 text-xs">
-              {/* SECTION 1: PARTNER CONNECTION (Permanent One-Time Setup & Management) */}
-              <div className="p-4 rounded-2xl bg-white/[0.04] border border-rose-500/25 space-y-3">
+              {/* SECTION 1: PARTNER CONNECTION */}
+              <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
                     <div>
                       <span className="font-bold text-white text-xs sm:text-sm">Partner Connection</span>
-                      <p className="text-[11px] text-rose-200/60 font-medium">Link once, play together anytime</p>
+                      <p className="text-[11px] text-zinc-400 font-medium">Link once, play together anytime</p>
                     </div>
                   </div>
                   {partner ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase tracking-wider">
-                      Paired ♡
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase tracking-wider">
+                      Paired
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/5 text-zinc-400 border border-white/10">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white/5 text-zinc-400 border border-white/10">
                       Not Paired
                     </span>
                   )}
@@ -2101,11 +2177,11 @@ function LudoPageContent() {
 
                 {partner ? (
                   /* Connected Partner inside Settings */
-                  <div className="p-3.5 rounded-xl bg-black/50 border border-white/10 space-y-3">
+                  <div className="p-3.5 rounded-xl bg-black/30 border border-white/[0.06] space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="relative">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black flex items-center justify-center text-sm shadow ring-1 ring-rose-400/40">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold flex items-center justify-center text-sm shadow">
                             {partner.displayName[0]?.toUpperCase()}
                           </div>
                           <span
@@ -2117,19 +2193,19 @@ function LudoPageContent() {
                         <div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-white">{partner.displayName}</span>
-                            <span className="text-[10px] text-emerald-300 font-semibold">
+                            <span className="text-[10px] text-emerald-400 font-medium">
                               {partner.online ? '• Online' : '• Offline'}
                             </span>
                           </div>
-                          <span className="text-[11px] text-rose-300/80 font-mono">
-                            Code: <strong className="text-rose-300">{partner.partnerCode}</strong>
+                          <span className="text-[11px] text-zinc-400 font-mono">
+                            Code: <strong className="text-zinc-200">{partner.partnerCode}</strong>
                           </span>
                         </div>
                       </div>
 
                       <button
                         onClick={handleDisconnectPartner}
-                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 text-[11px] font-semibold border border-white/10 transition flex items-center gap-1"
+                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 text-[11px] font-medium border border-white/10 transition flex items-center gap-1"
                       >
                         <Unlink className="w-3 h-3" />
                         <span>Disconnect</span>
@@ -2143,19 +2219,19 @@ function LudoPageContent() {
                           handlePlayWithPartner();
                         }}
                         disabled={isMatchmaking}
-                        className="flex-1 py-2.5 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
+                        className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl shadow transition flex items-center justify-center gap-1.5"
                       >
                         <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Play Together 🎮</span>
+                        <span>Play Together</span>
                       </button>
 
                       <button
                         onClick={handlePingPartner}
                         disabled={isPingingPartner}
-                        className="px-3.5 py-2.5 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/35 text-rose-200 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1"
+                        className="px-3.5 py-2.5 bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-200 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-1"
                       >
-                        <Bell className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Ping 🔔</span>
+                        <Bell className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Ping</span>
                       </button>
                     </div>
                   </div>
@@ -2163,19 +2239,19 @@ function LudoPageContent() {
                   /* Not Connected: One-Time Pairing Setup inside Settings */
                   <div className="space-y-3 pt-1">
                     {/* Your Personal Code */}
-                    <div className="p-3 rounded-xl bg-black/50 border border-white/10 flex items-center justify-between gap-3">
+                    <div className="p-3 rounded-xl bg-black/30 border border-white/[0.06] flex items-center justify-between gap-3">
                       <div>
-                        <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wider block">
+                        <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">
                           Your Personal Code
                         </span>
-                        <span className="font-mono text-xs sm:text-sm font-black text-rose-300 tracking-wider">
+                        <span className="font-mono text-xs sm:text-sm font-bold text-rose-400 tracking-wider">
                           {myPartnerCode || session?.user?.partnerCode || '...'}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={handleCopyPartnerCode}
-                        className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-200 text-xs font-bold transition flex items-center gap-1.5 shrink-0"
+                        className="px-3 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-zinc-200 text-xs font-semibold transition flex items-center gap-1.5 shrink-0"
                       >
                         {copiedPartnerCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                         <span>{copiedPartnerCode ? 'Copied' : 'Copy'}</span>
@@ -2184,7 +2260,7 @@ function LudoPageContent() {
 
                     {/* Enter Partner's Code */}
                     <form onSubmit={handleConnectPartner} className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wider block">
+                      <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">
                         Enter Partner's Code
                       </span>
                       <div className="flex gap-2">
@@ -2193,12 +2269,12 @@ function LudoPageContent() {
                           value={partnerInputCode}
                           onChange={e => setPartnerInputCode(e.target.value.toUpperCase())}
                           placeholder="E.G. MAYURD81"
-                          className="flex-1 px-3 py-2 bg-black/60 border border-white/15 rounded-xl text-xs text-white placeholder-zinc-500 font-mono uppercase tracking-wider focus:outline-none focus:border-rose-400"
+                          className="flex-1 px-3 py-2 bg-[#0f1015] border border-white/[0.1] rounded-xl text-xs text-white placeholder-zinc-500 font-mono uppercase tracking-wider focus:outline-none focus:border-rose-500"
                         />
                         <button
                           type="submit"
                           disabled={isConnectingPartner}
-                          className="px-4 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 shrink-0"
+                          className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl shadow transition flex items-center gap-1.5 shrink-0"
                         >
                           <UserPlus className="w-3.5 h-3.5" />
                           <span>{isConnectingPartner ? 'Linking...' : 'Connect'}</span>
@@ -2209,15 +2285,15 @@ function LudoPageContent() {
                 )}
 
                 {partnerConnectError && (
-                  <p className="text-xs text-rose-400 mt-2 font-medium bg-rose-950/60 p-2 rounded-xl border border-rose-500/30">{partnerConnectError}</p>
+                  <p className="text-xs text-rose-400 mt-2 font-medium bg-rose-500/10 p-2 rounded-xl border border-rose-500/20">{partnerConnectError}</p>
                 )}
                 {partnerPingStatus && (
-                  <p className="text-xs text-rose-300 mt-2 font-medium bg-rose-950/60 p-2 rounded-xl border border-rose-500/30">{partnerPingStatus}</p>
+                  <p className="text-xs text-zinc-300 mt-2 font-medium bg-white/[0.04] p-2 rounded-xl border border-white/[0.08]">{partnerPingStatus}</p>
                 )}
               </div>
 
               {/* Board Theme Selection */}
-              <div className="p-3 rounded-2xl bg-white/5 space-y-2.5">
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2.5">
                 <div className="flex items-center gap-2">
                   <Palette className="w-4 h-4 text-rose-400" />
                   <span className="font-semibold text-white">Board Theme</span>
@@ -2230,10 +2306,10 @@ function LudoPageContent() {
                         key={theme.id}
                         type="button"
                         onClick={() => handleSelectTheme(theme.id)}
-                        className={`group relative rounded-xl overflow-hidden border-2 transition-all flex flex-col items-center shadow-md text-left ${
+                        className={`group relative rounded-xl overflow-hidden border transition-all flex flex-col items-center shadow text-left ${
                           isSelected
-                            ? 'border-rose-500 ring-2 ring-rose-500/40 scale-[1.03]'
-                            : 'border-white/10 hover:border-white/30 hover:scale-[1.01]'
+                            ? 'border-rose-500 ring-2 ring-rose-500/40 scale-[1.02]'
+                            : 'border-white/[0.08] hover:border-white/30'
                         }`}
                       >
                         <div className="w-full h-16 relative overflow-hidden bg-black/50">
@@ -2248,7 +2324,7 @@ function LudoPageContent() {
                             </div>
                           )}
                         </div>
-                        <div className="w-full py-1 px-1.5 bg-[#1b0d18] text-[10px] font-bold text-white text-center truncate">
+                        <div className="w-full py-1 px-1.5 bg-[#14151b] text-[10px] font-semibold text-white text-center truncate">
                           {theme.name}
                         </div>
                       </button>
@@ -2257,7 +2333,7 @@ function LudoPageContent() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <Volume2 className="w-4 h-4 text-rose-400" />
                   <span className="font-semibold text-white">Sound Effects</span>
@@ -2276,7 +2352,7 @@ function LudoPageContent() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <Mic className="w-4 h-4 text-rose-400" />
                   <span className="font-semibold text-white">Microphone</span>
@@ -2295,7 +2371,7 @@ function LudoPageContent() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/5">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                 <div className="flex items-center gap-2">
                   <Video className="w-4 h-4 text-rose-400" />
                   <span className="font-semibold text-white">Camera Preview</span>
@@ -2317,7 +2393,7 @@ function LudoPageContent() {
 
             <button
               onClick={() => setShowSettingsModal(false)}
-              className="mt-5 w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl transition"
+              className="mt-5 w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition"
             >
               Done
             </button>
@@ -2332,8 +2408,8 @@ export default function LudoPage() {
   return (
     <React.Suspense
       fallback={
-        <div className="min-h-screen bg-[#13070f] flex items-center justify-center text-rose-300 text-xs font-semibold">
-          Loading LudoLove...
+        <div className="min-h-screen bg-[#111217] flex items-center justify-center text-zinc-400 text-xs font-semibold">
+          Loading Ludo Arena...
         </div>
       }
     >
