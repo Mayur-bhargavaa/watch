@@ -581,10 +581,10 @@ function ProfileContent() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <form onSubmit={handleSaveProfile} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             {/* ===================================================================== */}
-            {/* CONTAINER 1: IMAGE, NAME & ALL PROFILE DETAILS                        */}
+            {/* CONTAINER 1: PROFILE & PERSONAL IDENTITY                              */}
             {/* ===================================================================== */}
             <div className="lg:col-span-5 rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 p-6 sm:p-7 shadow-sm flex flex-col items-center text-center space-y-4">
               
@@ -624,8 +624,8 @@ function ProfileContent() {
                 </p>
               </div>
 
-              {/* All Details (Form Fields) */}
-              <form onSubmit={handleSaveProfile} className="w-full space-y-3.5 text-left pt-2">
+              {/* Personal Details Form Fields */}
+              <div className="w-full space-y-3.5 text-left pt-2">
                 
                 {/* Partner Sync Code */}
                 <div>
@@ -789,148 +789,7 @@ function ProfileContent() {
                   />
                 </div>
 
-                {/* Relationship Status */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
-                    Relationship Status
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {RELATIONSHIP_OPTIONS.map(r => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => {
-                          setRelationshipStatus(r.id);
-                          setIsMarried(r.id === 'married');
-                          if (r.id === 'single') setAnniversaryDate('');
-                        }}
-                        className={`py-1.5 px-2 rounded-xl text-[10.5px] font-bold border transition flex items-center justify-center gap-1 ${
-                          relationshipStatus === r.id
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                            : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <span>{r.icon}</span>
-                        <span className="truncate">{r.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Anniversary / Dating Since Date (if not single) */}
-                {relationshipStatus !== 'single' && (
-                  <div className="p-3 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-1 animate-in fade-in">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
-                        <Heart className="w-3 h-3 fill-current text-rose-600" />
-                        <span>
-                          {relationshipStatus === 'married'
-                            ? 'Wedding Anniversary'
-                            : relationshipStatus === 'engaged'
-                            ? 'Engagement Date'
-                            : 'Dating / Since Date'}
-                        </span>
-                      </label>
-                      {relationshipDuration && (
-                        <span className="text-[9px] font-bold text-rose-600 dark:text-rose-300">
-                          {relationshipDuration}
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      type="date"
-                      required={relationshipStatus === 'married'}
-                      value={anniversaryDate}
-                      onChange={(e) => setAnniversaryDate(e.target.value)}
-                      max={new Date().toISOString().split('T')[0]}
-                      className="w-full px-2.5 py-1.5 rounded-lg bg-white dark:bg-black/50 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
-                    />
-                  </div>
-                )}
-
-                {/* Favorite Cinema Genres */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
-                      Favorite Genres
-                    </label>
-                    <span className="text-[9px] text-slate-400 dark:text-zinc-500">
-                      {favoriteGenres.length} selected
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {GENRE_OPTIONS.map(genre => {
-                      const isSelected = favoriteGenres.includes(genre);
-                      return (
-                        <button
-                          key={genre}
-                          type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setFavoriteGenres(favoriteGenres.filter(g => g !== genre));
-                            } else {
-                              setFavoriteGenres([...favoriteGenres, genre]);
-                            }
-                          }}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
-                            isSelected
-                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                              : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:border-slate-300'
-                          }`}
-                        >
-                          {genre}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Cinema Viewing Persona */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
-                    Viewing Persona
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {VIEWING_VIBE_OPTIONS.map(vibe => (
-                      <button
-                        key={vibe.id}
-                        type="button"
-                        onClick={() => setViewingVibe(vibe.label)}
-                        className={`py-1.5 px-2.5 rounded-xl text-[10px] font-bold border transition flex items-center gap-1.5 ${
-                          viewingVibe === vibe.label
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                            : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <span>{vibe.icon}</span>
-                        <span className="truncate">{vibe.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Save Changes Button */}
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 flex items-center justify-center gap-2"
-                  >
-                    {saving ? (
-                      <>
-                        <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                        <span>Saving Changes...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-3.5 h-3.5" />
-                        <span>Save Profile Details</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-              </form>
+              </div>
             </div>
 
             {/* ===================================================================== */}
@@ -1132,9 +991,192 @@ function ProfileContent() {
 
                 </div>
               </div>
+
+              {/* CARD 1 (RIGHT SIDE): RELATIONSHIP & SOCIAL SYNC */}
+              <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                      <Heart className="w-4 h-4 fill-current" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                        Relationship & Partner Status
+                      </h3>
+                      <p className="text-[10.5px] text-slate-500 dark:text-zinc-400">
+                        Sync couple countdowns and duo love-seat features
+                      </p>
+                    </div>
+                  </div>
+                  {relationshipDuration && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-300">
+                      {relationshipDuration}
+                    </span>
+                  )}
+                </div>
+
+                {/* Relationship Status Pills */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
+                    Select Current Status
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {RELATIONSHIP_OPTIONS.map(r => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => {
+                          setRelationshipStatus(r.id);
+                          setIsMarried(r.id === 'married');
+                          if (r.id === 'single') setAnniversaryDate('');
+                        }}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                          relationshipStatus === r.id
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                            : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span>{r.icon}</span>
+                        <span className="truncate">{r.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Anniversary / Dating Since Date (if not single) */}
+                {relationshipStatus !== 'single' && (
+                  <div className="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
+                        <Heart className="w-3.5 h-3.5 fill-current text-rose-600" />
+                        <span>
+                          {relationshipStatus === 'married'
+                            ? 'Wedding Anniversary Date'
+                            : relationshipStatus === 'engaged'
+                            ? 'Engagement Date'
+                            : 'Dating / Since Date'}
+                        </span>
+                      </label>
+                      {relationshipDuration && (
+                        <span className="text-[9.5px] font-bold text-rose-600 dark:text-rose-300">
+                          {relationshipDuration}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="date"
+                      required={relationshipStatus === 'married'}
+                      value={anniversaryDate}
+                      onChange={(e) => setAnniversaryDate(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-black/50 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* CARD 2 (RIGHT SIDE): CINEMA PERSONA & TASTE */}
+              <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/[0.06]">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                        Cinema Persona & Taste
+                      </h3>
+                      <p className="text-[10.5px] text-slate-500 dark:text-zinc-400">
+                        Tailors recommendations, room themes, and party discovery
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-zinc-300">
+                    {favoriteGenres.length} Genres
+                  </span>
+                </div>
+
+                {/* Favorite Genres (Multi-select) */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
+                    Favorite Genres (Select all that apply)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {GENRE_OPTIONS.map(genre => {
+                      const isSelected = favoriteGenres.includes(genre);
+                      return (
+                        <button
+                          key={genre}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setFavoriteGenres(favoriteGenres.filter(g => g !== genre));
+                            } else {
+                              setFavoriteGenres([...favoriteGenres, genre]);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                            isSelected
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                              : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
+                          }`}
+                        >
+                          {genre}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Viewing Persona */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
+                    Cinema Viewing Persona
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {VIEWING_VIBE_OPTIONS.map(vibe => (
+                      <button
+                        key={vibe.id}
+                        type="button"
+                        onClick={() => setViewingVibe(vibe.label)}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${
+                          viewingVibe === vibe.label
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                            : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span>{vibe.icon}</span>
+                        <span className="truncate">{vibe.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* SAVE ALL CHANGES BUTTON */}
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-3 px-6 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black text-xs tracking-wider uppercase shadow-lg shadow-rose-600/25 transition active:scale-[0.99] flex items-center justify-center gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      <span>Saving Profile & Demographics...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save All Profile & Preferences</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
             </div>
 
-          </div>
+          </form>
 
         </div>
 
