@@ -109,11 +109,11 @@ const REAL_YOUTUBE_HEROES = [
 
 // Multi-Platform Definitions (Netflix, Prime Video, Disney+, YouTube, Direct)
 const PLATFORMS = [
-  { id: 'netflix', name: 'Netflix', icon: '🔴', tag: 'Netflix Original', color: 'border-red-500/40 text-red-400 bg-red-600/10' },
-  { id: 'prime', name: 'Prime Video', icon: '🔵', tag: 'Prime Exclusive', color: 'border-blue-500/40 text-blue-400 bg-blue-600/10' },
-  { id: 'disney', name: 'Disney+', icon: '🏰', tag: 'Disney / Marvel', color: 'border-indigo-500/40 text-indigo-400 bg-indigo-600/10' },
-  { id: 'youtube', name: 'YouTube', icon: '📺', tag: 'YouTube 4K', color: 'border-rose-500/40 text-rose-400 bg-rose-600/10' },
-  { id: 'custom', name: 'Direct Video', icon: '🌐', tag: 'MP4 / HLS', color: 'border-zinc-500/40 text-zinc-300 bg-white/5' }
+  { id: 'netflix', name: 'Netflix', logo: '/logos/netflix.png', tag: 'Netflix Original', color: 'border-red-500/40 text-red-500 bg-red-600/10' },
+  { id: 'prime', name: 'Prime Video', logo: '/logos/prime.png', tag: 'Prime Exclusive', color: 'border-sky-500/40 text-sky-500 bg-sky-600/10' },
+  { id: 'disney', name: 'Disney+', logo: '/logos/disney.png', tag: 'Disney / Marvel', color: 'border-indigo-500/40 text-indigo-500 bg-indigo-600/10' },
+  { id: 'youtube', name: 'YouTube', logo: '/logos/youtube.png', tag: 'YouTube 4K', color: 'border-rose-500/40 text-rose-500 bg-rose-600/10' },
+  { id: 'custom', name: 'Direct Video', logo: '/logos/direct.png', tag: 'MP4 / HLS', color: 'border-zinc-500/40 text-zinc-400 bg-zinc-500/10' }
 ];
 
 const PLATFORM_SHOWS: Record<string, { title: string; url: string; tag: string }[]> = {
@@ -948,10 +948,16 @@ export default function DashboardPage() {
                   <div
                     key={plat.id}
                     onClick={() => handleDirectCreateRoom(`${plat.name} Watch Party`)}
-                    className={`p-4 rounded-2xl border ${plat.color} hover:scale-[1.02] transition cursor-pointer flex flex-col justify-between space-y-3 bg-white dark:bg-transparent shadow-sm dark:shadow-none`}
+                    className={`p-4 rounded-2xl border ${plat.color} hover:scale-[1.02] transition cursor-pointer flex flex-col justify-between space-y-3 bg-white dark:bg-[#171821] shadow-sm dark:shadow-none`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xl">{plat.icon}</span>
+                      <div className="w-11 h-11 rounded-2xl overflow-hidden bg-white dark:bg-[#12131a] border border-slate-200 dark:border-white/10 p-1 flex items-center justify-center shadow-sm shrink-0">
+                        <img
+                          src={plat.logo}
+                          alt={plat.name}
+                          className="w-full h-full object-contain rounded-xl"
+                        />
+                      </div>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/40 text-white">
                         Max 6
                       </span>
