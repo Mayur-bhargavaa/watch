@@ -129,6 +129,7 @@ function ProfileContent() {
   const [selectedVibeId, setSelectedVibeId] = useState<string>('cinephile');
   const [showAvatarModal, setShowAvatarModal] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [isFlipped, setIsFlipped] = useState<boolean>(false);
 
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -496,151 +497,257 @@ function ProfileContent() {
             </div>
           )}
 
-          {/* THE SINGLE-ROW PASS */}
-          <div className="relative rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col lg:flex-row items-stretch">
-            
-            {/* Top Red Accent Strip */}
-            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600" />
-
-            {/* Left Section: Avatar with Round Border & Camera Icon */}
-            <div className="p-6 sm:p-7 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-white/[0.01]">
-              <div className="relative group">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
-                  <img
-                    src={avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
-                    alt={displayName || 'Persona'}
-                    className="w-full h-full object-cover object-center"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowAvatarModal(true)}
-                  className="absolute bottom-0 right-0 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg transition flex items-center justify-center border-2 border-white dark:border-[#14151b] active:scale-95"
-                  title="Change Avatar"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>CINEMA VIP</span>
-              </div>
-            </div>
-
-            {/* Middle Section: All Details In One Horizontal Flow Across Columns */}
-            <div className="flex-1 p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-center">
+          {/* 3D FLIP PASS CONTAINER */}
+          <div className="perspective-1000 w-full select-none">
+            <div
+              className={`relative w-full transition-transform duration-700 transform-style-3d ${
+                isFlipped ? 'rotate-y-180' : ''
+              }`}
+            >
               
-              {/* Detail 1: Pass Holder */}
-              <div className="space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                  <User className="w-3 h-3 text-rose-600" />
-                  <span>Pass Holder</span>
-                </div>
-                <div className="text-lg font-black text-slate-900 dark:text-white truncate">
-                  {session.user.displayName || 'User'}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-                  <Mail className="w-3 h-3 shrink-0 text-slate-400" />
-                  <span className="truncate">{session.user.email || 'cinema@stitchbyte.com'}</span>
-                </div>
-              </div>
+              {/* ================= CARD FRONT: ALL PASS DETAILS ================= */}
+              <div className="backface-hidden relative rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col lg:flex-row items-stretch">
+                
+                {/* Top Red Accent Strip */}
+                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600" />
 
-              {/* Detail 2: Age & Birthdate */}
-              <div className="space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-rose-600" />
-                  <span>Age & Birthdate</span>
-                </div>
-                <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                  {calculatedAge !== null ? (
-                    <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs">
-                      🎂 {calculatedAge} years old
-                    </span>
-                  ) : (
-                    <span className="text-xs text-slate-400 font-medium">Age not set</span>
-                  )}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-zinc-400">
-                  {dateOfBirth ? `Born: ${dateOfBirth}` : 'Click edit to set DOB'}
-                </div>
-              </div>
+                {/* Left Section: Avatar with Round Border & Camera Icon */}
+                <div className="p-6 sm:p-7 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-white/[0.01]">
+                  <div className="relative group">
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
+                      <img
+                        src={avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
+                        alt={displayName || 'Persona'}
+                        className="w-full h-full object-cover object-center"
+                      />
+                    </div>
 
-              {/* Detail 3: Relationship */}
-              <div className="space-y-1">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                  <Heart className="w-3 h-3 text-rose-600 fill-rose-600/30" />
-                  <span>Relationship</span>
-                </div>
-                <div className="text-sm font-bold text-slate-900 dark:text-white">
-                  {session.user.isMarried ? '💍 Married' : 'Single'}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-zinc-400 truncate">
-                  {isMarried && anniversaryDuration
-                    ? anniversaryDuration
-                    : isMarried && anniversaryDate
-                    ? `Since ${anniversaryDate}`
-                    : 'Solo Cinema Member'}
-                </div>
-              </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAvatarModal(true);
+                      }}
+                      className="absolute bottom-0 right-0 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg transition flex items-center justify-center border-2 border-white dark:border-[#14151b] active:scale-95"
+                      title="Change Avatar"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
 
-              {/* Detail 4: Partner Pass Code */}
-              <div className="space-y-1.5">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-500" />
-                  <span>Partner Pass Code</span>
+                  <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>CINEMA VIP</span>
+                  </div>
                 </div>
-                <div className="inline-flex items-center gap-2 p-2 px-3 rounded-xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
-                  <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400 tracking-wider">
-                    {session.user.partnerCode || 'SYNC-VIP'}
-                  </span>
+
+                {/* Middle Section: All Details In One Horizontal Flow Across Columns */}
+                <div className="flex-1 p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-center">
+                  
+                  {/* Detail 1: Pass Holder */}
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                      <User className="w-3 h-3 text-rose-600" />
+                      <span>Pass Holder</span>
+                    </div>
+                    <div className="text-lg font-black text-slate-900 dark:text-white truncate">
+                      {session.user.displayName || 'User'}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
+                      <Mail className="w-3 h-3 shrink-0 text-slate-400" />
+                      <span className="truncate">{session.user.email || 'cinema@stitchbyte.com'}</span>
+                    </div>
+                  </div>
+
+                  {/* Detail 2: Age & Birthdate */}
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                      <Calendar className="w-3 h-3 text-rose-600" />
+                      <span>Age & Birthdate</span>
+                    </div>
+                    <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                      {calculatedAge !== null ? (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs">
+                          🎂 {calculatedAge} years old
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium">Age not set</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-zinc-400">
+                      {dateOfBirth ? `Born: ${dateOfBirth}` : 'Click edit to set DOB'}
+                    </div>
+                  </div>
+
+                  {/* Detail 3: Relationship */}
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                      <Heart className="w-3 h-3 text-rose-600 fill-rose-600/30" />
+                      <span>Relationship</span>
+                    </div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">
+                      {session.user.isMarried ? '💍 Married' : 'Single'}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-zinc-400 truncate">
+                      {isMarried && anniversaryDuration
+                        ? anniversaryDuration
+                        : isMarried && anniversaryDate
+                        ? `Since ${anniversaryDate}`
+                        : 'Solo Cinema Member'}
+                    </div>
+                  </div>
+
+                  {/* Detail 4: Partner Pass Code */}
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Partner Pass Code</span>
+                    </div>
+                    <div className="inline-flex items-center gap-2 p-2 px-3 rounded-xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
+                      <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400 tracking-wider">
+                        {session.user.partnerCode || 'SYNC-VIP'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyPartnerCode();
+                        }}
+                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition"
+                        title="Copy Partner Code"
+                      >
+                        {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-slate-400 dark:text-zinc-500">
+                      Share to sync watch rooms
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Right Pass Stub / Actions */}
+                <div className="p-6 sm:p-7 border-t lg:border-t-0 lg:border-l border-dashed border-slate-200 dark:border-white/10 flex flex-row lg:flex-col items-center justify-between gap-3 bg-slate-50/40 dark:bg-white/[0.01] shrink-0">
+                  
+                  {/* Flip Button */}
                   <button
                     type="button"
-                    onClick={handleCopyPartnerCode}
-                    className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition"
-                    title="Copy Partner Code"
+                    onClick={() => setIsFlipped(true)}
+                    className="w-full py-2 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 font-semibold text-xs transition active:scale-95 flex items-center justify-center gap-1.5 border border-slate-200 dark:border-white/10"
+                    title="Flip Card to View Privileges"
                   >
-                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    <RotateCw className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Flip Pass</span>
+                  </button>
+
+                  {/* Edit Details Action Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowEditModal(true);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>Edit Details</span>
                   </button>
                 </div>
-                <div className="text-[10px] text-slate-400 dark:text-zinc-500">
-                  Share to sync watch rooms
+
+              </div>
+
+              {/* ================= CARD BACK: VIP PRIVILEGES & SECURITY ================= */}
+              <div className="backface-hidden rotate-y-180 absolute inset-0 rounded-3xl bg-slate-900 text-white border border-slate-700/80 dark:border-white/15 shadow-xl overflow-hidden flex flex-col lg:flex-row items-stretch">
+                
+                {/* Magnetic Strip Header */}
+                <div className="absolute top-0 inset-x-0 h-2 bg-black/90" />
+
+                {/* Left: Security Chip & Tier */}
+                <div className="p-6 sm:p-7 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-white/10 shrink-0 bg-black/30">
+                  {/* EMV Gold Smart Chip */}
+                  <div className="w-12 h-9 rounded-lg bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 border border-yellow-100/60 shadow-md flex flex-col justify-between p-1.5">
+                    <div className="flex justify-between">
+                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                    </div>
+                    <div className="h-px w-full bg-amber-900/40" />
+                    <div className="flex justify-between">
+                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                      <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-1.5 text-amber-300 text-[10px] font-mono font-black uppercase tracking-wider">
+                    <Wifi className="w-3 h-3 rotate-90" />
+                    <span>TIER 1 VIP</span>
+                  </div>
                 </div>
+
+                {/* Middle: Signature & VIP Perks */}
+                <div className="flex-1 p-6 sm:p-7 flex flex-col justify-center space-y-4">
+                  
+                  {/* Authorized Signature Panel */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-8 rounded-lg bg-white/95 text-zinc-900 flex items-center px-4 font-mono font-bold text-xs tracking-wider shadow-inner">
+                      <span>{session.user.displayName || 'Authorized Member'}</span>
+                      <span className="ml-auto text-[9px] text-zinc-400 font-sans uppercase">Authorized</span>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-lg bg-black/60 border border-white/20 font-mono text-xs font-black text-amber-300">
+                      4K-VIP
+                    </div>
+                  </div>
+
+                  {/* 3 VIP Privileges */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-zinc-300">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span className="text-[11px] font-medium">Zero-latency 4K sync</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span className="text-[11px] font-medium">Duo Love-Seat streams</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span className="text-[11px] font-medium">Unlimited Arcade Lounge</span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Right: Flip Back Action & Barcode */}
+                <div className="p-6 sm:p-7 border-t lg:border-t-0 lg:border-l border-dashed border-white/10 flex flex-row lg:flex-col items-center justify-between gap-3 bg-black/30 shrink-0">
+                  
+                  {/* Mini Barcode */}
+                  <div className="flex flex-col items-center space-y-1 select-none">
+                    <div className="h-6 flex items-center space-x-1 opacity-80">
+                      <div className="w-1 h-full bg-white" />
+                      <div className="w-0.5 h-full bg-white" />
+                      <div className="w-2 h-full bg-white" />
+                      <div className="w-0.5 h-full bg-white" />
+                      <div className="w-1.5 h-full bg-white" />
+                      <div className="w-0.5 h-full bg-white" />
+                      <div className="w-2 h-full bg-white" />
+                    </div>
+                    <span className="font-mono text-[8px] tracking-widest text-zinc-400 uppercase">
+                      STITCHBYTE PASS
+                    </span>
+                  </div>
+
+                  {/* Flip Back Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsFlipped(false)}
+                    className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-100 text-zinc-900 font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <RotateCw className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Flip Front</span>
+                  </button>
+                </div>
+
               </div>
 
             </div>
-
-            {/* Right Pass Stub / Actions */}
-            <div className="p-6 sm:p-7 border-t lg:border-t-0 lg:border-l border-dashed border-slate-200 dark:border-white/10 flex flex-row lg:flex-col items-center justify-between gap-4 bg-slate-50/40 dark:bg-white/[0.01] shrink-0">
-              
-              {/* Decorative mini barcode */}
-              <div className="hidden lg:flex flex-col items-center space-y-1 select-none">
-                <div className="h-6 flex items-center space-x-1 opacity-70">
-                  <div className="w-1 h-full bg-slate-500 dark:bg-white" />
-                  <div className="w-0.5 h-full bg-slate-500 dark:bg-white" />
-                  <div className="w-2 h-full bg-slate-500 dark:bg-white" />
-                  <div className="w-0.5 h-full bg-slate-500 dark:bg-white" />
-                  <div className="w-1.5 h-full bg-slate-500 dark:bg-white" />
-                  <div className="w-0.5 h-full bg-slate-500 dark:bg-white" />
-                  <div className="w-2 h-full bg-slate-500 dark:bg-white" />
-                </div>
-                <span className="font-mono text-[8px] tracking-widest text-slate-400 dark:text-zinc-500 uppercase">
-                  PASS-SB-{session.user.id.slice(0, 6)}
-                </span>
-              </div>
-
-              {/* Edit Details Action Button */}
-              <button
-                type="button"
-                onClick={() => setShowEditModal(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Edit Details</span>
-              </button>
-            </div>
-
           </div>
         </div>
 
