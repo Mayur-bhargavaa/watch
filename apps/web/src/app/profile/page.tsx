@@ -35,7 +35,19 @@ import {
   QrCode,
   RotateCw,
   Star,
-  MapPin
+  MapPin,
+  Lock,
+  Gem,
+  Wine,
+  HeartHandshake,
+  HelpCircle,
+  Rocket,
+  Laugh,
+  Ghost,
+  Globe,
+  Clapperboard,
+  CircleDot,
+  Infinity
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -47,43 +59,64 @@ import {
 } from '../../lib/api';
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
+function MarsIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="10" cy="14" r="5" />
+      <path d="M19 5h-5" />
+      <path d="M19 5v5" />
+      <path d="M19 5l-5.4 5.4" />
+    </svg>
+  );
+}
+
+function VenusIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="9" r="5" />
+      <path d="M12 14v7" />
+      <path d="M9 18h6" />
+    </svg>
+  );
+}
+
 const GENDER_OPTIONS = [
-  { id: 'male', label: 'Male', icon: '👨' },
-  { id: 'female', label: 'Female', icon: '👩' },
-  { id: 'non_binary', label: 'Non-Binary', icon: '🌈' },
-  { id: 'prefer_not_to_say', label: 'Private', icon: '🔒' },
-  { id: 'other', label: 'Other', icon: '✦' }
+  { id: 'male', label: 'Male', icon: MarsIcon },
+  { id: 'female', label: 'Female', icon: VenusIcon },
+  { id: 'non_binary', label: 'Non-Binary', icon: Infinity },
+  { id: 'prefer_not_to_say', label: 'Private', icon: Lock },
+  { id: 'other', label: 'Other', icon: CircleDot }
 ];
 
 const PRONOUN_OPTIONS = ['he/him', 'she/her', 'they/them', 'any'];
 
 const RELATIONSHIP_OPTIONS = [
-  { id: 'single', label: 'Single', icon: '🍿' },
-  { id: 'dating', label: 'Dating', icon: '💬' },
-  { id: 'in_a_relationship', label: 'In Relationship', icon: '💑' },
-  { id: 'engaged', label: 'Engaged', icon: '💍' },
-  { id: 'married', label: 'Married', icon: '🥂' },
-  { id: 'complicated', label: 'Complicated', icon: '🤔' }
+  { id: 'single', label: 'Single', icon: User },
+  { id: 'dating', label: 'Dating', icon: Flame },
+  { id: 'in_a_relationship', label: 'In Relationship', icon: HeartHandshake },
+  { id: 'engaged', label: 'Engaged', icon: Gem },
+  { id: 'married', label: 'Married', icon: Wine },
+  { id: 'complicated', label: 'Complicated', icon: HelpCircle }
 ];
 
 const GENRE_OPTIONS = [
-  'Sci-Fi 🚀',
-  'Action 💥',
-  'Romance 💖',
-  'Comedy 😂',
-  'Horror 👻',
-  'Anime ⛩️',
-  'Thriller 🔍',
-  'Drama 🎭',
-  'Fantasy 🪄',
-  'Docu 🌍'
+  { id: 'Sci-Fi', label: 'Sci-Fi', icon: Rocket },
+  { id: 'Action', label: 'Action', icon: Flame },
+  { id: 'Romance', label: 'Romance', icon: Heart },
+  { id: 'Comedy', label: 'Comedy', icon: Laugh },
+  { id: 'Horror', label: 'Horror', icon: Ghost },
+  { id: 'Anime', label: 'Anime', icon: Zap },
+  { id: 'Thriller', label: 'Thriller', icon: Search },
+  { id: 'Drama', label: 'Drama', icon: Film },
+  { id: 'Fantasy', label: 'Fantasy', icon: Sparkles },
+  { id: 'Documentary', label: 'Documentary', icon: Globe }
 ];
 
 const VIEWING_VIBE_OPTIONS = [
-  { id: 'night', label: 'Late-Night Binger', icon: '🌙' },
-  { id: 'weekend', label: 'Weekend Moviegoer', icon: '🎬' },
-  { id: 'anime', label: 'Anime Enthusiast', icon: '⚡' },
-  { id: 'critic', label: 'Popcorn Critic', icon: '🍿' }
+  { id: 'night', label: 'Late-Night Binger', icon: Moon },
+  { id: 'weekend', label: 'Weekend Moviegoer', icon: Clapperboard },
+  { id: 'anime', label: 'Anime Enthusiast', icon: Zap },
+  { id: 'critic', label: 'Popcorn Critic', icon: Film }
 ];
 
 const CINEMA_VIBES = [
@@ -169,7 +202,7 @@ function ProfileContent() {
   const [pronouns, setPronouns] = useState<string>('');
   const [location, setLocation] = useState<string>('');
   const [bio, setBio] = useState<string>('');
-  const [favoriteGenres, setFavoriteGenres] = useState<string[]>(['Sci-Fi 🚀', 'Romance 💖']);
+  const [favoriteGenres, setFavoriteGenres] = useState<string[]>(['Sci-Fi', 'Romance']);
   const [viewingVibe, setViewingVibe] = useState<string>('Late-Night Binger');
   const [anniversaryDate, setAnniversaryDate] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
@@ -219,9 +252,9 @@ function ProfileContent() {
       relationshipStatus === 'engaged' ? 'engaged' :
       relationshipStatus === 'dating' ? 'dating' : 'together';
 
-    if (years <= 0 && months <= 0) return `Just ${label}! Happy beginnings ✨`;
-    if (years <= 0) return `${months} mo ${label} ✨`;
-    return `${years} yr${years > 1 ? 's' : ''}${months > 0 ? `, ${months} mo` : ''} ${label} ✨`;
+    if (years <= 0 && months <= 0) return `Just ${label}! Happy beginnings`;
+    if (years <= 0) return `${months} mo ${label}`;
+    return `${years} yr${years > 1 ? 's' : ''}${months > 0 ? `, ${months} mo` : ''} ${label}`;
   }, [relationshipStatus, anniversaryDate]);
 
   // Load session on mount
@@ -245,7 +278,7 @@ function ProfileContent() {
     setLocation(current.user.location || '');
     setBio(current.user.bio || '');
     if (current.user.favoriteGenres && current.user.favoriteGenres.length > 0) {
-      setFavoriteGenres(current.user.favoriteGenres);
+      setFavoriteGenres(current.user.favoriteGenres.map(g => g.replace(/[^\w\s-]/g, '').trim()).filter(Boolean));
     }
     if (current.user.viewingVibe) {
       setViewingVibe(current.user.viewingVibe);
@@ -274,7 +307,7 @@ function ProfileContent() {
         setLocation(fresh.user.location || '');
         setBio(fresh.user.bio || '');
         if (fresh.user.favoriteGenres && fresh.user.favoriteGenres.length > 0) {
-          setFavoriteGenres(fresh.user.favoriteGenres);
+          setFavoriteGenres(fresh.user.favoriteGenres.map(g => g.replace(/[^\w\s-]/g, '').trim()).filter(Boolean));
         }
         if (fresh.user.viewingVibe) {
           setViewingVibe(fresh.user.viewingVibe);
@@ -493,9 +526,9 @@ function ProfileContent() {
             <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
               {session.user.displayName || 'User'}
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-              <span>{activeVibe.icon}</span>
-              <span>{session.user.isMarried ? '💍 Married' : 'Cinema VIP'}</span>
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
+              <Film className="w-3 h-3 text-rose-500 shrink-0" />
+              <span>{session.user.isMarried ? 'Married Member' : 'Cinema VIP'}</span>
             </div>
           </div>
         </div>
@@ -693,8 +726,9 @@ function ProfileContent() {
                       <span>Date of Birth</span>
                     </label>
                     {calculatedAge !== null && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                        🎂 {calculatedAge} yrs
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>{calculatedAge} yrs</span>
                       </span>
                     )}
                   </div>
@@ -713,21 +747,24 @@ function ProfileContent() {
                     Gender
                   </label>
                   <div className="grid grid-cols-5 gap-1.5">
-                    {GENDER_OPTIONS.map(g => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => setGender(g.id)}
-                        className={`py-1.5 px-1 rounded-xl text-[10px] font-bold border transition flex flex-col items-center justify-center gap-0.5 ${
-                          gender === g.id
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                            : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <span className="text-sm">{g.icon}</span>
-                        <span className="truncate">{g.label}</span>
-                      </button>
-                    ))}
+                    {GENDER_OPTIONS.map(g => {
+                      const IconComponent = g.icon;
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setGender(g.id)}
+                          className={`py-2 px-1 rounded-xl text-[10px] font-bold border transition flex flex-col items-center justify-center gap-1 ${
+                            gender === g.id
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                              : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <IconComponent className="w-3.5 h-3.5" />
+                          <span className="truncate">{g.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -781,7 +818,7 @@ function ProfileContent() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Always down for late night thriller marathons! 🍿"
+                    placeholder="e.g. Always down for late night thriller marathons"
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     maxLength={120}
@@ -793,10 +830,10 @@ function ProfileContent() {
             </div>
 
             {/* ===================================================================== */}
-            {/* CONTAINER 2: 3D FLIP PASS                                             */}
+            {/* CONTAINER 2: 3D FLIP PASS & PREFERENCES                                */}
             {/* ===================================================================== */}
-            <div className="lg:col-span-7 flex flex-col justify-center">
-              <div className="perspective-1000 w-full select-none">
+            <div className="lg:col-span-7 flex flex-col justify-start space-y-6 pt-1">
+              <div className="perspective-1000 w-full select-none mb-3">
                 <div
                   onClick={() => setIsFlipped(!isFlipped)}
                   className={`relative w-full cursor-pointer transition-transform duration-700 transform-style-3d min-h-[360px] sm:min-h-[400px] ${
@@ -873,28 +910,45 @@ function ProfileContent() {
                         </div>
                         <div className="text-lg sm:text-xl font-black text-white tracking-wider uppercase font-mono flex items-center gap-2 truncate">
                           <span className="truncate">{displayName || session.user.displayName || 'Watch Member'}</span>
-                          {gender && (
-                            <span className="text-xs shrink-0" title={`Gender: ${gender}`}>
-                              {GENDER_OPTIONS.find(g => g.id === gender)?.icon || ''}
-                            </span>
-                          )}
+                          {gender && (() => {
+                            const gOpt = GENDER_OPTIONS.find(g => g.id === gender);
+                            if (!gOpt) return null;
+                            const GIcon = gOpt.icon;
+                            return (
+                              <span className="text-zinc-300 shrink-0 inline-flex items-center" title={`Gender: ${gOpt.label}`}>
+                                <GIcon className="w-3.5 h-3.5" />
+                              </span>
+                            );
+                          })()}
                         </div>
 
                         {/* Demographics row on Pass */}
                         <div className="text-[10px] text-zinc-400 font-medium mt-0.5 flex flex-wrap items-center gap-1.5 leading-tight">
                           {calculatedAge ? <span>Age {calculatedAge} ·</span> : null}
                           {pronouns ? <span>({pronouns}) ·</span> : null}
-                          <span className="text-zinc-300 font-semibold">
-                            {RELATIONSHIP_OPTIONS.find(r => r.id === relationshipStatus)?.icon}{' '}
-                            {RELATIONSHIP_OPTIONS.find(r => r.id === relationshipStatus)?.label || 'Single'}
+                          <span className="text-zinc-300 font-semibold inline-flex items-center gap-1">
+                            {(() => {
+                              const rOpt = RELATIONSHIP_OPTIONS.find(r => r.id === relationshipStatus);
+                              const RIcon = rOpt?.icon;
+                              return (
+                                <>
+                                  {RIcon && <RIcon className="w-3 h-3 text-rose-400 shrink-0" />}
+                                  <span>{rOpt?.label || 'Single'}</span>
+                                </>
+                              );
+                            })()}
                           </span>
                           {relationshipDuration && (
                             <span className="text-amber-300/90 font-mono text-[9px]">
-                              ({relationshipDuration.replace(' ✨', '')})
+                              ({relationshipDuration})
                             </span>
                           )}
                           {location && (
-                            <span className="truncate">· 📍 {location}</span>
+                            <span className="truncate inline-flex items-center gap-1 text-zinc-400">
+                              <span>·</span>
+                              <MapPin className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
+                              <span>{location}</span>
+                            </span>
                           )}
                         </div>
 
@@ -942,14 +996,26 @@ function ProfileContent() {
                     <div className="space-y-2 py-1">
                       {/* Vibe & Favorite genres preview */}
                       <div className="flex flex-wrap items-center gap-1.5 pb-1 border-b border-white/10">
-                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-white/10 text-amber-300 font-bold">
-                          {viewingVibe}
-                        </span>
-                        {favoriteGenres.slice(0, 3).map(g => (
-                          <span key={g} className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-white/[0.06] text-zinc-300">
-                            {g}
-                          </span>
-                        ))}
+                        {(() => {
+                          const vOpt = VIEWING_VIBE_OPTIONS.find(v => v.label === viewingVibe);
+                          const VIcon = vOpt?.icon;
+                          return (
+                            <span className="text-[9px] font-mono px-2 py-0.5 rounded-md bg-white/10 text-amber-300 font-bold inline-flex items-center gap-1">
+                              {VIcon && <VIcon className="w-2.5 h-2.5" />}
+                              <span>{viewingVibe}</span>
+                            </span>
+                          );
+                        })()}
+                        {favoriteGenres.slice(0, 3).map(gId => {
+                          const gOpt = GENRE_OPTIONS.find(g => g.id === gId || g.label === gId);
+                          const GIcon = gOpt?.icon;
+                          return (
+                            <span key={gId} className="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-white/[0.06] text-zinc-300 inline-flex items-center gap-1">
+                              {GIcon && <GIcon className="w-2.5 h-2.5" />}
+                              <span>{gOpt?.label || gId}</span>
+                            </span>
+                          );
+                        })}
                       </div>
 
                       <div className="space-y-1.5 text-xs text-zinc-200 font-medium">
@@ -1021,25 +1087,28 @@ function ProfileContent() {
                     Select Current Status
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {RELATIONSHIP_OPTIONS.map(r => (
-                      <button
-                        key={r.id}
-                        type="button"
-                        onClick={() => {
-                          setRelationshipStatus(r.id);
-                          setIsMarried(r.id === 'married');
-                          if (r.id === 'single') setAnniversaryDate('');
-                        }}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-                          relationshipStatus === r.id
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                            : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <span>{r.icon}</span>
-                        <span className="truncate">{r.label}</span>
-                      </button>
-                    ))}
+                    {RELATIONSHIP_OPTIONS.map(r => {
+                      const Icon = r.icon;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            setRelationshipStatus(r.id);
+                            setIsMarried(r.id === 'married');
+                            if (r.id === 'single') setAnniversaryDate('');
+                          }}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                            relationshipStatus === r.id
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                              : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{r.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1103,25 +1172,27 @@ function ProfileContent() {
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {GENRE_OPTIONS.map(genre => {
-                      const isSelected = favoriteGenres.includes(genre);
+                      const isSelected = favoriteGenres.includes(genre.id);
+                      const GenreIcon = genre.icon;
                       return (
                         <button
-                          key={genre}
+                          key={genre.id}
                           type="button"
                           onClick={() => {
                             if (isSelected) {
-                              setFavoriteGenres(favoriteGenres.filter(g => g !== genre));
+                              setFavoriteGenres(favoriteGenres.filter(g => g !== genre.id));
                             } else {
-                              setFavoriteGenres([...favoriteGenres, genre]);
+                              setFavoriteGenres([...favoriteGenres, genre.id]);
                             }
                           }}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
                             isSelected
                               ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                               : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-white/20'
                           }`}
                         >
-                          {genre}
+                          <GenreIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span>{genre.label}</span>
                         </button>
                       );
                     })}
@@ -1134,21 +1205,24 @@ function ProfileContent() {
                     Cinema Viewing Persona
                   </label>
                   <div className="grid grid-cols-2 gap-2">
-                    {VIEWING_VIBE_OPTIONS.map(vibe => (
-                      <button
-                        key={vibe.id}
-                        type="button"
-                        onClick={() => setViewingVibe(vibe.label)}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${
-                          viewingVibe === vibe.label
-                            ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                            : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
-                      >
-                        <span>{vibe.icon}</span>
-                        <span className="truncate">{vibe.label}</span>
-                      </button>
-                    ))}
+                    {VIEWING_VIBE_OPTIONS.map(vibe => {
+                      const VibeIcon = vibe.icon;
+                      return (
+                        <button
+                          key={vibe.id}
+                          type="button"
+                          onClick={() => setViewingVibe(vibe.label)}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold border transition flex items-center gap-2 ${
+                            viewingVibe === vibe.label
+                              ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                              : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <VibeIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{vibe.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
