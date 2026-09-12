@@ -17,7 +17,6 @@ import {
   Settings,
   LogOut,
   Sparkles,
-  Zap,
   Check,
   X,
   Copy,
@@ -580,37 +579,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* User Profile Card in Sidebar */}
-          <Link
-            href="/profile"
-            className="flex items-center space-x-3 p-2.5 rounded-2xl bg-[#1b1c24] border border-white/[0.06] hover:border-white/20 transition cursor-pointer group"
-          >
-            {/* Normal circular avatar */}
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-900 border border-white/10 ring-2 ring-[#d2281e]/40 shrink-0 flex items-center justify-center">
-              {session?.user.avatarUrl ? (
-                <img
-                  src={session.user.avatarUrl}
-                  alt={session.user.displayName || 'Avatar'}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white text-sm font-bold">
-                  {(session?.user.displayName || 'U')[0].toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold text-white truncate group-hover:text-[#d2281e] transition">
-                {session?.user.displayName || 'User'}
-              </div>
-              <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1">
-                {session?.user.age ? <span>🎂 {session.user.age}y · </span> : null}
-                <span>{session?.user.isMarried ? '💍 Married' : 'Cinema Fan'}</span>
-              </div>
-            </div>
-          </Link>
-
           {/* Navigation Groups */}
           <div className="space-y-6">
             {/* Nav Group 1: Menu */}
@@ -728,25 +696,36 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Bottom Real Action Card: Instant Watch Party (100% Real, replaces fake pass) */}
-        <div className="bg-[#1a1b24] p-4 rounded-3xl border border-white/[0.06] space-y-3 shadow-lg">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white shadow-md flex-shrink-0">
-              <Zap className="w-4 h-4" />
+        {/* User Profile Card at Bottom of Sidebar */}
+        <Link
+          href="/profile"
+          className="flex items-center space-x-3 p-3 rounded-2xl bg-[#1b1c24] border border-white/[0.06] hover:border-white/20 transition cursor-pointer group shadow-lg"
+        >
+          {/* Normal circular avatar */}
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-900 border border-white/10 ring-2 ring-[#d2281e]/40 shrink-0 flex items-center justify-center">
+            {session?.user.avatarUrl ? (
+              <img
+                src={session.user.avatarUrl}
+                alt={session.user.displayName || 'Avatar'}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white text-sm font-bold">
+                {(session?.user.displayName || 'U')[0].toUpperCase()}
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-white truncate group-hover:text-[#d2281e] transition">
+              {session?.user.displayName || 'User'}
             </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-white truncate">Instant Watch Party</div>
-              <div className="text-[10px] text-zinc-400 truncate">Max 6 Persons / Room</div>
+            <div className="text-[10px] text-zinc-400 truncate flex items-center gap-1">
+              {session?.user.age ? <span>🎂 {session.user.age}y · </span> : null}
+              <span>{session?.user.isMarried ? '💍 Married' : 'Cinema Fan'}</span>
             </div>
           </div>
-          <button
-            onClick={() => handleDirectCreateRoom('Watch Party')}
-            className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-rose-600/20 flex items-center justify-center space-x-1.5 active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Create Room</span>
-          </button>
-        </div>
+        </Link>
       </aside>
 
       {/* ========================================================================= */}
