@@ -20,8 +20,11 @@ import {
   ShieldCheck,
   Users,
   Tv,
-  Gamepad2
+  Gamepad2,
+  Sun,
+  Moon
 } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getStoredSession,
   clearStoredSession,
@@ -33,6 +36,7 @@ import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
 function ProfileContent() {
   const router = useRouter();
+  const { theme, resolvedTheme, toggleTheme } = useTheme();
   const [session, setSession] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'avatar'>('details');
@@ -185,40 +189,55 @@ function ProfileContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-zinc-100 flex flex-col selection:bg-[#d2281e] selection:text-white antialiased">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 flex flex-col selection:bg-[#d2281e] selection:text-white antialiased transition-colors duration-150">
       
       {/* ===================================================================== */}
       {/* NAVBAR                                                                */}
       {/* ===================================================================== */}
-      <nav className="h-16 border-b border-white/[0.08] bg-[#0c0d14]/80 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 flex items-center justify-between">
+      <nav className="h-16 border-b border-slate-200 dark:border-white/[0.08] bg-white/80 dark:bg-[#0c0d14]/80 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 flex items-center justify-between transition-colors duration-150">
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-400 hover:text-white transition group py-1.5 px-2.5 rounded-xl hover:bg-white/5"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition group py-1.5 px-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5"
           >
             <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
             <span>Back to Dashboard</span>
           </Link>
-          <div className="h-4 w-px bg-white/10 hidden sm:block" />
+          <div className="h-4 w-px bg-slate-200 dark:bg-white/10 hidden sm:block" />
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-[#d2281e] rounded-xl text-white shadow-lg shadow-[#d2281e]/30">
               <Film className="w-4 h-4 fill-current" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-base font-black tracking-tight text-white flex items-center gap-0.5">
+              <span className="text-base font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5">
                 Watch<span className="text-[#d2281e] text-lg leading-none">.</span>
               </span>
-              <span className="text-[7.5px] font-bold text-zinc-400 tracking-widest uppercase mt-0.5">
+              <span className="text-[7.5px] font-bold text-slate-400 dark:text-zinc-400 tracking-widest uppercase mt-0.5">
                 Powered by StitchByte
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2.5">
+          {/* 1-Click Theme Switcher (Sun / Moon) */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-full bg-slate-100 dark:bg-[#1b1c24] hover:bg-slate-200 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm active:scale-95"
+            title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            aria-label="Toggle theme mode"
+          >
+            {resolvedTheme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform duration-300" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-600 hover:-rotate-12 transition-transform duration-300" />
+            )}
+          </button>
+
           <button
             onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 hover:border-red-500/40 text-xs font-bold text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-red-500/40 text-xs font-bold text-slate-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
