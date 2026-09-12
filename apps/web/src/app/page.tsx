@@ -170,22 +170,22 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900 flex flex-col selection:bg-rose-500 selection:text-white font-sans antialiased overflow-x-hidden w-full max-w-full">
+    <div className="min-h-screen bg-white text-zinc-900 flex flex-col selection:bg-[#d2281e] selection:text-white font-sans antialiased overflow-x-hidden w-full max-w-full">
 
       {/* ===================================================================== */}
-      {/* 1. TOP NAVBAR (Fully Responsive with Mobile Hamburger)                */}
+      {/* 1. TOP NAVBAR (Pure #d2281e Theme & Responsive Buttons in a Row)      */}
       {/* ===================================================================== */}
       <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/95 border-b border-zinc-200/80 px-3 sm:px-8 py-2.5 sm:py-3 transition-all shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo with "Powered by StitchByte" subtext */}
           <div onClick={() => router.push('/')} className="flex items-center space-x-2 sm:space-x-3 cursor-pointer select-none shrink-0 group">
-            <div className="p-1.5 sm:p-2 bg-gradient-to-br from-rose-600 to-pink-600 rounded-xl text-white shadow-md shadow-rose-600/30 group-hover:scale-105 transition-transform">
+            <div className="p-1.5 sm:p-2 bg-[#d2281e] rounded-xl text-white shadow-md shadow-[#d2281e]/30 group-hover:scale-105 transition-transform">
               <Film className="w-4 h-4 fill-current" />
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-lg sm:text-xl font-black tracking-tight text-zinc-950 flex items-center gap-0.5">
-                Watch<span className="text-rose-600 text-xl sm:text-2xl leading-none">.</span>
+                Watch<span className="text-[#d2281e] text-xl sm:text-2xl leading-none">.</span>
               </span>
               <span className="text-[7.5px] sm:text-[8.5px] font-bold text-zinc-500 tracking-widest uppercase mt-0.5">
                 Powered by StitchByte
@@ -195,27 +195,27 @@ export default function LandingPage() {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center space-x-6 lg:space-x-8 text-xs font-bold text-zinc-600 tracking-wide">
-            <a href="#features" className="hover:text-rose-600 transition-colors">Features</a>
-            <a href="#catalog" className="hover:text-rose-600 transition-colors">Movies & Shows</a>
-            <a href="#games" className="hover:text-rose-600 transition-colors flex items-center gap-1.5">
+            <a href="#features" className="hover:text-[#d2281e] transition-colors">Features</a>
+            <a href="#catalog" className="hover:text-[#d2281e] transition-colors">Movies & Shows</a>
+            <a href="#games" className="hover:text-[#d2281e] transition-colors flex items-center gap-1.5">
               <span>Games</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-200">New</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">New</span>
             </a>
-            <a href="#customize" className="hover:text-rose-600 transition-colors">Customize</a>
-            <a href="#how-it-works" className="hover:text-rose-600 transition-colors">How It Works</a>
-            <a href="#faq" className="hover:text-rose-600 transition-colors">FAQ</a>
+            <a href="#customize" className="hover:text-[#d2281e] transition-colors">Customize</a>
+            <a href="#how-it-works" className="hover:text-[#d2281e] transition-colors">How It Works</a>
+            <a href="#faq" className="hover:text-[#d2281e] transition-colors">FAQ</a>
           </nav>
 
-          {/* Right Header CTAs (Desktop & Mobile) */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+          {/* Right Header CTAs: In a clean row */}
+          <div className="flex flex-row items-center space-x-1.5 sm:space-x-2.5 shrink-0">
             {session && !session.user.isAnonymous ? (
-              <div className="flex items-center space-x-1.5 sm:space-x-2">
+              <div className="flex flex-row items-center space-x-1.5 sm:space-x-2">
                 <button
                   onClick={() => {
                     const search = typeof window !== 'undefined' ? window.location.search : '';
                     router.push(`/dashboard${search}`);
                   }}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-xs font-black text-white rounded-xl shadow-md shadow-rose-600/25 transition active:scale-95 flex items-center space-x-1 sm:space-x-1.5"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white rounded-xl shadow-md shadow-[#d2281e]/25 transition active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Dashboard</span>
@@ -229,16 +229,16 @@ export default function LandingPage() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-1.5 sm:space-x-2">
+              <div className="flex flex-row items-center space-x-1.5 sm:space-x-2">
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-zinc-100 hover:bg-zinc-200 text-xs font-bold text-zinc-800 rounded-xl border border-zinc-200 transition"
+                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-zinc-100 hover:bg-zinc-200 text-xs font-bold text-zinc-800 rounded-xl border border-zinc-200 transition whitespace-nowrap"
                 >
                   Sign In
                 </button>
                 <button
                   onClick={handleGetStarted}
-                  className="px-3 sm:px-5 py-1.5 sm:py-2 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-xs font-black text-white rounded-xl shadow-md shadow-rose-600/30 transition transform active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white rounded-xl shadow-md shadow-[#d2281e]/30 transition transform active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5 hidden sm:inline" />
                   <span>Get Started</span>
@@ -280,7 +280,7 @@ export default function LandingPage() {
               className="block px-3 py-2 rounded-lg text-xs font-bold text-zinc-800 hover:bg-zinc-100 transition flex items-center justify-between"
             >
               <span>Games</span>
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-200">New</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">New</span>
             </a>
             <a
               href="#customize"
@@ -308,22 +308,22 @@ export default function LandingPage() {
       </header>
 
       {/* ===================================================================== */}
-      {/* 2. HERO SECTION (White Background, Clean & Fully Responsive)           */}
+      {/* 2. HERO SECTION (All Buttons Strictly in a Row, Pure #d2281e)         */}
       {/* ===================================================================== */}
       <section className="relative z-10 px-4 sm:px-8 pt-6 sm:pt-14 pb-12 sm:pb-16 max-w-7xl mx-auto bg-white w-full overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center">
           
           {/* Left Column: Big Sleek Theater Preview Mockup on Clean White */}
           <div className="lg:col-span-7 order-2 lg:order-1 w-full min-w-0">
-            <div className="relative rounded-2xl sm:rounded-3xl p-1 sm:p-1.5 bg-gradient-to-b from-zinc-200 via-rose-100 to-zinc-200 shadow-lg group w-full overflow-hidden">
+            <div className="relative rounded-2xl sm:rounded-3xl p-1 sm:p-1.5 bg-gradient-to-b from-zinc-200 via-red-50 to-zinc-200 shadow-lg group w-full overflow-hidden">
               <div className="rounded-xl sm:rounded-[20px] bg-zinc-950 text-white overflow-hidden relative shadow-inner w-full">
                 
-                {/* Mock Browser Header - Bulletproof Responsive */}
+                {/* Mock Browser Header */}
                 <div className="px-3 sm:px-4 py-2 sm:py-2.5 bg-zinc-900 border-b border-white/10 flex items-center justify-between text-xs w-full">
                   <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                    <span className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-rose-500/80 shrink-0" />
-                    <span className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-amber-500/80 shrink-0" />
-                    <span className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-emerald-500/80 shrink-0" />
+                    <span className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-[#d2281e] shrink-0" />
+                    <span className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-amber-500 shrink-0" />
+                    <span className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-emerald-500 shrink-0" />
                     <span className="ml-1 sm:ml-2 font-mono text-zinc-400 text-[10px] sm:text-[11px] truncate hidden sm:inline">
                       watch.stitchbyte.in/room/ROMANTIC-NIGHT
                     </span>
@@ -332,10 +332,10 @@ export default function LandingPage() {
                     </span>
                   </div>
                   
-                  {/* Synced Badge - Never wraps */}
+                  {/* Synced Badge */}
                   <div className="shrink-0 ml-2">
-                    <span className="px-2 sm:px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold text-[9px] sm:text-[10px] border border-rose-500/40 flex items-center gap-1 shrink-0 whitespace-nowrap">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping shrink-0" />
+                    <span className="px-2 sm:px-2.5 py-0.5 rounded-full bg-[#d2281e]/20 text-[#d2281e] font-bold text-[9px] sm:text-[10px] border border-[#d2281e]/40 flex items-center gap-1 shrink-0 whitespace-nowrap">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#d2281e] animate-ping shrink-0" />
                       Synced (0ms lag)
                     </span>
                   </div>
@@ -366,9 +366,9 @@ export default function LandingPage() {
                           </div>
                         </div>
 
-                        {/* Floating live reaction bubble on mobile to keep preview compact */}
+                        {/* Floating live reaction bubble on mobile */}
                         <div className="md:hidden self-start flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[9px] text-white">
-                          <span className="w-3.5 h-3.5 rounded-full bg-rose-600 flex items-center justify-center text-[7.5px] font-black">P</span>
+                          <span className="w-3.5 h-3.5 rounded-full bg-[#d2281e] flex items-center justify-center text-[7.5px] font-black">P</span>
                           <span>"Music is giving me chills! 😭✨"</span>
                         </div>
 
@@ -376,17 +376,17 @@ export default function LandingPage() {
                         <div>
                           <div className="flex items-center justify-between text-[10px] sm:text-xs text-white mb-1.5 sm:mb-2">
                             <div className="flex items-center gap-1.5 sm:gap-2 truncate mr-2 min-w-0">
-                              <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-rose-600 flex items-center justify-center text-white shadow shrink-0">
+                              <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-[#d2281e] flex items-center justify-center text-white shadow shrink-0">
                                 <Play className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current ml-0.5" />
                               </div>
                               <span className="font-black truncate">Interstellar: Space Horizon</span>
                             </div>
-                            <span className="text-[9.5px] sm:text-[11px] font-mono text-rose-300 shrink-0 whitespace-nowrap">1:28:44</span>
+                            <span className="text-[9.5px] sm:text-[11px] font-mono text-red-300 shrink-0 whitespace-nowrap">1:28:44</span>
                           </div>
                           
                           {/* Progress Line */}
                           <div className="w-full h-1 sm:h-1.5 bg-white/20 rounded-full overflow-hidden">
-                            <div className="w-[58%] h-full bg-gradient-to-r from-rose-600 to-pink-500 rounded-full" />
+                            <div className="w-[58%] h-full bg-[#d2281e] rounded-full" />
                           </div>
                         </div>
                       </div>
@@ -395,32 +395,32 @@ export default function LandingPage() {
                     {/* Integrated 2-Player Game Bar right inside the room preview */}
                     <div className="p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-between gap-2 w-full">
                       <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-br from-rose-600/40 to-pink-600/40 border border-rose-500/50 flex items-center justify-center text-rose-300 shrink-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-[#d2281e]/30 border border-[#d2281e]/50 flex items-center justify-center text-red-300 shrink-0">
                           <Gamepad2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-[11px] sm:text-xs font-black text-white flex items-center gap-1 sm:gap-1.5 truncate">
                             <span className="truncate">Cottagecore Ludo 3D</span>
-                            <span className="text-[8px] sm:text-[9px] px-1 py-0.2 rounded bg-rose-500/30 text-rose-300 font-bold shrink-0">2-Player</span>
+                            <span className="text-[8px] sm:text-[9px] px-1 py-0.2 rounded bg-[#d2281e]/30 text-red-300 font-bold shrink-0">2-Player</span>
                           </div>
                           <div className="text-[9.5px] sm:text-[10px] text-zinc-400 truncate hidden sm:block">Teddy Bears vs Happy Frogs · Zero Bots</div>
                         </div>
                       </div>
                       <button
                         onClick={() => handlePlayGame('/games/ludo')}
-                        className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-rose-600 hover:bg-rose-500 text-[10px] sm:text-[11px] font-bold text-white transition shadow-sm shrink-0 whitespace-nowrap"
+                        className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl bg-[#d2281e] hover:bg-[#b82017] text-[10px] sm:text-[11px] font-bold text-white transition shadow-sm shrink-0 whitespace-nowrap"
                       >
                         Launch
                       </button>
                     </div>
                   </div>
 
-                  {/* Right Chat & Reactions Column (Desktop only, hidden on mobile for clean height) */}
+                  {/* Right Chat & Reactions Column (Desktop only) */}
                   <div className="hidden md:flex md:col-span-4 p-3 sm:p-4 border-l border-white/10 flex-col justify-between space-y-3 bg-zinc-900/90">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between pb-2 border-b border-white/10">
                         <span className="font-bold text-xs text-white flex items-center gap-1.5">
-                          <MessageSquare className="w-3.5 h-3.5 text-rose-400" />
+                          <MessageSquare className="w-3.5 h-3.5 text-[#d2281e]" />
                           Party Chat
                         </span>
                         <span className="text-[10px] text-zinc-400">3 online</span>
@@ -429,7 +429,7 @@ export default function LandingPage() {
                       {/* Message Bubbles */}
                       <div className="space-y-2">
                         <div className="flex items-start gap-2">
-                          <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-[#d2281e] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
                             P
                           </div>
                           <div className="p-2 rounded-2xl bg-white/10 text-white text-[11px] leading-tight">
@@ -438,22 +438,22 @@ export default function LandingPage() {
                         </div>
 
                         <div className="flex items-start gap-2 justify-end">
-                          <div className="p-2 rounded-2xl bg-rose-600/40 border border-rose-500/40 text-rose-100 text-[11px] leading-tight">
+                          <div className="p-2 rounded-2xl bg-[#d2281e]/30 border border-[#d2281e]/40 text-red-100 text-[11px] leading-tight">
                             Rematch on Four-in-a-Row after this? 🔴
                           </div>
-                          <div className="w-6 h-6 rounded-full bg-pink-600 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-[#b82017] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
                             Y
                           </div>
                         </div>
 
                         {/* Animated Sticker Box */}
-                        <div className="p-2 rounded-2xl bg-white/5 border border-rose-500/20 text-center">
+                        <div className="p-2 rounded-2xl bg-white/5 border border-[#d2281e]/20 text-center">
                           <img
                             src="https://media4.giphy.com/media/Pw4DoWaNHDj8YVCWtu/giphy.gif"
                             alt="Bubu Dudu Dance"
                             className="w-12 h-12 object-contain mx-auto"
                           />
-                          <span className="text-[9px] font-bold text-rose-300">Bubu & Dudu Reaction</span>
+                          <span className="text-[9px] font-bold text-red-300">Bubu & Dudu Reaction</span>
                         </div>
                       </div>
                     </div>
@@ -461,7 +461,7 @@ export default function LandingPage() {
                     {/* Chat Input placeholder */}
                     <div className="p-2 rounded-xl bg-black/50 border border-white/10 text-[11px] text-zinc-400 flex items-center justify-between">
                       <span>Type message...</span>
-                      <Smile className="w-3.5 h-3.5 text-rose-400" />
+                      <Smile className="w-3.5 h-3.5 text-[#d2281e]" />
                     </div>
                   </div>
                 </div>
@@ -473,15 +473,15 @@ export default function LandingPage() {
           <div className="lg:col-span-5 order-1 lg:order-2 text-left space-y-4 sm:space-y-6 w-full">
             
             {/* Category Pill */}
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
-              <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-rose-600" />
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-full bg-red-50 border border-red-200 text-[#d2281e] text-[11px] sm:text-xs font-bold uppercase tracking-wider">
+              <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#d2281e]" />
               <span>WATCH & PLAY WITH FRIENDS</span>
             </div>
 
             {/* Massive Bold Headline on White */}
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-950 leading-[1.1]">
               A new way to <br />
-              <span className="bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 bg-clip-text text-transparent">
+              <span className="text-[#d2281e]">
                 watch & play together
               </span>
             </h1>
@@ -495,23 +495,23 @@ export default function LandingPage() {
               Watch synchronizes video playback with sub-second accuracy, adds in-room face-to-face video calls, real-time group chat with cute stickers, and live 2-player games like Cottagecore Ludo and Four-in-a-Row.
             </p>
 
-            {/* Action Buttons */}
-            <div className="pt-1 sm:pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+            {/* Action Buttons: STRICTLY IN A ROW ON ALL SCREEN SIZES */}
+            <div className="pt-2 flex flex-row items-center gap-2 sm:gap-3.5 w-full">
               <button
                 onClick={handleGetStarted}
-                className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-black text-sm shadow-xl shadow-rose-600/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-initial px-4 sm:px-7 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-[#d2281e] hover:bg-[#b82017] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>Get Watch for free!</span>
-                <ArrowRight className="w-4 h-4" />
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Get Watch free!</span>
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 hidden sm:inline" />
               </button>
 
               <button
                 onClick={() => handlePlayGame('/games/ludo')}
-                className="w-full sm:w-auto px-5 sm:px-6 py-3.5 sm:py-4 rounded-2xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-300/80 text-zinc-900 font-bold text-sm transition flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-initial px-3.5 sm:px-6 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
               >
-                <Gamepad2 className="w-4 h-4 text-rose-600" />
-                <span>Play 2-Player Games</span>
+                <Gamepad2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#d2281e]" />
+                <span>Play Games</span>
               </button>
             </div>
 
@@ -534,18 +534,18 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
             {/* YouTube */}
             <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-900 font-black text-xs sm:text-sm">
-              <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-red-600" />
+              <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-[#d2281e]" />
               <span>YouTube 4K</span>
             </div>
 
             {/* Cottagecore Ludo 3D */}
-            <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-black text-xs sm:text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-red-50 border border-red-200 text-[#d2281e] font-black text-xs sm:text-sm">
               <span className="text-sm sm:text-base">🎲</span>
               <span>Cottagecore Ludo 3D</span>
             </div>
 
             {/* Four in a Row */}
-            <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-pink-50 border border-pink-200 text-pink-700 font-black text-xs sm:text-sm">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-red-50 border border-red-200 text-[#d2281e] font-black text-xs sm:text-sm">
               <span className="text-sm sm:text-base">🔴</span>
               <span>Four in a Row</span>
             </div>
@@ -573,7 +573,7 @@ export default function LandingPage() {
           
           {/* Left Text Column */}
           <div className="lg:col-span-5 text-left space-y-3.5 sm:space-y-5">
-            <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+            <span className="text-xs font-bold text-[#d2281e] uppercase tracking-wider">
               MILLIONS OF SHOWS, MOVIES & MATCHES
             </span>
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight leading-tight">
@@ -585,15 +585,15 @@ export default function LandingPage() {
 
             <div className="space-y-2 sm:space-y-3 pt-1">
               <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700">
-                <CheckCircle2 className="w-4 h-4 text-rose-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#d2281e] shrink-0" />
                 <span>Exact same-second video sync with Cristian NTP engine</span>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700">
-                <CheckCircle2 className="w-4 h-4 text-rose-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#d2281e] shrink-0" />
                 <span>Zero bots guarantee: strictly 100% human duels</span>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700">
-                <CheckCircle2 className="w-4 h-4 text-rose-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#d2281e] shrink-0" />
                 <span>Live video call & audio chat while playing or watching</span>
               </div>
             </div>
@@ -601,7 +601,7 @@ export default function LandingPage() {
             <div className="pt-2 sm:pt-4">
               <button
                 onClick={handleGetStarted}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition shadow-md shadow-rose-600/30 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#d2281e] hover:bg-[#b82017] text-white font-bold text-xs transition shadow-md shadow-[#d2281e]/30 flex items-center justify-center gap-2"
               >
                 <span>Browse & Watch Now</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -622,7 +622,7 @@ export default function LandingPage() {
                     handleGetStarted();
                   }
                 }}
-                className="group relative rounded-xl sm:rounded-2xl overflow-hidden aspect-[3/4] bg-zinc-200 border border-zinc-300 hover:border-rose-500 cursor-pointer shadow-sm hover:shadow-lg transition-all hover:-translate-y-1"
+                className="group relative rounded-xl sm:rounded-2xl overflow-hidden aspect-[3/4] bg-zinc-200 border border-zinc-300 hover:border-[#d2281e] cursor-pointer shadow-sm hover:shadow-lg transition-all hover:-translate-y-1"
               >
                 <img
                   src={card.img}
@@ -635,7 +635,7 @@ export default function LandingPage() {
                   <div className="flex justify-end">
                     <span className={`px-2 py-0.5 rounded-full text-[8.5px] sm:text-[9px] font-black uppercase ${
                       card.isGame
-                        ? 'bg-rose-600 text-white shadow'
+                        ? 'bg-[#d2281e] text-white shadow'
                         : 'bg-black/60 text-white backdrop-blur-md'
                     }`}>
                       {card.tag}
@@ -643,7 +643,7 @@ export default function LandingPage() {
                   </div>
 
                   <div>
-                    <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-rose-200 transition-colors leading-tight">
+                    <h3 className="text-xs sm:text-sm font-black text-white group-hover:text-red-200 transition-colors leading-tight">
                       {card.title}
                     </h3>
                     <p className="text-[9.5px] sm:text-[10px] text-zinc-300 mt-0.5 font-medium">{card.type}</p>
@@ -663,7 +663,7 @@ export default function LandingPage() {
           
           {/* Left Text Column */}
           <div className="lg:col-span-5 text-left space-y-3.5 sm:space-y-5">
-            <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+            <span className="text-xs font-bold text-[#d2281e] uppercase tracking-wider">
               SYNCHRONIZE WITH YOUR FRIENDS
             </span>
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight leading-tight">
@@ -676,14 +676,14 @@ export default function LandingPage() {
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3 pt-1">
               <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-zinc-50 border border-zinc-200">
                 <div className="text-sm sm:text-lg font-black text-zinc-950 flex items-center gap-1.5">
-                  <Laptop className="w-4 h-4 text-rose-600 shrink-0" />
+                  <Laptop className="w-4 h-4 text-[#d2281e] shrink-0" />
                   <span>Desktop</span>
                 </div>
                 <div className="text-[10px] sm:text-xs text-zinc-500 mt-1">Full theater & PIP call</div>
               </div>
               <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-zinc-50 border border-zinc-200">
                 <div className="text-sm sm:text-lg font-black text-zinc-950 flex items-center gap-1.5">
-                  <Smartphone className="w-4 h-4 text-pink-600 shrink-0" />
+                  <Smartphone className="w-4 h-4 text-[#d2281e] shrink-0" />
                   <span>Mobile</span>
                 </div>
                 <div className="text-[10px] sm:text-xs text-zinc-500 mt-1">Zero app install</div>
@@ -691,7 +691,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Right Dual-Device Mockup (Laptop + Phone Constrained without Horizontal Overflow) */}
+          {/* Right Dual-Device Mockup */}
           <div className="lg:col-span-7 flex items-center justify-center relative w-full max-w-full overflow-hidden px-2 sm:px-4 py-2 sm:py-0">
             <div className="relative w-full max-w-[440px] sm:max-w-[480px]">
               {/* Laptop Frame */}
@@ -710,15 +710,15 @@ export default function LandingPage() {
                   </div>
 
                   {/* Video call floating bubble */}
-                  <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-10 sm:w-14 h-8 sm:h-10 rounded-lg bg-rose-600/40 border border-rose-500/60 backdrop-blur-md flex items-center justify-center">
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-rose-600 text-[9px] font-bold flex items-center justify-center text-white">Y</div>
+                  <div className="absolute top-2 sm:top-3 right-2 sm:right-3 w-10 sm:w-14 h-8 sm:h-10 rounded-lg bg-[#d2281e]/40 border border-[#d2281e]/60 backdrop-blur-md flex items-center justify-center">
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#d2281e] text-[9px] font-bold flex items-center justify-center text-white">Y</div>
                   </div>
                 </div>
                 <div className="h-2 sm:h-2.5 bg-zinc-800 rounded-b-lg mt-1 mx-6 sm:mx-8" />
               </div>
 
-              {/* Mobile Phone Mockup overlapping safely */}
-              <div className="absolute -bottom-2 sm:-bottom-4 right-1 sm:right-4 w-28 sm:w-36 rounded-2xl bg-zinc-900 p-1.5 border-2 border-rose-500 shadow-2xl z-20">
+              {/* Mobile Phone Mockup */}
+              <div className="absolute -bottom-2 sm:-bottom-4 right-1 sm:right-4 w-28 sm:w-36 rounded-2xl bg-zinc-900 p-1.5 border-2 border-[#d2281e] shadow-2xl z-20">
                 <div className="rounded-xl overflow-hidden aspect-[9/16] bg-black relative flex flex-col justify-between p-1.5">
                   <img
                     src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80"
@@ -727,12 +727,12 @@ export default function LandingPage() {
                   />
                   
                   {/* Mobile Sync Pill */}
-                  <div className="relative z-10 px-1.5 py-0.5 rounded-full bg-black/70 text-[7.5px] font-bold text-rose-300 border border-rose-500/40 text-center">
+                  <div className="relative z-10 px-1.5 py-0.5 rounded-full bg-black/70 text-[7.5px] font-bold text-red-300 border border-[#d2281e]/40 text-center">
                     ● Synced
                   </div>
 
                   {/* Mobile Floating PIP */}
-                  <div className="relative z-10 self-end w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-pink-600/50 border border-pink-400 flex items-center justify-center">
+                  <div className="relative z-10 self-end w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#d2281e]/50 border border-[#d2281e] flex items-center justify-center">
                     <span className="text-[9px] font-black text-white">P</span>
                   </div>
 
@@ -755,7 +755,7 @@ export default function LandingPage() {
           
           {/* Left Text Column */}
           <div className="lg:col-span-5 text-left space-y-3.5 sm:space-y-5">
-            <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+            <span className="text-xs font-bold text-[#d2281e] uppercase tracking-wider">
               MAKE IT YOURS
             </span>
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight leading-tight">
@@ -771,7 +771,7 @@ export default function LandingPage() {
             <div className="pt-1">
               <button
                 onClick={handleGetStarted}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold text-xs transition shadow-md shadow-rose-600/30 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#d2281e] hover:bg-[#b82017] text-white font-bold text-xs transition shadow-md shadow-[#d2281e]/30 flex items-center justify-center gap-2"
               >
                 <span>Create Your Custom Room</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -779,7 +779,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Right Interactive Customizer Card (Teleparty Screenshot 4 Mockup on White) */}
+          {/* Right Interactive Customizer Card */}
           <div className="lg:col-span-7 w-full">
             <div className="rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-white border border-zinc-200 shadow-xl relative w-full">
               
@@ -799,19 +799,19 @@ export default function LandingPage() {
                         value={customNickname}
                         onChange={(e) => setCustomNickname(e.target.value)}
                         placeholder="My name is..."
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-xs font-bold focus:outline-none focus:border-rose-500 transition"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-xs font-bold focus:outline-none focus:border-[#d2281e] transition"
                       />
                     </div>
                   </div>
 
                   {/* Active Preview Tag */}
                   <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
-                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-rose-600 to-pink-600 flex items-center justify-center text-lg sm:text-xl shadow-md text-white shrink-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#d2281e] flex items-center justify-center text-lg sm:text-xl shadow-md text-white shrink-0">
                       {selectedAvatar}
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-black text-zinc-900 truncate">{customNickname || 'Anonymous'}</div>
-                      <div className="text-[10px] text-rose-600 font-bold">Ready to Watch & Play</div>
+                      <div className="text-[10px] text-[#d2281e] font-bold">Ready to Watch & Play</div>
                     </div>
                   </div>
 
@@ -828,7 +828,7 @@ export default function LandingPage() {
                         type="button"
                         onClick={() => setHostOnlyControl(!hostOnlyControl)}
                         className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
-                          hostOnlyControl ? 'bg-rose-600' : 'bg-zinc-300'
+                          hostOnlyControl ? 'bg-[#d2281e]' : 'bg-zinc-300'
                         }`}
                       >
                         <span
@@ -843,13 +843,13 @@ export default function LandingPage() {
                   {/* Start Button */}
                   <button
                     onClick={handleGetStarted}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-xs font-black text-white shadow-md shadow-rose-600/30 transition"
+                    className="w-full py-3 rounded-xl bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white shadow-md shadow-[#d2281e]/30 transition"
                   >
                     Start the Party with this Profile
                   </button>
                 </div>
 
-                {/* Right part: Choose Avatar Grid (Just like Teleparty Screenshot 4) */}
+                {/* Right part: Choose Avatar Grid */}
                 <div className="sm:col-span-6 text-left">
                   <label className="block text-xs font-bold text-zinc-700 mb-2 uppercase tracking-wider">
                     Choose a profile avatar
@@ -866,7 +866,7 @@ export default function LandingPage() {
                           title={av.name}
                           className={`aspect-square rounded-xl text-lg sm:text-xl flex items-center justify-center transition-all ${
                             isSelected
-                              ? 'bg-rose-600 text-white scale-105 shadow-md shadow-rose-600/50 ring-2 ring-rose-400'
+                              ? 'bg-[#d2281e] text-white scale-105 shadow-md shadow-[#d2281e]/50 ring-2 ring-[#d2281e]'
                               : 'bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-200'
                           }`}
                         >
@@ -890,7 +890,7 @@ export default function LandingPage() {
       {/* ===================================================================== */}
       <section id="how-it-works" className="relative z-10 px-4 sm:px-8 py-12 sm:py-20 max-w-7xl mx-auto bg-white w-full overflow-hidden">
         <div className="text-center mb-6 sm:mb-12">
-          <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-[#d2281e] uppercase tracking-wider">
             STEP-BY-STEP SIMPLICITY
           </span>
           <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight mt-1 sm:mt-2 mb-2 sm:mb-3">
@@ -903,7 +903,7 @@ export default function LandingPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           
-          {/* Left: Interactive Vertical Step List with Active Red/Rose Bar (Teleparty Screenshot 5) */}
+          {/* Left: Interactive Vertical Step List with Active Red Bar */}
           <div className="lg:col-span-5 space-y-2 text-left">
             {howItWorksSteps.map((step, idx) => {
               const isActive = activeStep === idx;
@@ -913,18 +913,18 @@ export default function LandingPage() {
                   onClick={() => setActiveStep(idx)}
                   className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl cursor-pointer transition-all relative border ${
                     isActive
-                      ? 'bg-rose-50/70 border-rose-300 shadow-sm'
+                      ? 'bg-red-50/70 border-red-200 shadow-sm'
                       : 'bg-zinc-50 border-zinc-200/80 hover:bg-zinc-100'
                   }`}
                 >
-                  {/* Active Indicator Left Bar (Just like Teleparty Screenshot 5) */}
+                  {/* Active Indicator Left Bar */}
                   {isActive && (
-                    <div className="absolute left-0 top-2.5 bottom-2.5 w-1 sm:w-1.5 bg-gradient-to-b from-rose-600 to-pink-600 rounded-r-full" />
+                    <div className="absolute left-0 top-2.5 bottom-2.5 w-1 sm:w-1.5 bg-[#d2281e] rounded-r-full" />
                   )}
 
                   <div className="pl-1.5 sm:pl-2">
                     <h3 className={`text-xs sm:text-sm font-black transition-colors ${
-                      isActive ? 'text-rose-700' : 'text-zinc-900'
+                      isActive ? 'text-[#d2281e]' : 'text-zinc-900'
                     }`}>
                       {step.title}
                     </h3>
@@ -940,7 +940,7 @@ export default function LandingPage() {
             <div className="pt-2">
               <button
                 onClick={handleGetStarted}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#d2281e] hover:bg-[#b82017] text-white font-bold text-xs shadow-md shadow-[#d2281e]/30 transition flex items-center justify-center gap-2"
               >
                 <span>Try Step 1: Create Room Now</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -961,7 +961,7 @@ export default function LandingPage() {
                 />
                 
                 {/* Step badge overlay */}
-                <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-rose-600 text-white font-bold text-[9px] sm:text-[10px] shadow-md flex items-center gap-1.5">
+                <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-[#d2281e] text-white font-bold text-[9px] sm:text-[10px] shadow-md flex items-center gap-1.5">
                   <Check className="w-3 h-3" />
                   <span>{howItWorksSteps[activeStep].badge}</span>
                 </div>
@@ -973,7 +973,7 @@ export default function LandingPage() {
 
               {/* Explanatory description below the stage */}
               <div className="mt-3 sm:mt-4 p-1 sm:p-2">
-                <h3 className="text-sm sm:text-base font-black text-rose-700 mb-1">
+                <h3 className="text-sm sm:text-base font-black text-[#d2281e] mb-1">
                   {howItWorksSteps[activeStep].title}
                 </h3>
                 <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
@@ -990,7 +990,7 @@ export default function LandingPage() {
       {/* ===================================================================== */}
       <section id="games" className="relative z-10 px-4 sm:px-8 py-12 sm:py-20 border-y border-zinc-200 bg-zinc-50 w-full overflow-hidden">
         <div className="max-w-6xl mx-auto text-center">
-          <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-[#d2281e] uppercase tracking-wider">
             STRICT ZERO-BOTS POLICY • 100% HUMAN DUELS
           </span>
           <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight mt-1 sm:mt-2 mb-3 sm:mb-4">
@@ -1005,16 +1005,16 @@ export default function LandingPage() {
             {/* Ludo Card */}
             <div
               onClick={() => handlePlayGame('/games/ludo')}
-              className="group relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white border border-zinc-200 hover:border-rose-500 cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-4 sm:space-y-6"
+              className="group relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white border border-zinc-200 hover:border-[#d2281e] cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-4 sm:space-y-6"
             >
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-4xl sm:text-5xl">🐻 🐸</span>
-                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-200">
+                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">
                     2-Player Classic
                   </span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-rose-600 transition-colors">
+                <h3 className="text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-[#d2281e] transition-colors">
                   Cottagecore 3D Ludo
                 </h3>
                 <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
@@ -1023,7 +1023,7 @@ export default function LandingPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
-                <span className="text-xs font-black text-rose-600 flex items-center gap-1.5">
+                <span className="text-xs font-black text-[#d2281e] flex items-center gap-1.5">
                   <span>Start Ludo Duel</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </span>
@@ -1034,16 +1034,16 @@ export default function LandingPage() {
             {/* Four-in-a-Row Card */}
             <div
               onClick={() => handlePlayGame('/games/four-in-a-row')}
-              className="group relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white border border-zinc-200 hover:border-pink-500 cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-4 sm:space-y-6"
+              className="group relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white border border-zinc-200 hover:border-[#d2281e] cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-4 sm:space-y-6"
             >
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-4xl sm:text-5xl">🔴 🟣</span>
-                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-pink-100 text-pink-700 border border-pink-200">
+                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">
                     Connect 4 Stand
                   </span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-pink-600 transition-colors">
+                <h3 className="text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-[#d2281e] transition-colors">
                   Four in a Row (Connect 4)
                 </h3>
                 <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
@@ -1052,7 +1052,7 @@ export default function LandingPage() {
               </div>
 
               <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
-                <span className="text-xs font-black text-pink-600 flex items-center gap-1.5">
+                <span className="text-xs font-black text-[#d2281e] flex items-center gap-1.5">
                   <span>Play Four in a Row</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </span>
@@ -1068,7 +1068,7 @@ export default function LandingPage() {
       {/* ===================================================================== */}
       <section id="faq" className="relative z-10 px-4 sm:px-8 py-12 sm:py-20 max-w-3xl mx-auto w-full bg-white overflow-hidden">
         <div className="text-center mb-6 sm:mb-12">
-          <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+          <span className="text-xs font-bold text-[#d2281e] uppercase tracking-wider">
             GOT QUESTIONS?
           </span>
           <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight mt-1 sm:mt-2 mb-2 sm:mb-3">
@@ -1087,23 +1087,23 @@ export default function LandingPage() {
                 key={idx}
                 className={`rounded-xl sm:rounded-2xl border transition-all overflow-hidden ${
                   isOpen
-                    ? 'bg-rose-50/50 border-rose-300'
+                    ? 'bg-red-50/50 border-red-200'
                     : 'bg-zinc-50 border-zinc-200 hover:border-zinc-300'
                 }`}
               >
                 <button
                   onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                  className="w-full px-4 sm:px-5 py-3.5 sm:py-4 text-left flex items-center justify-between gap-3 text-xs sm:text-sm font-bold text-zinc-900 hover:text-rose-600 transition"
+                  className="w-full px-4 sm:px-5 py-3.5 sm:py-4 text-left flex items-center justify-between gap-3 text-xs sm:text-sm font-bold text-zinc-900 hover:text-[#d2281e] transition"
                 >
                   <span>{faq.q}</span>
                   <ChevronDown
                     className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-rose-600' : ''
+                      isOpen ? 'rotate-180 text-[#d2281e]' : ''
                     }`}
                   />
                 </button>
                 {isOpen && (
-                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 text-xs sm:text-sm text-zinc-600 leading-relaxed border-t border-rose-100 pt-2.5 sm:pt-3">
+                  <div className="px-4 sm:px-5 pb-4 sm:pb-5 text-xs sm:text-sm text-zinc-600 leading-relaxed border-t border-red-100 pt-2.5 sm:pt-3">
                     {faq.a}
                   </div>
                 )}
@@ -1119,7 +1119,7 @@ export default function LandingPage() {
       <section className="relative z-10 px-4 sm:px-8 py-10 sm:py-20 max-w-4xl mx-auto w-full text-center overflow-hidden">
         <div className="relative overflow-hidden p-6 sm:p-12 lg:p-16 rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 text-white shadow-2xl flex flex-col items-center">
           
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-rose-600 to-pink-600 flex items-center justify-center text-white mb-4 sm:mb-5 shadow-xl shadow-rose-600/40">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#d2281e] flex items-center justify-center text-white mb-4 sm:mb-5 shadow-xl shadow-[#d2281e]/40">
             <Heart className="w-6 h-6 sm:w-7 sm:h-7 fill-current" />
           </div>
 
@@ -1133,7 +1133,7 @@ export default function LandingPage() {
 
           <button
             onClick={handleGetStarted}
-            className="w-full sm:w-auto px-8 sm:px-10 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-500 hover:from-rose-500 hover:to-pink-500 text-white font-black text-sm shadow-2xl shadow-rose-600/40 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2.5"
+            className="w-full sm:w-auto px-8 sm:px-10 py-3.5 sm:py-4 rounded-2xl bg-[#d2281e] hover:bg-[#b82017] text-white font-black text-sm shadow-2xl shadow-[#d2281e]/40 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2.5 whitespace-nowrap"
           >
             <Sparkles className="w-4 h-4" />
             <span>Start For Free Right Now</span>
@@ -1149,12 +1149,12 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           
           <div className="flex items-center space-x-3">
-            <div className="p-1.5 bg-gradient-to-br from-rose-600 to-pink-600 rounded-lg text-white shrink-0">
+            <div className="p-1.5 bg-[#d2281e] rounded-lg text-white shrink-0">
               <Film className="w-3.5 h-3.5 fill-current" />
             </div>
             <div className="flex flex-col leading-none text-left">
               <span className="font-black text-zinc-950 text-sm">
-                Watch<span className="text-rose-600">.</span>
+                Watch<span className="text-[#d2281e]">.</span>
               </span>
               <span className="text-[8px] font-semibold text-zinc-500 tracking-widest uppercase mt-0.5">
                 Powered by StitchByte
