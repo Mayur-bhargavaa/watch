@@ -17,6 +17,7 @@ import {
   LogOut,
   Save,
   Scissors,
+  Camera,
   Sliders,
   ShieldCheck,
   Users,
@@ -126,6 +127,7 @@ function ProfileContent() {
   const [anniversaryDate, setAnniversaryDate] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [selectedVibeId, setSelectedVibeId] = useState<string>('cinephile');
+  const [showAvatarModal, setShowAvatarModal] = useState<boolean>(false);
 
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -474,165 +476,93 @@ function ProfileContent() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. PROFILE PERSONA CARD (VERTICAL & CLEAN)                                */}
+        {/* 3. VERTICAL PROFILE LAYOUT (IMAGE, NAME & ALL PROFILE DETAILS ONLY)       */}
         {/* ========================================================================= */}
-        <div className="flex justify-center w-full">
-          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 p-6 shadow-sm flex flex-col items-center text-center space-y-4">
+        <div className="flex justify-center w-full py-2">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 p-6 sm:p-8 shadow-sm flex flex-col items-center text-center space-y-5">
             
-            {/* Avatar Booth */}
+            {/* 1. Image (Round Avatar with Camera Icon) */}
             <div className="relative group">
-              <div className="relative w-32 h-40 rounded-2xl overflow-hidden bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-white/10 flex flex-col items-center justify-end">
+              <div className="relative w-32 h-32 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
                 <img
                   src={
-                    session.user.avatarUrl
-                      ? session.user.avatarUrl.replace(/[?&]radius=[^&]+/g, '').replace(/[?&]backgroundColor=[^&]+/g, '')
-                      : '/avatars/standing_heart_transparent@2x.png'
+                    avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'
                   }
-                  alt={session.user.displayName || 'Persona'}
-                  className="w-full h-full object-cover object-bottom"
+                  alt={displayName || 'Persona'}
+                  className="w-full h-full object-cover object-center"
                 />
-                
-                {/* Red Counter Bar */}
-                <div className="relative z-10 w-full h-3 bg-gradient-to-r from-slate-200 via-rose-600 to-slate-200 dark:from-zinc-900 dark:via-rose-600 dark:to-zinc-900 border-t border-rose-600 flex items-center justify-center">
-                  <div className="w-12 h-0.5 bg-white/80 rounded-full" />
-                </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setActiveTab('avatar')}
-                className="absolute -bottom-1 -right-1 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow transition flex items-center justify-center border-2 border-white dark:border-[#14151b]"
+                onClick={() => setShowAvatarModal(true)}
+                className="absolute bottom-0 right-0 p-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg transition flex items-center justify-center border-2 border-white dark:border-[#14151b] active:scale-95"
                 title="Change Avatar"
               >
-                <Scissors className="w-3.5 h-3.5" />
+                <Camera className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Information Block */}
-            <div className="flex flex-col items-center space-y-2 w-full">
-              {/* VIP Live Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>CINEMA VIP LIVE</span>
-              </div>
-
-              {/* User Display Name */}
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white">
-                {session.user.displayName || 'User'}
-              </h1>
-
-              {/* Age & Marital Status */}
-              <div className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
-                {calculatedAge ? `🎂 ${calculatedAge} years old · ` : ''}
-                {session.user.isMarried ? '💍 Married' : 'Single'}
-              </div>
-
-              {/* Partner Code */}
-              {session.user.partnerCode && (
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={handleCopyPartnerCode}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1b1c24] hover:bg-slate-200 dark:hover:bg-[#232430] border border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-900 dark:text-white transition"
-                  >
-                    <span className="text-[10px] text-slate-400 uppercase font-bold">Partner Code:</span>
-                    <span className="font-mono text-rose-600 dark:text-rose-400 font-bold">{session.user.partnerCode}</span>
-                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500 ml-1" /> : <Copy className="w-3.5 h-3.5 text-slate-400 ml-1" />}
-                  </button>
-                </div>
-              )}
+            {/* VIP Status Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>CINEMA VIP LIVE</span>
             </div>
 
-          </div>
-        </div>
-
-        {/* ========================================================================= */}
-        {/* 5. TABS NAVIGATION (CLEAN SEGMENTED CONTROL)                              */}
-        {/* ========================================================================= */}
-        <div className="flex rounded-2xl bg-slate-200/80 dark:bg-[#14151b] p-1.5 border border-slate-300/70 dark:border-white/[0.06] text-xs font-bold overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('details')}
-            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
-              activeTab === 'details'
-                ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Sliders className="w-4 h-4 text-rose-600" />
-            <span>Personal Details</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('couple')}
-            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
-              activeTab === 'couple'
-                ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Heart className="w-4 h-4 text-rose-600" />
-            <span>Couple Cinema Booth</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('avatar')}
-            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
-              activeTab === 'avatar'
-                ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-rose-600" />
-            <span>3D Avatar Studio</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('achievements')}
-            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
-              activeTab === 'achievements'
-                ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Award className="w-4 h-4 text-rose-600" />
-            <span>Cinema Trophies</span>
-          </button>
-        </div>
-
-        {/* FEEDBACK BANNERS */}
-        {saveSuccess && (
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 animate-in fade-in shadow-sm">
-            <Check className="w-4 h-4" />
-            <span>{saveSuccess}</span>
-          </div>
-        )}
-
-        {errorMsg && (
-          <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2 animate-in fade-in shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-rose-600" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 1: PERSONAL DETAILS                                                   */}
-        {/* ========================================================================= */}
-        {activeTab === 'details' && (
-          <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
+            {/* 2. Name */}
             <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Personal Details & Celebrations</h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                Keep your information fresh for party reminders, birthday alerts, and synced romantic lighting.
+              <h1 className="text-2xl font-black text-slate-900 dark:text-white">
+                {session.user.displayName || 'User'}
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                {session.user.email || 'cinema@stitchbyte.com'}
               </p>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-5">
+            {/* Feedback Notifications */}
+            {saveSuccess && (
+              <div className="w-full p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 text-left">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{saveSuccess}</span>
+              </div>
+            )}
+
+            {errorMsg && (
+              <div className="w-full p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2 text-left">
+                <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* 3. All Profile Details (Vertical Fields) */}
+            <form onSubmit={handleSaveProfile} className="w-full space-y-4 text-left pt-2">
+              
+              {/* Partner Sync Code */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                  Partner Sync Code
+                </label>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-black text-rose-600 dark:text-rose-400">
+                      {session.user.partnerCode || 'SYNC-VIP'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-medium">· Share to link rooms</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyPartnerCode}
+                    className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 transition"
+                    title="Copy Partner Code"
+                  >
+                    {copiedCode ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Display Name */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
                   Display Name
                 </label>
                 <div className="relative">
@@ -645,20 +575,39 @@ function ProfileContent() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     maxLength={30}
-                    className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-rose-600 transition"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
                   />
                 </div>
               </div>
 
+              {/* Email Address */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="email"
+                    disabled
+                    value={session.user.email || 'cinema@stitchbyte.com'}
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-zinc-400 text-xs font-medium cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Date of Birth & Age */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-rose-600" />
                     <span>Date of Birth</span>
                   </label>
                   {calculatedAge !== null && (
-                    <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 flex items-center gap-1">
-                      <span>🎂</span> {calculatedAge} years old
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      🎂 {calculatedAge} years old
                     </span>
                   )}
                 </div>
@@ -667,144 +616,51 @@ function ProfileContent() {
                   value={dateOfBirth}
                   onChange={(e) => setDateOfBirth(e.target.value)}
                   max={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3.5 py-3 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-rose-600 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
                 />
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
-                  We use your birthdate to trigger special birthday surprises in your watch rooms.
-                </p>
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full py-3.5 px-5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black text-sm shadow-lg shadow-rose-600/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      <span>Saving Changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span>Save Profile Changes</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 2: COUPLE CINEMA BOOTH & LOVE SEAT                                    */}
-        {/* ========================================================================= */}
-        {activeTab === 'couple' && (
-          <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
-            <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                <Heart className="w-5 h-5 text-rose-600 fill-current" />
-                <span>Couple Cinema Love-Seat Stage</span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                A private cinema booth built for you and your partner. Sync countdowns, love reactions, and couple streams.
-              </p>
-            </div>
-
-            {/* Visual Double Cinema Seat */}
-            <div className="p-6 rounded-3xl bg-gradient-to-r from-rose-50/70 via-slate-50 to-red-50/70 dark:from-rose-950/20 dark:via-[#181922] dark:to-red-950/20 border border-rose-200 dark:border-rose-500/20 flex flex-col sm:flex-row items-center justify-around gap-6">
-              
-              {/* Left Seat: User */}
-              <div className="flex flex-col items-center space-y-2">
-                <div className="relative w-24 h-32 rounded-t-3xl rounded-b-xl overflow-hidden bg-slate-200 dark:bg-zinc-950 border-2 border-rose-600 shadow-lg flex items-end justify-center">
-                  <img
-                    src={avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
-                    alt="You"
-                    className="w-full h-full object-cover object-bottom"
-                  />
-                  <div className="absolute bottom-0 inset-x-0 h-2 bg-rose-600" />
-                </div>
-                <span className="text-xs font-black text-slate-900 dark:text-white">
-                  {displayName || 'You'}
-                </span>
-                <span className="text-[10px] text-rose-600 font-bold">Seat 1 (Host)</span>
-              </div>
-
-              {/* Center Heart Aura */}
-              <div className="flex flex-col items-center space-y-1">
-                <div className="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-600/40 animate-pulse">
-                  <Heart className="w-6 h-6 fill-current" />
-                </div>
-                <span className="text-xs font-black text-rose-600 tracking-wider uppercase">
-                  {anniversaryDuration || 'Duo Sync'}
-                </span>
-              </div>
-
-              {/* Right Seat: Partner */}
-              <div className="flex flex-col items-center space-y-2">
-                <div className="relative w-24 h-32 rounded-t-3xl rounded-b-xl overflow-hidden bg-slate-200/80 dark:bg-zinc-950/80 border-2 border-dashed border-rose-400/80 flex flex-col items-center justify-center text-center p-2">
-                  <span className="text-2xl">🧸</span>
-                  <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-400 mt-1">
-                    Partner Seat
-                  </span>
-                  <div className="absolute bottom-0 inset-x-0 h-2 bg-rose-400/60" />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopyPartnerCode}
-                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1"
-                >
-                  <Copy className="w-3 h-3" />
-                  <span>{copiedCode ? 'Code Copied!' : 'Share Code'}</span>
-                </button>
-                <span className="text-[10px] text-slate-400">Seat 2 (Partner)</span>
-              </div>
-
-            </div>
-
-            {/* Relationship status toggle & Anniversary */}
-            <form onSubmit={handleSaveProfile} className="space-y-5">
+              {/* Relationship Status */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
-                  Are you married?
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                  Relationship Status
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => { setIsMarried(false); setAnniversaryDate(''); }}
-                    className={`py-3 px-4 rounded-xl text-xs font-bold border transition ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
                       !isMarried
-                        ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white border-slate-300 dark:border-white/30 shadow-sm'
-                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-zinc-400'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
                     }`}
                   >
-                    Single / Not Married
+                    Single
                   </button>
-
                   <button
                     type="button"
                     onClick={() => setIsMarried(true)}
-                    className={`py-3 px-4 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
                       isMarried
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/30'
-                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-zinc-400'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
                     }`}
                   >
-                    <span>💍 Yes, Married</span>
+                    <span>💍 Married</span>
                   </button>
                 </div>
               </div>
 
+              {/* Anniversary Date (if married) */}
               {isMarried && (
-                <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-2 animate-in fade-in">
+                <div className="p-3.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-1.5 animate-in fade-in">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <label className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
                       <Heart className="w-3.5 h-3.5 fill-current text-rose-600" />
-                      <span>Wedding / Couple Anniversary Date</span>
+                      <span>Anniversary Date</span>
                     </label>
                     {anniversaryDuration && (
-                      <span className="text-[11px] font-black text-rose-600 dark:text-rose-300">
+                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-300">
                         {anniversaryDuration}
                       </span>
                     )}
@@ -815,183 +671,77 @@ function ProfileContent() {
                     value={anniversaryDate}
                     onChange={(e) => setAnniversaryDate(e.target.value)}
                     max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-black/60 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-sm font-medium focus:outline-none focus:border-rose-600 transition"
+                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-black/50 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
                   />
-                  <p className="text-[11px] text-slate-600 dark:text-zinc-400">
-                    🥂 Every year on your anniversary, Watch lights up a synchronized couple countdown with special romantic cinema themes!
-                  </p>
                 </div>
               )}
 
-              <div className="pt-2">
+              {/* Save Button */}
+              <div className="pt-3">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full py-3.5 px-5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black text-sm shadow-lg shadow-rose-600/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 flex items-center justify-center gap-2"
                 >
                   {saving ? (
                     <>
-                      <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
                       <span>Saving Changes...</span>
                     </>
                   ) : (
                     <>
-                      <Save className="w-4 h-4" />
-                      <span>Save Partner Settings</span>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save Profile Details</span>
                     </>
                   )}
                 </button>
               </div>
+
             </form>
           </div>
-        )}
+        </div>
 
-        {/* ========================================================================= */}
-        {/* TAB 3: 3D AVATAR STUDIO                                                   */}
-        {/* ========================================================================= */}
-        {activeTab === 'avatar' && (
-          <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Customize Your Persona</h2>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                  Personalize your Bitmoji look anytime. Your new avatar will instantly show on your dashboard and party rooms.
-                </p>
+        {/* Avatar Customization Modal */}
+        {showAvatarModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#181922] border border-slate-200 dark:border-white/10 rounded-3xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">Customize 3D Avatar</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowAvatarModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm transition"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleSaveAvatarOnly}
-                disabled={saving}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/30 transition active:scale-95 shrink-0"
-              >
-                {saving ? (
-                  <span>Saving...</span>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Avatar</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="p-4 sm:p-6 rounded-2xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] shadow-inner">
               <AvatarStudio
                 displayName={displayName}
                 value={avatarUrl}
                 onChange={setAvatarUrl}
               />
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleSaveAvatarOnly}
-                disabled={saving}
-                className="w-full py-3.5 px-5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black text-sm shadow-lg shadow-rose-600/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
-              >
-                {saving ? (
-                  <>
-                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    <span>Updating Persona in Database...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Save & Update Persona</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* TAB 4: CINEMA TROPHIES & ACHIEVEMENTS                                     */}
-        {/* ========================================================================= */}
-        {activeTab === 'achievements' && (
-          <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
-            <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                <Award className="w-5 h-5 text-rose-600" />
-                <span>Cinema Trophies & Milestones</span>
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
-                Achievements unlocked on your Watch account through streaming, hosting parties, and playing arcade games.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {ACHIEVEMENTS.map(ach => (
-                <div
-                  key={ach.id}
-                  className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] flex items-start gap-3.5 shadow-sm"
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAvatarModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300 text-xs font-bold transition hover:bg-slate-200"
                 >
-                  <div className="text-2xl p-2 rounded-xl bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 shadow-sm shrink-0">
-                    {ach.icon}
-                  </div>
-                  <div>
-                    <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <span>{ach.title}</span>
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        UNLOCKED
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">
-                      {ach.desc}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ========================================================================= */}
-        {/* 6. QUICK NAVIGATION CARDS                                                 */}
-        {/* ========================================================================= */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-          <Link
-            href="/dashboard"
-            className="p-4 rounded-2xl bg-white dark:bg-[#14151b] hover:bg-slate-100 dark:hover:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] flex items-center gap-3 transition group shadow-sm"
-          >
-            <div className="p-2.5 rounded-xl bg-rose-600/10 text-rose-600 group-hover:scale-105 transition-transform">
-              <Tv className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-rose-600 transition">Cinema Lounge</div>
-              <div className="text-[10px] text-slate-500 dark:text-zinc-400">Stream YouTube & Movies</div>
-            </div>
-          </Link>
-
-          <Link
-            href="/games"
-            className="p-4 rounded-2xl bg-white dark:bg-[#14151b] hover:bg-slate-100 dark:hover:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] flex items-center gap-3 transition group shadow-sm"
-          >
-            <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform">
-              <Gamepad2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-300 transition">Game Arcade</div>
-              <div className="text-[10px] text-slate-500 dark:text-zinc-400">Ludo 3D & Connect 4</div>
-            </div>
-          </Link>
-
-          <div
-            onClick={handleCopyPartnerCode}
-            className="p-4 rounded-2xl bg-white dark:bg-[#14151b] hover:bg-slate-100 dark:hover:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] flex items-center gap-3 transition group cursor-pointer shadow-sm"
-          >
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
-              <Users className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-300 transition">Pair with Partner</div>
-              <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
-                {copiedCode ? 'Code copied to clipboard!' : `Code: ${session.user.partnerCode || 'Copy'}`}
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handleSaveAvatarOnly();
+                    setShowAvatarModal(false);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow transition"
+                >
+                  Save Avatar
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Footer */}
         <footer className="py-6 text-center text-xs text-slate-400 dark:text-zinc-500 border-t border-slate-200 dark:border-white/[0.06] mt-auto">
