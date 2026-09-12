@@ -26,7 +26,14 @@ import {
   Moon,
   Search,
   Settings,
-  Plus
+  Crown,
+  Award,
+  Zap,
+  Ticket,
+  Flame,
+  QrCode,
+  Share2,
+  RefreshCw
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -38,12 +45,29 @@ import {
 } from '../../lib/api';
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
+const CINEMA_VIBES = [
+  { id: 'cinephile', label: '🎬 Director\'s Cut', desc: 'Loves deep-lore indie cinema & 4K IMAX' },
+  { id: 'binger', label: '🍿 Popcorn Binger', desc: 'Can watch 8 episodes in one single night' },
+  { id: 'romcom', label: '💖 Rom-Com Duo', desc: 'Couple watch parties with synchronized reactions' },
+  { id: 'scifi', label: '🚀 Sci-Fi Voyager', desc: 'Interstellar, Cyberpunk & mind-bending journeys' },
+  { id: 'arcade', label: '🎮 Arcade Champion', desc: 'Here to dominate Ludo 3D and Connect 4' }
+];
+
+const ACHIEVEMENTS = [
+  { id: 'host', title: 'Cinema Host', desc: 'Launched first room with friends', icon: '🎬', unlocked: true },
+  { id: 'vip', title: 'Cinema VIP', desc: 'Exclusive StitchByte VIP Tier', icon: '👑', unlocked: true },
+  { id: 'couple', title: 'Love Theater', desc: 'Linked partner room & anniversary', icon: '💍', unlocked: true },
+  { id: 'arcade', title: 'Arcade Duelist', desc: 'Challenged room friends in games', icon: '🎮', unlocked: true },
+  { id: 'owl', title: 'Midnight Streamer', desc: 'Streamed movies past midnight', icon: '🌙', unlocked: true },
+  { id: '4k', title: '4K Ultra-Sync', desc: 'Low-latency synchronized streams', icon: '⚡', unlocked: true }
+];
+
 function ProfileContent() {
   const router = useRouter();
   const { theme, resolvedTheme, toggleTheme } = useTheme();
   const [session, setSession] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'avatar'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'couple' | 'avatar' | 'achievements'>('details');
 
   // Form states
   const [displayName, setDisplayName] = useState<string>('');
@@ -51,6 +75,8 @@ function ProfileContent() {
   const [isMarried, setIsMarried] = useState<boolean>(false);
   const [anniversaryDate, setAnniversaryDate] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [selectedVibe, setSelectedVibe] = useState<string>('🎬 Director\'s Cut');
+  const [flippedCard, setFlippedCard] = useState<boolean>(false);
 
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -103,6 +129,12 @@ function ProfileContent() {
     setIsMarried(Boolean(current.user.isMarried));
     setAnniversaryDate(current.user.anniversaryDate || '');
     setAvatarUrl(current.user.avatarUrl || '');
+
+    try {
+      const savedVibe = localStorage.getItem('stitchbyte_user_vibe');
+      if (savedVibe) setSelectedVibe(savedVibe);
+    } catch {}
+
     setLoading(false);
 
     // Sync fresh profile from DB
@@ -123,6 +155,13 @@ function ProfileContent() {
     navigator.clipboard.writeText(session.user.partnerCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleSelectVibe = (vibe: string) => {
+    setSelectedVibe(vibe);
+    try {
+      localStorage.setItem('stitchbyte_user_vibe', vibe);
+    } catch {}
   };
 
   const handleSaveProfile = async (e?: React.FormEvent) => {
@@ -205,11 +244,11 @@ function ProfileContent() {
     <div className="min-h-screen bg-slate-50 dark:bg-[#111217] text-slate-900 dark:text-slate-100 flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150">
       
       {/* ========================================================================= */}
-      {/* 1. LEFT SIDEBAR NAVIGATION (MATCHING DASHBOARD EXACTLY)                   */}
+      {/* 1. LEFT SIDEBAR (DASHBOARD AUTHENTIC SHELL)                               */}
       {/* ========================================================================= */}
       <aside className="w-64 bg-white dark:bg-[#14151b] border-r border-slate-200 dark:border-white/[0.06] p-6 flex flex-col justify-between shrink-0 hidden lg:flex select-none transition-colors duration-150">
         <div className="space-y-8">
-          {/* Logo: Watch. Powered by StitchByte */}
+          {/* Logo */}
           <Link
             href="/dashboard"
             className="flex items-center space-x-2.5 cursor-pointer select-none group"
@@ -229,7 +268,6 @@ function ProfileContent() {
 
           {/* Navigation Groups */}
           <div className="space-y-6">
-            {/* Nav Group 1: Menu */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
                 Menu
@@ -243,7 +281,6 @@ function ProfileContent() {
               </Link>
             </div>
 
-            {/* Nav Group 2: Social / Rooms */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
                 Social
@@ -271,13 +308,11 @@ function ProfileContent() {
               </Link>
             </div>
 
-            {/* Nav Group 3: General */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
                 General
               </div>
               
-              {/* Profile Active Nav Item */}
               <div className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-sm relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-rose-600 before:rounded-r">
                 <User className="w-4 h-4 text-rose-600" />
                 <span>My Profile</span>
@@ -297,7 +332,7 @@ function ProfileContent() {
           </div>
         </div>
 
-        {/* User Profile Card at Bottom of Sidebar */}
+        {/* User Card */}
         <div className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] select-none">
           <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-900 border border-slate-300 dark:border-white/10 ring-2 ring-rose-600/40 shrink-0 flex items-center justify-center">
             {session.user.avatarUrl ? (
@@ -318,21 +353,20 @@ function ProfileContent() {
               {session.user.displayName || 'User'}
             </div>
             <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-              {session.user.age ? <span>🎂 {session.user.age}y · </span> : null}
-              <span>{session.user.isMarried ? '💍 Married' : 'Cinema Fan'}</span>
+              <span>{selectedVibe.split(' ')[0]}</span>
+              <span>{session.user.isMarried ? '💍 Married' : 'Cinema VIP'}</span>
             </div>
           </div>
         </div>
       </aside>
 
       {/* ========================================================================= */}
-      {/* 2. MAIN CONTENT AREA (MATCHING DASHBOARD TOPBAR & CARDS)                  */}
+      {/* 2. MAIN DASHBOARD CONTENT AREA                                            */}
       {/* ========================================================================= */}
       <div className="flex-1 flex flex-col h-screen overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
         
         {/* Top Header Bar */}
         <div className="flex items-center justify-between gap-4">
-          {/* Back & Forward Controls */}
           <div className="flex items-center space-x-2 shrink-0">
             <button
               onClick={() => router.push('/dashboard')}
@@ -350,7 +384,6 @@ function ProfileContent() {
             </button>
           </div>
 
-          {/* Search Bar matching Dashboard */}
           <form
             onSubmit={handleSearchSubmit}
             className="flex-1 max-w-xl flex items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-4 py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm"
@@ -365,15 +398,12 @@ function ProfileContent() {
             />
           </form>
 
-          {/* Top Right Header with Max 6 Indicator & Theme Toggle */}
           <div className="flex items-center space-x-2.5 shrink-0">
-            {/* Live Room Limit Indicator */}
             <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm">
               <Users className="w-3.5 h-3.5 text-rose-600" />
               <span>Max 6 per room</span>
             </div>
 
-            {/* 1-Click Theme Switcher (Sun / Moon) */}
             <button
               type="button"
               onClick={toggleTheme}
@@ -391,15 +421,134 @@ function ProfileContent() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. HERO PROFILE CARD (MATCHING DASHBOARD CARD STYLE)                      */}
+        {/* 3. UNIQUE HERO: HOLOGRAPHIC CINEMA PASS & CHARACTER BOOTH                 */}
         {/* ========================================================================= */}
-        <div className="relative rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 shadow-sm transition-colors duration-150 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
-            
-            {/* Standing Torso Persona Stage */}
+          {/* Left: Interactive Holographic VIP Cinema Card (Ultra Unique) */}
+          <div className="lg:col-span-7 relative group select-none">
+            <div
+              onClick={() => setFlippedCard(!flippedCard)}
+              className="relative cursor-pointer min-h-[250px] sm:min-h-[260px] rounded-3xl p-6 sm:p-7 text-white overflow-hidden shadow-2xl transition-transform duration-300 hover:-translate-y-1 bg-gradient-to-br from-[#1c0809] via-[#2f0d11] to-[#0d0914] border border-rose-500/30"
+            >
+              {/* Holographic Iridescent Shimmer */}
+              <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/10 via-amber-400/15 to-indigo-500/15 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <div className="absolute -top-24 -right-24 w-60 h-60 bg-rose-600/25 rounded-full blur-3xl pointer-events-none" />
+              
+              {!flippedCard ? (
+                /* Card Front: VIP Black Pass */
+                <div className="relative z-10 flex flex-col justify-between h-full space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-md shadow-rose-600/40">
+                        <Film className="w-4 h-4 fill-current" />
+                      </div>
+                      <div className="flex flex-col leading-none">
+                        <span className="text-sm font-black tracking-wider uppercase text-white flex items-center gap-1">
+                          STITCHBYTE <span className="text-rose-500 text-xs">VIP</span>
+                        </span>
+                        <span className="text-[8px] font-bold text-rose-300/80 tracking-widest uppercase">
+                          Exclusive Cinema Pass
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-black/40 border border-white/20 text-amber-300 font-black tracking-widest flex items-center gap-1">
+                        <Crown className="w-3 h-3 text-amber-400 fill-amber-400" />
+                        <span>TIER 1</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Golden Smart Chip Graphic */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-7 rounded-md bg-gradient-to-tr from-amber-300 via-yellow-200 to-amber-500 border border-yellow-200/50 shadow-inner flex flex-col justify-around px-1 py-0.5">
+                      <div className="h-px bg-amber-900/40" />
+                      <div className="h-px bg-amber-900/40" />
+                    </div>
+                    <div className="text-[10px] font-mono text-zinc-400 tracking-wider">
+                      PRESS TO FLIP CARD ⟳
+                    </div>
+                  </div>
+
+                  {/* Member Name & Code */}
+                  <div className="flex items-end justify-between pt-2">
+                    <div>
+                      <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                        Member Name
+                      </div>
+                      <div className="text-lg sm:text-xl font-black text-white tracking-wide uppercase">
+                        {session.user.displayName || 'Watch Member'}
+                      </div>
+                      <div className="text-[11px] text-rose-400 font-semibold flex items-center gap-1.5 mt-0.5">
+                        <span>{selectedVibe}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
+                        Partner Pass ID
+                      </div>
+                      <div className="font-mono text-base font-black text-amber-300 tracking-widest">
+                        {session.user.partnerCode || 'SYNC-VIP'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Card Back: Secret Perks & Barcode */
+                <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <span className="text-xs font-black tracking-wider uppercase text-amber-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Cinema Pass Perks & Benefits</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-400">FLIP BACK ⟳</span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-zinc-200 font-medium">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span>Unlimited 4K synchronized watch rooms</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span>Exclusive Duo Couple Room with romantic lighting</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <span>Integrated Game Lounge (Ludo 3D & Connect 4)</span>
+                    </div>
+                  </div>
+
+                  {/* Barcode & Security Strip */}
+                  <div className="pt-2 flex items-center justify-between">
+                    <div className="h-8 flex items-center space-x-1 opacity-70">
+                      <div className="w-1 h-full bg-white" />
+                      <div className="w-0.5 h-full bg-white" />
+                      <div className="w-2 h-full bg-white" />
+                      <div className="w-0.5 h-full bg-white" />
+                      <div className="w-1.5 h-full bg-white" />
+                      <div className="w-1 h-full bg-white" />
+                      <div className="w-2 h-full bg-white" />
+                      <div className="w-0.5 h-full bg-white" />
+                      <div className="w-1 h-full bg-white" />
+                      <div className="w-2 h-full bg-white" />
+                    </div>
+                    <span className="font-mono text-[10px] text-zinc-400">
+                      AUTHSYNC://{session.user.partnerCode || 'STITCH'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Character Standing Torso & Quick Actions */}
+          <div className="lg:col-span-5 rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 shadow-sm flex flex-col sm:flex-row items-center gap-5">
             <div className="relative group shrink-0">
-              <div className="relative w-28 h-36 sm:w-32 sm:h-40 rounded-t-3xl rounded-b-xl overflow-hidden bg-slate-100 dark:bg-zinc-950 border-2 border-rose-600/60 shadow-xl flex flex-col items-center justify-end">
+              <div className="relative w-28 h-36 rounded-t-3xl rounded-b-xl overflow-hidden bg-slate-100 dark:bg-zinc-950 border-2 border-rose-600/60 shadow-lg flex flex-col items-center justify-end">
                 <img
                   src={
                     session.user.avatarUrl
@@ -407,123 +556,149 @@ function ProfileContent() {
                       : '/avatars/standing_heart_transparent@2x.png'
                   }
                   alt={session.user.displayName || 'Persona'}
-                  className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-105 select-none"
+                  className="w-full h-full object-cover object-bottom select-none transition-transform duration-300 group-hover:scale-105"
                 />
-
-                {/* Counter ledge matching dashboard bitmoji */}
-                <div className="relative z-10 w-full h-3 bg-gradient-to-r from-slate-200 via-rose-600 to-slate-200 dark:from-zinc-900 dark:via-rose-600 dark:to-zinc-900 border-t border-rose-600 shadow-[0_0_12px_rgba(225,29,72,0.8)] flex items-center justify-center">
+                <div className="relative z-10 w-full h-3 bg-gradient-to-r from-slate-200 via-rose-600 to-slate-200 dark:from-zinc-900 dark:via-rose-600 dark:to-zinc-900 border-t border-rose-600 shadow-[0_0_10px_rgba(225,29,72,0.8)] flex items-center justify-center">
                   <div className="w-12 h-0.5 bg-white/70 rounded-full" />
                 </div>
               </div>
-              
-              {/* Customize Persona Button */}
               <button
                 type="button"
                 onClick={() => setActiveTab('avatar')}
-                className="absolute -bottom-2 -right-2 p-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center border-2 border-white dark:border-[#14151b]"
-                title="Customize Persona"
+                className="absolute -bottom-1 -right-1 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-md transition active:scale-95"
+                title="Change Persona"
               >
-                <Scissors className="w-4 h-4" />
+                <Scissors className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Profile Info & Partner Code */}
-            <div className="flex-1 space-y-3">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                  {session.user.displayName || 'Watch Member'}
-                </h1>
-                
-                <span className="px-2.5 py-0.5 rounded-full bg-rose-600/10 dark:bg-rose-600/20 border border-rose-600/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-rose-600" />
-                  <span>Cinema VIP</span>
-                </span>
-
-                {session.user.isMarried && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300 text-xs font-bold flex items-center gap-1">
-                    <span>💍</span> Married
-                  </span>
-                )}
+            <div className="flex-1 space-y-2 text-center sm:text-left min-w-0">
+              <div className="text-base font-black text-slate-900 dark:text-white truncate">
+                {session.user.displayName}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                {calculatedAge ? `🎂 ${calculatedAge} yrs · ` : ''}
+                {session.user.isMarried ? '💍 Married' : 'Single'}
               </div>
 
-              <div className="text-xs text-slate-600 dark:text-zinc-400 flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 font-medium">
-                {session.user.email && (
-                  <span className="flex items-center gap-1">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
-                    <span>{session.user.email}</span>
-                  </span>
-                )}
-                {session.user.age && (
-                  <span className="flex items-center gap-1">
-                    <span>🎂</span>
-                    <span>{session.user.age} years old</span>
-                  </span>
-                )}
-                {anniversaryDuration && (
-                  <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
-                    <span>🥂</span>
-                    <span>{anniversaryDuration}</span>
-                  </span>
-                )}
-              </div>
-
-              {/* Unique Partner Pairing Code Box */}
+              {/* Partner code pill */}
               {session.user.partnerCode && (
-                <div className="pt-2">
-                  <div className="inline-flex flex-col sm:flex-row items-center gap-2 p-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
-                    <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">
-                      Partner Code:
-                    </span>
-                    <span className="font-mono text-sm font-black text-slate-900 dark:text-white tracking-widest px-2 py-0.5 rounded-lg bg-white dark:bg-black/40 border border-slate-200 dark:border-white/10 shadow-sm">
-                      {session.user.partnerCode}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCopyPartnerCode}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 transition ml-1"
-                    >
-                      {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedCode ? 'Copied!' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-1">
-                    Share this code with your partner to pair your rooms and celebrate together.
-                  </p>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCopyPartnerCode}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1b1c24] hover:bg-slate-200 dark:hover:bg-[#232430] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-white transition"
+                  >
+                    <span className="text-[10px] text-slate-400 uppercase">Code:</span>
+                    <span className="font-mono text-rose-600 dark:text-rose-400">{session.user.partnerCode}</span>
+                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500 ml-1" /> : <Copy className="w-3.5 h-3.5 text-slate-400 ml-1" />}
+                  </button>
                 </div>
               )}
-
             </div>
+          </div>
+
+        </div>
+
+        {/* ========================================================================= */}
+        {/* 4. CINEMA DNA VIBE SELECTOR (UNIQUE IDENTITY TOUCH)                       */}
+        {/* ========================================================================= */}
+        <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-5 sm:p-6 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-rose-600" />
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                Your Cinema DNA & Vibe
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 dark:text-zinc-500">Shows in watch rooms</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+            {CINEMA_VIBES.map(v => {
+              const isSelected = selectedVibe === v.label;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => handleSelectVibe(v.label)}
+                  className={`p-3 rounded-2xl border text-left transition relative flex flex-col justify-between ${
+                    isSelected
+                      ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-600 shadow-sm ring-1 ring-rose-600/30'
+                      : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] hover:bg-slate-100 dark:hover:bg-[#22232f]'
+                  }`}
+                >
+                  <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                    {v.label}
+                  </div>
+                  <div className="text-[10px] text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1 leading-tight">
+                    {v.desc}
+                  </div>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 w-3.5 h-3.5 rounded-full bg-rose-600 text-white flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. TABS NAVIGATION (MATCHING DASHBOARD PILL BUTTONS)                      */}
+        {/* 5. TABS NAVIGATION                                                        */}
         {/* ========================================================================= */}
-        <div className="flex rounded-2xl bg-slate-200/80 dark:bg-[#14151b] p-1.5 border border-slate-300/70 dark:border-white/[0.06] text-xs font-bold">
+        <div className="flex rounded-2xl bg-slate-200/80 dark:bg-[#14151b] p-1.5 border border-slate-300/70 dark:border-white/[0.06] text-xs font-bold overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('details')}
-            className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 transition ${
+            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
               activeTab === 'details'
                 ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
                 : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Sliders className="w-4 h-4 text-rose-600" />
-            <span>Personal Details & Milestones</span>
+            <span>Personal Details</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('couple')}
+            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
+              activeTab === 'couple'
+                ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Heart className="w-4 h-4 text-rose-600" />
+            <span>Couple Cinema Booth</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('avatar')}
-            className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 transition ${
+            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
               activeTab === 'avatar'
                 ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
                 : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Sparkles className="w-4 h-4 text-rose-600" />
-            <span>Bitmoji Avatar Studio</span>
+            <span>3D Avatar Studio</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('achievements')}
+            className={`flex-1 py-3 px-3 rounded-xl flex items-center justify-center gap-2 transition shrink-0 ${
+              activeTab === 'achievements'
+                ? 'bg-white dark:bg-[#1f202c] text-slate-900 dark:text-white shadow-sm font-bold'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Award className="w-4 h-4 text-rose-600" />
+            <span>Cinema Trophies</span>
           </button>
         </div>
 
@@ -543,19 +718,18 @@ function ProfileContent() {
         )}
 
         {/* ========================================================================= */}
-        {/* 5. TAB 1: PERSONAL DETAILS & MILESTONES (MATCHING DASHBOARD CARDS)        */}
+        {/* TAB 1: PERSONAL DETAILS                                                   */}
         {/* ========================================================================= */}
         {activeTab === 'details' && (
           <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
             <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Edit Profile & Celebrations</h2>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">Personal Details & Celebrations</h2>
               <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
                 Keep your information fresh for party reminders, birthday alerts, and synced romantic lighting.
               </p>
             </div>
 
             <form onSubmit={handleSaveProfile} className="space-y-5">
-              {/* Display Name */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
                   Display Name
@@ -575,7 +749,6 @@ function ProfileContent() {
                 </div>
               </div>
 
-              {/* Date of Birth & Auto Age */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -600,7 +773,97 @@ function ProfileContent() {
                 </p>
               </div>
 
-              {/* Marital / Relationship Status */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-3.5 px-5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-black text-sm shadow-lg shadow-rose-600/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save Profile Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: COUPLE CINEMA BOOTH & LOVE SEAT (UNIQUE)                           */}
+        {/* ========================================================================= */}
+        {activeTab === 'couple' && (
+          <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                <Heart className="w-5 h-5 text-rose-600 fill-current" />
+                <span>Couple Cinema Love-Seat Stage</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                A private cinema booth built for you and your partner. Sync countdowns, love reactions, and couple streams.
+              </p>
+            </div>
+
+            {/* Visual Double Cinema Seat */}
+            <div className="p-6 rounded-3xl bg-gradient-to-r from-rose-50/70 via-slate-50 to-red-50/70 dark:from-rose-950/20 dark:via-[#181922] dark:to-red-950/20 border border-rose-200 dark:border-rose-500/20 flex flex-col sm:flex-row items-center justify-around gap-6">
+              
+              {/* Left Seat: User */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className="relative w-24 h-32 rounded-t-3xl rounded-b-xl overflow-hidden bg-slate-200 dark:bg-zinc-950 border-2 border-rose-600 shadow-lg flex items-end justify-center">
+                  <img
+                    src={avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
+                    alt="You"
+                    className="w-full h-full object-cover object-bottom"
+                  />
+                  <div className="absolute bottom-0 inset-x-0 h-2 bg-rose-600" />
+                </div>
+                <span className="text-xs font-black text-slate-900 dark:text-white">
+                  {displayName || 'You'}
+                </span>
+                <span className="text-[10px] text-rose-600 font-bold">Seat 1 (Host)</span>
+              </div>
+
+              {/* Center Heart Aura */}
+              <div className="flex flex-col items-center space-y-1">
+                <div className="w-12 h-12 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-600/40 animate-pulse">
+                  <Heart className="w-6 h-6 fill-current" />
+                </div>
+                <span className="text-xs font-black text-rose-600 tracking-wider uppercase">
+                  {anniversaryDuration || 'Duo Sync'}
+                </span>
+              </div>
+
+              {/* Right Seat: Partner */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className="relative w-24 h-32 rounded-t-3xl rounded-b-xl overflow-hidden bg-slate-200/80 dark:bg-zinc-950/80 border-2 border-dashed border-rose-400/80 flex flex-col items-center justify-center text-center p-2">
+                  <span className="text-2xl">🧸</span>
+                  <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-400 mt-1">
+                    Partner Seat
+                  </span>
+                  <div className="absolute bottom-0 inset-x-0 h-2 bg-rose-400/60" />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyPartnerCode}
+                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span>{copiedCode ? 'Code Copied!' : 'Share Code'}</span>
+                </button>
+                <span className="text-[10px] text-slate-400">Seat 2 (Partner)</span>
+              </div>
+
+            </div>
+
+            {/* Relationship status toggle & Anniversary */}
+            <form onSubmit={handleSaveProfile} className="space-y-5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
                   Are you married?
@@ -612,7 +875,7 @@ function ProfileContent() {
                     className={`py-3 px-4 rounded-xl text-xs font-bold border transition ${
                       !isMarried
                         ? 'bg-white dark:bg-white/10 text-slate-900 dark:text-white border-slate-300 dark:border-white/30 shadow-sm'
-                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-zinc-400'
                     }`}
                   >
                     Single / Not Married
@@ -624,7 +887,7 @@ function ProfileContent() {
                     className={`py-3 px-4 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
                       isMarried
                         ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/30'
-                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] text-slate-600 dark:text-zinc-400'
                     }`}
                   >
                     <span>💍 Yes, Married</span>
@@ -632,7 +895,6 @@ function ProfileContent() {
                 </div>
               </div>
 
-              {/* Anniversary Date (If Married) */}
               {isMarried && (
                 <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-2 animate-in fade-in">
                   <div className="flex items-center justify-between">
@@ -660,7 +922,6 @@ function ProfileContent() {
                 </div>
               )}
 
-              {/* Save Button */}
               <div className="pt-2">
                 <button
                   type="submit"
@@ -675,7 +936,7 @@ function ProfileContent() {
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Save Profile Changes</span>
+                      <span>Save Partner Settings</span>
                     </>
                   )}
                 </button>
@@ -685,7 +946,7 @@ function ProfileContent() {
         )}
 
         {/* ========================================================================= */}
-        {/* 6. TAB 2: BITMOJI AVATAR STUDIO                                           */}
+        {/* TAB 3: 3D AVATAR STUDIO                                                   */}
         {/* ========================================================================= */}
         {activeTab === 'avatar' && (
           <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
@@ -713,7 +974,6 @@ function ProfileContent() {
               </button>
             </div>
 
-            {/* Studio Component */}
             <div className="p-4 sm:p-6 rounded-2xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] shadow-inner">
               <AvatarStudio
                 displayName={displayName}
@@ -746,7 +1006,48 @@ function ProfileContent() {
         )}
 
         {/* ========================================================================= */}
-        {/* 7. QUICK NAVIGATION CARDS (MATCHING DASHBOARD SHORTCUTS)                  */}
+        {/* TAB 4: CINEMA TROPHIES & ACHIEVEMENTS (UNIQUE)                            */}
+        {/* ========================================================================= */}
+        {activeTab === 'achievements' && (
+          <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                <Award className="w-5 h-5 text-rose-600" />
+                <span>Cinema Trophies & Milestones</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+                Achievements unlocked on your Watch account through streaming, hosting parties, and playing arcade games.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {ACHIEVEMENTS.map(ach => (
+                <div
+                  key={ach.id}
+                  className="p-4 rounded-2xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] flex items-start gap-3.5 shadow-sm"
+                >
+                  <div className="text-2xl p-2 rounded-xl bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 shadow-sm shrink-0">
+                    {ach.icon}
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>{ach.title}</span>
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        UNLOCKED
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-tight">
+                      {ach.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* 6. QUICK NAVIGATION CARDS                                                 */}
         {/* ========================================================================= */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
           <Link
