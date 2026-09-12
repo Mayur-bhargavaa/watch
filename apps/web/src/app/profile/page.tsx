@@ -29,11 +29,11 @@ import {
   Crown,
   Award,
   Zap,
-  Ticket,
   Flame,
+  Wifi,
   QrCode,
-  Share2,
-  RefreshCw
+  RotateCw,
+  Star
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -46,20 +46,70 @@ import {
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
 const CINEMA_VIBES = [
-  { id: 'cinephile', label: '🎬 Director\'s Cut', desc: 'Loves deep-lore indie cinema & 4K IMAX' },
-  { id: 'binger', label: '🍿 Popcorn Binger', desc: 'Can watch 8 episodes in one single night' },
-  { id: 'romcom', label: '💖 Rom-Com Duo', desc: 'Couple watch parties with synchronized reactions' },
-  { id: 'scifi', label: '🚀 Sci-Fi Voyager', desc: 'Interstellar, Cyberpunk & mind-bending journeys' },
-  { id: 'arcade', label: '🎮 Arcade Champion', desc: 'Here to dominate Ludo 3D and Connect 4' }
+  {
+    id: 'cinephile',
+    name: "Director's Cut",
+    icon: '🎬',
+    tagline: '4K IMAX & Deep Lore',
+    badge: 'CINEPHILE',
+    gradient: 'from-rose-500/15 via-red-500/5 to-transparent',
+    borderActive: 'border-rose-600 ring-2 ring-rose-600/30 shadow-rose-500/20',
+    iconBg: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+    badgeColor: 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+  },
+  {
+    id: 'binger',
+    name: 'Popcorn Binger',
+    icon: '🍿',
+    tagline: '8-Hour Midnight Marathons',
+    badge: 'MARATHON',
+    gradient: 'from-amber-500/15 via-yellow-500/5 to-transparent',
+    borderActive: 'border-amber-500 ring-2 ring-amber-500/30 shadow-amber-500/20',
+    iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+    badgeColor: 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+  },
+  {
+    id: 'romcom',
+    name: 'Rom-Com Duo',
+    icon: '💖',
+    tagline: 'Couple Sync & Love Rooms',
+    badge: 'COUPLE VIP',
+    gradient: 'from-pink-500/15 via-rose-500/5 to-transparent',
+    borderActive: 'border-pink-500 ring-2 ring-pink-500/30 shadow-pink-500/20',
+    iconBg: 'bg-pink-500/15 text-pink-600 dark:text-pink-400',
+    badgeColor: 'bg-pink-500/15 text-pink-700 dark:text-pink-300'
+  },
+  {
+    id: 'scifi',
+    name: 'Sci-Fi Voyager',
+    icon: '🚀',
+    tagline: 'Cyberpunk, Space & Time',
+    badge: 'VOYAGER',
+    gradient: 'from-sky-500/15 via-indigo-500/5 to-transparent',
+    borderActive: 'border-sky-500 ring-2 ring-sky-500/30 shadow-sky-500/20',
+    iconBg: 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+    badgeColor: 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+  },
+  {
+    id: 'arcade',
+    name: 'Arcade Champion',
+    icon: '🎮',
+    tagline: 'Ludo 3D & Connect 4 King',
+    badge: 'DUELIST',
+    gradient: 'from-purple-500/15 via-violet-500/5 to-transparent',
+    borderActive: 'border-purple-500 ring-2 ring-purple-500/30 shadow-purple-500/20',
+    iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+    badgeColor: 'bg-purple-500/15 text-purple-700 dark:text-purple-300'
+  }
 ];
 
 const ACHIEVEMENTS = [
   { id: 'host', title: 'Cinema Host', desc: 'Launched first room with friends', icon: '🎬', unlocked: true },
-  { id: 'vip', title: 'Cinema VIP', desc: 'Exclusive StitchByte VIP Tier', icon: '👑', unlocked: true },
-  { id: 'couple', title: 'Love Theater', desc: 'Linked partner room & anniversary', icon: '💍', unlocked: true },
-  { id: 'arcade', title: 'Arcade Duelist', desc: 'Challenged room friends in games', icon: '🎮', unlocked: true },
+  { id: 'vip', title: 'Cinema VIP', desc: 'StitchByte Titanium VIP status', icon: '👑', unlocked: true },
+  { id: 'couple', title: 'Love Theater', desc: 'Linked partner room & countdown', icon: '💍', unlocked: true },
+  { id: 'arcade', title: 'Arcade Duelist', desc: 'Challenged friends in Ludo 3D', icon: '🎮', unlocked: true },
   { id: 'owl', title: 'Midnight Streamer', desc: 'Streamed movies past midnight', icon: '🌙', unlocked: true },
-  { id: '4k', title: '4K Ultra-Sync', desc: 'Low-latency synchronized streams', icon: '⚡', unlocked: true }
+  { id: '4k', title: '4K Ultra-Sync', desc: 'Synchronized low-latency playback', icon: '⚡', unlocked: true }
 ];
 
 function ProfileContent() {
@@ -75,14 +125,18 @@ function ProfileContent() {
   const [isMarried, setIsMarried] = useState<boolean>(false);
   const [anniversaryDate, setAnniversaryDate] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
-  const [selectedVibe, setSelectedVibe] = useState<string>('🎬 Director\'s Cut');
-  const [flippedCard, setFlippedCard] = useState<boolean>(false);
+  const [selectedVibeId, setSelectedVibeId] = useState<string>('cinephile');
+  const [isFlipped, setIsFlipped] = useState<boolean>(false);
 
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const activeVibe = useMemo(() => {
+    return CINEMA_VIBES.find(v => v.id === selectedVibeId) || CINEMA_VIBES[0];
+  }, [selectedVibeId]);
 
   // Auto-calculated age
   const calculatedAge = useMemo(() => {
@@ -131,8 +185,8 @@ function ProfileContent() {
     setAvatarUrl(current.user.avatarUrl || '');
 
     try {
-      const savedVibe = localStorage.getItem('stitchbyte_user_vibe');
-      if (savedVibe) setSelectedVibe(savedVibe);
+      const savedVibe = localStorage.getItem('stitchbyte_user_vibe_id');
+      if (savedVibe) setSelectedVibeId(savedVibe);
     } catch {}
 
     setLoading(false);
@@ -157,10 +211,10 @@ function ProfileContent() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleSelectVibe = (vibe: string) => {
-    setSelectedVibe(vibe);
+  const handleSelectVibe = (id: string) => {
+    setSelectedVibeId(id);
     try {
-      localStorage.setItem('stitchbyte_user_vibe', vibe);
+      localStorage.setItem('stitchbyte_user_vibe_id', id);
     } catch {}
   };
 
@@ -353,7 +407,7 @@ function ProfileContent() {
               {session.user.displayName || 'User'}
             </div>
             <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-              <span>{selectedVibe.split(' ')[0]}</span>
+              <span>{activeVibe.icon}</span>
               <span>{session.user.isMarried ? '💍 Married' : 'Cinema VIP'}</span>
             </div>
           </div>
@@ -421,123 +475,158 @@ function ProfileContent() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. UNIQUE HERO: HOLOGRAPHIC CINEMA PASS & CHARACTER BOOTH                 */}
+        {/* 3. HERO SHOWCASE: HOLOGRAPHIC VIP CARD & 3D CHARACTER PODIUM              */}
         {/* ========================================================================= */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* Left: Interactive Holographic VIP Cinema Card (Ultra Unique) */}
-          <div className="lg:col-span-7 relative group select-none">
+          {/* Left: Luxury Holographic VIP Card with 3D Flip */}
+          <div className="lg:col-span-7 relative select-none">
             <div
-              onClick={() => setFlippedCard(!flippedCard)}
-              className="relative cursor-pointer min-h-[250px] sm:min-h-[260px] rounded-3xl p-6 sm:p-7 text-white overflow-hidden shadow-2xl transition-transform duration-300 hover:-translate-y-1 bg-gradient-to-br from-[#1c0809] via-[#2f0d11] to-[#0d0914] border border-rose-500/30"
+              onClick={() => setIsFlipped(!isFlipped)}
+              className="relative cursor-pointer min-h-[270px] sm:min-h-[280px] rounded-3xl p-7 text-white overflow-hidden shadow-2xl transition-all duration-300 hover:shadow-rose-500/20 hover:-translate-y-1 bg-gradient-to-br from-[#12131c] via-[#1a121d] to-[#0c0d12] border border-rose-500/40"
             >
-              {/* Holographic Iridescent Shimmer */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/10 via-amber-400/15 to-indigo-500/15 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              <div className="absolute -top-24 -right-24 w-60 h-60 bg-rose-600/25 rounded-full blur-3xl pointer-events-none" />
-              
-              {!flippedCard ? (
-                /* Card Front: VIP Black Pass */
+              {/* Holographic Rainbow Sheen Reflection */}
+              <div className="absolute inset-0 bg-[linear-gradient(115deg,transparent_20%,rgba(255,255,255,0.12)_35%,rgba(225,29,72,0.15)_48%,rgba(245,158,11,0.15)_60%,transparent_80%)] opacity-80 pointer-events-none" />
+              <div className="absolute -top-24 -right-24 w-64 h-64 bg-rose-600/30 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+
+              {!isFlipped ? (
+                /* Card Front: Titanium Black VIP */
                 <div className="relative z-10 flex flex-col justify-between h-full space-y-6">
+                  {/* Top Row: Brand & Wireless NFC */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-md shadow-rose-600/40">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-1.5 bg-gradient-to-br from-rose-600 to-red-700 rounded-xl text-white shadow-lg shadow-rose-600/50">
                         <Film className="w-4 h-4 fill-current" />
                       </div>
                       <div className="flex flex-col leading-none">
-                        <span className="text-sm font-black tracking-wider uppercase text-white flex items-center gap-1">
-                          STITCHBYTE <span className="text-rose-500 text-xs">VIP</span>
+                        <span className="text-sm font-black tracking-widest uppercase text-white flex items-center gap-1.5">
+                          STITCHBYTE <span className="text-rose-500 text-xs font-black">TITANIUM</span>
                         </span>
-                        <span className="text-[8px] font-bold text-rose-300/80 tracking-widest uppercase">
-                          Exclusive Cinema Pass
+                        <span className="text-[8px] font-extrabold text-rose-300/80 tracking-widest uppercase mt-0.5">
+                          All-Access Cinema VIP Pass
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-black/40 border border-white/20 text-amber-300 font-black tracking-widest flex items-center gap-1">
-                        <Crown className="w-3 h-3 text-amber-400 fill-amber-400" />
-                        <span>TIER 1</span>
+                      <Wifi className="w-4 h-4 text-amber-300 rotate-90" />
+                      <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-black/50 border border-amber-400/40 text-amber-300 font-black tracking-widest shadow-inner">
+                        TIER 1
                       </span>
                     </div>
                   </div>
 
-                  {/* Golden Smart Chip Graphic */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-7 rounded-md bg-gradient-to-tr from-amber-300 via-yellow-200 to-amber-500 border border-yellow-200/50 shadow-inner flex flex-col justify-around px-1 py-0.5">
-                      <div className="h-px bg-amber-900/40" />
-                      <div className="h-px bg-amber-900/40" />
+                  {/* Middle Row: Gold Chip & Hologram */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {/* Realistic EMV Smart Chip */}
+                      <div className="w-12 h-9 rounded-lg bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 border border-yellow-100/60 shadow-md flex flex-col justify-between p-1.5">
+                        <div className="flex justify-between">
+                          <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                          <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                        </div>
+                        <div className="h-px w-full bg-amber-900/40" />
+                        <div className="flex justify-between">
+                          <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                          <div className="w-2.5 h-1 bg-amber-900/40 rounded-sm" />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col">
+                        <span className="text-[9px] font-mono font-bold text-zinc-400 tracking-wider">
+                          CLICK CARD TO FLIP
+                        </span>
+                        <span className="text-[8px] text-amber-300 font-mono flex items-center gap-1">
+                          <RotateCw className="w-2.5 h-2.5" /> 3D AUTHENTICATED
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[10px] font-mono text-zinc-400 tracking-wider">
-                      PRESS TO FLIP CARD ⟳
+
+                    {/* Hologram Circle */}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-rose-500/40 via-amber-400/40 to-indigo-500/40 border border-white/30 backdrop-blur-md flex items-center justify-center shadow-inner">
+                      <Star className="w-4 h-4 text-amber-300 fill-amber-300" />
                     </div>
                   </div>
 
-                  {/* Member Name & Code */}
-                  <div className="flex items-end justify-between pt-2">
+                  {/* Bottom Row: Embossed Name & Partner Pass ID */}
+                  <div className="flex items-end justify-between pt-1">
                     <div>
-                      <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                        Member Name
+                      <div className="text-[8.5px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">
+                        Pass Holder
                       </div>
-                      <div className="text-lg sm:text-xl font-black text-white tracking-wide uppercase">
+                      <div className="text-lg sm:text-xl font-black text-white tracking-wider uppercase font-mono drop-shadow-sm">
                         {session.user.displayName || 'Watch Member'}
                       </div>
-                      <div className="text-[11px] text-rose-400 font-semibold flex items-center gap-1.5 mt-0.5">
-                        <span>{selectedVibe}</span>
+                      <div className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-bold text-rose-300">
+                        <span>{activeVibe.icon}</span>
+                        <span>{activeVibe.name}</span>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                        Partner Pass ID
+                      <div className="text-[8.5px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">
+                        Partner Sync Code
                       </div>
-                      <div className="font-mono text-base font-black text-amber-300 tracking-widest">
+                      <div className="font-mono text-base font-black text-amber-300 tracking-widest bg-black/40 px-3 py-1 rounded-xl border border-white/10 shadow-inner">
                         {session.user.partnerCode || 'SYNC-VIP'}
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                /* Card Back: Secret Perks & Barcode */
+                /* Card Back: VIP Privileges & Barcode */
                 <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                    <span className="text-xs font-black tracking-wider uppercase text-amber-300 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Cinema Pass Perks & Benefits</span>
+                  {/* Magnetic Strip */}
+                  <div className="-mx-7 -mt-7 h-11 bg-black/90 border-b border-white/10 flex items-center px-7">
+                    <span className="text-[9px] font-mono tracking-widest text-zinc-500">
+                      MAGNETIC STRIP // STITCHBYTE ENCRYPTED PASS
                     </span>
-                    <span className="text-[10px] font-mono text-zinc-400">FLIP BACK ⟳</span>
                   </div>
 
+                  {/* Signature Panel */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 h-9 rounded-lg bg-white/95 text-zinc-900 flex items-center px-4 font-mono font-bold text-xs tracking-wider shadow-inner">
+                      <span>{session.user.displayName}</span>
+                      <span className="ml-auto text-[9px] text-zinc-400 font-sans uppercase">Authorized</span>
+                    </div>
+                    <div className="px-3 py-1 rounded-lg bg-black/60 border border-white/20 font-mono text-xs font-black text-amber-300">
+                      4K-VIP
+                    </div>
+                  </div>
+
+                  {/* Perks list */}
                   <div className="space-y-1.5 text-xs text-zinc-200 font-medium">
                     <div className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                      <span>Unlimited 4K synchronized watch rooms</span>
+                      <span>Zero latency 4K video synchronization</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                      <span>Exclusive Duo Couple Room with romantic lighting</span>
+                      <span>Duo Love-Seat room with synced couple lighting</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                      <span>Integrated Game Lounge (Ludo 3D & Connect 4)</span>
+                      <span>Unlimited arcade gameplay (Ludo 3D & Connect 4)</span>
                     </div>
                   </div>
 
-                  {/* Barcode & Security Strip */}
-                  <div className="pt-2 flex items-center justify-between">
-                    <div className="h-8 flex items-center space-x-1 opacity-70">
+                  {/* Barcode Strip */}
+                  <div className="pt-2 flex items-center justify-between border-t border-white/10">
+                    <div className="h-7 flex items-center space-x-1 opacity-80">
                       <div className="w-1 h-full bg-white" />
                       <div className="w-0.5 h-full bg-white" />
                       <div className="w-2 h-full bg-white" />
                       <div className="w-0.5 h-full bg-white" />
                       <div className="w-1.5 h-full bg-white" />
                       <div className="w-1 h-full bg-white" />
-                      <div className="w-2 h-full bg-white" />
+                      <div className="w-2.5 h-full bg-white" />
                       <div className="w-0.5 h-full bg-white" />
                       <div className="w-1 h-full bg-white" />
                       <div className="w-2 h-full bg-white" />
                     </div>
-                    <span className="font-mono text-[10px] text-zinc-400">
-                      AUTHSYNC://{session.user.partnerCode || 'STITCH'}
+                    <span className="font-mono text-[9px] text-zinc-400">
+                      TAP TO FLIP BACK ⟳
                     </span>
                   </div>
                 </div>
@@ -545,10 +634,13 @@ function ProfileContent() {
             </div>
           </div>
 
-          {/* Right: Character Standing Torso & Quick Actions */}
+          {/* Right: Character Standing Podium */}
           <div className="lg:col-span-5 rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 shadow-sm flex flex-col sm:flex-row items-center gap-5">
             <div className="relative group shrink-0">
-              <div className="relative w-28 h-36 rounded-t-3xl rounded-b-xl overflow-hidden bg-slate-100 dark:bg-zinc-950 border-2 border-rose-600/60 shadow-lg flex flex-col items-center justify-end">
+              <div className="relative w-32 h-40 rounded-3xl overflow-hidden bg-gradient-to-b from-rose-50 via-slate-100 to-slate-200 dark:from-[#1b1724] dark:via-[#13121b] dark:to-black border-2 border-rose-600/60 shadow-xl flex flex-col items-center justify-end">
+                {/* Backlight halo */}
+                <div className="absolute top-2 inset-x-0 h-20 bg-rose-600/20 dark:bg-rose-600/35 blur-xl rounded-full pointer-events-none" />
+
                 <img
                   src={
                     session.user.avatarUrl
@@ -558,30 +650,38 @@ function ProfileContent() {
                   alt={session.user.displayName || 'Persona'}
                   className="w-full h-full object-cover object-bottom select-none transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="relative z-10 w-full h-3 bg-gradient-to-r from-slate-200 via-rose-600 to-slate-200 dark:from-zinc-900 dark:via-rose-600 dark:to-zinc-900 border-t border-rose-600 shadow-[0_0_10px_rgba(225,29,72,0.8)] flex items-center justify-center">
-                  <div className="w-12 h-0.5 bg-white/70 rounded-full" />
+
+                {/* VIP Counter Ledge */}
+                <div className="relative z-10 w-full h-3.5 bg-gradient-to-r from-slate-200 via-rose-600 to-slate-200 dark:from-zinc-900 dark:via-rose-600 dark:to-zinc-900 border-t border-rose-600 shadow-[0_0_12px_rgba(225,29,72,0.8)] flex items-center justify-center">
+                  <div className="w-12 h-0.5 bg-white rounded-full shadow-sm" />
                 </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setActiveTab('avatar')}
-                className="absolute -bottom-1 -right-1 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-md transition active:scale-95"
-                title="Change Persona"
+                className="absolute -bottom-1 -right-1 p-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center border-2 border-white dark:border-[#14151b] group-hover:scale-105"
+                title="Change Persona Look"
               >
-                <Scissors className="w-3.5 h-3.5" />
+                <Scissors className="w-4 h-4" />
               </button>
             </div>
 
             <div className="flex-1 space-y-2 text-center sm:text-left min-w-0">
-              <div className="text-base font-black text-slate-900 dark:text-white truncate">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Cinema VIP Live</span>
+              </div>
+
+              <div className="text-lg font-black text-slate-900 dark:text-white truncate">
                 {session.user.displayName}
               </div>
+
               <div className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
-                {calculatedAge ? `🎂 ${calculatedAge} yrs · ` : ''}
+                {calculatedAge ? `🎂 ${calculatedAge} years old · ` : ''}
                 {session.user.isMarried ? '💍 Married' : 'Single'}
               </div>
 
-              {/* Partner code pill */}
               {session.user.partnerCode && (
                 <div className="pt-1">
                   <button
@@ -589,8 +689,8 @@ function ProfileContent() {
                     onClick={handleCopyPartnerCode}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#1b1c24] hover:bg-slate-200 dark:hover:bg-[#232430] border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-white transition"
                   >
-                    <span className="text-[10px] text-slate-400 uppercase">Code:</span>
-                    <span className="font-mono text-rose-600 dark:text-rose-400">{session.user.partnerCode}</span>
+                    <span className="text-[10px] text-slate-400 uppercase">Partner Code:</span>
+                    <span className="font-mono text-rose-600 dark:text-rose-400 font-black">{session.user.partnerCode}</span>
                     {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500 ml-1" /> : <Copy className="w-3.5 h-3.5 text-slate-400 ml-1" />}
                   </button>
                 </div>
@@ -601,44 +701,77 @@ function ProfileContent() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 4. CINEMA DNA VIBE SELECTOR (UNIQUE IDENTITY TOUCH)                       */}
+        {/* 4. REDESIGNED CINEMA DNA VIBES (IMPRESSIVE COLLECTIBLE BADGES)             */}
         {/* ========================================================================= */}
-        <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-5 sm:p-6 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-rose-600" />
-              <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                Your Cinema DNA & Vibe
-              </span>
+        <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-rose-600/10 text-rose-600">
+                <Flame className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black tracking-tight text-slate-900 dark:text-white uppercase">
+                  Your Cinema DNA & Vibe
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  Select your streaming persona. Displayed live on your VIP card and inside watch parties.
+                </p>
+              </div>
             </div>
-            <span className="text-[11px] text-slate-400 dark:text-zinc-500">Shows in watch rooms</span>
+
+            <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-600/10 px-3 py-1 rounded-full self-start sm:self-auto">
+              Current Vibe: {activeVibe.name}
+            </span>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 pt-1">
             {CINEMA_VIBES.map(v => {
-              const isSelected = selectedVibe === v.label;
+              const isSelected = selectedVibeId === v.id;
               return (
                 <button
                   key={v.id}
                   type="button"
-                  onClick={() => handleSelectVibe(v.label)}
-                  className={`p-3 rounded-2xl border text-left transition relative flex flex-col justify-between ${
+                  onClick={() => handleSelectVibe(v.id)}
+                  className={`p-4 rounded-2xl border text-left transition-all duration-200 relative flex flex-col justify-between group overflow-hidden ${
                     isSelected
-                      ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-600 shadow-sm ring-1 ring-rose-600/30'
-                      : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.06] hover:bg-slate-100 dark:hover:bg-[#22232f]'
+                      ? `bg-gradient-to-b ${v.gradient} ${v.borderActive} shadow-lg`
+                      : 'bg-slate-50/70 dark:bg-[#181922] border-slate-200 dark:border-white/[0.06] hover:bg-slate-100 dark:hover:bg-[#1f202c] hover:border-slate-300 dark:hover:border-white/10'
                   }`}
                 >
-                  <div className="text-xs font-black text-slate-900 dark:text-white truncate">
-                    {v.label}
-                  </div>
-                  <div className="text-[10px] text-slate-500 dark:text-zinc-400 line-clamp-2 mt-1 leading-tight">
-                    {v.desc}
-                  </div>
-                  {isSelected && (
-                    <div className="absolute top-2 right-2 w-3.5 h-3.5 rounded-full bg-rose-600 text-white flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5" />
+                  <div className="space-y-3">
+                    {/* Top Tag & Icon */}
+                    <div className="flex items-center justify-between">
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-sm ${v.iconBg} transition-transform group-hover:scale-110`}>
+                        {v.icon}
+                      </div>
+
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${v.badgeColor}`}>
+                        {v.badge}
+                      </span>
                     </div>
-                  )}
+
+                    {/* Title & Description */}
+                    <div>
+                      <div className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight">
+                        {v.name}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium leading-relaxed mt-1">
+                        {v.tagline}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Indicator Bar */}
+                  <div className="pt-3 mt-2 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
+                      {isSelected ? 'ACTIVE VIBE' : 'SELECT'}
+                    </span>
+                    {isSelected && (
+                      <div className="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center shadow-sm">
+                        <Check className="w-2.5 h-2.5" />
+                      </div>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -646,7 +779,7 @@ function ProfileContent() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 5. TABS NAVIGATION                                                        */}
+        {/* 5. TABS NAVIGATION (CLEAN SEGMENTED CONTROL)                              */}
         {/* ========================================================================= */}
         <div className="flex rounded-2xl bg-slate-200/80 dark:bg-[#14151b] p-1.5 border border-slate-300/70 dark:border-white/[0.06] text-xs font-bold overflow-x-auto">
           <button
@@ -797,7 +930,7 @@ function ProfileContent() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 2: COUPLE CINEMA BOOTH & LOVE SEAT (UNIQUE)                           */}
+        {/* TAB 2: COUPLE CINEMA BOOTH & LOVE SEAT                                    */}
         {/* ========================================================================= */}
         {activeTab === 'couple' && (
           <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
@@ -1006,7 +1139,7 @@ function ProfileContent() {
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 4: CINEMA TROPHIES & ACHIEVEMENTS (UNIQUE)                            */}
+        {/* TAB 4: CINEMA TROPHIES & ACHIEVEMENTS                                     */}
         {/* ========================================================================= */}
         {activeTab === 'achievements' && (
           <div className="rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-sm">
