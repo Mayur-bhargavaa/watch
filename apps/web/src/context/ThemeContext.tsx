@@ -17,13 +17,13 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 const STORAGE_KEY = 'watch_theme';
 
 function getSystemTheme(): ResolvedTheme {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('dark');
+  const [theme, setThemeState] = useState<Theme>('light');
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
   const [mounted, setMounted] = useState(false);
 
   // Initialize theme from localStorage on mount
@@ -33,10 +33,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (stored === 'dark' || stored === 'light' || stored === 'system') {
         setThemeState(stored);
       } else {
-        setThemeState('dark');
+        setThemeState('light');
       }
     } catch {
-      setThemeState('dark');
+      setThemeState('light');
     }
     setMounted(true);
   }, []);
@@ -98,8 +98,8 @@ export function useTheme(): ThemeContextType {
   if (!context) {
     // Fallback if rendered outside ThemeProvider
     return {
-      theme: 'dark',
-      resolvedTheme: 'dark',
+      theme: 'light',
+      resolvedTheme: 'light',
       setTheme: () => {},
       toggleTheme: () => {},
     };
