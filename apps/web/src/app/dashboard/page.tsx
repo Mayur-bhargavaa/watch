@@ -580,28 +580,24 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* User Profile Card in Sidebar with Standing Avatar */}
+          {/* User Profile Card in Sidebar */}
           <Link
             href="/profile"
             className="flex items-center space-x-3 p-2.5 rounded-2xl bg-[#1b1c24] border border-white/[0.06] hover:border-white/20 transition cursor-pointer group"
           >
-            {/* Standing Character Stage */}
-            <div className="relative w-11 h-12 -my-0.5 rounded-t-2xl rounded-b-xl overflow-hidden bg-zinc-950 border border-[#d2281e]/60 shadow-md shrink-0 flex items-end justify-center">
+            {/* Normal circular avatar */}
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-900 border border-white/10 ring-2 ring-[#d2281e]/40 shrink-0 flex items-center justify-center">
               {session?.user.avatarUrl ? (
                 <img
                   src={session.user.avatarUrl}
                   alt={session.user.displayName || 'Avatar'}
-                  className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               ) : (
-                <img
-                  src="/avatars/standing_heart.png"
-                  alt="Standing Avatar"
-                  className="w-full h-full object-cover object-bottom"
-                />
+                <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white text-sm font-bold">
+                  {(session?.user.displayName || 'U')[0].toUpperCase()}
+                </div>
               )}
-              {/* Ledge / Bar bottom counter matching reference */}
-              <div className="absolute bottom-0 inset-x-0 h-1 bg-[#d2281e] shadow-[0_0_8px_rgba(210,40,30,0.8)]" />
             </div>
 
             <div className="min-w-0 flex-1">
