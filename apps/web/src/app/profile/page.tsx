@@ -47,7 +47,12 @@ import {
   Globe,
   Clapperboard,
   CircleDot,
-  Infinity
+  Infinity,
+  X,
+  Volume2,
+  Video,
+  Shield,
+  Monitor
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -188,7 +193,7 @@ const ACHIEVEMENTS = [
 
 function ProfileContent() {
   const router = useRouter();
-  const { theme, resolvedTheme, toggleTheme } = useTheme();
+  const { theme, resolvedTheme, toggleTheme, setTheme } = useTheme();
   const [session, setSession] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'couple' | 'avatar' | 'achievements'>('details');
@@ -209,6 +214,10 @@ function ProfileContent() {
   const [selectedVibeId, setSelectedVibeId] = useState<string>('cinephile');
   const [showAvatarModal, setShowAvatarModal] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const [settingsName, setSettingsName] = useState<string>('');
+  const [settingsMuted, setSettingsMuted] = useState<boolean>(false);
+  const [settingsCameraOff, setSettingsCameraOff] = useState<boolean>(false);
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
 
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
@@ -287,6 +296,8 @@ function ProfileContent() {
     try {
       const savedVibe = localStorage.getItem('stitchbyte_user_vibe_id');
       if (savedVibe) setSelectedVibeId(savedVibe);
+      setSettingsMuted(localStorage.getItem('stitchbyte_pref_muted') === 'true');
+      setSettingsCameraOff(localStorage.getItem('stitchbyte_pref_camera_off') === 'true');
     } catch {}
 
     setLoading(false);
@@ -328,6 +339,22 @@ function ProfileContent() {
     try {
       localStorage.setItem('stitchbyte_user_vibe_id', id);
     } catch {}
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    try {
+      if (settingsName.trim() && settingsName !== session.user.displayName) {
+        await updateUserProfile({ displayName: settingsName.trim() });
+        setDisplayName(settingsName.trim());
+      }
+      localStorage.setItem('stitchbyte_pref_muted', settingsMuted ? 'true' : 'false');
+      localStorage.setItem('stitchbyte_pref_camera_off', settingsCameraOff ? 'true' : 'false');
+      setShowSettingsModal(false);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleSaveProfile = async (e?: React.FormEvent) => {
@@ -418,49 +445,69 @@ function ProfileContent() {
     <div className="min-h-screen bg-slate-50 dark:bg-[#111217] text-slate-900 dark:text-slate-100 flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150">
       
       {/* ========================================================================= */}
-      {/* 1. LEFT SIDEBAR (DASHBOARD AUTHENTIC SHELL)                               */}
+      {/* 1. LEFT SIDEBAR NAVIGATION (IDENTICAL TO DASHBOARD)                        */}
       {/* ========================================================================= */}
       <aside className="w-64 bg-white dark:bg-[#14151b] border-r border-slate-200 dark:border-white/[0.06] p-6 flex flex-col justify-between shrink-0 hidden lg:flex select-none transition-colors duration-150">
         <div className="space-y-8">
-          {/* Logo */}
-          <Link
-            href="/dashboard"
-            className="flex items-center space-x-2.5 cursor-pointer select-none group"
+          {/* Logo: STITCHBYTE. with Bold Red Accent Dot */}
+          <div
+            onClick={() => {
+              router.push('/dashboard');
+            }}
+            className="flex items-center space-x-2.5 cursor-pointer select-none"
           >
-            <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-lg shadow-rose-600/30 group-hover:scale-105 transition-transform">
+            <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-lg shadow-rose-600/30">
               <Film className="w-4 h-4 fill-current" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
-                Watch<span className="text-rose-600 text-2xl leading-none">.</span>
-              </span>
-              <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500 tracking-widest uppercase mt-0.5">
-                Powered by StitchByte
-              </span>
+              <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Watch<span className="text-rose-600 text-2xl leading-none">.</span></span>
+              <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500 tracking-widest uppercase mt-0.5">Powered by StitchByte</span>
             </div>
-          </Link>
+          </div>
 
           {/* Navigation Groups */}
           <div className="space-y-6">
+            {/* Nav Group 1: Menu */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
                 Menu
               </div>
-              <Link
-                href="/dashboard"
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard')}
                 className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
               >
                 <Film className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
                 <span>Browse Cinema</span>
-              </Link>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard?tab=watchlist')}
+                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+              >
+                <Heart className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                <span>Watchlist</span>
+              </button>
             </div>
 
+            {/* Nav Group 2: Social / Rooms */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
                 Social
               </div>
-              <Link
-                href="/dashboard"
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard?tab=myrooms')}
+                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+              >
+                <Users className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                <span>My Rooms</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard?tab=parties')}
                 className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
               >
                 <Tv className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
@@ -468,10 +515,11 @@ function ProfileContent() {
                 <span className="ml-auto text-[10px] bg-rose-600/20 text-rose-500 dark:text-rose-400 px-1.5 py-0.5 rounded-full font-bold">
                   Max 6
                 </span>
-              </Link>
+              </button>
 
-              <Link
-                href="/games"
+              <button
+                type="button"
+                onClick={() => router.push('/games')}
                 className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
               >
                 <Gamepad2 className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
@@ -479,23 +527,27 @@ function ProfileContent() {
                 <span className="ml-auto text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full font-bold">
                   PLAY
                 </span>
-              </Link>
+              </button>
             </div>
 
+            {/* Nav Group 3: General */}
             <div className="space-y-1.5">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
                 General
               </div>
-              
-              <div className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-sm relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-rose-600 before:rounded-r">
-                <User className="w-4 h-4 text-rose-600" />
-                <span>My Profile</span>
-                <span className="ml-auto text-[9px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                  VIP
-                </span>
-              </div>
-
               <button
+                type="button"
+                onClick={() => {
+                  setSettingsName(displayName || session?.user.displayName || '');
+                  setShowSettingsModal(true);
+                }}
+                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+              >
+                <Settings className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                <span>Settings</span>
+              </button>
+              <button
+                type="button"
                 onClick={handleLogout}
                 className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
               >
@@ -506,29 +558,32 @@ function ProfileContent() {
           </div>
         </div>
 
-        {/* User Card */}
-        <div className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] select-none">
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-900 border border-slate-300 dark:border-white/10 ring-2 ring-rose-600/40 shrink-0 flex items-center justify-center">
-            {session.user.avatarUrl ? (
+        {/* User Profile Card at Bottom of Sidebar */}
+        <div
+          className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer group shadow-sm dark:shadow-lg"
+        >
+          {/* Normal circular avatar */}
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-900 border border-slate-300 dark:border-white/10 ring-2 ring-[#d2281e]/40 shrink-0 flex items-center justify-center">
+            {avatarUrl || session?.user.avatarUrl ? (
               <img
-                src={session.user.avatarUrl}
-                alt={session.user.displayName || 'Avatar'}
-                className="w-full h-full object-cover"
+                src={avatarUrl || session.user.avatarUrl}
+                alt={displayName || session.user.displayName || 'Avatar'}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white text-sm font-bold">
-                {(session.user.displayName || 'U')[0].toUpperCase()}
+              <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white text-sm font-bold">
+                {((displayName || session?.user.displayName || 'U')[0]).toUpperCase()}
               </div>
             )}
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-              {session.user.displayName || 'User'}
+            <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#d2281e] transition">
+              {displayName || session?.user.displayName || 'User'}
             </div>
-            <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
-              <Film className="w-3 h-3 text-rose-500 shrink-0" />
-              <span>{session.user.isMarried ? 'Married Member' : 'Cinema VIP'}</span>
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
+              {(calculatedAge || session?.user.age) ? <span>🎂 {calculatedAge || session?.user.age}y · </span> : null}
+              <span>{session?.user.isMarried || relationshipStatus === 'married' ? '💍 Married' : 'Cinema Fan'}</span>
             </div>
           </div>
         </div>
@@ -1292,6 +1347,160 @@ function ProfileContent() {
                   Save Avatar
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Settings Modal (Identical to Dashboard) */}
+        {showSettingsModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/10 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-5 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+              <button
+                onClick={() => setShowSettingsModal(false)}
+                className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white p-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center space-x-3.5">
+                <div className="w-14 h-14 rounded-full ring-2 ring-[#d2281e]/50 overflow-hidden bg-slate-200 dark:bg-zinc-900 flex items-center justify-center text-white shadow-xl shrink-0">
+                  {avatarUrl || session?.user.avatarUrl ? (
+                    <img
+                      src={avatarUrl || session.user.avatarUrl}
+                      alt={displayName || session.user.displayName || 'Avatar'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white font-bold text-lg">
+                      {((displayName || session?.user.displayName || 'U')[0]).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+                    <span>{displayName || session?.user.displayName || 'Profile & Preferences'}</span>
+                    {(session?.user.isMarried || relationshipStatus === 'married') && <span className="text-xs">💍</span>}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">
+                    {session?.user.email || 'Manage your profile and room defaults'}
+                  </p>
+                  {(calculatedAge || session?.user.age) ? (
+                    <p className="text-[10.5px] text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
+                      🎂 Age: {calculatedAge || session.user.age} · Watch Cinema Member
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                {/* Theme Mode Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Theme Appearance</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTheme('light')}
+                      className={`flex items-center justify-center space-x-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition ${
+                        theme === 'light'
+                          ? 'bg-rose-500/10 border-rose-500 text-rose-600 shadow-sm'
+                          : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Sun className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Light</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTheme('dark')}
+                      className={`flex items-center justify-center space-x-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition ${
+                        theme === 'dark'
+                          ? 'bg-rose-500/10 border-rose-500 text-rose-600 shadow-sm'
+                          : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Dark</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTheme('system')}
+                      className={`flex items-center justify-center space-x-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition ${
+                        theme === 'system'
+                          ? 'bg-rose-500/10 border-rose-500 text-rose-600 shadow-sm'
+                          : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Monitor className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>System</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Display Name Input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Display Name</label>
+                  <input
+                    type="text"
+                    value={settingsName}
+                    onChange={(e) => setSettingsName(e.target.value)}
+                    placeholder="Enter your name"
+                    maxLength={30}
+                    className="w-full bg-slate-50 dark:bg-[#101115] text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 rounded-xl px-3.5 py-2.5 border border-slate-200 dark:border-white/10 focus:outline-none focus:border-rose-500 transition"
+                  />
+                </div>
+
+                {/* Toggles */}
+                <div className="space-y-2.5 pt-1">
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.05] transition">
+                    <div className="flex items-center space-x-2.5">
+                      <Volume2 className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                      <span className="text-xs text-slate-800 dark:text-zinc-200">Start with microphone muted</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settingsMuted}
+                      onChange={(e) => setSettingsMuted(e.target.checked)}
+                      className="w-4 h-4 accent-rose-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.05] transition">
+                    <div className="flex items-center space-x-2.5">
+                      <Video className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                      <span className="text-xs text-slate-800 dark:text-zinc-200">Start with camera off</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settingsCameraOff}
+                      onChange={(e) => setSettingsCameraOff(e.target.checked)}
+                      className="w-4 h-4 accent-rose-600 rounded"
+                    />
+                  </label>
+                </div>
+
+                {/* Room Capacity Guarantee Notice */}
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 flex items-start space-x-2 text-[11px] text-slate-600 dark:text-zinc-400">
+                  <Shield className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <span>Rooms are strictly limited to 6 simultaneous participants for ultra-low latency co-watching.</span>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsModal(false)}
+                    className="px-4 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-xs font-semibold text-slate-700 dark:text-zinc-300 rounded-xl transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-xs font-bold text-white rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center space-x-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
