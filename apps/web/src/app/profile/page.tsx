@@ -716,31 +716,30 @@ function ProfileContent() {
                 >
                   
                   {/* CARD FRONT: TITANIUM VIP PASS */}
-                  <div className="backface-hidden absolute inset-0 rounded-3xl p-7 text-white overflow-hidden shadow-xl bg-gradient-to-br from-[#12131c] via-[#1a121d] to-[#0c0d12] border border-rose-500/40 flex flex-col justify-between">
+                  <div className="backface-hidden absolute inset-0 rounded-3xl p-7 text-white overflow-hidden shadow-2xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-white/15 flex flex-col justify-between">
                     
-                    {/* Top Accent Sheen */}
-                    <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600" />
-                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-rose-600/20 rounded-full blur-3xl pointer-events-none" />
+                    {/* Subtle Metallic Ambient Sheen */}
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/[0.04] rounded-full blur-3xl pointer-events-none" />
 
                     {/* Top Row: Brand & Wireless NFC */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2.5">
-                        <div className="p-2 bg-gradient-to-br from-rose-600 to-red-700 rounded-xl text-white shadow-lg shadow-rose-600/40">
+                        <div className="p-2 bg-white/10 rounded-xl text-white border border-white/15 shadow-sm">
                           <Film className="w-4 h-4 fill-current" />
                         </div>
                         <div className="flex flex-col leading-none">
                           <span className="text-sm font-black tracking-widest uppercase text-white flex items-center gap-1.5">
-                            STITCHBYTE <span className="text-rose-500 text-xs font-black">TITANIUM</span>
+                            STITCHBYTE <span className="text-zinc-300 text-xs font-black">TITANIUM</span>
                           </span>
-                          <span className="text-[8.5px] font-extrabold text-rose-300/80 tracking-widest uppercase mt-0.5">
+                          <span className="text-[8.5px] font-extrabold text-zinc-400 tracking-widest uppercase mt-0.5">
                             All-Access Cinema VIP Pass
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <Wifi className="w-4 h-4 text-amber-300 rotate-90" />
-                        <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-black/50 border border-amber-400/40 text-amber-300 font-black tracking-widest shadow-inner">
+                        <Wifi className="w-4 h-4 text-zinc-400 rotate-90" />
+                        <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-white/[0.06] border border-white/15 text-zinc-300 font-bold tracking-widest shadow-inner">
                           TIER 1
                         </span>
                       </div>
@@ -766,7 +765,7 @@ function ProfileContent() {
                           <span className="text-[9px] font-mono font-bold text-zinc-400 tracking-wider">
                             TAP PASS TO FLIP
                           </span>
-                          <span className="text-[8.5px] text-amber-300 font-mono flex items-center gap-1 mt-0.5">
+                          <span className="text-[8.5px] text-zinc-400 font-mono flex items-center gap-1 mt-0.5">
                             <RotateCw className="w-2.5 h-2.5" /> 3D AUTHENTICATED
                           </span>
                         </div>
@@ -786,7 +785,7 @@ function ProfileContent() {
                         <div className="text-lg sm:text-xl font-black text-white tracking-wider uppercase font-mono">
                           {session.user.displayName || 'Watch Member'}
                         </div>
-                        <div className="text-[10px] text-rose-300 font-medium mt-0.5">
+                        <div className="text-[10px] text-zinc-400 font-medium mt-0.5">
                           {calculatedAge ? `Age: ${calculatedAge} · ` : ''}
                           {session.user.isMarried ? '💍 Married' : 'Single'}
                         </div>
@@ -796,7 +795,7 @@ function ProfileContent() {
                         <div className="text-[8.5px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">
                           Partner Pass Code
                         </div>
-                        <div className="font-mono text-sm sm:text-base font-black text-amber-300 tracking-widest bg-black/40 px-3 py-1 rounded-xl border border-white/10 shadow-inner">
+                        <div className="font-mono text-sm sm:text-base font-black text-zinc-200 tracking-widest bg-white/[0.06] px-3 py-1 rounded-xl border border-white/15 shadow-inner">
                           {session.user.partnerCode || 'SYNC-VIP'}
                         </div>
                       </div>
@@ -805,7 +804,7 @@ function ProfileContent() {
                   </div>
 
                   {/* CARD BACK: VIP PRIVILEGES & SECURITY */}
-                  <div className="backface-hidden rotate-y-180 absolute inset-0 rounded-3xl p-7 text-white overflow-hidden shadow-xl bg-slate-900 border border-slate-700/80 dark:border-white/15 flex flex-col justify-between">
+                  <div className="backface-hidden rotate-y-180 absolute inset-0 rounded-3xl p-7 text-white overflow-hidden shadow-2xl bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-white/15 flex flex-col justify-between">
                     
                     {/* Magnetic Strip Header */}
                     <div className="-mx-7 -mt-7 h-10 bg-black/90 border-b border-white/10 flex items-center px-7">
@@ -820,7 +819,7 @@ function ProfileContent() {
                         <span>{session.user.displayName || 'Authorized Member'}</span>
                         <span className="ml-auto text-[9px] text-zinc-400 font-sans uppercase">Authorized</span>
                       </div>
-                      <div className="px-3 py-1 rounded-lg bg-black/60 border border-white/20 font-mono text-xs font-black text-amber-300">
+                      <div className="px-3 py-1 rounded-lg bg-white/10 border border-white/20 font-mono text-xs font-black text-zinc-200">
                         4K-VIP
                       </div>
                     </div>
@@ -828,15 +827,15 @@ function ProfileContent() {
                     {/* Perks list */}
                     <div className="space-y-2 text-xs text-zinc-200 font-medium py-2">
                       <div className="flex items-center gap-2">
-                        <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <Check className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         <span>Zero latency 4K video synchronization</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <Check className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         <span>Duo Love-Seat room with synced couple lighting</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Check className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <Check className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                         <span>Unlimited arcade gameplay (Ludo 3D & Connect 4)</span>
                       </div>
                     </div>
