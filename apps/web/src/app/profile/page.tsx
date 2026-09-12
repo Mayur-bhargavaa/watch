@@ -128,6 +128,7 @@ function ProfileContent() {
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [selectedVibeId, setSelectedVibeId] = useState<string>('cinephile');
   const [showAvatarModal, setShowAvatarModal] = useState<boolean>(false);
+  const [showEditModal, setShowEditModal] = useState<boolean>(false);
 
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
@@ -476,230 +477,342 @@ function ProfileContent() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 3. VERTICAL PROFILE LAYOUT (IMAGE, NAME & ALL PROFILE DETAILS ONLY)       */}
+        {/* 3. CINEMA PASS ROW (ALL DETAILS IN A SINGLE ROW)                          */}
         {/* ========================================================================= */}
-        <div className="flex justify-center w-full py-2">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 p-6 sm:p-8 shadow-sm flex flex-col items-center text-center space-y-5">
+        <div className="w-full max-w-6xl mx-auto py-2 space-y-4">
+          
+          {/* Notifications */}
+          {saveSuccess && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 animate-in fade-in shadow-sm">
+              <Check className="w-4 h-4 shrink-0" />
+              <span>{saveSuccess}</span>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2 animate-in fade-in shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* THE SINGLE-ROW PASS */}
+          <div className="relative rounded-3xl bg-white dark:bg-[#14151b] border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col lg:flex-row items-stretch">
             
-            {/* 1. Image (Round Avatar with Camera Icon) */}
-            <div className="relative group">
-              <div className="relative w-32 h-32 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
-                <img
-                  src={
-                    avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'
-                  }
-                  alt={displayName || 'Persona'}
-                  className="w-full h-full object-cover object-center"
-                />
+            {/* Top Red Accent Strip */}
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600" />
+
+            {/* Left Section: Avatar with Round Border & Camera Icon */}
+            <div className="p-6 sm:p-7 flex flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-white/[0.08] shrink-0 bg-slate-50/50 dark:bg-white/[0.01]">
+              <div className="relative group">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
+                  <img
+                    src={avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
+                    alt={displayName || 'Persona'}
+                    className="w-full h-full object-cover object-center"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAvatarModal(true)}
+                  className="absolute bottom-0 right-0 p-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg transition flex items-center justify-center border-2 border-white dark:border-[#14151b] active:scale-95"
+                  title="Change Avatar"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowAvatarModal(true)}
-                className="absolute bottom-0 right-0 p-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow-lg transition flex items-center justify-center border-2 border-white dark:border-[#14151b] active:scale-95"
-                title="Change Avatar"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* VIP Status Badge */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>CINEMA VIP LIVE</span>
-            </div>
-
-            {/* 2. Name */}
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white">
-                {session.user.displayName || 'User'}
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                {session.user.email || 'cinema@stitchbyte.com'}
-              </p>
-            </div>
-
-            {/* Feedback Notifications */}
-            {saveSuccess && (
-              <div className="w-full p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 text-left">
-                <Check className="w-4 h-4 shrink-0" />
-                <span>{saveSuccess}</span>
+              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>CINEMA VIP</span>
               </div>
-            )}
+            </div>
 
-            {errorMsg && (
-              <div className="w-full p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2 text-left">
-                <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {/* 3. All Profile Details (Vertical Fields) */}
-            <form onSubmit={handleSaveProfile} className="w-full space-y-4 text-left pt-2">
+            {/* Middle Section: All Details In One Horizontal Flow Across Columns */}
+            <div className="flex-1 p-6 sm:p-7 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 items-center">
               
-              {/* Partner Sync Code */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Partner Sync Code
-                </label>
-                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-black text-rose-600 dark:text-rose-400">
-                      {session.user.partnerCode || 'SYNC-VIP'}
+              {/* Detail 1: Pass Holder */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                  <User className="w-3 h-3 text-rose-600" />
+                  <span>Pass Holder</span>
+                </div>
+                <div className="text-lg font-black text-slate-900 dark:text-white truncate">
+                  {session.user.displayName || 'User'}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
+                  <Mail className="w-3 h-3 shrink-0 text-slate-400" />
+                  <span className="truncate">{session.user.email || 'cinema@stitchbyte.com'}</span>
+                </div>
+              </div>
+
+              {/* Detail 2: Age & Birthdate */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-rose-600" />
+                  <span>Age & Birthdate</span>
+                </div>
+                <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                  {calculatedAge !== null ? (
+                    <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs">
+                      🎂 {calculatedAge} years old
                     </span>
-                    <span className="text-[10px] text-slate-400 font-medium">· Share to link rooms</span>
-                  </div>
+                  ) : (
+                    <span className="text-xs text-slate-400 font-medium">Age not set</span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-zinc-400">
+                  {dateOfBirth ? `Born: ${dateOfBirth}` : 'Click edit to set DOB'}
+                </div>
+              </div>
+
+              {/* Detail 3: Relationship */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                  <Heart className="w-3 h-3 text-rose-600 fill-rose-600/30" />
+                  <span>Relationship</span>
+                </div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white">
+                  {session.user.isMarried ? '💍 Married' : 'Single'}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-zinc-400 truncate">
+                  {isMarried && anniversaryDuration
+                    ? anniversaryDuration
+                    : isMarried && anniversaryDate
+                    ? `Since ${anniversaryDate}`
+                    : 'Solo Cinema Member'}
+                </div>
+              </div>
+
+              {/* Detail 4: Partner Pass Code */}
+              <div className="space-y-1.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>Partner Pass Code</span>
+                </div>
+                <div className="inline-flex items-center gap-2 p-2 px-3 rounded-xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
+                  <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400 tracking-wider">
+                    {session.user.partnerCode || 'SYNC-VIP'}
+                  </span>
                   <button
                     type="button"
                     onClick={handleCopyPartnerCode}
-                    className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 transition"
+                    className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition"
                     title="Copy Partner Code"
                   >
-                    {copiedCode ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                   </button>
                 </div>
-              </div>
-
-              {/* Display Name */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Display Name
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    maxLength={30}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
-                  />
+                <div className="text-[10px] text-slate-400 dark:text-zinc-500">
+                  Share to sync watch rooms
                 </div>
               </div>
 
-              {/* Email Address */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="email"
-                    disabled
-                    value={session.user.email || 'cinema@stitchbyte.com'}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-zinc-400 text-xs font-medium cursor-not-allowed"
-                  />
+            </div>
+
+            {/* Right Pass Stub / Actions */}
+            <div className="p-6 sm:p-7 border-t lg:border-t-0 lg:border-l border-dashed border-slate-200 dark:border-white/10 flex flex-row lg:flex-col items-center justify-between gap-4 bg-slate-50/40 dark:bg-white/[0.01] shrink-0">
+              
+              {/* Decorative mini barcode */}
+              <div className="hidden lg:flex flex-col items-center space-y-1 select-none">
+                <div className="h-6 flex items-center space-x-1 opacity-70">
+                  <div className="w-1 h-full bg-slate-500 dark:bg-white" />
+                  <div className="w-0.5 h-full bg-slate-500 dark:bg-white" />
+                  <div className="w-2 h-full bg-slate-500 dark:bg-white" />
+                  <div className="w-0.5 h-full bg-slate-500 dark:bg-white" />
+                  <div className="w-1.5 h-full bg-slate-500 dark:bg-white" />
+                  <div className="w-0.5 h-full bg-slate-500 dark:bg-white" />
+                  <div className="w-2 h-full bg-slate-500 dark:bg-white" />
                 </div>
+                <span className="font-mono text-[8px] tracking-widest text-slate-400 dark:text-zinc-500 uppercase">
+                  PASS-SB-{session.user.id.slice(0, 6)}
+                </span>
               </div>
 
-              {/* Date of Birth & Age */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Date of Birth</span>
+              {/* Edit Details Action Button */}
+              <button
+                type="button"
+                onClick={() => setShowEditModal(true)}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold text-xs shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Edit Details</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Edit Details Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#181922] border border-slate-200 dark:border-white/10 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-5 max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-black text-slate-900 dark:text-white">Edit Profile Details</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white font-bold text-sm transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form
+                onSubmit={async (e) => {
+                  await handleSaveProfile(e);
+                  setShowEditModal(false);
+                }}
+                className="space-y-4 text-left"
+              >
+                {/* Display Name */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                    Display Name
                   </label>
-                  {calculatedAge !== null && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                      🎂 {calculatedAge} years old
-                    </span>
-                  )}
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      maxLength={30}
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
-                />
-              </div>
 
-              {/* Relationship Status */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
-                  Relationship Status
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setIsMarried(false); setAnniversaryDate(''); }}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
-                      !isMarried
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
-                    }`}
-                  >
-                    Single
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsMarried(true)}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
-                      isMarried
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                        : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
-                    }`}
-                  >
-                    <span>💍 Married</span>
-                  </button>
+                {/* Email Address */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 dark:text-zinc-500">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="email"
+                      disabled
+                      value={session.user.email || 'cinema@stitchbyte.com'}
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-100/70 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-zinc-400 text-xs font-medium cursor-not-allowed"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Anniversary Date (if married) */}
-              {isMarried && (
-                <div className="p-3.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-1.5 animate-in fade-in">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
-                      <Heart className="w-3.5 h-3.5 fill-current text-rose-600" />
-                      <span>Anniversary Date</span>
+                {/* Date of Birth */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Date of Birth</span>
                     </label>
-                    {anniversaryDuration && (
-                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-300">
-                        {anniversaryDuration}
+                    {calculatedAge !== null && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        🎂 {calculatedAge} years old
                       </span>
                     )}
                   </div>
                   <input
                     type="date"
-                    required={isMarried}
-                    value={anniversaryDate}
-                    onChange={(e) => setAnniversaryDate(e.target.value)}
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
                     max={new Date().toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-black/50 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
                   />
                 </div>
-              )}
 
-              {/* Save Button */}
-              <div className="pt-3">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 flex items-center justify-center gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      <span>Saving Changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-3.5 h-3.5" />
-                      <span>Save Profile Details</span>
-                    </>
-                  )}
-                </button>
-              </div>
+                {/* Relationship Status */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                    Relationship Status
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setIsMarried(false); setAnniversaryDate(''); }}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+                        !isMarried
+                          ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                          : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      Single
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsMarried(true)}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                        isMarried
+                          ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                          : 'bg-slate-50 dark:bg-[#1b1c24] border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      <span>💍 Married</span>
+                    </button>
+                  </div>
+                </div>
 
-            </form>
+                {/* Anniversary Date */}
+                {isMarried && (
+                  <div className="p-3.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-500/30 space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1">
+                        <Heart className="w-3.5 h-3.5 fill-current text-rose-600" />
+                        <span>Anniversary Date</span>
+                      </label>
+                      {anniversaryDuration && (
+                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-300">
+                          {anniversaryDuration}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="date"
+                      required={isMarried}
+                      value={anniversaryDate}
+                      onChange={(e) => setAnniversaryDate(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="w-full px-3 py-2 rounded-lg bg-white dark:bg-black/50 border border-rose-200 dark:border-rose-500/30 text-slate-900 dark:text-white text-xs font-semibold focus:outline-none focus:border-rose-600 transition"
+                    />
+                  </div>
+                )}
+
+                {/* Submit button */}
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300 font-bold text-xs transition hover:bg-slate-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    {saving ? (
+                      <>
+                        <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Avatar Customization Modal */}
         {showAvatarModal && (
