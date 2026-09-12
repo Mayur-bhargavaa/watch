@@ -11,7 +11,8 @@ import {
   Shirt,
   Scissors,
   User,
-  CheckCircle2
+  CheckCircle2,
+  Heart
 } from 'lucide-react';
 
 export interface AvatarConfig {
@@ -32,6 +33,38 @@ interface AvatarStudioProps {
   value: string;
   onChange: (avatarUrl: string) => void;
 }
+
+// 3D Standing Clay/Plush Companions (Matching user reference)
+export const STANDING_COMPANIONS = [
+  {
+    id: 'standing_heart',
+    name: 'Standing Heart Plush',
+    tag: '3D Soft Plush with Glowing Heart & Folded Arms',
+    url: '/avatars/standing_heart.png',
+    preview: '/avatars/standing_heart.png'
+  },
+  {
+    id: 'standing_cinema',
+    name: 'On-Air Cinema Host',
+    tag: '3D Plush with Studio Headphones & Folded Arms',
+    url: '/avatars/standing_cinema.jpg',
+    preview: '/avatars/standing_cinema.jpg'
+  },
+  {
+    id: 'standing_star',
+    name: 'Golden Star Persona',
+    tag: '3D Plush with Shining Star & Warm Rim Light',
+    url: '/avatars/standing_star.jpg',
+    preview: '/avatars/standing_star.jpg'
+  },
+  {
+    id: 'standing_blush',
+    name: 'Blushing Companion',
+    tag: '3D Plush with Rosy Cheeks & Glowing Heart',
+    url: '/avatars/standing_blush.jpg',
+    preview: '/avatars/standing_blush.jpg'
+  }
+];
 
 // Aesthetic Palettes
 const SKIN_TONES = [
@@ -203,13 +236,23 @@ function buildDiceBearUrl(cfg: AvatarConfig): string {
   params.set('eyes', cfg.eyes || 'happy');
   params.set('mouth', cfg.mouth || 'smile');
   params.set('backgroundColor', cfg.bgColor);
-  params.set('radius', '50');
+  params.set('radius', '0');
 
   return `https://api.dicebear.com/7.x/avataaars/svg?${params.toString()}`;
 }
 
 export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps) {
-  const [activeTab, setActiveTab] = useState<'style' | 'appearance' | 'presets'>('appearance');
+  // Start on 3D standing companions by default
+  const isDirectStanding = Boolean(value && value.startsWith('/avatars/'));
+  const [activeTab, setActiveTab] = useState<'standing' | 'appearance' | 'style' | 'presets'>(
+    isDirectStanding ? 'standing' : 'standing'
+  );
+
+  const [standingUrl, setStandingUrl] = useState<string>(
+    isDirectStanding ? value : '/avatars/standing_heart.png'
+  );
+
+  const [useStanding, setUseStanding] = useState<boolean>(isDirectStanding || !value);
 
   const [config, setConfig] = useState<AvatarConfig>(() => {
     return {
@@ -226,17 +269,30 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
     };
   });
 
-  const previewUrl = useMemo(() => {
-    const url = buildDiceBearUrl(config);
-    return url;
+  const generatedUrl = useMemo(() => {
+    return buildDiceBearUrl(config);
   }, [config]);
 
-  // Sync to parent when config changes
+  const activeAvatarUrl = useStanding ? standingUrl : generatedUrl;
+
+  // Sync to parent
   React.useEffect(() => {
-    onChange(previewUrl);
-  }, [previewUrl, onChange]);
+    onChange(activeAvatarUrl);
+  }, [activeAvatarUrl, onChange]);
+
+  const handleSelectStanding = (url: string) => {
+    setStandingUrl(url);
+    setUseStanding(true);
+  };
 
   const handleShuffle = () => {
+    if (useStanding) {
+      // Pick random standing companion
+      const randomComp = STANDING_COMPANIONS[Math.floor(Math.random() * STANDING_COMPANIONS.length)];
+      setStandingUrl(randomComp.url);
+      return;
+    }
+
     const randomSkin = SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)].id;
     const randomTop = HAIR_STYLES[Math.floor(Math.random() * HAIR_STYLES.length)].id;
     const randomHairCol = HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)].id;
@@ -261,6 +317,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
   };
 
   const handleApplyPreset = (presetConfig: Partial<AvatarConfig>) => {
+    setUseStanding(false);
     setConfig(prev => ({
       ...prev,
       ...presetConfig
@@ -269,17 +326,19 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
   return (
     <div className="space-y-5">
-      {/* Studio Header & Hero Preview */}
+      {/* Studio Header & Hero Standing Preview */}
       <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-3xl bg-zinc-50 border border-zinc-200">
         
-        {/* Avatar Live Display */}
+        {/* 3D Standing Stage Preview with Bottom Counter Bar */}
         <div className="relative group shrink-0">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full ring-4 ring-[#d2281e]/30 shadow-xl overflow-hidden bg-zinc-900 flex items-center justify-center relative">
+          <div className="w-24 h-28 sm:w-28 sm:h-32 rounded-t-3xl rounded-b-2xl border-2 border-[#d2281e]/60 shadow-xl overflow-hidden bg-zinc-950 flex items-end justify-center relative">
             <img
-              src={previewUrl}
+              src={activeAvatarUrl}
               alt="Avatar Persona Preview"
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-105"
             />
+            {/* Ledge / Bar bottom counter matching reference image */}
+            <div className="absolute bottom-0 inset-x-0 h-1.5 bg-[#d2281e] shadow-[0_0_10px_rgba(210,40,30,0.9)]" />
           </div>
           
           <button
@@ -292,19 +351,19 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
           </button>
         </div>
 
-        {/* Persona Identity Badge & Shuffle CTA */}
+        {/* Persona Identity Badge & Controls */}
         <div className="flex-1 text-center sm:text-left space-y-1.5">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d2281e]/10 text-[#d2281e] text-[10.5px] font-black uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
-            <span>Bitmoji Avatar Creator</span>
+            <span>3D Standing Persona Stage</span>
           </div>
 
           <h3 className="text-sm sm:text-base font-black text-zinc-950 tracking-tight">
-            {displayName ? `${displayName}'s 3D Persona` : 'Your Cinema Persona'}
+            {displayName ? `${displayName}'s Standing Avatar` : 'Your Standing Cinema Avatar'}
           </h3>
 
           <p className="text-[11px] text-zinc-500 max-w-sm leading-relaxed">
-            Personalize your character for watch parties, live video calls, and 2-player games.
+            Standing upright with hands resting on the cinema booth counter — just like your reference!
           </p>
 
           <div className="pt-0.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -316,16 +375,32 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
               <Dice5 className="w-3.5 h-3.5 text-[#d2281e]" />
               <span>🎲 Shuffle Look</span>
             </button>
+            <span className="text-[11px] text-zinc-400 font-medium">
+              3D Plush Standing Characters
+            </span>
           </div>
         </div>
       </div>
 
       {/* Category Tabs */}
-      <div className="flex rounded-2xl bg-zinc-100 p-1 border border-zinc-200 text-xs font-bold">
+      <div className="flex rounded-2xl bg-zinc-100 p-1 border border-zinc-200 text-xs font-bold overflow-x-auto">
         <button
           type="button"
-          onClick={() => setActiveTab('appearance')}
-          className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
+          onClick={() => setActiveTab('standing')}
+          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
+            activeTab === 'standing'
+              ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
+              : 'text-zinc-500 hover:text-zinc-900'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#d2281e]" />
+          <span>3D Standing Characters</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => { setActiveTab('appearance'); setUseStanding(false); }}
+          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
             activeTab === 'appearance'
               ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
               : 'text-zinc-500 hover:text-zinc-900'
@@ -337,8 +412,8 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         <button
           type="button"
-          onClick={() => setActiveTab('style')}
-          className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
+          onClick={() => { setActiveTab('style'); setUseStanding(false); }}
+          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
             activeTab === 'style'
               ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
               : 'text-zinc-500 hover:text-zinc-900'
@@ -350,19 +425,67 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         <button
           type="button"
-          onClick={() => setActiveTab('presets')}
-          className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
+          onClick={() => { setActiveTab('presets'); setUseStanding(false); }}
+          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
             activeTab === 'presets'
               ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
               : 'text-zinc-500 hover:text-zinc-900'
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-[#d2281e]" />
+          <Palette className="w-3.5 h-3.5 text-[#d2281e]" />
           <span>Presets</span>
         </button>
       </div>
 
-      {/* Tab 1: Hair & Skin */}
+      {/* Tab 1: 3D STANDING COMPANIONS (FEATURED) */}
+      {activeTab === 'standing' && (
+        <div className="space-y-3.5">
+          <div className="grid grid-cols-2 gap-3">
+            {STANDING_COMPANIONS.map((comp) => {
+              const isSelected = useStanding && standingUrl === comp.url;
+              return (
+                <button
+                  key={comp.id}
+                  type="button"
+                  onClick={() => handleSelectStanding(comp.url)}
+                  className={`p-3 rounded-2xl border text-left transition flex items-center gap-3 relative ${
+                    isSelected
+                      ? 'bg-red-50/70 border-[#d2281e] shadow-md ring-2 ring-[#d2281e]/30'
+                      : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100/80'
+                  }`}
+                >
+                  <div className="w-12 h-14 rounded-t-xl rounded-b-md overflow-hidden bg-black shrink-0 relative border border-[#d2281e]/40 shadow-sm">
+                    <img
+                      src={comp.preview}
+                      alt={comp.name}
+                      className="w-full h-full object-cover object-bottom"
+                    />
+                    <div className="absolute bottom-0 inset-x-0 h-1 bg-[#d2281e]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-black text-zinc-900 truncate">
+                      {comp.name}
+                    </div>
+                    <div className="text-[10px] text-zinc-500 line-clamp-2 leading-tight mt-0.5">
+                      {comp.tag}
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#d2281e] text-white flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5" />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-zinc-400 font-medium text-center">
+            Standing characters display with the counter bar across your dashboard and room seats.
+          </p>
+        </div>
+      )}
+
+      {/* Tab 2: Hair & Skin */}
       {activeTab === 'appearance' && (
         <div className="space-y-3.5">
           
@@ -377,16 +500,19 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                 <button
                   key={tone.id}
                   type="button"
-                  onClick={() => setConfig(prev => ({ ...prev, skinColor: tone.id }))}
+                  onClick={() => {
+                    setUseStanding(false);
+                    setConfig(prev => ({ ...prev, skinColor: tone.id }));
+                  }}
                   className={`relative w-8 h-8 rounded-full border-2 transition-all shrink-0 ${
-                    config.skinColor === tone.id
+                    config.skinColor === tone.id && !useStanding
                       ? 'border-[#d2281e] scale-110 shadow-md ring-2 ring-[#d2281e]/30'
                       : 'border-white hover:scale-105'
                   }`}
                   style={{ backgroundColor: tone.hex }}
                   title={tone.name}
                 >
-                  {config.skinColor === tone.id && (
+                  {config.skinColor === tone.id && !useStanding && (
                     <Check className="w-4 h-4 text-white drop-shadow mx-auto" />
                   )}
                 </button>
@@ -402,12 +528,15 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto pr-1">
               {HAIR_STYLES.map(h => {
-                const isSelected = config.top === h.id;
+                const isSelected = config.top === h.id && !useStanding;
                 return (
                   <button
                     key={h.id}
                     type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, top: h.id }))}
+                    onClick={() => {
+                      setUseStanding(false);
+                      setConfig(prev => ({ ...prev, top: h.id }));
+                    }}
                     className={`py-1.5 px-2.5 text-xs font-bold rounded-xl text-left border transition truncate ${
                       isSelected
                         ? 'bg-[#d2281e]/10 border-[#d2281e] text-[#d2281e] shadow-sm'
@@ -432,16 +561,19 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                 <button
                   key={color.id}
                   type="button"
-                  onClick={() => setConfig(prev => ({ ...prev, hairColor: color.id }))}
+                  onClick={() => {
+                    setUseStanding(false);
+                    setConfig(prev => ({ ...prev, hairColor: color.id }));
+                  }}
                   className={`relative w-8 h-8 rounded-full border-2 transition-all shrink-0 ${
-                    config.hairColor === color.id
+                    config.hairColor === color.id && !useStanding
                       ? 'border-[#d2281e] scale-110 shadow-md ring-2 ring-[#d2281e]/30'
                       : 'border-white hover:scale-105'
                   }`}
                   style={{ backgroundColor: color.hex }}
                   title={color.name}
                 >
-                  {config.hairColor === color.id && (
+                  {config.hairColor === color.id && !useStanding && (
                     <Check className="w-4 h-4 text-white drop-shadow mx-auto" />
                   )}
                 </button>
@@ -452,7 +584,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
         </div>
       )}
 
-      {/* Tab 2: Style & Mood */}
+      {/* Tab 3: Style & Mood */}
       {activeTab === 'style' && (
         <div className="space-y-3.5">
           
@@ -464,12 +596,15 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {ACCESSORIES.map(acc => {
-                const isSelected = config.accessories === acc.id;
+                const isSelected = config.accessories === acc.id && !useStanding;
                 return (
                   <button
                     key={acc.id}
                     type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, accessories: acc.id }))}
+                    onClick={() => {
+                      setUseStanding(false);
+                      setConfig(prev => ({ ...prev, accessories: acc.id }));
+                    }}
                     className={`py-1.5 px-2.5 text-xs font-bold rounded-xl text-left border transition truncate ${
                       isSelected
                         ? 'bg-[#d2281e]/10 border-[#d2281e] text-[#d2281e] shadow-sm'
@@ -491,12 +626,15 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {CLOTHING_OPTIONS.map(c => {
-                const isSelected = config.clothing === c.id;
+                const isSelected = config.clothing === c.id && !useStanding;
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, clothing: c.id }))}
+                    onClick={() => {
+                      setUseStanding(false);
+                      setConfig(prev => ({ ...prev, clothing: c.id }));
+                    }}
                     className={`py-1.5 px-2.5 text-xs font-bold rounded-xl text-left border transition truncate ${
                       isSelected
                         ? 'bg-[#d2281e]/10 border-[#d2281e] text-[#d2281e] shadow-sm'
@@ -514,23 +652,26 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
           <div>
             <label className="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
               <Palette className="w-3 h-3 text-[#d2281e]" />
-              <span>Badge Background Color</span>
+              <span>Backdrop Color</span>
             </label>
             <div className="flex items-center gap-2 overflow-x-auto py-1">
               {BG_PALETTES.map(bg => (
                 <button
                   key={bg.id}
                   type="button"
-                  onClick={() => setConfig(prev => ({ ...prev, bgColor: bg.id }))}
+                  onClick={() => {
+                    setUseStanding(false);
+                    setConfig(prev => ({ ...prev, bgColor: bg.id }));
+                  }}
                   className={`relative w-8 h-8 rounded-full border-2 transition-all shrink-0 ${
-                    config.bgColor === bg.id
+                    config.bgColor === bg.id && !useStanding
                       ? 'border-[#d2281e] scale-110 shadow-md ring-2 ring-[#d2281e]/30'
                       : 'border-white hover:scale-105'
                   }`}
                   style={{ backgroundColor: bg.hex }}
                   title={bg.name}
                 >
-                  {config.bgColor === bg.id && (
+                  {config.bgColor === bg.id && !useStanding && (
                     <Check className="w-4 h-4 text-white drop-shadow mx-auto" />
                   )}
                 </button>
@@ -541,7 +682,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
         </div>
       )}
 
-      {/* Tab 3: Quick Presets */}
+      {/* Tab 4: Presets */}
       {activeTab === 'presets' && (
         <div className="grid grid-cols-2 gap-2.5">
           {PRESETS.map((p, idx) => (
@@ -567,7 +708,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
       <div className="p-2.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 flex items-start gap-2">
         <CheckCircle2 className="w-3.5 h-3.5 text-[#d2281e] shrink-0 mt-0.5" />
         <p className="text-[10.5px] text-zinc-500 leading-tight">
-          <strong>Privacy note:</strong> Photo file uploads are disabled to keep parties safe and private. Your customized Bitmoji character will be used across rooms and games.
+          <strong>Privacy note:</strong> Photo uploads are disabled to keep watch parties safe and private. You can choose any 3D standing character or custom persona anytime!
         </p>
       </div>
     </div>

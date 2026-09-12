@@ -323,6 +323,23 @@ export class DatabaseService {
             passwordHash: row.password_hash
         };
     }
+    updateUser(id, updates) {
+        const existing = this.getUserById(id);
+        if (!existing)
+            return null;
+        const stmt = this.db.prepare(`
+      UPDATE users SET
+        display_name = COALESCE(?, display_name),
+        avatar_url = COALESCE(?, avatar_url),
+        date_of_birth = COALESCE(?, date_of_birth),
+        anniversary_date = COALESCE(?, anniversary_date),
+        is_married = COALESCE(?, is_married),
+        age = COALESCE(?, age)
+      WHERE id = ?
+    `);
+        stmt.run(updates.displayName ?? null, updates.avatarUrl ?? null, updates.dateOfBirth ?? null, updates.anniversaryDate ?? null, updates.isMarried !== undefined ? (updates.isMarried ? 1 : 0) : null, updates.age ?? null, id);
+        return this.getUserById(id);
+    }
     // --- Media ---
     createOrGetMedia(media) {
         const existing = this.db.prepare(`SELECT * FROM media WHERE source_url = ?`).get(media.sourceUrl);

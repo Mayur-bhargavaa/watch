@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Film,
   Play,
@@ -12,6 +13,7 @@ import {
   ChevronRight,
   Heart,
   Users,
+  User,
   Settings,
   LogOut,
   Sparkles,
@@ -565,24 +567,30 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* User Profile Card in Sidebar with Selected Avatar */}
-          <div
-            onClick={() => setShowSettingsModal(true)}
+          {/* User Profile Card in Sidebar with Standing Avatar */}
+          <Link
+            href="/profile"
             className="flex items-center space-x-3 p-2.5 rounded-2xl bg-[#1b1c24] border border-white/[0.06] hover:border-white/20 transition cursor-pointer group"
           >
-            <div className="w-10 h-10 rounded-full ring-2 ring-[#d2281e]/50 overflow-hidden bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shadow-md shrink-0">
+            {/* Standing Character Stage */}
+            <div className="relative w-11 h-12 -my-0.5 rounded-t-2xl rounded-b-xl overflow-hidden bg-zinc-950 border border-[#d2281e]/60 shadow-md shrink-0 flex items-end justify-center">
               {session?.user.avatarUrl ? (
                 <img
                   src={session.user.avatarUrl}
                   alt={session.user.displayName || 'Avatar'}
-                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                  className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-105"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white font-bold">
-                  {(session?.user.displayName || 'U')[0].toUpperCase()}
-                </div>
+                <img
+                  src="/avatars/standing_heart.png"
+                  alt="Standing Avatar"
+                  className="w-full h-full object-cover object-bottom"
+                />
               )}
+              {/* Ledge / Bar bottom counter matching reference */}
+              <div className="absolute bottom-0 inset-x-0 h-1 bg-[#d2281e] shadow-[0_0_8px_rgba(210,40,30,0.8)]" />
             </div>
+
             <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-white truncate group-hover:text-[#d2281e] transition">
                 {session?.user.displayName || 'User'}
@@ -592,7 +600,7 @@ export default function DashboardPage() {
                 <span>{session?.user.isMarried ? '💍 Married' : 'Cinema Fan'}</span>
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Navigation Groups */}
           <div className="space-y-6">
@@ -799,29 +807,36 @@ export default function DashboardPage() {
               <span>Max 6 per room</span>
             </div>
 
-            {/* User Profile Avatar */}
-            <button
-              onClick={() => setShowSettingsModal(true)}
-              className="flex items-center space-x-2.5 p-1 pl-1.5 pr-3 rounded-full bg-[#1b1c24] hover:bg-[#242531] border border-white/[0.08] transition text-left group"
-              title="Open Settings & Profile"
+            {/* User Profile Avatar with 3D Standing Character Presentation */}
+            <Link
+              href="/profile"
+              className="relative flex items-center space-x-2.5 py-1 px-1.5 pr-3.5 rounded-full bg-[#1b1c24] hover:bg-[#242531] border border-white/[0.08] hover:border-[#d2281e]/40 transition text-left group shadow-lg"
+              title="Open Profile & Settings"
             >
-              <div className="w-8 h-8 rounded-full ring-2 ring-[#d2281e]/60 overflow-hidden bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shadow-md shrink-0">
-                {session?.user.avatarUrl ? (
-                  <img
-                    src={session.user.avatarUrl}
-                    alt={session.user.displayName || 'Avatar'}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white font-bold">
-                    {(session?.user.displayName || 'U')[0].toUpperCase()}
-                  </div>
-                )}
+              {/* Standing Character Stage */}
+              <div className="relative w-10 h-12 -my-2 rounded-t-2xl rounded-b-md overflow-hidden bg-gradient-to-b from-zinc-900 to-black border border-[#d2281e]/60 shadow-md shrink-0 flex flex-col items-center justify-end">
+                <img
+                  src={
+                    session?.user.avatarUrl
+                      ? session.user.avatarUrl.replace('radius=50', 'radius=0')
+                      : '/avatars/standing_heart.png'
+                  }
+                  alt={session?.user.displayName || 'Avatar'}
+                  className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-110"
+                />
+                {/* Ledge / Bar bottom counter matching reference image */}
+                <div className="relative z-10 w-full h-1.5 bg-[#d2281e] shadow-[0_0_8px_rgba(210,40,30,0.8)]" />
               </div>
-              <span className="text-xs font-semibold text-zinc-200 hidden sm:inline max-w-[120px] truncate">
-                {session?.user.displayName || 'Guest'}
-              </span>
-            </button>
+
+              <div className="flex flex-col leading-tight min-w-0">
+                <span className="text-xs font-bold text-white group-hover:text-[#d2281e] transition max-w-[110px] truncate">
+                  {session?.user.displayName || 'Guest'}
+                </span>
+                <span className="text-[8.5px] font-bold text-zinc-400 tracking-wider uppercase flex items-center gap-1">
+                  {session?.user.isMarried ? '💍 Married' : 'Cinema VIP'}
+                </span>
+              </div>
+            </Link>
           </div>
         </div>
 
@@ -841,7 +856,7 @@ export default function DashboardPage() {
         {activeNav === 'browse' && (
           <div className="space-y-8 animate-fadeIn">
             {/* Featured IMAX Hero Banner */}
-            <div className="relative rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl h-[340px] sm:h-[400px] flex flex-col justify-end p-6 sm:p-10">
+            <div className="relative rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl h-[360px] sm:h-[420px] flex flex-col justify-end p-6 sm:p-10">
               <img
                 src={activeHero.bgThumbnail}
                 alt={activeHero.title}
@@ -849,6 +864,49 @@ export default function DashboardPage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/50 to-transparent" />
               <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/60 to-transparent" />
+
+              {/* 3D Standing Character VIP Booth at Hero Right Top (Matches user reference) */}
+              <Link
+                href="/profile"
+                className="absolute top-4 sm:top-6 right-4 sm:right-8 z-20 group flex flex-col items-end cursor-pointer transition-all duration-300 hover:scale-105"
+                title="Your 3D Standing Persona • Click to edit"
+              >
+                {/* Live Cinema VIP Host badge */}
+                <div className="mb-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[10px] font-bold text-white shadow-xl group-hover:border-[#d2281e]/80 transition">
+                  <span className="w-2 h-2 rounded-full bg-[#d2281e] animate-pulse" />
+                  <span className="truncate max-w-[110px]">{session?.user.displayName || 'Cinema Host'}</span>
+                  <span className="text-[#d2281e] text-[9px] font-extrabold uppercase tracking-wider hidden sm:inline">• VIP Booth</span>
+                </div>
+
+                {/* Standing Character Booth Container with Folded Arms & Glowing Heart */}
+                <div className="relative w-24 h-32 sm:w-28 sm:h-36 rounded-t-3xl rounded-b-xl overflow-hidden bg-gradient-to-b from-zinc-900/95 via-black/90 to-zinc-950 border-2 border-white/20 shadow-2xl shadow-black/90 flex flex-col items-center justify-end group-hover:border-[#d2281e] transition-all">
+                  
+                  {/* Cinema ambient spotlight glow */}
+                  <div className="absolute top-2 inset-x-0 h-20 bg-[#d2281e]/25 blur-xl rounded-full pointer-events-none" />
+
+                  {/* Standing Character Figure (Arms resting over counter) */}
+                  <img
+                    src={
+                      session?.user.avatarUrl
+                        ? session.user.avatarUrl.replace('radius=50', 'radius=0')
+                        : '/avatars/standing_heart.png'
+                    }
+                    alt={session?.user.displayName || 'Standing 3D Character'}
+                    className="w-full h-full object-cover object-bottom transition-transform duration-500 group-hover:scale-110"
+                  />
+
+                  {/* Illuminated VIP Balcony / Counter Ledge matching user reference image */}
+                  <div className="relative z-10 w-full h-3 bg-gradient-to-r from-zinc-900 via-[#d2281e] to-zinc-900 border-t border-[#d2281e] shadow-[0_0_12px_rgba(210,40,30,0.8)] flex items-center justify-center">
+                    <div className="w-10 h-0.5 bg-white/70 rounded-full" />
+                  </div>
+                </div>
+
+                {/* Tooltip on hover */}
+                <span className="mt-1.5 text-[9px] font-bold text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2.5 py-0.5 rounded-md backdrop-blur-sm border border-white/10 flex items-center gap-1 shadow-md">
+                  <span>Standing in Cinema</span>
+                  <span className="text-[#d2281e]">★</span>
+                </span>
+              </Link>
 
               <div className="relative z-10 max-w-xl space-y-3">
                 <div className="flex items-center space-x-2">
@@ -1626,6 +1684,13 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-center justify-end space-x-2 pt-2">
+                <Link
+                  href="/profile"
+                  className="mr-auto px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-zinc-300 hover:text-white transition flex items-center gap-1.5"
+                >
+                  <User className="w-3.5 h-3.5 text-[#d2281e]" />
+                  <span>Full Profile & Avatar</span>
+                </Link>
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(false)}

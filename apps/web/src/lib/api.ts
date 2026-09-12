@@ -124,6 +124,43 @@ export async function fetchCurrentUser(token?: string): Promise<UserSession | nu
   }
 }
 
+export async function updateUserProfile(updates: {
+  displayName?: string;
+  avatarUrl?: string;
+  dateOfBirth?: string;
+  anniversaryDate?: string;
+  isMarried?: boolean;
+  age?: number;
+}): Promise<UserSession['user']> {
+  const current = getStoredSession();
+  if (!current?.token) throw new Error('Not authenticated');
+
+  const res = await fetch(`${API_BASE}/api/auth/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${current.token}`
+    },
+    body: JSON.stringify(updates)
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to update profile');
+  }
+
+  const data = await res.json();
+  const updatedSession: UserSession = {
+    ...current,
+    user: {
+      ...current.user,
+      ...data.user
+    }
+  };
+  setStoredSession(updatedSession);
+  return updatedSession.user;
+}
+
 export async function ensureSession(preferredName?: string): Promise<UserSession> {
   const existing = getStoredSession();
   if (existing) return existing;

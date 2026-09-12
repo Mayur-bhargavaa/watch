@@ -184,6 +184,46 @@ export async function createServer(dbPath = './synccinema.db') {
     }
   });
 
+  app.put('/api/auth/profile', async (request, reply) => {
+    try {
+      const payload = (await request.jwtVerify()) as any;
+      const body = request.body as {
+        displayName?: string;
+        avatarUrl?: string;
+        dateOfBirth?: string;
+        anniversaryDate?: string;
+        isMarried?: boolean;
+        age?: number;
+      };
+
+      let calculatedAge = body.age;
+      if (calculatedAge == null && body.dateOfBirth) {
+        const birth = new Date(body.dateOfBirth);
+        if (!isNaN(birth.getTime())) {
+          const diffMs = Date.now() - birth.getTime();
+          calculatedAge = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000));
+        }
+      }
+
+      const updated = db.updateUser(payload.id, {
+        displayName: body.displayName?.trim(),
+        avatarUrl: body.avatarUrl,
+        dateOfBirth: body.dateOfBirth,
+        anniversaryDate: body.isMarried ? body.anniversaryDate : undefined,
+        isMarried: body.isMarried,
+        age: calculatedAge
+      });
+
+      if (!updated) {
+        return reply.code(404).send({ error: 'User not found' });
+      }
+
+      return { user: updated };
+    } catch {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+  });
+
   app.get('/api/user/rooms', async (request, reply) => {
     try {
       const payload = (await request.jwtVerify()) as any;
