@@ -47,7 +47,11 @@ import {
   User,
   Sun,
   Moon,
-  ArrowRight
+  ArrowRight,
+  RotateCw,
+  Tv,
+  Ticket,
+  LogOut
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { ChatReplyTo } from '@synccinema/common';
@@ -55,6 +59,7 @@ import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/Cha
 import { AlertModal, AlertModalType } from '../../../components/ui/AlertModal';
 import {
   getStoredSession,
+  clearStoredSession,
   ensureSession,
   getUserMe,
   getUserPartner,
@@ -165,6 +170,8 @@ function LudoPageContent() {
   const [copiedLoveLink, setCopiedLoveLink] = useState(false);
   const [isJoiningLoveRoom, setIsJoiningLoveRoom] = useState(false);
   const [loveSectionError, setLoveSectionError] = useState<string | null>(null);
+  const [isLovePassFlipped, setIsLovePassFlipped] = useState(false);
+  const [lovePassTab, setLovePassTab] = useState<'create' | 'join'>('create');
 
   // Matchmaking Options (Lobby)
   const [selectedMaxPlayers, setSelectedMaxPlayers] = useState<2 | 3 | 4>(2);
@@ -874,10 +881,10 @@ function LudoPageContent() {
   const disconnectedOpponentName = opponentPlayer?.displayName || disconnectedPlayer?.displayName || 'Partner';
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans selection:bg-rose-600 selection:text-white relative overflow-x-hidden transition-colors duration-300 ${
-      isDark ? 'bg-[#111217] text-white' : 'bg-[#f8fafc] text-zinc-900'
+    <div className={`min-h-screen flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
+      isDark ? 'bg-[#111217] text-white' : 'bg-slate-50 text-slate-900'
     }`}>
-      {/* Active Match Background & Atmosphere */}
+      {/* Active Match Background & Atmosphere (when in active room) */}
       {roomParam ? (
         <>
           <div
@@ -911,56 +918,237 @@ function LudoPageContent() {
         </div>
       )}
 
-      {/* TOP NAVIGATION BAR */}
-      <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-300 ${
-        isDark ? 'bg-[#14151b]/80 border-white/[0.08]' : 'bg-white/85 border-zinc-200/90 shadow-xs'
-      }`}>
-        {/* Left: [Back to Games] + Branding */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              if (roomParam) {
-                showAlert(
-                  'Leave Match?',
-                  'Are you sure you want to leave this game? You will disconnect from the match and return to the lounge.',
-                  'warning',
-                  {
-                    confirmText: 'Leave Match',
-                    cancelText: 'Stay & Play',
-                    onConfirm: () => {
-                      sendLeave();
-                      router.push('/games/ludo');
-                    }
-                  }
-                );
-              } else {
-                router.push('/games');
-              }
-            }}
-            className={`px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-2 font-semibold text-xs transition-all active:scale-95 group ${
-              isDark
-                ? 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border-white/[0.08]'
-                : 'bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-950 border-zinc-200'
-            }`}
-            title={roomParam ? 'Leave Match' : 'Back to Games Lounge'}
-          >
-            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-            <span>{roomParam ? 'Leave Match' : 'Games'}</span>
-          </button>
+      {/* ========================================================================= */}
+      {/* 1. LEFT SIDEBAR NAVIGATION (IDENTICAL TO DASHBOARD & PROFILE)              */}
+      {/* ========================================================================= */}
+      {!roomParam && (
+        <aside className="w-64 bg-white dark:bg-[#14151b] border-r border-slate-200 dark:border-white/[0.06] p-6 flex flex-col justify-between shrink-0 hidden lg:flex select-none transition-colors duration-150 sticky top-0 h-screen z-30">
+          <div className="space-y-8">
+            {/* Logo: Watch. with Bold Red Accent Dot */}
+            <div
+              onClick={() => router.push('/dashboard')}
+              className="flex items-center space-x-2.5 cursor-pointer select-none"
+            >
+              <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-lg shadow-rose-600/30">
+                <Film className="w-4 h-4 fill-current" />
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                  Watch<span className="text-rose-600 text-2xl leading-none">.</span>
+                </span>
+                <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500 tracking-widest uppercase mt-0.5">
+                  Powered by StitchByte
+                </span>
+              </div>
+            </div>
 
-          <div className={`h-4 w-px hidden sm:block ${isDark ? 'bg-white/[0.1]' : 'bg-zinc-200'}`} />
+            {/* Navigation Groups */}
+            <div className="space-y-6">
+              {/* Nav Group 1: Menu */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
+                  Menu
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard')}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                >
+                  <Film className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <span>Browse Cinema</span>
+                </button>
 
-          <div className="hidden sm:flex items-center gap-2">
-            <span className={`font-extrabold text-sm tracking-tight ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-              Watch<span className="text-rose-500">.</span>
-            </span>
-            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-              isDark ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400' : 'bg-rose-50 border border-rose-200 text-rose-600'
-            }`}>
-              Ludo Arena
-            </span>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard?tab=watchlist')}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                >
+                  <Heart className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <span>Watchlist</span>
+                </button>
+              </div>
+
+              {/* Nav Group 2: Social / Games */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
+                  Social & Games
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard?tab=myrooms')}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                >
+                  <Users className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <span>My Rooms</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard?tab=parties')}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                >
+                  <Tv className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <span>Watch Parties</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push('/games')}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                >
+                  <Gamepad2 className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <span>Game Lounge</span>
+                </button>
+
+                {/* Sub-Item: Ludo Arena (Current Active) */}
+                <div className="pl-4">
+                  <div className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200/70 dark:border-rose-500/25">
+                    <Dice5 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    <span>Ludo Arena</span>
+                    <span className="ml-auto text-[9px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+                      PLAY
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Nav Group 3: General */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
+                  General
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push('/profile')}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                >
+                  <User className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <span>My Profile</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSettingsModal(true)}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                >
+                  <Settings className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <span>Settings</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearStoredSession();
+                    router.push('/');
+                  }}
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log out</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* User Profile Card at Bottom of Sidebar */}
+          <div
+            onClick={() => router.push('/profile')}
+            className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer group shadow-xs select-none"
+          >
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-900 border border-slate-300 dark:border-white/10 ring-2 ring-rose-600/40 shrink-0 flex items-center justify-center">
+              {session?.user?.avatarUrl ? (
+                <img
+                  src={session.user.avatarUrl}
+                  alt={session.user.displayName || 'Avatar'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-tr from-rose-600 to-pink-600 flex items-center justify-center text-white text-xs font-bold">
+                  {((session?.user?.displayName || 'U')[0]).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-rose-600 transition">
+                {session?.user?.displayName || 'Cinema Fan'}
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1 font-mono">
+                {partner ? `💕 Paired: ${partner.displayName}` : `Code: ${myPartnerCode || session?.user?.partnerCode || '...'}`}
+              </div>
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 2. MAIN CONTENT AREA (FULL-SCREEN IN MATCH, ADAPTIVE IN LOBBY)            */}
+      {/* ========================================================================= */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-y-auto relative">
+        {/* TOP NAVIGATION BAR */}
+        <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
+          isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/90 border-slate-200 shadow-xs'
+        }`}>
+          {/* Left: Breadcrumbs or Leave Match */}
+          <div className="flex items-center gap-3">
+            {roomParam ? (
+              <button
+                onClick={() => {
+                  showAlert(
+                    'Leave Match?',
+                    'Are you sure you want to leave this game? You will disconnect from the match and return to the lounge.',
+                    'warning',
+                    {
+                      confirmText: 'Leave Match',
+                      cancelText: 'Stay & Play',
+                      onConfirm: () => {
+                        sendLeave();
+                        router.push('/games/ludo');
+                      }
+                    }
+                  );
+                }}
+                className={`px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-2 font-semibold text-xs transition-all active:scale-95 group ${
+                  isDark
+                    ? 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border-white/[0.08]'
+                    : 'bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-950 border-zinc-200'
+                }`}
+                title="Leave Match"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Leave Match</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => router.push('/games')}
+                  className={`lg:hidden px-2.5 py-1.5 rounded-xl border flex items-center gap-1 font-semibold ${
+                    isDark ? 'bg-white/[0.05] text-zinc-300 border-white/[0.08]' : 'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Games</span>
+                </button>
+
+                <div className="hidden sm:flex items-center gap-1.5 text-xs font-semibold">
+                  <span
+                    onClick={() => router.push('/dashboard')}
+                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                  >
+                    Watch.
+                  </span>
+                  <span className={isDark ? 'text-zinc-600' : 'text-slate-400'}>/</span>
+                  <span
+                    onClick={() => router.push('/games')}
+                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                  >
+                    Game Lounge
+                  </span>
+                  <span className={isDark ? 'text-zinc-600' : 'text-slate-400'}>/</span>
+                  <span className="text-rose-600 font-bold">Ludo Arena</span>
+                </div>
+              </div>
+            )}
+          </div>
 
         {/* Center Header: Room Param or Show Call pill */}
         {roomParam && (
@@ -2051,14 +2239,33 @@ function LudoPageContent() {
                       <span className="px-2.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-500 text-[10px] font-bold uppercase tracking-wider">
                         One-Time Code Only
                       </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                        <Ticket className="w-3 h-3" />
+                        VIP Duel Pass
+                      </span>
                     </div>
                     <p className={`text-xs sm:text-sm mt-0.5 ${
                       isDark ? 'text-zinc-400' : 'text-zinc-600'
                     }`}>
-                      Private 2-player intimate duel. Generate a single-use pass or enter your loved one's code to play immediately.
+                      Private 2-player intimate duel. Generate a single-use cinema pass or enter your loved one's code.
                     </p>
                   </div>
                 </div>
+
+                {/* Flip Pass Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsLovePassFlipped(prev => !prev)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 shadow-xs cursor-pointer active:scale-95 ${
+                    isDark
+                      ? 'bg-white/[0.06] hover:bg-white/[0.12] border-white/15 text-rose-300 hover:text-white'
+                      : 'bg-white hover:bg-rose-50 border-rose-200 text-rose-600 hover:text-rose-700 shadow-sm'
+                  }`}
+                  title={isLovePassFlipped ? 'Flip to Boarding Pass' : 'Flip to View Duel Perks & Rules'}
+                >
+                  <RotateCw className={`w-3.5 h-3.5 transition-transform duration-500 ${isLovePassFlipped ? 'rotate-180' : ''}`} />
+                  <span>{isLovePassFlipped ? 'Show Boarding Pass' : 'House Rules & Perks'}</span>
+                </button>
               </div>
 
               {loveSectionError && (
@@ -2135,185 +2342,420 @@ function LudoPageContent() {
                 </div>
               )}
 
-              {/* Loved Ones Action Cards: Generate Code vs Join with Code */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6 relative z-10">
-                {/* SUB-CARD 1: Generate One-Time Love Pass */}
-                <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col justify-between transition-all ${
-                  isDark
-                    ? 'bg-[#0f1015]/80 border-rose-500/20 shadow-lg'
-                    : 'bg-white/90 border-rose-200 shadow-sm'
-                }`}>
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-500">
-                        <Sparkles className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h3 className={`text-sm sm:text-base font-bold tracking-tight ${
-                          isDark ? 'text-white' : 'text-zinc-900'
-                        }`}>
-                          Host 1-Time Love Table
-                        </h3>
-                        <p className={`text-[11px] font-medium ${
-                          isDark ? 'text-zinc-400' : 'text-zinc-500'
-                        }`}>
-                          Generates a single-use 2-player private board
-                        </p>
-                      </div>
-                    </div>
+              {/* 3D FLIPPABLE LOVE DUEL BOARDING PASS */}
+              <div className="perspective-1000 w-full mt-6 relative z-10">
+                <div
+                  className={`relative w-full transition-transform duration-700 transform-style-3d min-h-[460px] sm:min-h-[380px] ${
+                    isLovePassFlipped ? 'rotate-y-180' : ''
+                  }`}
+                >
+                  {/* FRONT SIDE OF PASS: LUXURY PERFORATED CINEMA TICKET */}
+                  <div className={`backface-hidden w-full rounded-3xl border shadow-2xl overflow-hidden transition-colors flex flex-col md:flex-row relative ${
+                    isDark
+                      ? 'bg-gradient-to-br from-[#1b121e] via-[#14141d] to-[#101117] border-rose-500/30 text-white'
+                      : 'bg-gradient-to-br from-rose-50/90 via-white to-pink-50/70 border-rose-300 text-zinc-900'
+                  }`}>
+                    {/* Left Stub: Duel Seatings & Security (~62% width on desktop) */}
+                    <div className="flex-1 p-5 sm:p-7 flex flex-col justify-between relative overflow-hidden">
+                      {/* Decorative ambient background */}
+                      <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full bg-rose-500/10 blur-2xl pointer-events-none" />
 
-                    {!generatedLoveCode ? (
-                      <p className={`text-xs mt-3 leading-relaxed ${
-                        isDark ? 'text-zinc-400' : 'text-zinc-600'
-                      }`}>
-                        Create an intimate table for just you two. Once generated, send your loved one the one-time code or link and enjoy live zero-latency gameplay.
-                      </p>
-                    ) : (
-                      /* Love Pass Generated Ticket */
-                      <div className={`mt-4 p-4 rounded-xl border space-y-3 ${
-                        isDark ? 'bg-rose-950/20 border-rose-500/30' : 'bg-rose-50/80 border-rose-200'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 flex items-center gap-1">
-                            <Heart className="w-3 h-3 fill-current" />
-                            Your One-Time Love Pass
-                          </span>
-                          <span className="text-[10px] text-zinc-500 font-medium">Single-Use</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-2xl font-mono font-black text-rose-500 tracking-wider">
-                            {generatedLoveCode}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={handleCopyLoveCode}
-                              className={`p-2 rounded-lg border transition ${
-                                isDark
-                                  ? 'bg-white/5 hover:bg-white/10 border-white/10 text-zinc-200'
-                                  : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-700 shadow-xs'
-                              }`}
-                              title="Copy Code"
-                            >
-                              {copiedLoveCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleCopyLoveLink}
-                              className={`p-2 rounded-lg border transition ${
-                                isDark
-                                  ? 'bg-white/5 hover:bg-white/10 border-white/10 text-zinc-200'
-                                  : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-700 shadow-xs'
-                              }`}
-                              title="Copy Direct Link"
-                            >
-                              {copiedLoveLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
-                            </button>
+                      {/* Ticket Top Bar */}
+                      <div className="flex items-center justify-between pb-4 border-b border-rose-500/15">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-500 flex items-center justify-center">
+                            <Ticket className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-rose-500 block leading-none">
+                              SYNCOUPLE CINEMA • VIP PASS
+                            </span>
+                            <span className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 tracking-wider">
+                              EXCLUSIVE 1v1 PRIVATE ARENA
+                            </span>
                           </div>
                         </div>
 
-                        <p className="text-[11px] text-zinc-500">
-                          {copiedLoveCode ? 'Code copied to clipboard!' : copiedLoveLink ? 'Direct link copied!' : 'Share this code with your loved one.'}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <Wifi className="w-3.5 h-3.5 text-rose-500 rotate-90" />
+                          <span className="text-[9px] font-mono px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 font-bold uppercase tracking-wider">
+                            SECURE RTC
+                          </span>
+                        </div>
                       </div>
-                    )}
+
+                      {/* Center Duel Matchup (Seat 01 vs Seat 02) */}
+                      <div className="py-6 flex items-center justify-between gap-2 sm:gap-4">
+                        {/* Seat 01: Host (You) */}
+                        <div className={`flex-1 p-3.5 sm:p-4 rounded-2xl border text-center transition ${
+                          isDark
+                            ? 'bg-black/30 border-rose-500/20'
+                            : 'bg-white/90 border-rose-200 shadow-xs'
+                        }`}>
+                          <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-rose-600 text-white font-black text-sm mb-2 shadow-md shadow-rose-600/30">
+                            {(session?.user?.displayName || 'Y')[0]?.toUpperCase()}
+                          </div>
+                          <div className={`text-xs sm:text-sm font-black truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                            {session?.user?.displayName || 'You (Host)'}
+                          </div>
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-500 text-[9px] font-bold uppercase tracking-wider">
+                            Seat 01 • Red
+                          </span>
+                        </div>
+
+                        {/* Central Animated Duel Heart */}
+                        <div className="flex flex-col items-center shrink-0 px-2">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-500 via-pink-500 to-purple-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 animate-pulse">
+                            <Heart className="w-4 h-4 fill-current" />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-rose-500 mt-1">
+                            DUEL
+                          </span>
+                          <span className="text-[8px] font-mono text-zinc-400 uppercase tracking-tighter">
+                            1v1
+                          </span>
+                        </div>
+
+                        {/* Seat 02: Loved One */}
+                        <div className={`flex-1 p-3.5 sm:p-4 rounded-2xl border text-center transition ${
+                          isDark
+                            ? 'bg-black/30 border-emerald-500/20'
+                            : 'bg-white/90 border-emerald-200 shadow-xs'
+                        }`}>
+                          <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-emerald-600 text-white font-black text-sm mb-2 shadow-md shadow-emerald-600/30">
+                            {partner ? partner.displayName[0]?.toUpperCase() : '♥'}
+                          </div>
+                          <div className={`text-xs sm:text-sm font-black truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                            {partner ? partner.displayName : 'Loved One'}
+                          </div>
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-bold uppercase tracking-wider">
+                            Seat 02 • Green
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Left Stub Bottom Security Row */}
+                      <div className="pt-3 border-t border-rose-500/15 flex items-center justify-between text-[10px] flex-wrap gap-2 text-zinc-500">
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1 text-zinc-400 dark:text-zinc-400">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                            Zero Bots
+                          </span>
+                          <span className="flex items-center gap-1 text-zinc-400 dark:text-zinc-400">
+                            <Video className="w-3.5 h-3.5 text-sky-500" />
+                            Live Cam & Voice
+                          </span>
+                          <span className="flex items-center gap-1 text-zinc-400 dark:text-zinc-400">
+                            <Star className="w-3.5 h-3.5 text-amber-500" />
+                            Safe Sanctuaries
+                          </span>
+                        </div>
+                        <span className="font-mono text-[9px] text-rose-500 font-semibold tracking-wider">
+                          #LD-PASS-{session?.user?.id?.slice(-4).toUpperCase() || 'LOVE'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Perforation Divider with Round Concave Cutouts (Desktop) */}
+                    <div className="hidden md:flex flex-col items-center justify-between relative px-0 py-0 self-stretch">
+                      {/* Top Round Notch */}
+                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40 z-20" />
+                      {/* Dashed Perforated Line */}
+                      <div className="w-0 h-full border-r-2 border-dashed border-rose-300/80 dark:border-rose-500/40 my-3" />
+                      {/* Bottom Round Notch */}
+                      <div className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40 z-20" />
+                    </div>
+
+                    {/* Mobile Perforation Divider */}
+                    <div className="md:hidden relative w-full h-0 border-b-2 border-dashed border-rose-300/80 dark:border-rose-500/40">
+                      <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40" />
+                      <div className="absolute -right-3.5 -top-3.5 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40" />
+                    </div>
+
+                    {/* Right Stub: Tear-off Pass & Voucher Action (~38% width on desktop) */}
+                    <div className={`w-full md:w-80 p-5 sm:p-7 flex flex-col justify-between shrink-0 ${
+                      isDark ? 'bg-black/25' : 'bg-rose-50/40'
+                    }`}>
+                      <div>
+                        {/* Sub-Tabs: Host Pass vs Enter Code */}
+                        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-rose-500/10 border border-rose-500/20 mb-4">
+                          <button
+                            type="button"
+                            onClick={() => setLovePassTab('create')}
+                            className={`py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              lovePassTab === 'create'
+                                ? 'bg-rose-600 text-white shadow-xs'
+                                : (isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-600 hover:text-zinc-900')
+                            }`}
+                          >
+                            Host Pass
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLovePassTab('join')}
+                            className={`py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              lovePassTab === 'join'
+                                ? 'bg-rose-600 text-white shadow-xs'
+                                : (isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-600 hover:text-zinc-900')
+                            }`}
+                          >
+                            Enter Code
+                          </button>
+                        </div>
+
+                        {lovePassTab === 'create' ? (
+                          /* Tab 1: Host Pass */
+                          <div className="space-y-3">
+                            {!generatedLoveCode ? (
+                              <div className="space-y-3 text-center py-2">
+                                <div className="text-xs font-semibold text-rose-500 flex items-center justify-center gap-1.5">
+                                  <Sparkles className="w-4 h-4" />
+                                  <span>Single-Use One-Time Token</span>
+                                </div>
+                                <p className={`text-[11px] leading-relaxed ${
+                                  isDark ? 'text-zinc-400' : 'text-zinc-600'
+                                }`}>
+                                  Generates a dedicated 2-seat board. Send code or link to your loved one.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={handleGenerateLoveCode}
+                                  disabled={isGeneratingLoveCode}
+                                  className="w-full py-3 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:opacity-95 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-500/20 transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                                >
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                  <span>{isGeneratingLoveCode ? 'Generating...' : 'Generate 1-Time Pass'}</span>
+                                </button>
+                              </div>
+                            ) : (
+                              /* Love Pass Code Display */
+                              <div className="space-y-3">
+                                <div className="text-center">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 block mb-1">
+                                    YOUR 1-TIME PASS CODE
+                                  </span>
+                                  <div className="font-mono text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 tracking-wider">
+                                    {generatedLoveCode}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleCopyLoveCode}
+                                    className={`flex-1 py-2 px-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                                      isDark
+                                        ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                                        : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-800 shadow-xs'
+                                    }`}
+                                  >
+                                    {copiedLoveCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                                    <span>{copiedLoveCode ? 'Copied' : 'Copy Code'}</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCopyLoveLink}
+                                    className={`flex-1 py-2 px-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
+                                      isDark
+                                        ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
+                                        : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-800 shadow-xs'
+                                    }`}
+                                  >
+                                    {copiedLoveLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
+                                    <span>{copiedLoveLink ? 'Copied' : 'Copy Link'}</span>
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => router.push(`/games/ludo?room=${generatedLoveCode}`)}
+                                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                                >
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                  <span>Board Table as Host</span>
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={handleGenerateLoveCode}
+                                  disabled={isGeneratingLoveCode}
+                                  className={`w-full text-center text-[10px] font-medium transition cursor-pointer ${
+                                    isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700'
+                                  }`}
+                                >
+                                  Generate different code
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          /* Tab 2: Join with Code */
+                          <form onSubmit={handleJoinWithLoveCode} className="space-y-3">
+                            <div>
+                              <label className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${
+                                isDark ? 'text-zinc-400' : 'text-zinc-600'
+                              }`}>
+                                Partner's 1-Time Code
+                              </label>
+                              <input
+                                type="text"
+                                value={loveCodeInput}
+                                onChange={e => setLoveCodeInput(e.target.value.toUpperCase())}
+                                placeholder="E.G. LOVE-9A42"
+                                className={`w-full px-3 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/50 ${
+                                  isDark
+                                    ? 'bg-[#14151b] border border-white/10 text-white placeholder-zinc-500 focus:border-rose-500'
+                                    : 'bg-white border border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-rose-500'
+                                }`}
+                              />
+                            </div>
+                            <button
+                              type="submit"
+                              disabled={isJoiningLoveRoom || !loveCodeInput.trim()}
+                              className="w-full py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:opacity-95 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>{isJoiningLoveRoom ? 'Entering Table...' : 'Enter Love Table'}</span>
+                            </button>
+                          </form>
+                        )}
+                      </div>
+
+                      {/* Authentic Cinema Ticket Barcode Strip */}
+                      <div className="pt-4 border-t border-rose-500/15 flex flex-col items-center">
+                        <div className="h-6 flex items-end justify-center gap-0.5 opacity-60 dark:opacity-40">
+                          <span className="w-0.5 h-full bg-current" />
+                          <span className="w-1 h-4/5 bg-current" />
+                          <span className="w-0.5 h-full bg-current" />
+                          <span className="w-1.5 h-full bg-current" />
+                          <span className="w-0.5 h-3/5 bg-current" />
+                          <span className="w-1 h-full bg-current" />
+                          <span className="w-0.5 h-4/5 bg-current" />
+                          <span className="w-2 h-full bg-current" />
+                          <span className="w-0.5 h-full bg-current" />
+                          <span className="w-1 h-3/5 bg-current" />
+                          <span className="w-0.5 h-full bg-current" />
+                          <span className="w-1.5 h-4/5 bg-current" />
+                          <span className="w-0.5 h-full bg-current" />
+                          <span className="w-1 h-full bg-current" />
+                        </div>
+                        <span className="text-[8px] font-mono tracking-widest text-zinc-400 dark:text-zinc-500 mt-1 uppercase">
+                          * STITCHBYTE LOVEDUEL VIP *
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-rose-500/15">
-                    {!generatedLoveCode ? (
+                  {/* BACK SIDE OF PASS: INTIMATE HOUSE RULES & ROMANCE PERKS */}
+                  <div className={`backface-hidden rotate-y-180 absolute inset-0 w-full h-full rounded-3xl border shadow-2xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden transition-colors ${
+                    isDark
+                      ? 'bg-gradient-to-br from-[#1d121c] via-[#16121c] to-[#111218] border-rose-500/30 text-white'
+                      : 'bg-gradient-to-br from-rose-50 via-white to-pink-50 border-rose-300 text-zinc-900'
+                  }`}>
+                    {/* Top Bar on Back */}
+                    <div className="flex items-center justify-between pb-4 border-b border-rose-500/15">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center">
+                          <Heart className="w-4 h-4 fill-current" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm sm:text-base font-black tracking-tight">
+                            Love Duel • House Rules & Perks
+                          </h3>
+                          <span className="text-[10px] font-mono text-zinc-400">
+                            OFFICIAL 2-PLAYER ROYAL ENGAGEMENT
+                          </span>
+                        </div>
+                      </div>
+
                       <button
                         type="button"
-                        onClick={handleGenerateLoveCode}
-                        disabled={isGeneratingLoveCode}
-                        className="w-full py-3 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:opacity-95 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md shadow-rose-500/20 transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                        onClick={() => setIsLovePassFlipped(false)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                          isDark
+                            ? 'bg-white/10 hover:bg-white/20 border-white/15 text-white'
+                            : 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-800'
+                        }`}
                       >
-                        <Sparkles className="w-4 h-4" />
-                        <span>{isGeneratingLoveCode ? 'Generating Code...' : 'Generate 1-Time Love Code'}</span>
+                        <RotateCw className="w-3 h-3" />
+                        <span>Flip Back</span>
                       </button>
-                    ) : (
-                      <div className="space-y-2">
-                        <button
-                          type="button"
-                          onClick={() => router.push(`/games/ludo?room=${generatedLoveCode}`)}
-                          className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
-                        >
-                          <Play className="w-4 h-4 fill-current" />
-                          <span>Enter Table as Host</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleGenerateLoveCode}
-                          disabled={isGeneratingLoveCode}
-                          className={`w-full py-2 text-[11px] font-medium transition text-center ${
-                            isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-800'
-                          }`}
-                        >
-                          Generate a different code
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                {/* SUB-CARD 2: Join Loved One's Table */}
-                <div className={`p-5 sm:p-6 rounded-2xl border flex flex-col justify-between transition-all ${
-                  isDark
-                    ? 'bg-[#0f1015]/80 border-rose-500/20 shadow-lg'
-                    : 'bg-white/90 border-rose-200 shadow-sm'
-                }`}>
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-pink-500/15 border border-pink-500/30 flex items-center justify-center text-pink-500">
-                        <Heart className="w-4 h-4" />
+                    {/* 4 Romance Perks Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 my-auto py-3">
+                      <div className={`p-3.5 rounded-2xl border ${
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center">
+                            <Heart className="w-3.5 h-3.5 fill-current" />
+                          </div>
+                          <span className="text-xs font-bold">1. Intimate 1v1 Arena</span>
+                        </div>
+                        <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                          No 3rd or 4th players - an uninterrupted head-to-head board just for you and your loved one.
+                        </p>
                       </div>
-                      <div>
-                        <h3 className={`text-sm sm:text-base font-bold tracking-tight ${
-                          isDark ? 'text-white' : 'text-zinc-900'
-                        }`}>
-                          Join Your Loved One
-                        </h3>
-                        <p className={`text-[11px] font-medium ${
-                          isDark ? 'text-zinc-400' : 'text-zinc-500'
-                        }`}>
-                          Enter the one-time code they shared with you
+
+                      <div className={`p-3.5 rounded-2xl border ${
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-sky-500/15 text-sky-500 flex items-center justify-center">
+                            <Video className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold">2. Live Reaction PiP</span>
+                        </div>
+                        <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                          A floating video call window lets you share laughter and live reactions while moving pawns.
+                        </p>
+                      </div>
+
+                      <div className={`p-3.5 rounded-2xl border ${
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center">
+                            <Star className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold">3. Star Sanctuaries</span>
+                        </div>
+                        <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                          Pawn safe-zones protect from capture. Take shelter while planning your next loving leap!
+                        </p>
+                      </div>
+
+                      <div className={`p-3.5 rounded-2xl border ${
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-6 h-6 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold">4. Bonus Fortune Turns</span>
+                        </div>
+                        <p className={`text-[11px] leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                          Roll a 6 or capture an opponent pawn to earn an instant bonus roll. Double the drama!
                         </p>
                       </div>
                     </div>
 
-                    <form onSubmit={handleJoinWithLoveCode} className="space-y-3 mt-4">
-                      <label className={`text-xs font-semibold block ${
-                        isDark ? 'text-zinc-300' : 'text-zinc-700'
-                      }`}>
-                        One-Time Love Code
-                      </label>
-                      <input
-                        type="text"
-                        value={loveCodeInput}
-                        onChange={e => setLoveCodeInput(e.target.value.toUpperCase())}
-                        placeholder="E.G. LUDO-LOVE"
-                        className={`w-full px-4 py-3 rounded-xl text-sm font-mono uppercase tracking-widest transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/50 ${
-                          isDark
-                            ? 'bg-[#14151b] border border-white/[0.1] text-white placeholder-zinc-500 focus:border-rose-500'
-                            : 'bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-rose-500 focus:bg-white'
-                        }`}
-                      />
+                    {/* Bottom Authorization strip */}
+                    <div className="pt-3 border-t border-rose-500/15 flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-400 font-mono text-[10px]">
+                        AUTHORIZED BY WATCH. STITCHBYTE GAMING
+                      </span>
                       <button
-                        type="submit"
-                        disabled={isJoiningLoveRoom || !loveCodeInput.trim()}
-                        className="w-full mt-3 py-3 bg-gradient-to-r from-pink-600 to-rose-600 hover:opacity-95 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={() => setIsLovePassFlipped(false)}
+                        className="text-rose-500 hover:text-rose-400 font-bold text-xs flex items-center gap-1 cursor-pointer"
                       >
-                        <Play className="w-4 h-4 fill-current" />
-                        <span>{isJoiningLoveRoom ? 'Entering Table...' : 'Enter Love Table'}</span>
+                        <span>Return to Boarding Pass</span>
+                        <ArrowRight className="w-3 h-3" />
                       </button>
-                    </form>
-                  </div>
-
-                  <div className="mt-5 pt-3 border-t border-rose-500/15 text-center">
-                    <span className={`text-[11px] ${isDark ? 'text-zinc-500' : 'text-zinc-500'}`}>
-                      Only 2 seats per love table. Real-time audio & video available once connected.
-                    </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2912,6 +3354,7 @@ function LudoPageContent() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
