@@ -88,8 +88,8 @@ export default function LandingPage() {
   };
 
   const faqs = [
-    { q: 'What is StitchByte? Is it free?', a: 'StitchByte is 100% free — made for couples and friends to spend time together online. Watch YouTube at the exact same second, talk on live video call, and play real 2-player games. No hidden fees, ever.' },
-    { q: 'Do I need to download anything?', a: 'No download needed. StitchByte runs in any browser (Chrome, Safari, Brave, Firefox) on Android, iPhone, iPad, laptop, or desktop. Just open the link and start.' },
+    { q: 'What is Watch? Is it free?', a: 'Watch is 100% free — made for couples and friends to spend time together online. Watch YouTube at the exact same second, talk on live video call, and play real 2-player games. No hidden fees, ever.' },
+    { q: 'Do I need to download anything?', a: 'No download needed. Watch runs in any browser (Chrome, Safari, Brave, Firefox) on Android, iPhone, iPad, laptop, or desktop. Just open the link and start.' },
     { q: 'How does the video sync work?', a: 'When you click Play or Pause, it instantly syncs on your partner\'s screen at the exact same millisecond. No more "3, 2, 1, press play!"' },
     { q: 'Can strangers enter our room?', a: 'Absolutely not. Every room has a unique secret code. Only people with your exact link can join — fully private.' },
     { q: 'Are the games played with bots?', a: 'Zero-bots policy. Every Ludo and Four-in-a-Row game is played between real humans in real time — directly with your partner or friend.' },
@@ -114,7 +114,10 @@ export default function LandingPage() {
             <div className="p-1.5 bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl text-white shadow-lg shadow-rose-600/30">
               <Film className="w-4 h-4 fill-current" />
             </div>
-            <span className="text-xl font-black tracking-tight text-white">StitchByte<span className="text-rose-500 text-2xl leading-none">.</span></span>
+            <div className="flex flex-col leading-none">
+              <span className="text-xl font-black tracking-tight text-white">Watch<span className="text-rose-500">.</span></span>
+              <span className="text-[9px] font-semibold text-zinc-500 tracking-widest uppercase mt-0.5">Powered by StitchByte</span>
+            </div>
           </div>
 
           <nav className="hidden md:flex items-center space-x-7 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
@@ -200,7 +203,7 @@ export default function LandingPage() {
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70" />
                 <span className="w-2.5 h-2.5 rounded-full bg-pink-500/50" />
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-500/50" />
-                <span className="ml-3 font-mono text-zinc-500 text-[11px]">stitchbyte.com/room/MOVIE-NIGHT</span>
+                <span className="ml-3 font-mono text-zinc-500 text-[11px]">watch.stitchbyte.in/room/MOVIE-NIGHT</span>
               </div>
               <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
@@ -469,10 +472,12 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-white/[0.07] px-4 sm:px-8 py-8 bg-[#0a060a] text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-2">
-            <div className="p-1 bg-gradient-to-br from-rose-600 to-pink-600 rounded-lg text-white"><Film className="w-3.5 h-3.5 fill-current" /></div>
-            <span className="font-black text-white text-sm">StitchByte<span className="text-rose-500">.</span></span>
+            <div className="flex flex-col leading-none">
+              <span className="font-black text-white text-sm">Watch<span className="text-rose-500">.</span></span>
+              <span className="text-[8px] font-semibold text-zinc-600 tracking-widest uppercase mt-0.5">Powered by StitchByte</span>
+            </div>
             <span className="text-zinc-700">|</span>
-            <span>Watch Together & Play Games Online</span>
+            <span>Watch Together &amp; Play Games Online</span>
           </div>
           <div className="flex items-center space-x-6 text-[11px] font-semibold text-zinc-500">
             <button onClick={() => router.push('/dashboard')} className="hover:text-white transition-colors">Dashboard</button>
@@ -480,7 +485,7 @@ export default function LandingPage() {
             <button onClick={() => router.push('/games/four-in-a-row')} className="hover:text-white transition-colors">Four in a Row</button>
             <button onClick={() => setIsAuthModalOpen(true)} className="hover:text-white transition-colors">Sign In</button>
           </div>
-          <div className="text-[11px] text-zinc-700">© {new Date().getFullYear()} StitchByte. 100% Free for couples and friends.</div>
+          <div className="text-[11px] text-zinc-700">© {new Date().getFullYear()} Watch · Powered by StitchByte. 100% Free for couples and friends.</div>
         </div>
       </footer>
 

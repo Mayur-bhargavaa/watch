@@ -15,7 +15,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  title = 'Sign In to StitchByte Cinema',
+  title = 'Sign In to Watch',
   subtitle = 'Login or create an account to start watch parties, launch games, and sync with friends.'
 }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -72,7 +72,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold mb-3">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-            STITCHBYTE CINEMA & LOUNGE
+            WATCH · POWERED BY STITCHBYTE
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-white">{title}</h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">{subtitle}</p>
@@ -177,7 +177,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <svg className="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            Session activity securely synchronized to StitchByte Cloud Cluster
+            Session activity securely synchronized
           </p>
         </div>
       </div>

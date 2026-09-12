@@ -238,7 +238,7 @@ export function ContextualChat({
               watch.
             </span>
             <span className="text-[7.5px] font-semibold tracking-wider text-zinc-400/80 uppercase select-none mt-0.5">
-              stitchbyte watchparty
+              watch · stitchbyte
             </span>
           </div>
 
@@ -571,7 +571,7 @@ export function ContextualChat({
         {/* Bottom subtle watermark */}
         <div className="text-center pt-0.5">
           <span className="text-[7.5px] font-semibold tracking-widest text-zinc-500/70 uppercase select-none">
-            stitchbyte watchparty
+            watch · stitchbyte
           </span>
         </div>
       </div>

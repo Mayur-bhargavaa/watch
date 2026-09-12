@@ -56,9 +56,10 @@ export default function GamesPage() {
             <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-lg shadow-rose-600/30">
               <Film className="w-4 h-4 fill-current" />
             </div>
-            <span className="text-lg font-black tracking-tight text-white">
-              StitchByte<span className="text-rose-600 text-xl leading-none">.</span>
-            </span>
+            <div className="flex flex-col leading-none">
+              <span className="text-lg font-black tracking-tight text-white">Watch<span className="text-rose-600 text-xl leading-none">.</span></span>
+              <span className="text-[9px] font-semibold text-zinc-500 tracking-widest uppercase mt-0.5">Powered by StitchByte</span>
+            </div>
           </div>
         </div>
 

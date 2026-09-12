@@ -71,10 +71,10 @@ export function LandingComparisonTable() {
           <span>Architectural Superiority</span>
         </div>
         <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-          How StitchByte Cinema Compares
+          How Watch Compares
         </h3>
         <p className="text-xs sm:text-sm text-zinc-400 max-w-xl mx-auto">
-          See why couples, movie clubs, and gaming squads choose StitchByte Cinema over legacy screen-sharing and browser extensions.
+          See why couples, movie clubs, and gaming squads choose Watch over legacy screen-sharing and browser extensions.
         </p>
       </div>
 
@@ -84,7 +84,7 @@ export function LandingComparisonTable() {
             <tr className="border-b border-white/10 text-zinc-400">
               <th className="py-4 px-4 font-semibold text-zinc-300 w-1/3">Capability</th>
               <th className="py-4 px-4 font-bold text-emerald-400 bg-emerald-500/[0.07] rounded-t-xl">
-                StitchByte Cinema
+                Watch
               </th>
               <th className="py-4 px-4 font-medium">Teleparty</th>
               <th className="py-4 px-4 font-medium">Discord Screenshare</th>

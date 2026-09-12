@@ -91,7 +91,7 @@ export function LandingHeroStage() {
             </div>
             <div className="hidden sm:flex items-center space-x-1.5 text-xs text-zinc-300 font-medium bg-black/40 backdrop-blur px-3 py-1 rounded-full border border-white/10">
               <Sparkles className="w-3 h-3 text-amber-400" />
-              <span>StitchByte Cinema Room #812</span>
+              <span>Watch Room #812</span>
             </div>
           </div>
 

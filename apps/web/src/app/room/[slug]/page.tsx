@@ -484,7 +484,7 @@ export default function RoomPage() {
             <div className="flex items-center space-x-2.5">
               <div className="flex flex-col leading-none">
                 <span className="text-base sm:text-lg font-black tracking-tighter text-[#E50914] select-none">watch.</span>
-                <span className="text-[7.5px] font-semibold tracking-wider text-zinc-400/80 uppercase select-none mt-0.5">stitchbyte watchparty</span>
+                <span className="text-[7.5px] font-semibold tracking-wider text-zinc-400/80 uppercase select-none mt-0.5">watch · stitchbyte</span>
               </div>
               <span className="text-zinc-600 text-sm hidden sm:inline">/</span>
               <span className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate max-w-[130px] sm:max-w-[280px]">

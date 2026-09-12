@@ -11,7 +11,7 @@ interface FAQItem {
 const FAQ_ITEMS: FAQItem[] = [
   {
     question: 'Do my friends need to install any Chrome extensions or create accounts?',
-    answer: 'Zero extensions and zero app downloads required. StitchByte Cinema runs 100% in the modern web browser. When you create a party and share the link, your friends simply click it, type a nickname, and instantly drop right into the theater in less than 3 seconds.'
+    answer: 'Zero extensions and zero app downloads required. Watch runs 100% in the modern web browser. When you create a party and share the link, your friends simply click it, type a nickname, and instantly drop right into the theater in less than 3 seconds.'
   },
   {
     question: 'How does the sub-second sync engine work without stuttering or audio pitch-shifts?',
@@ -26,8 +26,8 @@ const FAQ_ITEMS: FAQItem[] = [
     answer: 'Yes. Video facecams and voice streams use encrypted peer-to-peer WebRTC mesh connections directly between participant browsers. Media data never passes through intermediate recording servers, ensuring strict privacy and end-to-end security.'
   },
   {
-    question: 'Can we use StitchByte Cinema on Mac, Windows, iPad, and mobile phones?',
-    answer: 'Yes! Because StitchByte Cinema is built on modern Web standards (HTML5 video, WebRTC, WebSockets), it works seamlessly across Chrome, Safari, Firefox, Edge, iOS Safari, and Android Chrome.'
+    question: 'Can we use Watch on Mac, Windows, iPad, and mobile phones?',
+    answer: 'Yes! Because Watch is built on modern Web standards (HTML5 video, WebRTC, WebSockets), it works seamlessly across Chrome, Safari, Firefox, Edge, iOS Safari, and Android Chrome.'
   },
   {
     question: 'How many friends can join a single viewing room?',
@@ -53,7 +53,7 @@ export function LandingFAQ() {
           Frequently Asked Questions
         </h3>
         <p className="text-xs sm:text-sm text-zinc-400">
-          Everything you need to know about setting up and streaming on StitchByte Cinema.
+          Everything you need to know about setting up and streaming on Watch.
         </p>
       </div>
 

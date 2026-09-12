@@ -49,7 +49,7 @@ function extractYouTubeId(urlOrId: string): string | null {
   return match ? match[1] : null;
 }
 
-// REAL Curated YouTube Videos for StitchByte Platform (With verified real YouTube IDs and thumbnails)
+// REAL Curated YouTube Videos for Watch Platform (With verified real YouTube IDs and thumbnails)
 const REAL_YOUTUBE_HEROES = [
   {
     id: 'interstellar',
@@ -436,7 +436,7 @@ export default function DashboardPage() {
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      const roomTitle = title?.trim() || `${session.user.displayName || 'StitchByte'}'s Watch Party`;
+      const roomTitle = title?.trim() || `${session.user.displayName || 'StitchByte'}Watch Party`;
       const roomUrl = sourceUrl?.trim() || 'https://www.netflix.com/browse';
 
       const data = await createPartyRoom({
@@ -465,7 +465,7 @@ export default function DashboardPage() {
       setRedirectCountdown(3);
       setIsSubmitting(false);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to start StitchByte party');
+      setErrorMsg(err.message || 'Failed to start Watch party');
       setIsSubmitting(false);
     }
   };
@@ -526,7 +526,7 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-[#111217] flex flex-col items-center justify-center space-y-4 text-white">
         <div className="w-10 h-10 border-3 border-rose-600 border-t-transparent rounded-full animate-spin" />
         <div className="text-xs font-semibold text-zinc-400 tracking-wider">
-          Connecting to StitchByte Cinema...
+          Connecting to Watch...
         </div>
       </div>
     );
@@ -550,9 +550,10 @@ export default function DashboardPage() {
             <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-lg shadow-rose-600/30">
               <Film className="w-4 h-4 fill-current" />
             </div>
-            <span className="text-xl font-black tracking-tight text-white">
-              StitchByte<span className="text-rose-600 text-2xl leading-none">.</span>
-            </span>
+            <div className="flex flex-col leading-none">
+              <span className="text-xl font-black tracking-tight text-white">Watch<span className="text-rose-600 text-2xl leading-none">.</span></span>
+              <span className="text-[9px] font-semibold text-zinc-500 tracking-widest uppercase mt-0.5">Powered by StitchByte</span>
+            </div>
           </div>
 
           {/* Navigation Groups */}
@@ -684,7 +685,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <button
-            onClick={() => handleDirectCreateRoom('StitchByte Watch Party')}
+            onClick={() => handleDirectCreateRoom('Watch Party')}
             className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-rose-600/20 flex items-center justify-center space-x-1.5 active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -743,7 +744,7 @@ export default function DashboardPage() {
             ) : (
               <button
                 type="button"
-                onClick={() => handleDirectCreateRoom('StitchByte Watch Party')}
+                onClick={() => handleDirectCreateRoom('Watch Party')}
                 title="Create Instant Watch Party"
                 className="text-zinc-400 hover:text-white p-1 ml-1"
               >
@@ -826,7 +827,7 @@ export default function DashboardPage() {
                     className="px-6 py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center space-x-2 active:scale-95 disabled:opacity-50"
                   >
                     <Play className="w-4 h-4 fill-current" />
-                    <span>{isSubmitting ? 'Creating Room...' : 'Watch on StitchByte'}</span>
+                    <span>{isSubmitting ? 'Creating Room...' : 'Start Watching'}</span>
                   </button>
 
                   <button
@@ -991,7 +992,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-zinc-500">
-                      <span>Synchronized on StitchByte</span>
+                      <span>Synchronized</span>
                       <span className="text-rose-400 font-bold group-hover:translate-x-0.5 transition">
                         Watch →
                       </span>
@@ -1027,7 +1028,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => handleDirectCreateRoom('StitchByte Watch Party')}
+                    onClick={() => handleDirectCreateRoom('Watch Party')}
                     className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition shrink-0"
                   >
                     + Start a Watch Party
@@ -1209,7 +1210,7 @@ export default function DashboardPage() {
               </div>
 
               <button
-                onClick={() => handleDirectCreateRoom('StitchByte Watch Party')}
+                onClick={() => handleDirectCreateRoom('Watch Party')}
                 className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center space-x-2 self-start sm:self-auto active:scale-95"
               >
                 <Plus className="w-4 h-4" />
@@ -1230,7 +1231,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => handleDirectCreateRoom('StitchByte Watch Party')}
+                  onClick={() => handleDirectCreateRoom('Watch Party')}
                   className="px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-600/30 transition"
                 >
                   Create My First Room
@@ -1385,7 +1386,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-zinc-500">
-                    <span>Synchronized on StitchByte</span>
+                    <span>Synchronized</span>
                     <span className="text-rose-400 font-bold group-hover:translate-x-0.5 transition">
                       Watch →
                     </span>
@@ -1437,7 +1438,7 @@ export default function DashboardPage() {
               </div>
               <h3 className="text-xl font-black text-white">{createdRoomInfo.title} is Ready</h3>
               <p className="text-xs text-zinc-400 mt-1">
-                Share this link with up to 6 friends to watch together on StitchByte.
+                Share this link to watch together.
               </p>
             </div>
 

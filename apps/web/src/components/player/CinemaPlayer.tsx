@@ -320,7 +320,7 @@ export function CinemaPlayer({
         {/* Subtle Brand Watermark */}
         <div className="absolute top-3.5 right-4 pointer-events-none select-none z-20 flex flex-col items-end opacity-35 hover:opacity-70 transition-opacity">
           <span className="text-[11px] font-black tracking-tighter text-[#E50914] leading-none">watch.</span>
-          <span className="text-[7px] font-semibold tracking-widest text-white/70 uppercase mt-0.5">stitchbyte watchparty</span>
+          <span className="text-[7px] font-semibold tracking-widest text-white/70 uppercase mt-0.5">watch · stitchbyte</span>
         </div>
 
         {screenStream ? (

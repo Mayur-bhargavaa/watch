@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SyncCinema — Watch Together, Even When Apart',
-  description: 'The real-time social synchronization layer for digital entertainment.',
+  title: 'Watch — Watch Together, Play Together',
+  description: 'Watch YouTube in perfect sync, play 2-player games, and video call together — all in one private room. Powered by StitchByte.',
 };
 
 export default function RootLayout({
