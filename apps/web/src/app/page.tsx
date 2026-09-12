@@ -22,12 +22,10 @@ import {
   X
 } from 'lucide-react';
 import { getStoredSession, clearStoredSession, UserSession } from '../lib/api';
-import { AuthModal } from '../components/auth/AuthModal';
 
 export default function LandingPage() {
   const router = useRouter();
   const [session, setSession] = useState<UserSession | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [activeStep, setActiveStep] = useState<number>(0);
   const [selectedAvatar, setSelectedAvatar] = useState<string>('🐻');
@@ -46,20 +44,13 @@ export default function LandingPage() {
     setSession(stored);
   }, [router]);
 
-  const handleAuthSuccess = (newSession: UserSession) => {
-    setSession(newSession);
-    setIsAuthModalOpen(false);
-    const search = typeof window !== 'undefined' ? window.location.search : '';
-    router.push(`/dashboard${search}`);
-  };
-
   const handleGetStarted = () => {
     const current = getStoredSession();
     const search = typeof window !== 'undefined' ? window.location.search : '';
     if (current && !current.user.isAnonymous) {
       router.push(`/dashboard${search}`);
     } else {
-      setIsAuthModalOpen(true);
+      router.push('/login?tab=signup');
     }
   };
 
@@ -68,7 +59,7 @@ export default function LandingPage() {
     if (current && !current.user.isAnonymous) {
       router.push(gamePath);
     } else {
-      setIsAuthModalOpen(true);
+      router.push(`/login?redirect=${encodeURIComponent(gamePath)}`);
     }
   };
 
@@ -231,7 +222,7 @@ export default function LandingPage() {
             ) : (
               <div className="flex flex-row items-center space-x-1.5 sm:space-x-2">
                 <button
-                  onClick={() => setIsAuthModalOpen(true)}
+                  onClick={() => router.push('/login')}
                   className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-zinc-100 hover:bg-zinc-200 text-xs font-bold text-zinc-800 rounded-xl border border-zinc-200 transition whitespace-nowrap"
                 >
                   Sign In
@@ -1174,7 +1165,7 @@ export default function LandingPage() {
             <button onClick={() => handlePlayGame('/games/four-in-a-row')} className="hover:text-zinc-950 transition">
               Four in a Row
             </button>
-            <button onClick={() => setIsAuthModalOpen(true)} className="hover:text-zinc-950 transition">
+            <button onClick={() => router.push('/login')} className="hover:text-zinc-950 transition">
               Sign In
             </button>
           </div>
@@ -1184,13 +1175,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
     </div>
   );
 }
