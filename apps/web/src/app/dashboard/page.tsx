@@ -532,6 +532,19 @@ export default function DashboardPage() {
     }, 900);
   };
 
+  // Helper to ensure the user's selected Bitmoji renders as a standing torso with transparent background
+  const getStandingBitmojiUrl = (url?: string) => {
+    if (!url) {
+      return 'https://api.dicebear.com/7.x/avataaars/svg?seed=watch_dcu82&skinColor=edb98a&top=shortCurly&hairColor=4a312c&accessoriesProbability=0&clothing=blazerAndShirt&clothesColor=25557c&eyes=wink&mouth=smile';
+    }
+    if (url.startsWith('/avatars/')) {
+      return url;
+    }
+    return url
+      .replace(/[?&]radius=[^&]+/g, '')
+      .replace(/[?&]backgroundColor=[^&]+/g, '');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#111217] flex flex-col items-center justify-center space-y-4 text-white">
@@ -816,11 +829,7 @@ export default function DashboardPage() {
               {/* Standing Character Stage */}
               <div className="relative w-10 h-12 -my-2 rounded-t-2xl rounded-b-md overflow-hidden bg-gradient-to-b from-zinc-900 to-black border border-[#d2281e]/60 shadow-md shrink-0 flex flex-col items-center justify-end">
                 <img
-                  src={
-                    session?.user.avatarUrl
-                      ? session.user.avatarUrl.replace('radius=50', 'radius=0')
-                      : '/avatars/standing_heart.png'
-                  }
+                  src={getStandingBitmojiUrl(session?.user.avatarUrl)}
                   alt={session?.user.displayName || 'Avatar'}
                   className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-110"
                 />
@@ -854,59 +863,38 @@ export default function DashboardPage() {
         {/* VIEW 1: BROWSE CINEMA                                                     */}
         {/* ========================================================================= */}
         {activeNav === 'browse' && (
-          <div className="space-y-8 animate-fadeIn">
-            {/* Featured IMAX Hero Banner */}
-            <div className="relative rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl h-[360px] sm:h-[420px] flex flex-col justify-end p-6 sm:p-10">
-              <img
-                src={activeHero.bgThumbnail}
-                alt={activeHero.title}
-                className="absolute inset-0 w-full h-full object-cover opacity-60 transition duration-700 ease-out scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/50 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/60 to-transparent" />
-
-              {/* 3D Standing Character VIP Booth at Hero Right Top (Matches user reference) */}
-              <Link
-                href="/profile"
-                className="absolute top-4 sm:top-6 right-4 sm:right-8 z-20 group flex flex-col items-end cursor-pointer transition-all duration-300 hover:scale-105"
-                title="Your 3D Standing Persona • Click to edit"
-              >
-                {/* Live Cinema VIP Host badge */}
-                <div className="mb-2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[10px] font-bold text-white shadow-xl group-hover:border-[#d2281e]/80 transition">
-                  <span className="w-2 h-2 rounded-full bg-[#d2281e] animate-pulse" />
-                  <span className="truncate max-w-[110px]">{session?.user.displayName || 'Cinema Host'}</span>
-                  <span className="text-[#d2281e] text-[9px] font-extrabold uppercase tracking-wider hidden sm:inline">• VIP Booth</span>
-                </div>
-
-                {/* Standing Character Booth Container with Folded Arms & Glowing Heart */}
-                <div className="relative w-24 h-32 sm:w-28 sm:h-36 rounded-t-3xl rounded-b-xl overflow-hidden bg-gradient-to-b from-zinc-900/95 via-black/90 to-zinc-950 border-2 border-white/20 shadow-2xl shadow-black/90 flex flex-col items-center justify-end group-hover:border-[#d2281e] transition-all">
-                  
-                  {/* Cinema ambient spotlight glow */}
-                  <div className="absolute top-2 inset-x-0 h-20 bg-[#d2281e]/25 blur-xl rounded-full pointer-events-none" />
-
-                  {/* Standing Character Figure (Arms resting over counter) */}
-                  <img
-                    src={
-                      session?.user.avatarUrl
-                        ? session.user.avatarUrl.replace('radius=50', 'radius=0')
-                        : '/avatars/standing_heart.png'
-                    }
-                    alt={session?.user.displayName || 'Standing 3D Character'}
-                    className="w-full h-full object-cover object-bottom transition-transform duration-500 group-hover:scale-110"
-                  />
-
-                  {/* Illuminated VIP Balcony / Counter Ledge matching user reference image */}
-                  <div className="relative z-10 w-full h-3 bg-gradient-to-r from-zinc-900 via-[#d2281e] to-zinc-900 border-t border-[#d2281e] shadow-[0_0_12px_rgba(210,40,30,0.8)] flex items-center justify-center">
-                    <div className="w-10 h-0.5 bg-white/70 rounded-full" />
+          <div className="space-y-8 animate-fadeIn pt-4 sm:pt-6">
+            {/* Featured IMAX Hero Banner with User's Selected Bitmoji Standing on Top of the Border Right Side */}
+            <div className="relative">
+              {/* Selected Bitmoji standing right on top of the card's upper border on the right */}
+              <div className="absolute -top-16 sm:-top-20 right-8 sm:right-16 z-20 pointer-events-auto select-none group">
+                <Link
+                  href="/profile"
+                  className="block transition-transform duration-300 hover:scale-110 active:scale-95"
+                  title={`${session?.user.displayName || 'Your'} Bitmoji • Click to customize in Profile`}
+                >
+                  <div className="relative flex flex-col items-center">
+                    {/* Selected Bitmoji Torso (Transparent background, flat bottom resting on top border) */}
+                    <img
+                      src={getStandingBitmojiUrl(session?.user.avatarUrl)}
+                      alt={session?.user.displayName || 'Selected Bitmoji'}
+                      className="h-20 sm:h-24 w-auto object-contain drop-shadow-[0_12px_24px_rgba(0,0,0,0.9)] filter"
+                    />
+                    {/* Glowing pure #d2281e perch highlight grounding it on top of the border */}
+                    <div className="w-14 sm:w-16 h-[2.5px] bg-gradient-to-r from-transparent via-[#d2281e] to-transparent shadow-[0_0_8px_rgba(210,40,30,0.9)] -mt-[1px]" />
                   </div>
-                </div>
+                </Link>
+              </div>
 
-                {/* Tooltip on hover */}
-                <span className="mt-1.5 text-[9px] font-bold text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2.5 py-0.5 rounded-md backdrop-blur-sm border border-white/10 flex items-center gap-1 shadow-md">
-                  <span>Standing in Cinema</span>
-                  <span className="text-[#d2281e]">★</span>
-                </span>
-              </Link>
+              {/* Featured IMAX Hero Banner Card */}
+              <div className="relative rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl h-[340px] sm:h-[400px] flex flex-col justify-end p-6 sm:p-10">
+                <img
+                  src={activeHero.bgThumbnail}
+                  alt={activeHero.title}
+                  className="absolute inset-0 w-full h-full object-cover opacity-60 transition duration-700 ease-out scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/50 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/60 to-transparent" />
 
               <div className="relative z-10 max-w-xl space-y-3">
                 <div className="flex items-center space-x-2">
@@ -983,8 +971,9 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Multi-Platform Co-Watching Shortcuts (Netflix, Prime, Disney, YouTube) */}
+          {/* Multi-Platform Co-Watching Shortcuts (Netflix, Prime, Disney, YouTube) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-white">Stream Any Platform Together</h2>

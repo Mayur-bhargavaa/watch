@@ -249,8 +249,8 @@ function ProfileContent() {
                 <img
                   src={
                     session.user.avatarUrl
-                      ? session.user.avatarUrl.replace('radius=50', 'radius=0')
-                      : '/avatars/standing_heart.png'
+                      ? session.user.avatarUrl.replace(/[?&]radius=[^&]+/g, '').replace(/[?&]backgroundColor=[^&]+/g, '')
+                      : '/avatars/standing_heart_transparent@2x.png'
                   }
                   alt={session.user.displayName || 'Persona'}
                   className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-105"
