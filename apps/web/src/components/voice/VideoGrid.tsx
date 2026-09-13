@@ -60,7 +60,7 @@ export function getParticipantColor(index: number): string {
   return getParticipantAvatarColor(index);
 }
 
-export function VideoGrid({
+export const VideoGrid = React.memo(function VideoGrid({
   participants,
   onCopyInvite,
   copiedInvite,
@@ -103,7 +103,7 @@ export function VideoGrid({
       )}
     </div>
   );
-}
+});
 
 const MemoizedVideoTile = React.memo(function VideoTile({
   participant,

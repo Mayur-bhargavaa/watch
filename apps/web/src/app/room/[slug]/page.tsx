@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   WifiOff,
@@ -109,6 +109,136 @@ function AudioSink({ stream }: { stream: MediaStream | null }) {
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
 }
 
+interface RoomChatInputBarProps {
+  replyingTo: ChatReplyTo | null;
+  onClearReply: () => void;
+  onSendMessage: (content: string, replyTo?: ChatReplyTo | null) => void;
+  chatInputRef: React.RefObject<HTMLInputElement>;
+  chatContainerRef: React.RefObject<HTMLDivElement>;
+  isUserScrolledUpRef: React.MutableRefObject<boolean>;
+}
+
+const RoomChatInputBar = React.memo(function RoomChatInputBar({
+  replyingTo,
+  onClearReply,
+  onSendMessage,
+  chatInputRef,
+  chatContainerRef,
+  isUserScrolledUpRef
+}: RoomChatInputBarProps) {
+  const [chatInput, setChatInput] = useState('');
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    onSendMessage(chatInput.trim(), replyingTo);
+    setChatInput('');
+    onClearReply();
+    isUserScrolledUpRef.current = false;
+    setTimeout(() => {
+      chatContainerRef.current?.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }, 50);
+  };
+
+  return (
+    <>
+      {/* Quick Chat Phrases Pills */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        {['Good Luck! 🍀', 'Nice Move! 👏', 'Oops! 🙈', 'Well Played! 🌟', 'Hurry Up! ⏰', 'GG! 🏆'].map(text => (
+          <button
+            key={text}
+            type="button"
+            onClick={() => onSendMessage(text, replyingTo)}
+            className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-rose-500/20 active:scale-95 text-rose-200 hover:text-white text-[11px] font-semibold border border-white/10 hover:border-rose-400/40 whitespace-nowrap transition-all shrink-0 shadow-sm"
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+
+      {/* Chat Input Bar with stickers, smiley and pink send button */}
+      <div className="relative pt-1 shrink-0">
+        {/* Floating Sticker Picker Tray */}
+        {showStickerPicker && (
+          <div className="absolute bottom-14 right-0 z-50 animate-in fade-in zoom-in-95 duration-150">
+            <StickerPicker
+              onSelectSticker={(stickerIdOrUrl, caption) => {
+                onSendMessage(formatStickerMessage(stickerIdOrUrl, caption), replyingTo);
+                setShowStickerPicker(false);
+                onClearReply();
+              }}
+              onClose={() => setShowStickerPicker(false)}
+            />
+          </div>
+        )}
+
+        {/* Replying-to Preview Bar */}
+        {replyingTo && (
+          <ChatReplyingBanner
+            replyingTo={replyingTo}
+            onCancel={onClearReply}
+            accentColor="rose"
+          />
+        )}
+
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+          <div className="flex-1 relative flex items-center">
+            <input
+              ref={chatInputRef}
+              type="text"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Escape' && replyingTo) {
+                  onClearReply();
+                }
+              }}
+              placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Type a message or send stickers..."}
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-rose-500/30 rounded-2xl text-xs text-white placeholder-rose-300/40 focus:outline-none focus:border-rose-400 pr-16 backdrop-blur-sm"
+            />
+
+            {/* Stickers Button */}
+            <button
+              type="button"
+              onClick={() => setShowStickerPicker(prev => !prev)}
+              className={`absolute right-8 p-1 rounded-lg transition ${
+                showStickerPicker
+                  ? 'text-amber-400 bg-amber-400/20'
+                  : 'text-rose-300/70 hover:text-amber-300'
+              }`}
+              title="Send stickers"
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+
+            {/* Smile Emoji */}
+            <button
+              type="button"
+              onClick={() => setChatInput(prev => `${prev} 😊`)}
+              className="absolute right-2.5 text-rose-300/70 hover:text-white transition"
+              title="Add Smile"
+            >
+              <Smile className="w-4 h-4" />
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            className="p-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl text-xs font-bold transition shadow-md shadow-rose-900/50 active:scale-95 shrink-0 cursor-pointer"
+            title="Send message"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </form>
+      </div>
+    </>
+  );
+});
+
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -187,9 +317,11 @@ export default function RoomPage() {
   const [countdownActive, setCountdownActive] = useState(false);
   const [sideSection, setSideSection] = useState<'chat' | 'games'>('chat');
   const [activeSideTab, setActiveSideTab] = useState<'chat' | 'games' | 'call' | 'players'>('chat');
-  const [chatInput, setChatInput] = useState('');
-  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [replyingTo, setReplyingTo] = useState<ChatReplyTo | null>(null);
+  const handleClearReply = useCallback(() => setReplyingTo(null), []);
+  const handleSendChatMessage = useCallback((content: string, replyTo?: ChatReplyTo | null) => {
+    sendChatMessage(content, Math.floor(getAuthoritativePosition()), replyTo);
+  }, [sendChatMessage, getAuthoritativePosition]);
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
@@ -388,35 +520,37 @@ export default function RoomPage() {
   };
 
   // Map real connected members to participant streams for the VideoGrid (100% real members)
-  const gridParticipants = activeMembers.map((member) => {
-    const isSelf = member.userId === myUserId;
-    const rtcParticipant = videoGridParticipants.find((p) => p.userId === member.userId || (isSelf && p.isSelf));
-    const selfStream = localUserStream;
-    const peerStream = rtcParticipant?.stream || null;
-    const stream = isSelf ? selfStream : peerStream;
+  const gridParticipants = useMemo(() => {
+    return activeMembers.map((member) => {
+      const isSelf = member.userId === myUserId;
+      const rtcParticipant = videoGridParticipants.find((p) => p.userId === member.userId || (isSelf && p.isSelf));
+      const selfStream = localUserStream;
+      const peerStream = rtcParticipant?.stream || null;
+      const stream = isSelf ? selfStream : peerStream;
 
-    const cameraFlag = isSelf ? isCameraOn : remoteCameraStates.get(member.userId);
-    const hasLiveVideoTrack = Boolean(
-      stream &&
-      stream.getVideoTracks().length > 0 &&
-      stream.getVideoTracks().some((t) => t.enabled && t.readyState === 'live' && !t.muted)
-    );
+      const cameraFlag = isSelf ? isCameraOn : remoteCameraStates.get(member.userId);
+      const hasLiveVideoTrack = Boolean(
+        stream &&
+        stream.getVideoTracks().length > 0 &&
+        stream.getVideoTracks().some((t) => t.enabled && t.readyState === 'live' && !t.muted)
+      );
 
-    const peerCameraOn = isSelf
-      ? isCameraOn
-      : (cameraFlag === true || (cameraFlag !== false && hasLiveVideoTrack));
+      const peerCameraOn = isSelf
+        ? isCameraOn
+        : (cameraFlag === true || (cameraFlag !== false && hasLiveVideoTrack));
 
-    return {
-      userId: member.userId,
-      displayName: isSelf ? `${member.displayName}` : member.displayName,
-      stream,
-      isCameraOn: peerCameraOn,
-      isMuted: isSelf ? isMicMuted : (rtcParticipant?.isMuted ?? member.isMuted ?? false),
-      isSpeaking: rtcParticipant?.isSpeaking ?? false,
-      isSelf,
-      isHost: member.role === 'HOST' || (isHost && isSelf)
-    };
-  });
+      return {
+        userId: member.userId,
+        displayName: isSelf ? `${member.displayName}` : member.displayName,
+        stream,
+        isCameraOn: peerCameraOn,
+        isMuted: isSelf ? isMicMuted : (rtcParticipant?.isMuted ?? member.isMuted ?? false),
+        isSpeaking: rtcParticipant?.isSpeaking ?? false,
+        isSelf,
+        isHost: member.role === 'HOST' || (isHost && isSelf)
+      };
+    });
+  }, [activeMembers, myUserId, videoGridParticipants, localUserStream, isCameraOn, remoteCameraStates, isMicMuted, isHost]);
 
   if (error) {
     return (
@@ -830,111 +964,14 @@ export default function RoomPage() {
                     ))}
                   </div>
 
-                  {/* Quick Chat Phrases Pills */}
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                    {['Good Luck! 🍀', 'Nice Move! 👏', 'Oops! 🙈', 'Well Played! 🌟', 'Hurry Up! ⏰', 'GG! 🏆'].map(text => (
-                      <button
-                        key={text}
-                        type="button"
-                        onClick={() => sendChatMessage(text, Math.floor(currentPos), replyingTo)}
-                        className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-rose-500/20 active:scale-95 text-rose-200 hover:text-white text-[11px] font-semibold border border-white/10 hover:border-rose-400/40 whitespace-nowrap transition-all shrink-0 shadow-sm"
-                      >
-                        {text}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Chat Input Bar with stickers, smiley and pink send button */}
-                <div className="relative pt-1 shrink-0">
-                  {/* Floating Sticker Picker Tray */}
-                  {showStickerPicker && (
-                    <div className="absolute bottom-14 right-0 z-50 animate-in fade-in zoom-in-95 duration-150">
-                      <StickerPicker
-                        onSelectSticker={(stickerIdOrUrl, caption) => {
-                          sendChatMessage(formatStickerMessage(stickerIdOrUrl, caption), Math.floor(currentPos), replyingTo);
-                          setShowStickerPicker(false);
-                          setReplyingTo(null);
-                        }}
-                        onClose={() => setShowStickerPicker(false)}
-                      />
-                    </div>
-                  )}
-
-                  {/* Replying-to Preview Bar */}
-                  {replyingTo && (
-                    <ChatReplyingBanner
-                      replyingTo={replyingTo}
-                      onCancel={() => setReplyingTo(null)}
-                      accentColor="rose"
-                    />
-                  )}
-
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (!chatInput.trim()) return;
-                      sendChatMessage(chatInput.trim(), Math.floor(currentPos), replyingTo);
-                      setChatInput('');
-                      setReplyingTo(null);
-                      isUserScrolledUpRef.current = false;
-                      setTimeout(() => {
-                        chatContainerRef.current?.scrollTo({
-                          top: chatContainerRef.current.scrollHeight,
-                          behavior: 'smooth'
-                        });
-                      }, 50);
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <div className="flex-1 relative flex items-center">
-                      <input
-                        ref={chatInputRef}
-                        type="text"
-                        value={chatInput}
-                        onChange={e => setChatInput(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Escape' && replyingTo) {
-                            setReplyingTo(null);
-                          }
-                        }}
-                        placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Type a message or send stickers..."}
-                        className="w-full px-3.5 py-2.5 bg-black/40 border border-rose-500/30 rounded-2xl text-xs text-white placeholder-rose-300/40 focus:outline-none focus:border-rose-400 pr-16 backdrop-blur-sm"
-                      />
-
-                      {/* Stickers Button */}
-                      <button
-                        type="button"
-                        onClick={() => setShowStickerPicker(prev => !prev)}
-                        className={`absolute right-8 p-1 rounded-lg transition ${
-                          showStickerPicker
-                            ? 'text-amber-400 bg-amber-400/20'
-                            : 'text-rose-300/70 hover:text-amber-300'
-                        }`}
-                        title="Send stickers"
-                      >
-                        <Sparkles className="w-4 h-4" />
-                      </button>
-
-                      {/* Smile Emoji */}
-                      <button
-                        type="button"
-                        onClick={() => setChatInput(prev => `${prev} 😊`)}
-                        className="absolute right-2.5 text-rose-300/70 hover:text-white transition"
-                        title="Add Smile"
-                      >
-                        <Smile className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="p-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white rounded-2xl text-xs font-bold transition shadow-md shadow-rose-900/50 active:scale-95 shrink-0 cursor-pointer"
-                      title="Send message"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>
+                  <RoomChatInputBar
+                    replyingTo={replyingTo}
+                    onClearReply={handleClearReply}
+                    onSendMessage={handleSendChatMessage}
+                    chatInputRef={chatInputRef}
+                    chatContainerRef={chatContainerRef}
+                    isUserScrolledUpRef={isUserScrolledUpRef}
+                  />
                 </div>
               </>
             )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import {
   MediaItem,
   RoomPlaybackState,
@@ -73,7 +73,7 @@ interface CinemaPlayerProps {
   onStartParty?: () => void;
 }
 
-export function CinemaPlayer({
+export const CinemaPlayer = memo(function CinemaPlayer({
   media,
   playbackState,
   isHost,
@@ -702,5 +702,5 @@ export function CinemaPlayer({
       )}
     </div>
   );
-}
+});
 

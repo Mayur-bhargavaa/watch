@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import { RoomPlaybackState, evaluateDriftCorrection } from '@synccinema/common';
 
 interface DirectHTML5PlayerProps {
@@ -12,7 +12,7 @@ interface DirectHTML5PlayerProps {
   onDriftUpdate?: (driftMs: number, rate: number) => void;
 }
 
-export function DirectHTML5Player({
+export const DirectHTML5Player = memo(function DirectHTML5Player({
   sourceUrl,
   playbackState,
   isHost,
@@ -109,4 +109,4 @@ export function DirectHTML5Player({
       />
     </div>
   );
-}
+});

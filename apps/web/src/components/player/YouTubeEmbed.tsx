@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { RoomPlaybackState, evaluateDriftCorrection } from '@synccinema/common';
 
 declare global {
@@ -19,7 +19,7 @@ interface YouTubeEmbedProps {
   onDriftUpdate?: (driftMs: number, rate: number) => void;
 }
 
-export function YouTubeEmbed({
+export const YouTubeEmbed = memo(function YouTubeEmbed({
   videoId,
   playbackState,
   isHost,
@@ -193,4 +193,4 @@ export function YouTubeEmbed({
       <div ref={containerRef} className="w-full h-full" />
     </div>
   );
-}
+});

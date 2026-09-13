@@ -573,7 +573,7 @@ function FourInARowContent() {
           setMyPartnerCode(hb.myPartnerCode);
         }
       } catch {}
-    }, 3000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [session?.token]);
 

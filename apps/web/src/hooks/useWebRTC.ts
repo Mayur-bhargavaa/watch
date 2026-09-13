@@ -34,54 +34,75 @@ const RTC_CONFIG: RTCConfiguration = {
   ]
 };
 
+// Helper to apply WebRTC video encoding bitrate and framerate caps
+function applySenderVideoBitrate(
+  sender: RTCRtpSender,
+  maxBitrate = 200_000,
+  maxFramerate = 24,
+  degradationPreference: RTCDegradationPreference = 'maintain-framerate'
+) {
+  try {
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) {
+      params.encodings = [{}];
+    }
+    params.encodings[0].maxBitrate = maxBitrate;
+    params.encodings[0].maxFramerate = maxFramerate;
+    params.degradationPreference = degradationPreference;
+    sender.setParameters(params).catch(() => {});
+  } catch {}
+}
+
 // Canvas-based animated video stream fallback when camera hardware is missing or permissions blocked (Google Meet style)
 function createFallbackVideoStream(label: string): MediaStream {
   if (typeof document === 'undefined') return new MediaStream();
   try {
     const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 360;
+    canvas.width = 320;
+    canvas.height = 180;
     const ctx = canvas.getContext('2d');
     if (!ctx) return new MediaStream();
 
     let frame = 0;
+    let timerId: any = null;
+
     const draw = () => {
       frame++;
       // Google Meet charcoal dark background with subtle radial gradient
-      const grad = ctx.createRadialGradient(320, 180, 40, 320, 180, 260);
+      const grad = ctx.createRadialGradient(160, 90, 20, 160, 90, 130);
       grad.addColorStop(0, '#2b303c');
       grad.addColorStop(1, '#181a20');
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 640, 360);
+      ctx.fillRect(0, 0, 320, 180);
 
       // Speaking wave pulse ring (Google Meet blue)
-      const pulse = Math.sin(frame * 0.08) * 6;
+      const pulse = Math.sin(frame * 0.15) * 3;
       ctx.beginPath();
-      ctx.arc(320, 155, 62 + pulse, 0, Math.PI * 2);
+      ctx.arc(160, 80, 32 + pulse, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(138, 180, 248, 0.4)';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.stroke();
 
       // Google Meet Avatar circle
       ctx.beginPath();
-      ctx.arc(320, 155, 58, 0, Math.PI * 2);
+      ctx.arc(160, 80, 30, 0, Math.PI * 2);
       ctx.fillStyle = '#1a73e8';
       ctx.fill();
 
       // Bold initial
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 50px system-ui, -apple-system, sans-serif';
+      ctx.font = 'bold 26px system-ui, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText((label[0] || 'Y').toUpperCase(), 320, 153);
+      ctx.fillText((label[0] || 'Y').toUpperCase(), 160, 79);
 
       // Google Meet bottom status pill
       ctx.fillStyle = 'rgba(32, 33, 36, 0.9)';
-      const pillWidth = 170;
-      const pillHeight = 32;
-      const pillX = 320 - pillWidth / 2;
-      const pillY = 250;
-      const pillRadius = 16;
+      const pillWidth = 110;
+      const pillHeight = 22;
+      const pillX = 160 - pillWidth / 2;
+      const pillY = 135;
+      const pillRadius = 11;
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
         ctx.roundRect(pillX, pillY, pillWidth, pillHeight, pillRadius);
@@ -93,23 +114,27 @@ function createFallbackVideoStream(label: string): MediaStream {
       // Live green dot
       ctx.fillStyle = '#34a853';
       ctx.beginPath();
-      ctx.arc(pillX + 22, pillY + 16, 5, 0, Math.PI * 2);
+      ctx.arc(pillX + 14, pillY + 11, 3.5, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = '#ffffff';
-      ctx.font = '600 13px system-ui, sans-serif';
+      ctx.font = '600 9px system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Meet Cam Preview', pillX + 36, pillY + 16);
-
-      requestAnimationFrame(draw);
+      ctx.fillText('Meet Cam Preview', pillX + 24, pillY + 11);
     };
+
     draw();
+    // Throttled to ~12fps to conserve CPU during watch parties
+    timerId = setInterval(draw, 80);
 
     const captureStream = (canvas as any).captureStream || (canvas as any).webkitCaptureStream;
     if (typeof captureStream === 'function') {
-      const stream = captureStream.call(canvas, 24);
+      const stream = captureStream.call(canvas, 12);
       if (stream && stream.getVideoTracks().length > 0) {
+        stream.getVideoTracks()[0].addEventListener('ended', () => {
+          if (timerId) clearInterval(timerId);
+        });
         return stream;
       }
     }
@@ -272,20 +297,14 @@ export function useWebRTC({
           if (matchingTransceiver) {
             matchingTransceiver.sender.replaceTrack(track).catch(() => {});
             matchingTransceiver.direction = 'sendrecv';
+            if (track.kind === 'video') {
+              applySenderVideoBitrate(matchingTransceiver.sender, 200_000, 24, 'maintain-framerate');
+            }
           } else {
             try {
               const sender = pc!.addTrack(track, stream);
               if (track.kind === 'video') {
-                try {
-                  const params = sender.getParameters();
-                  if (!params.encodings || params.encodings.length === 0) {
-                    params.encodings = [{}];
-                  }
-                  params.encodings[0].maxBitrate = 350_000;
-                  params.encodings[0].maxFramerate = 24;
-                  params.degradationPreference = 'maintain-framerate';
-                  sender.setParameters(params).catch(() => {});
-                } catch {}
+                applySenderVideoBitrate(sender, 200_000, 24, 'maintain-framerate');
               }
             } catch (e) {
               console.warn(`Could not add track ${track.kind}:`, e);
@@ -336,18 +355,23 @@ export function useWebRTC({
 
         if (!hasLiveVideo) {
           let camStream: MediaStream | null = null;
-          // 1. Attempt real webcam acquisition (Try HD first, then generic fallback)
+          // 1. Attempt real webcam acquisition (optimized for video tiles & low CPU/bandwidth)
           if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
             try {
               camStream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 1280, max: 1920 }, height: { ideal: 720, max: 1080 }, facingMode: 'user' },
+                video: {
+                  width: { ideal: 480, max: 640 },
+                  height: { ideal: 270, max: 360 },
+                  frameRate: { ideal: 24, max: 24 },
+                  facingMode: 'user'
+                },
                 audio: false
               });
             } catch (err1) {
-              console.warn('HD camera acquisition failed, trying generic video constraint:', err1);
+              console.warn('Optimized camera acquisition failed, trying generic video constraint:', err1);
               try {
                 camStream = await navigator.mediaDevices.getUserMedia({
-                  video: true,
+                  video: { width: { ideal: 480 }, height: { ideal: 270 } },
                   audio: false
                 });
               } catch (err2: any) {
@@ -614,16 +638,7 @@ export function useWebRTC({
         stream.getTracks().forEach((track) => {
           const sender = pc.addTrack(track, stream);
           if (track.kind === 'video') {
-            try {
-              const params = sender.getParameters();
-              if (!params.encodings || params.encodings.length === 0) {
-                params.encodings = [{}];
-              }
-              params.encodings[0].maxBitrate = 2_500_000;
-              params.encodings[0].maxFramerate = 30;
-              params.degradationPreference = 'maintain-framerate';
-              sender.setParameters(params).catch(() => {});
-            } catch {}
+            applySenderVideoBitrate(sender, 1_500_000, 24, 'maintain-resolution');
           }
         });
 
@@ -829,9 +844,15 @@ export function useWebRTC({
                 if (matching) {
                   matching.sender.replaceTrack(track).catch(() => {});
                   matching.direction = 'sendrecv';
+                  if (track.kind === 'video') {
+                    applySenderVideoBitrate(matching.sender, 200_000, 24, 'maintain-framerate');
+                  }
                 } else {
                   try {
-                    pc!.addTrack(track, localUserRef.current!);
+                    const sender = pc!.addTrack(track, localUserRef.current!);
+                    if (track.kind === 'video') {
+                      applySenderVideoBitrate(sender, 200_000, 24, 'maintain-framerate');
+                    }
                   } catch (e) {
                     console.warn(`Could not add track:`, e);
                   }

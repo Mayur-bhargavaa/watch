@@ -25,7 +25,7 @@ import { FloatingReaction } from '../../hooks/useGameRoom';
 import { VideoGridParticipant } from '../../hooks/useWebRTC';
 
 // Live Circular Video Feed for In-Call Avatars
-export function VideoAvatar({
+export const VideoAvatar = React.memo(function VideoAvatar({
   stream,
   isSelf,
   displayName
@@ -68,10 +68,10 @@ export function VideoAvatar({
       className={`w-full h-full object-cover transform-gpu ${isSelf ? '-scale-x-100' : ''}`}
     />
   );
-}
+});
 
 // Remote Audio Receiver to Hear Connected Players
-function RemoteAudioPlayer({ stream }: { stream: MediaStream | null }) {
+const RemoteAudioPlayer = React.memo(function RemoteAudioPlayer({ stream }: { stream: MediaStream | null }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -87,7 +87,7 @@ function RemoteAudioPlayer({ stream }: { stream: MediaStream | null }) {
   if (!stream) return null;
 
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
-}
+});
 
 export interface LudoGameProps {
   room: GameRoom;

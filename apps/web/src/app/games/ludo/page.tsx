@@ -525,7 +525,7 @@ function LudoPageContent() {
     gameType: string;
   } | null>(null);
 
-  // Live presence heartbeat every 2.5s
+  // Live presence heartbeat fallback (15s interval to keep network free for video streams)
   useEffect(() => {
     if (!session?.token) return;
 
@@ -543,7 +543,7 @@ function LudoPageContent() {
           if (res?.myPartnerCode) setMyPartnerCode(res.myPartnerCode);
         })
         .catch(() => {});
-    }, 2500);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [session]);
