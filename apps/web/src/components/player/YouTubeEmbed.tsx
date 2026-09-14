@@ -129,9 +129,11 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
     }
   }, [isReady, playbackState.state, playbackState.version]);
 
-  // 3. Continuous drift evaluation loop (runs every 1000ms)
+  // 3. Continuous drift evaluation loop for viewers (runs every 2000ms)
   useEffect(() => {
+    // The host is the source of truth and must never seek or adjust rate on itself
     if (
+      isHost ||
       !isReady ||
       !playerRef.current ||
       typeof playerRef.current.getCurrentTime !== 'function'
@@ -142,8 +144,7 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
     const interval = setInterval(() => {
       if (
         !playerRef.current ||
-        typeof playerRef.current.getCurrentTime !== 'function' ||
-        typeof playerRef.current.getPlaybackRate !== 'function'
+        typeof playerRef.current.getCurrentTime !== 'function'
       ) {
         return;
       }
@@ -151,42 +152,34 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
       try {
         const localTime = playerRef.current.getCurrentTime();
         const authoritativeTime = getAuthoritativePosition();
-        const currentRate = playerRef.current.getPlaybackRate() || 1.0;
+        const driftSeconds = localTime - authoritativeTime;
+        const absDriftSeconds = Math.abs(driftSeconds);
         const now = Date.now();
 
-        const action = evaluateDriftCorrection(
-          localTime,
-          authoritativeTime,
-          currentRate,
-          lastHardSeekTimeRef.current,
-          now
-        );
-
-        if (onDriftUpdate) {
-          onDriftUpdate(action.driftMs, currentRate);
+        // Under 3.0 seconds drift is completely unnoticeable when watching together
+        // Leaving it alone guarantees 100% smooth, continuous playback without buffering pauses
+        if (absDriftSeconds <= 3.0) {
+          if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
+          return;
         }
 
-        if (action.type === 'HARD_SEEK') {
+        // Only hard seek if drift is severe (> 3.5s) AND cooldown has passed (6 seconds)
+        if (absDriftSeconds > 3.5 && (now - lastHardSeekTimeRef.current > 6000)) {
           isInternalUpdateRef.current = true;
-          if (typeof playerRef.current.seekTo === 'function') {
-            playerRef.current.seekTo(action.targetPositionSeconds, true);
-          }
+          playerRef.current.seekTo(authoritativeTime, true);
           lastHardSeekTimeRef.current = now;
+          if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
           setTimeout(() => {
             isInternalUpdateRef.current = false;
-          }, 500);
-        } else if (action.type === 'RATE_ADJUST') {
-          if (typeof playerRef.current.setPlaybackRate === 'function') {
-            playerRef.current.setPlaybackRate(action.targetRate);
-          }
+          }, 600);
         }
       } catch (err) {
         console.warn('Drift evaluation error:', err);
       }
-    }, 1000);
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [isReady, getAuthoritativePosition, onDriftUpdate]);
+  }, [isHost, isReady, getAuthoritativePosition, onDriftUpdate]);
 
   return (
     <div className="relative w-full h-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-cinema-border/50">

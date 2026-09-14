@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Reaction } from '@synccinema/common';
 
 interface FloatingParticle {
@@ -13,7 +13,7 @@ interface FloatingReactionsCanvasProps {
   latestReactions: Reaction[];
 }
 
-export function FloatingReactionsCanvas({ latestReactions }: FloatingReactionsCanvasProps) {
+export const FloatingReactionsCanvas = React.memo(function FloatingReactionsCanvas({ latestReactions }: FloatingReactionsCanvasProps) {
   const [particles, setParticles] = useState<FloatingParticle[]>([]);
 
   useEffect(() => {
@@ -49,4 +49,4 @@ export function FloatingReactionsCanvas({ latestReactions }: FloatingReactionsCa
       ))}
     </div>
   );
-}
+});

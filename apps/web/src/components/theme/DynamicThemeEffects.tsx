@@ -180,7 +180,7 @@ interface DynamicThemeEffectsProps {
   themeId: string;
 }
 
-export function DynamicThemeEffects({ themeId }: DynamicThemeEffectsProps) {
+export const DynamicThemeEffects = React.memo(function DynamicThemeEffects({ themeId }: DynamicThemeEffectsProps) {
   const config = THEME_EFFECTS[themeId];
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -206,19 +206,24 @@ export function DynamicThemeEffects({ themeId }: DynamicThemeEffectsProps) {
     window.addEventListener('resize', handleResize);
 
     // Warm embers
-    const particleCount = 28;
+    const particleCount = 20;
     const particles = Array.from({ length: particleCount }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      size: Math.random() * 2.8 + 0.8,
-      speedX: (Math.random() - 0.5) * 0.4,
-      speedY: -Math.random() * 0.5 - 0.15, // gently drift upward
-      opacity: Math.random() * 0.55 + 0.2,
+      size: Math.random() * 2.5 + 0.8,
+      speedX: (Math.random() - 0.5) * 0.3,
+      speedY: -Math.random() * 0.4 - 0.1, // gently drift upward
+      opacity: Math.random() * 0.5 + 0.2,
       pulse: Math.random() * Math.PI * 2,
       pulseSpeed: Math.random() * 0.03 + 0.015
     }));
 
-    const render = () => {
+    let lastTime = 0;
+    const render = (time: number) => {
+      animId = requestAnimationFrame(render);
+      if (time - lastTime < 40) return; // Cap to 25fps to save GPU cycles for cinema video
+      lastTime = time;
+
       ctx.clearRect(0, 0, width, height);
 
       particles.forEach((p) => {
@@ -240,15 +245,12 @@ export function DynamicThemeEffects({ themeId }: DynamicThemeEffectsProps) {
         ctx.fillStyle = config.emberColor
           ? config.emberColor.replace(/[\d\.]+\)$/, `${currentOpacity})`)
           : `rgba(251, 191, 36, ${currentOpacity})`;
-        ctx.shadowBlur = p.size * 3;
-        ctx.shadowColor = '#f59e0b';
+        // Removed heavy canvas shadowBlur to completely avoid Skia/GPU raster choking
         ctx.fill();
       });
-
-      animId = requestAnimationFrame(render);
     };
 
-    render();
+    animId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animId);
@@ -543,4 +545,4 @@ export function DynamicThemeEffects({ themeId }: DynamicThemeEffectsProps) {
       `}</style>
     </div>
   );
-}
+});

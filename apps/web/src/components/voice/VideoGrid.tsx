@@ -117,8 +117,6 @@ const MemoizedVideoTile = React.memo(function VideoTile({
   onToggleSelfMic?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const hasVideo = Boolean(
     participant.isCameraOn &&
       participant.stream &&
@@ -133,14 +131,11 @@ const MemoizedVideoTile = React.memo(function VideoTile({
         if (node.srcObject !== participant.stream) {
           node.srcObject = participant.stream;
         }
-        node.muted = Boolean(participant.isSelf);
-        if (!participant.isSelf) {
-          node.volume = 1.0;
-        }
+        node.muted = true; // Video tiles render video frames only; dedicated AudioSink handles sound
         node.play().catch(() => {});
       }
     },
-    [participant.stream, participant.isSelf]
+    [participant.stream]
   );
 
   useEffect(() => {
@@ -150,24 +145,9 @@ const MemoizedVideoTile = React.memo(function VideoTile({
     if (video.srcObject !== participant.stream) {
       video.srcObject = participant.stream;
     }
-
-    video.muted = Boolean(participant.isSelf);
-    if (!participant.isSelf) {
-      video.volume = 1.0;
-    }
-
+    video.muted = true;
     video.play().catch(() => {});
-  }, [participant.stream, participant.isSelf, hasVideo]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !participant.stream || hasVideo || participant.isSelf) return;
-
-    if (audio.srcObject !== participant.stream) {
-      audio.srcObject = participant.stream;
-    }
-    audio.play().catch(() => {});
-  }, [participant.stream, participant.isSelf, hasVideo]);
+  }, [participant.stream, hasVideo]);
 
   const avatarColor = getParticipantAvatarColor(index);
   const userInitial = participant.displayName ? participant.displayName.trim().charAt(0).toUpperCase() : 'U';
@@ -229,10 +209,6 @@ const MemoizedVideoTile = React.memo(function VideoTile({
           }`}
           title={participant.isSelf ? 'Click to turn on camera preview (Google Meet style)' : ''}
         >
-          {!participant.isSelf && participant.stream && (
-            <audio ref={audioRef} autoPlay playsInline />
-          )}
-
           {/* Centered Circular Avatar with Google Meet color */}
           <div
             className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-lg border border-white/10 transition-transform duration-300 group-hover:scale-105"

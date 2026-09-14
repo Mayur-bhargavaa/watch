@@ -98,16 +98,18 @@ const ROOM_THEMES: RoomTheme[] = [
   }
 ];
 
-function AudioSink({ stream }: { stream: MediaStream | null }) {
+const AudioSink = React.memo(function AudioSink({ stream }: { stream: MediaStream | null }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
     if (audioRef.current && stream) {
-      audioRef.current.srcObject = stream;
+      if (audioRef.current.srcObject !== stream) {
+        audioRef.current.srcObject = stream;
+      }
       audioRef.current.play().catch(() => {});
     }
   }, [stream]);
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
-}
+});
 
 interface RoomChatInputBarProps {
   replyingTo: ChatReplyTo | null;
@@ -457,7 +459,7 @@ export default function RoomPage() {
     };
 
     recordHistory();
-    const interval = setInterval(recordHistory, 5000);
+    const interval = setInterval(recordHistory, 20000);
     return () => clearInterval(interval);
   }, [room, getAuthoritativePosition]);
 

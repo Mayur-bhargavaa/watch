@@ -45,43 +45,55 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
     }, 400);
   }, [playbackState.state, playbackState.version]);
 
-  // Drift correction loop
+  // Drift correction loop for viewers
   useEffect(() => {
+    // The host is the source of truth and must never seek or adjust rate on itself
+    if (isHost) return;
+
     const interval = setInterval(() => {
       const video = videoRef.current;
       if (!video) return;
 
       const localTime = video.currentTime;
       const authoritativeTime = getAuthoritativePosition();
-      const currentRate = video.playbackRate;
+      const driftSeconds = localTime - authoritativeTime;
+      const absDriftSeconds = Math.abs(driftSeconds);
       const now = Date.now();
 
-      const action = evaluateDriftCorrection(
-        localTime,
-        authoritativeTime,
-        currentRate,
-        lastHardSeekTimeRef.current,
-        now
-      );
-
-      if (onDriftUpdate) {
-        onDriftUpdate(action.driftMs, currentRate);
+      // Deadband: within 1.5 seconds, leave at normal rate 1.0
+      if (absDriftSeconds <= 1.5) {
+        if (video.playbackRate !== 1.0) {
+          video.playbackRate = 1.0;
+        }
+        if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
+        return;
       }
 
-      if (action.type === 'HARD_SEEK') {
+      // Soft adjustment: between 1.5s and 4.0s, gently nudge rate by 4% without rebuffering
+      if (absDriftSeconds <= 4.0) {
+        const targetRate = driftSeconds > 0 ? 0.96 : 1.04;
+        if (video.playbackRate !== targetRate) {
+          video.playbackRate = targetRate;
+        }
+        if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), targetRate);
+        return;
+      }
+
+      // Hard seek: only if drift > 4.0s and cooldown passed (6 seconds)
+      if (absDriftSeconds > 4.0 && (now - lastHardSeekTimeRef.current > 6000)) {
         isInternalUpdateRef.current = true;
-        video.currentTime = action.targetPositionSeconds;
+        video.currentTime = authoritativeTime;
+        video.playbackRate = 1.0;
         lastHardSeekTimeRef.current = now;
+        if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
         setTimeout(() => {
           isInternalUpdateRef.current = false;
-        }, 400);
-      } else if (action.type === 'RATE_ADJUST') {
-        video.playbackRate = action.targetRate;
+        }, 500);
       }
-    }, 1000);
+    }, 1500);
 
     return () => clearInterval(interval);
-  }, [getAuthoritativePosition, onDriftUpdate]);
+  }, [isHost, getAuthoritativePosition, onDriftUpdate]);
 
   return (
     <div className="relative w-full h-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-cinema-border/50">

@@ -168,11 +168,11 @@ export const CinemaPlayer = memo(function CinemaPlayer({
     }
   }, [playbackState.state, playbackState.version]);
 
-  // Position drift synchronization for participants
+  // Position drift synchronization for participants (3.5s tolerance to prevent playback micro-stutters)
   useEffect(() => {
     if (!mainVideoRef.current || isHost) return;
     const authPos = getAuthoritativePosition();
-    if (Math.abs(mainVideoRef.current.currentTime - authPos) > 1.5) {
+    if (Math.abs(mainVideoRef.current.currentTime - authPos) > 3.5) {
       mainVideoRef.current.currentTime = authPos;
     }
   }, [getAuthoritativePosition, isHost]);
@@ -201,7 +201,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
     const interval = setInterval(() => {
       const authPos = mainVideoRef.current ? mainVideoRef.current.currentTime : getAuthoritativePosition();
       setCurrentTime(authPos);
-    }, 500);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, [getAuthoritativePosition]);

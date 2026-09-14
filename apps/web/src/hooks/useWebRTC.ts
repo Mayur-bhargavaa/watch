@@ -31,14 +31,17 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' }
-  ]
+  ],
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require',
+  iceCandidatePoolSize: 2
 };
 
 // Helper to apply WebRTC video encoding bitrate and framerate caps
 function applySenderVideoBitrate(
   sender: RTCRtpSender,
-  maxBitrate = 200_000,
-  maxFramerate = 24,
+  maxBitrate = 150_000,
+  maxFramerate = 20,
   degradationPreference: RTCDegradationPreference = 'maintain-framerate'
 ) {
   try {
@@ -360,9 +363,9 @@ export function useWebRTC({
             try {
               camStream = await navigator.mediaDevices.getUserMedia({
                 video: {
-                  width: { ideal: 480, max: 640 },
-                  height: { ideal: 270, max: 360 },
-                  frameRate: { ideal: 24, max: 24 },
+                  width: { ideal: 360, max: 480 },
+                  height: { ideal: 240, max: 360 },
+                  frameRate: { ideal: 20, max: 24 },
                   facingMode: 'user'
                 },
                 audio: false
@@ -371,7 +374,7 @@ export function useWebRTC({
               console.warn('Optimized camera acquisition failed, trying generic video constraint:', err1);
               try {
                 camStream = await navigator.mediaDevices.getUserMedia({
-                  video: { width: { ideal: 480 }, height: { ideal: 270 } },
+                  video: { width: { ideal: 360 }, height: { ideal: 240 } },
                   audio: false
                 });
               } catch (err2: any) {
@@ -408,6 +411,7 @@ export function useWebRTC({
             );
             if (videoTransceiver) {
               videoTransceiver.sender.replaceTrack(activeVideoTrack).catch(() => {});
+              applySenderVideoBitrate(videoTransceiver.sender, 150_000, 20, 'maintain-framerate');
               videoTransceiver.direction = 'sendrecv';
             } else {
               try {
