@@ -12,7 +12,8 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "test:ludo": "tsx scripts/test-ludo-bugs.ts"
+    "test:ludo": "tsx scripts/test-ludo-bugs.ts",
+    "test:sim": "tsx scripts/simulate-watch-party.ts"
   },
   "keywords": [
     "watch-party",

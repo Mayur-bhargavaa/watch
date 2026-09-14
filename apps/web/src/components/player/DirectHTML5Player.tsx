@@ -40,10 +40,18 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
       }
     }
 
+    // On seek / state command from host, align position immediately if drift > 1.5s
+    if (!isHost) {
+      const authPos = getAuthoritativePosition();
+      if (Math.abs(video.currentTime - authPos) > 1.5) {
+        video.currentTime = authPos;
+      }
+    }
+
     setTimeout(() => {
       isInternalUpdateRef.current = false;
     }, 400);
-  }, [playbackState.state, playbackState.version]);
+  }, [playbackState.state, playbackState.version, playbackState.position, isHost, getAuthoritativePosition]);
 
   // Drift correction loop for viewers
   useEffect(() => {

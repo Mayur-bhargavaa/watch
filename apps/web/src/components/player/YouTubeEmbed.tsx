@@ -120,6 +120,15 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
           playerRef.current.pauseVideo();
         }
       }
+
+      // On seek / state command from host, align position immediately if drift > 2.0s
+      if (!isHost && typeof playerRef.current.getCurrentTime === 'function') {
+        const localTime = playerRef.current.getCurrentTime();
+        const authoritativeTime = getAuthoritativePosition();
+        if (Math.abs(localTime - authoritativeTime) > 2.0) {
+          playerRef.current.seekTo(authoritativeTime, true);
+        }
+      }
     } catch (err) {
       console.warn('Error synchronizing YouTube playback state:', err);
     } finally {
@@ -127,7 +136,7 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
         isInternalUpdateRef.current = false;
       }, 500);
     }
-  }, [isReady, playbackState.state, playbackState.version]);
+  }, [isReady, playbackState.state, playbackState.version, playbackState.position, isHost, getAuthoritativePosition]);
 
   // 3. Continuous drift evaluation loop for viewers (runs every 2000ms)
   useEffect(() => {

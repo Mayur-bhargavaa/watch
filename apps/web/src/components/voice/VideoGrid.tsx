@@ -105,6 +105,28 @@ export const VideoGrid = React.memo(function VideoGrid({
   );
 });
 
+const RemoteAudioSink = React.memo(function RemoteAudioSink({
+  stream,
+  isMuted
+}: {
+  stream: MediaStream | null;
+  isMuted?: boolean;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !stream) return;
+    if (audio.srcObject !== stream) {
+      audio.srcObject = stream;
+    }
+    audio.muted = Boolean(isMuted);
+    audio.play().catch(() => {});
+  }, [stream, isMuted]);
+
+  return <audio ref={audioRef} autoPlay playsInline />;
+});
+
 const MemoizedVideoTile = React.memo(function VideoTile({
   participant,
   index,
@@ -131,7 +153,7 @@ const MemoizedVideoTile = React.memo(function VideoTile({
         if (node.srcObject !== participant.stream) {
           node.srcObject = participant.stream;
         }
-        node.muted = true; // Video tiles render video frames only; dedicated AudioSink handles sound
+        node.muted = true; // Video tiles render video frames only; dedicated RemoteAudioSink handles sound
         node.play().catch(() => {});
       }
     },
@@ -160,6 +182,11 @@ const MemoizedVideoTile = React.memo(function VideoTile({
           : 'border-white/10 hover:border-white/20'
       }`}
     >
+      {/* Remote voice audio playback (independent of camera on/off) */}
+      {!participant.isSelf && participant.stream && (
+        <RemoteAudioSink stream={participant.stream} isMuted={participant.isMuted} />
+      )}
+
       {hasVideo ? (
         <>
           {/* Live Mirrored Camera Stream (Google Meet Style) */}
@@ -167,7 +194,7 @@ const MemoizedVideoTile = React.memo(function VideoTile({
             ref={onVideoAttach}
             autoPlay
             playsInline
-            muted={Boolean(participant.isSelf)}
+            muted={true}
             className={`w-full h-full object-cover ${participant.isSelf ? '-scale-x-100' : ''}`}
           />
 
