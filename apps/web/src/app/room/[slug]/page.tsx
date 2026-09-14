@@ -353,6 +353,104 @@ export default function RoomPage() {
   const [chatBubbleToast, setChatBubbleToast] = useState<{ sender: string; text: string } | null>(null);
   const prevMessagesCountRef = useRef(chatMessages.length);
 
+  // Draggable Floating Chat Bubble (FAB) state & pointer handlers
+  const [fabPosition, setFabPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingFab, setIsDraggingFab] = useState(false);
+  const fabDragRef = useRef<{
+    startX: number;
+    startY: number;
+    elemX: number;
+    elemY: number;
+    hasMoved: boolean;
+  }>({ startX: 0, startY: 0, elemX: 0, elemY: 0, hasMoved: false });
+
+  // Initialize and persist FAB position across reloads
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const savedPos = localStorage.getItem('watch_party_fab_position');
+      if (savedPos) {
+        const parsed = JSON.parse(savedPos);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const clampedX = Math.max(12, Math.min(window.innerWidth - 68, parsed.x));
+          const clampedY = Math.max(12, Math.min(window.innerHeight - 68, parsed.y));
+          setFabPosition({ x: clampedX, y: clampedY });
+          return;
+        }
+      }
+    } catch {}
+
+    setFabPosition({
+      x: window.innerWidth - 76,
+      y: window.innerHeight - 76
+    });
+
+    const handleResize = () => {
+      setFabPosition((prev) => {
+        if (!prev) return null;
+        return {
+          x: Math.max(12, Math.min(window.innerWidth - 68, prev.x)),
+          y: Math.max(12, Math.min(window.innerHeight - 68, prev.y))
+        };
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleFabPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    const current = fabPosition || {
+      x: window.innerWidth - 76,
+      y: window.innerHeight - 76
+    };
+    fabDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      elemX: current.x,
+      elemY: current.y,
+      hasMoved: false
+    };
+    setIsDraggingFab(true);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleFabPointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingFab) return;
+    const dx = e.clientX - fabDragRef.current.startX;
+    const dy = e.clientY - fabDragRef.current.startY;
+    if (!fabDragRef.current.hasMoved && Math.hypot(dx, dy) > 4) {
+      fabDragRef.current.hasMoved = true;
+    }
+    if (fabDragRef.current.hasMoved) {
+      const newX = Math.max(12, Math.min(window.innerWidth - 68, fabDragRef.current.elemX + dx));
+      const newY = Math.max(12, Math.min(window.innerHeight - 68, fabDragRef.current.elemY + dy));
+      setFabPosition({ x: newX, y: newY });
+    }
+  };
+
+  const handleFabPointerUp = (e: React.PointerEvent) => {
+    if (!isDraggingFab) return;
+    setIsDraggingFab(false);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
+    if (fabDragRef.current.hasMoved && fabPosition) {
+      try {
+        localStorage.setItem('watch_party_fab_position', JSON.stringify(fabPosition));
+      } catch {}
+    }
+  };
+
+  const handleFabClick = (e: React.MouseEvent) => {
+    if (fabDragRef.current.hasMoved) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    setIsChatOpen((prev) => !prev);
+  };
+
   // Auto-scroll chat to bottom only when a new message arrives and user isn't reading history
   useEffect(() => {
     if (chatMessages.length > prevMessagesCountRef.current) {
@@ -1102,8 +1200,25 @@ export default function RoomPage() {
       </div>
       </div>
 
-      {/* Floating Chat Bubble Launcher (FAB) */}
-      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2 pointer-events-auto">
+      {/* Floating Chat Bubble Launcher (Draggable FAB) */}
+      <div
+        style={
+          fabPosition
+            ? {
+                left: `${fabPosition.x}px`,
+                top: `${fabPosition.y}px`,
+                right: 'auto',
+                bottom: 'auto'
+              }
+            : {
+                right: '20px',
+                bottom: '20px'
+              }
+        }
+        className={`fixed z-40 flex items-center gap-2 pointer-events-auto touch-none select-none ${
+          fabPosition && fabPosition.x < 260 ? 'flex-row-reverse' : 'flex-row'
+        } ${isDraggingFab ? 'cursor-grabbing' : 'cursor-grab'}`}
+      >
         {/* Real-time unread message preview toast */}
         {!isChatOpen && chatBubbleToast && (
           <div
@@ -1120,21 +1235,29 @@ export default function RoomPage() {
 
         {/* Floating Bubble Button */}
         <button
-          onClick={() => setIsChatOpen((prev) => !prev)}
-          className={`group relative flex items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-full shadow-2xl transition-all duration-300 transform active:scale-95 border ${
+          onPointerDown={handleFabPointerDown}
+          onPointerMove={handleFabPointerMove}
+          onPointerUp={handleFabPointerUp}
+          onPointerCancel={handleFabPointerUp}
+          onClick={handleFabClick}
+          className={`group relative flex items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-full shadow-2xl border ${
+            isDraggingFab
+              ? 'scale-105 shadow-red-600/60 ring-2 ring-white/50 cursor-grabbing transition-none'
+              : 'cursor-grab hover:scale-105 transition-transform duration-200'
+          } ${
             isChatOpen
               ? 'bg-zinc-800 hover:bg-zinc-700 text-white border-white/20'
-              : 'bg-gradient-to-tr from-[#E50914] to-rose-600 hover:from-red-600 hover:to-rose-500 text-white border-red-500/30 shadow-red-600/40 hover:scale-105'
+              : 'bg-gradient-to-tr from-[#E50914] to-rose-600 hover:from-red-600 hover:to-rose-500 text-white border-red-500/30 shadow-red-600/40'
           }`}
-          title={isChatOpen ? 'Minimize chat bubble' : 'Open chat & games bubble'}
+          title={isChatOpen ? 'Minimize chat (drag anywhere on screen)' : 'Open chat & games (drag anywhere on screen)'}
         >
           {isChatOpen ? (
-            <X className="w-6 h-6 transition-transform group-hover:rotate-90 duration-200" />
+            <X className="w-6 h-6 transition-transform group-hover:rotate-90 duration-200 pointer-events-none" />
           ) : (
             <>
-              <MessageSquare className="w-6 h-6" />
+              <MessageSquare className="w-6 h-6 pointer-events-none" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 text-black font-extrabold text-[10px] rounded-full flex items-center justify-center border-2 border-[#0b0e17] shadow-md animate-pulse">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 text-black font-extrabold text-[10px] rounded-full flex items-center justify-center border-2 border-[#0b0e17] shadow-md animate-pulse pointer-events-none">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
