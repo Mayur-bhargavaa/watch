@@ -394,6 +394,12 @@ function handleBotMessage(bot: BotClient, msg: WSMessage<any>) {
       const { fromUserId, signal } = msg.payload || {};
       if (!signal || !fromUserId) return;
 
+      const isPeerBot = BOTS.some(b => b.id === fromUserId);
+      if (!isPeerBot) {
+        // Real human user in the room: Do not send mock SDP that lacks media lines to real browsers
+        return;
+      }
+
       if (signal.type === 'offer') {
         bot.offersReceived++;
         // Respond with answer

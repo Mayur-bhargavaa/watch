@@ -204,6 +204,7 @@ export function useWebRTC({
   const pendingUserCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const ignoreOfferRef = useRef<Map<string, boolean>>(new Map());
+  const failedPeersCooldownRef = useRef<Map<string, { attempts: number; nextAllowedTime: number }>>(new Map());
   const localUserRef = useRef<MediaStream | null>(null);
   localUserRef.current = localUserStream;
 
@@ -211,19 +212,33 @@ export function useWebRTC({
   // 1. Live Camera & Voice Mesh
   // ---------------------------------------------------------------------------
 
-  const closeUserPeerConnection = useCallback((peerId: string) => {
+  const closeUserPeerConnection = useCallback((peerId: string, isFailure = false) => {
     const pc = userPeerConnectionsRef.current.get(peerId);
     if (pc) {
       pc.onicecandidate = null;
       pc.ontrack = null;
       pc.oniceconnectionstatechange = null;
-      pc.close();
+      pc.onconnectionstatechange = null;
+      try { pc.close(); } catch {}
       userPeerConnectionsRef.current.delete(peerId);
     }
     makingOfferRef.current.delete(peerId);
     ignoreOfferRef.current.delete(peerId);
     pendingUserCandidatesRef.current.delete(peerId);
+
+    if (isFailure) {
+      const prevFail = failedPeersCooldownRef.current.get(peerId) || { attempts: 0, nextAllowedTime: 0 };
+      const attempts = prevFail.attempts + 1;
+      const backoffMs = Math.min(30000, Math.max(3000, Math.pow(2, attempts) * 1500));
+      failedPeersCooldownRef.current.set(peerId, {
+        attempts,
+        nextAllowedTime: Date.now() + backoffMs
+      });
+      console.warn(`[WebRTC] Peer ${peerId} connection failed (attempt ${attempts}). Cooldown for ${backoffMs}ms.`);
+    }
+
     setRemoteUserStreams(prev => {
+      if (!prev.has(peerId)) return prev;
       const next = new Map(prev);
       next.delete(peerId);
       return next;
@@ -236,9 +251,17 @@ export function useWebRTC({
       if (!peerId || !myUserId || peerId === myUserId) return;
       if (makingOfferRef.current.get(peerId)) return;
 
+      const failInfo = failedPeersCooldownRef.current.get(peerId);
+      if (failInfo && Date.now() < failInfo.nextAllowedTime) {
+        return;
+      }
+
       try {
         let pc = userPeerConnectionsRef.current.get(peerId);
+        let isNewConnection = false;
+
         if (!pc || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+          isNewConnection = true;
           pc = new RTCPeerConnection(RTC_CONFIG);
           userPeerConnectionsRef.current.set(peerId, pc);
 
@@ -258,19 +281,29 @@ export function useWebRTC({
             }
 
             setRemoteUserStreams(prev => {
-              const existing = prev.get(peerId);
-              const tracks = existing ? existing.getTracks() : [];
-              if (event.track && !tracks.some(t => t.id === event.track.id)) {
-                tracks.push(event.track);
+              let existing = prev.get(peerId);
+              let changed = false;
+              if (!existing) {
+                existing = new MediaStream();
+                changed = true;
+              }
+              const currentTrackIds = new Set(existing.getTracks().map(t => t.id));
+              if (event.track && !currentTrackIds.has(event.track.id)) {
+                existing.addTrack(event.track);
+                changed = true;
               }
               if (peerStream) {
                 peerStream.getTracks().forEach(t => {
-                  if (!tracks.some(existingT => existingT.id === t.id)) {
-                    tracks.push(t);
+                  if (!currentTrackIds.has(t.id)) {
+                    existing!.addTrack(t);
+                    changed = true;
                   }
                 });
               }
-              return new Map(prev).set(peerId, new MediaStream(tracks));
+              if (!changed && prev.has(peerId)) {
+                return prev;
+              }
+              return new Map(prev).set(peerId, existing);
             });
           };
 
@@ -284,15 +317,26 @@ export function useWebRTC({
             }
           };
 
+          pc.onconnectionstatechange = () => {
+            if (pc && pc.connectionState === 'connected') {
+              failedPeersCooldownRef.current.delete(peerId);
+            } else if (pc && pc.connectionState === 'failed') {
+              closeUserPeerConnection(peerId, true);
+            }
+          };
+
           pc.oniceconnectionstatechange = () => {
             if (pc && (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed')) {
-              closeUserPeerConnection(peerId);
+              closeUserPeerConnection(peerId, true);
+            } else if (pc && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed')) {
+              failedPeersCooldownRef.current.delete(peerId);
             }
           };
         }
 
         // Attach local tracks with low-latency encoding parameters using transceivers
         const transceivers = pc.getTransceivers();
+        let needsRenegotiation = false;
         stream.getTracks().forEach((track) => {
           const matchingTransceiver = transceivers.find(
             t => t.receiver.track.kind === track.kind || t.sender.track?.kind === track.kind
@@ -306,6 +350,7 @@ export function useWebRTC({
           } else {
             try {
               const sender = pc!.addTrack(track, stream);
+              needsRenegotiation = true;
               if (track.kind === 'video') {
                 applySenderVideoBitrate(sender, 200_000, 24, 'maintain-framerate');
               }
@@ -317,6 +362,11 @@ export function useWebRTC({
 
         // Only create offer if connection is stable
         if (pc.signalingState !== 'stable') {
+          return;
+        }
+
+        // If existing connection and all tracks were seamlessly replaced via transceivers, no SDP renegotiation is needed
+        if (!isNewConnection && !needsRenegotiation && pc.currentRemoteDescription) {
           return;
         }
 
@@ -336,9 +386,10 @@ export function useWebRTC({
         }
       } catch (err) {
         console.error(`Failed to initiate user call to ${peerId}:`, err);
+        closeUserPeerConnection(peerId, true);
       }
     },
-    [myUserId, sendWebRTCSignal]
+    [myUserId, sendWebRTCSignal, closeUserPeerConnection]
   );
 
   // Toggle Camera
@@ -417,22 +468,22 @@ export function useWebRTC({
               try {
                 pc.addTrack(activeVideoTrack, stream!);
               } catch {}
-            }
-            if (pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
-              makingOfferRef.current.set(peerId, true);
-              pc.createOffer()
-                .then(offer => pc.setLocalDescription(offer))
-                .then(() => {
-                  sendWebRTCSignal(peerId, {
-                    type: 'offer',
-                    sdp: pc.localDescription,
-                    streamKind: 'user'
+              if (pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
+                makingOfferRef.current.set(peerId, true);
+                pc.createOffer()
+                  .then(offer => pc.setLocalDescription(offer))
+                  .then(() => {
+                    sendWebRTCSignal(peerId, {
+                      type: 'offer',
+                      sdp: pc.localDescription,
+                      streamKind: 'user'
+                    });
+                  })
+                  .catch(() => {})
+                  .finally(() => {
+                    makingOfferRef.current.set(peerId, false);
                   });
-                })
-                .catch(() => {})
-                .finally(() => {
-                  makingOfferRef.current.set(peerId, false);
-                });
+              }
             }
           });
         }
@@ -458,16 +509,6 @@ export function useWebRTC({
           }
         });
       }
-
-      // Fanout active stream to all connected peers
-      const activeStream = localUserRef.current;
-      if (activeStream) {
-        members.forEach((m) => {
-          if (m.userId && m.userId !== myUserId && m.isConnected) {
-            initiateUserCall(m.userId, activeStream);
-          }
-        });
-      }
     } catch (err) {
       console.warn('Camera toggle error:', err);
     }
@@ -482,7 +523,6 @@ export function useWebRTC({
     try {
       let stream = localUserRef.current;
       if (!nextMuted) {
-        // User wants to UNMUTE
         const hasLiveAudio = Boolean(
           stream &&
           stream.getAudioTracks().length > 0 &&
@@ -494,12 +534,16 @@ export function useWebRTC({
           if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
             try {
               micStream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true
+                },
                 video: false
               });
-            } catch (err: any) {
-              console.warn('Real mic acquisition failed:', err);
-              setMediaNotice('Microphone permission denied or device not found.');
+            } catch (err1) {
+              console.warn('Real microphone acquisition failed:', err1);
+              setMediaNotice('Microphone permission needed or device unavailable.');
             }
           }
 
@@ -534,22 +578,22 @@ export function useWebRTC({
               try {
                 pc.addTrack(activeAudioTrack, stream!);
               } catch {}
-            }
-            if (pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
-              makingOfferRef.current.set(peerId, true);
-              pc.createOffer()
-                .then(offer => pc.setLocalDescription(offer))
-                .then(() => {
-                  sendWebRTCSignal(peerId, {
-                    type: 'offer',
-                    sdp: pc.localDescription,
-                    streamKind: 'user'
+              if (pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
+                makingOfferRef.current.set(peerId, true);
+                pc.createOffer()
+                  .then(offer => pc.setLocalDescription(offer))
+                  .then(() => {
+                    sendWebRTCSignal(peerId, {
+                      type: 'offer',
+                      sdp: pc.localDescription,
+                      streamKind: 'user'
+                    });
+                  })
+                  .catch(() => {})
+                  .finally(() => {
+                    makingOfferRef.current.set(peerId, false);
                   });
-                })
-                .catch(() => {})
-                .finally(() => {
-                  makingOfferRef.current.set(peerId, false);
-                });
+              }
             }
           });
         }
@@ -559,16 +603,6 @@ export function useWebRTC({
           stream.getAudioTracks().forEach(t => { t.enabled = false; });
           setLocalUserStream(new MediaStream(stream.getTracks()));
         }
-      }
-
-      // Fanout active stream to all connected peers
-      const activeStream = localUserRef.current;
-      if (activeStream) {
-        members.forEach((m) => {
-          if (m.userId && m.userId !== myUserId && m.isConnected) {
-            initiateUserCall(m.userId, activeStream);
-          }
-        });
       }
     } catch (err) {
       console.warn('Microphone toggle error:', err);
@@ -612,6 +646,7 @@ export function useWebRTC({
     userPeerConnectionsRef.current.forEach((_, peerId) => {
       if (!activePeerIds.has(peerId)) {
         closeUserPeerConnection(peerId);
+        failedPeersCooldownRef.current.delete(peerId);
       }
     });
     screenPeerConnectionsRef.current.forEach((_, peerId) => {
@@ -620,11 +655,14 @@ export function useWebRTC({
       }
     });
 
-    // Connect to newly joined peers if local stream exists
+    // Connect to newly joined peers if local stream exists and not in failure cooldown
     if (localUserStream && myUserId) {
       members.forEach((m) => {
         if (m.userId && m.userId !== myUserId && m.isConnected !== false && !userPeerConnectionsRef.current.has(m.userId)) {
-          initiateUserCall(m.userId, localUserStream);
+          const fail = failedPeersCooldownRef.current.get(m.userId);
+          if (!fail || Date.now() >= fail.nextAllowedTime) {
+            initiateUserCall(m.userId, localUserStream);
+          }
         }
       });
     }
@@ -776,6 +814,22 @@ export function useWebRTC({
               pc = new RTCPeerConnection(RTC_CONFIG);
               connections.current.set(fromUserId, pc);
 
+              pc.onconnectionstatechange = () => {
+                if (pc && pc.connectionState === 'connected') {
+                  failedPeersCooldownRef.current.delete(fromUserId);
+                } else if (pc && pc.connectionState === 'failed') {
+                  closeUserPeerConnection(fromUserId, true);
+                }
+              };
+
+              pc.oniceconnectionstatechange = () => {
+                if (pc && (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed')) {
+                  closeUserPeerConnection(fromUserId, true);
+                } else if (pc && (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed')) {
+                  failedPeersCooldownRef.current.delete(fromUserId);
+                }
+              };
+
               pc.ontrack = (event) => {
                 const peerStream = (event.streams && event.streams[0]) ? event.streams[0] : null;
                 if (event.track && event.track.kind === 'video') {
@@ -792,19 +846,29 @@ export function useWebRTC({
                 }
 
                 setRemoteUserStreams(prev => {
-                  const existing = prev.get(fromUserId);
-                  const tracks = existing ? existing.getTracks() : [];
-                  if (event.track && !tracks.some(t => t.id === event.track.id)) {
-                    tracks.push(event.track);
+                  let existing = prev.get(fromUserId);
+                  let changed = false;
+                  if (!existing) {
+                    existing = new MediaStream();
+                    changed = true;
+                  }
+                  const currentTrackIds = new Set(existing.getTracks().map(t => t.id));
+                  if (event.track && !currentTrackIds.has(event.track.id)) {
+                    existing.addTrack(event.track);
+                    changed = true;
                   }
                   if (peerStream) {
                     peerStream.getTracks().forEach(t => {
-                      if (!tracks.some(existingT => existingT.id === t.id)) {
-                        tracks.push(t);
+                      if (!currentTrackIds.has(t.id)) {
+                        existing!.addTrack(t);
+                        changed = true;
                       }
                     });
                   }
-                  return new Map(prev).set(fromUserId, new MediaStream(tracks));
+                  if (!changed && prev.has(fromUserId)) {
+                    return prev;
+                  }
+                  return new Map(prev).set(fromUserId, existing);
                 });
               };
 
@@ -865,7 +929,20 @@ export function useWebRTC({
             }
           }
 
-          await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          if (!signal.sdp || !signal.sdp.sdp) {
+            console.warn(`[WebRTC] Missing SDP in offer from ${fromUserId}`);
+            return;
+          }
+
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          } catch (sdpErr) {
+            console.warn(`[WebRTC] Failed to set remote offer SDP from ${fromUserId}:`, sdpErr);
+            if (!isScreen) {
+              closeUserPeerConnection(fromUserId, true);
+            }
+            return;
+          }
 
           const pending = pendingCandidates.current.get(fromUserId) || [];
           for (const cand of pending) {
@@ -893,18 +970,31 @@ export function useWebRTC({
 
           const pc = connections.current.get(fromUserId);
           if (pc && pc.signalingState === 'have-local-offer') {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-            const pending = pendingCandidates.current.get(fromUserId) || [];
-            for (const cand of pending) {
-              try {
-                await pc.addIceCandidate(new RTCIceCandidate(cand));
-              } catch (err) {
-                console.warn('Error adding queued candidate:', err);
-              }
+            if (!signal.sdp || !signal.sdp.sdp) {
+              console.warn(`[WebRTC] Missing SDP in answer from ${fromUserId}`);
+              return;
             }
-            pendingCandidates.current.delete(fromUserId);
+
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+              const pending = pendingCandidates.current.get(fromUserId) || [];
+              for (const cand of pending) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(cand));
+                } catch (err) {
+                  console.warn('Error adding queued candidate:', err);
+                }
+              }
+              pendingCandidates.current.delete(fromUserId);
+            } catch (sdpErr) {
+              console.warn(`[WebRTC] Failed to set remote answer SDP from ${fromUserId}:`, sdpErr);
+              if (!isScreen) {
+                closeUserPeerConnection(fromUserId, true);
+              }
+              return;
+            }
           }
-        } else if (signal.type === 'candidate' && signal.candidate) {
+        } else if (signal.type === 'candidate' && signal.candidate && signal.candidate.candidate) {
           const pc = connections.current.get(fromUserId);
           if (pc && pc.remoteDescription && pc.remoteDescription.type) {
             try {
