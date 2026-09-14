@@ -399,32 +399,49 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                 <ScreenShare className="w-7 h-7" />
               </div>
 
-              <div className="space-y-1.5">
-                <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-                  Share Screen to Start Movie Party
-                </h3>
-                <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
-                  Open Netflix, Prime Video, YouTube or any movie in your browser, then share your screen or tab with everyone.
-                </p>
-              </div>
+              {isHost ? (
+                <>
+                  <div className="space-y-1.5">
+                    <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                      Share Screen to Start Movie Party
+                    </h3>
+                    <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
+                      Open Netflix, Prime Video, YouTube or any movie in your browser, then share your tab or screen with everyone.
+                    </p>
+                  </div>
 
-              <div className="w-full pt-1">
-                {onStartScreenShare && (
-                  <button
-                    onClick={() => {
-                      if (onStartParty) {
-                        onStartParty();
-                      } else {
-                        onStartScreenShare();
-                      }
-                    }}
-                    className="w-full py-3 px-5 bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2"
-                  >
-                    <ScreenShare className="w-4 h-4" />
-                    <span>Share Screen &amp; Start</span>
-                  </button>
-                )}
-              </div>
+                  <div className="w-full pt-1">
+                    {onStartScreenShare && (
+                      <button
+                        onClick={() => {
+                          if (onStartParty) {
+                            onStartParty();
+                          } else {
+                            onStartScreenShare();
+                          }
+                        }}
+                        className="w-full py-3 px-5 bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2"
+                      >
+                        <ScreenShare className="w-4 h-4" />
+                        <span>Share Screen &amp; Start</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                    Waiting for Host to Stream Movie
+                  </h3>
+                  <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
+                    The host will start sharing their screen or video stream shortly. Grab your popcorn and enjoy the party!
+                  </p>
+                  <div className="pt-2 flex items-center justify-center gap-1.5 text-rose-400 text-xs font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block"></span>
+                    <span>Ready &amp; waiting for broadcast...</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -682,6 +682,7 @@ export class DatabaseService {
       ON CONFLICT(room_id, user_id) DO UPDATE SET
         display_name = excluded.display_name,
         avatar_url = excluded.avatar_url,
+        role = excluded.role,
         is_connected = 1,
         left_at = NULL
     `);

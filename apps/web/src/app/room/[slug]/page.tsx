@@ -549,10 +549,10 @@ export default function RoomPage() {
         isMuted: isSelf ? isMicMuted : (rtcParticipant?.isMuted ?? member.isMuted ?? false),
         isSpeaking: rtcParticipant?.isSpeaking ?? false,
         isSelf,
-        isHost: member.role === 'HOST' || (isHost && isSelf)
+        isHost: member.userId === room?.hostId
       };
     });
-  }, [activeMembers, myUserId, videoGridParticipants, localUserStream, isCameraOn, remoteCameraStates, isMicMuted, isHost]);
+  }, [activeMembers, myUserId, videoGridParticipants, localUserStream, isCameraOn, remoteCameraStates, isMicMuted, room?.hostId]);
 
   if (error) {
     return (
