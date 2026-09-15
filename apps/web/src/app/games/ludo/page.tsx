@@ -882,7 +882,7 @@ function LudoPageContent() {
 
   return (
     <div className={`min-h-screen flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
-      isDark ? 'bg-[#111217] text-white' : 'bg-slate-50 text-slate-900'
+      isDark ? 'bg-[#111217] text-white' : 'bg-white text-zinc-900'
     }`}>
       {/* Active Match Background & Atmosphere (when in active room) */}
       {roomParam ? (
@@ -910,10 +910,7 @@ function LudoPageContent() {
               <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:32px_32px]" />
             </div>
           ) : (
-            <div className="absolute inset-0 bg-[#f8fafc]">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(244,63,94,0.08),rgba(0,0,0,0))]" />
-              <div className="absolute inset-0 bg-grid-black/[0.02] bg-[size:32px_32px]" />
-            </div>
+            <div className="absolute inset-0 bg-white" />
           )}
         </div>
       )}
@@ -922,7 +919,7 @@ function LudoPageContent() {
       {/* 1. LEFT SIDEBAR NAVIGATION (IDENTICAL TO DASHBOARD & PROFILE)              */}
       {/* ========================================================================= */}
       {!roomParam && (
-        <aside className="w-64 bg-white dark:bg-[#14151b] border-r border-slate-200 dark:border-white/[0.06] p-6 flex flex-col justify-between shrink-0 hidden lg:flex select-none transition-colors duration-150 sticky top-0 h-screen z-30">
+        <aside className="w-64 bg-white dark:bg-[#14151b] border-r border-zinc-200/80 dark:border-white/[0.06] p-6 flex flex-col justify-between shrink-0 hidden lg:flex select-none transition-colors duration-150 sticky top-0 h-screen z-30">
           <div className="space-y-8">
             {/* Logo: Watch. with Bold Red Accent Dot */}
             <div
@@ -933,10 +930,10 @@ function LudoPageContent() {
                 <Film className="w-4 h-4 fill-current" />
               </div>
               <div className="flex flex-col leading-none">
-                <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                <span className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
                   Watch<span className="text-rose-600 text-2xl leading-none">.</span>
                 </span>
-                <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500 tracking-widest uppercase mt-0.5">
+                <span className="text-[9px] font-semibold text-zinc-400 dark:text-zinc-500 tracking-widest uppercase mt-0.5">
                   Powered by StitchByte
                 </span>
               </div>
@@ -946,57 +943,57 @@ function LudoPageContent() {
             <div className="space-y-6">
               {/* Nav Group 1: Menu */}
               <div className="space-y-1.5">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-3 mb-2">
                   Menu
                 </div>
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard')}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
-                  <Film className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <Film className="w-4 h-4 text-zinc-400" />
                   <span>Browse Cinema</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard?tab=watchlist')}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
-                  <Heart className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <Heart className="w-4 h-4 text-zinc-400" />
                   <span>Watchlist</span>
                 </button>
               </div>
 
               {/* Nav Group 2: Social / Games */}
               <div className="space-y-1.5">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-3 mb-2">
                   Social & Games
                 </div>
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard?tab=myrooms')}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
-                  <Users className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <Users className="w-4 h-4 text-zinc-400" />
                   <span>My Rooms</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard?tab=parties')}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
-                  <Tv className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <Tv className="w-4 h-4 text-zinc-400" />
                   <span>Watch Parties</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => router.push('/games')}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
-                  <Gamepad2 className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <Gamepad2 className="w-4 h-4 text-zinc-400" />
                   <span>Game Lounge</span>
                 </button>
 
@@ -1014,23 +1011,23 @@ function LudoPageContent() {
 
               {/* Nav Group 3: General */}
               <div className="space-y-1.5">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 px-3 mb-2">
                   General
                 </div>
                 <button
                   type="button"
                   onClick={() => router.push('/profile')}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
-                  <User className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <User className="w-4 h-4 text-zinc-400" />
                   <span>My Profile</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(true)}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
-                  <Settings className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                  <Settings className="w-4 h-4 text-zinc-400" />
                   <span>Settings</span>
                 </button>
                 <button
@@ -1039,7 +1036,7 @@ function LudoPageContent() {
                     clearStoredSession();
                     router.push('/');
                   }}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Log out</span>
@@ -1051,9 +1048,9 @@ function LudoPageContent() {
           {/* User Profile Card at Bottom of Sidebar */}
           <div
             onClick={() => router.push('/profile')}
-            className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer group shadow-xs select-none"
+            className="flex items-center space-x-3 p-3 rounded-2xl bg-zinc-50 dark:bg-[#1b1c24] border border-zinc-200/80 dark:border-white/[0.06] hover:border-zinc-300 dark:hover:border-white/20 transition cursor-pointer group shadow-xs select-none"
           >
-            <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-900 border border-slate-300 dark:border-white/10 ring-2 ring-rose-600/40 shrink-0 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-200 dark:bg-zinc-900 border border-zinc-300 dark:border-white/10 ring-2 ring-rose-600/40 shrink-0 flex items-center justify-center">
               {session?.user?.avatarUrl ? (
                 <img
                   src={session.user.avatarUrl}
@@ -1068,10 +1065,10 @@ function LudoPageContent() {
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-rose-600 transition">
+              <div className="text-xs font-bold text-zinc-900 dark:text-white truncate group-hover:text-rose-600 transition">
                 {session?.user?.displayName || 'Cinema Fan'}
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1 font-mono">
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate flex items-center gap-1 font-mono">
                 {partner ? `💕 Paired: ${partner.displayName}` : `Code: ${myPartnerCode || session?.user?.partnerCode || '...'}`}
               </div>
             </div>
@@ -1085,7 +1082,7 @@ function LudoPageContent() {
       <div className="flex-1 flex flex-col min-h-screen overflow-y-auto relative">
         {/* TOP NAVIGATION BAR */}
         <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
-          isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/90 border-slate-200 shadow-xs'
+          isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
         }`}>
           {/* Left: Breadcrumbs or Leave Match */}
           <div className="flex items-center gap-3">
@@ -1122,7 +1119,7 @@ function LudoPageContent() {
                   type="button"
                   onClick={() => router.push('/games')}
                   className={`lg:hidden px-2.5 py-1.5 rounded-xl border flex items-center gap-1 font-semibold ${
-                    isDark ? 'bg-white/[0.05] text-zinc-300 border-white/[0.08]' : 'bg-slate-100 text-slate-700 border-slate-200'
+                    isDark ? 'bg-white/[0.05] text-zinc-300 border-white/[0.08]' : 'bg-zinc-100 text-zinc-700 border-zinc-200'
                   }`}
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
@@ -1132,18 +1129,18 @@ function LudoPageContent() {
                 <div className="hidden sm:flex items-center gap-1.5 text-xs font-semibold">
                   <span
                     onClick={() => router.push('/dashboard')}
-                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     Watch.
                   </span>
-                  <span className={isDark ? 'text-zinc-600' : 'text-slate-400'}>/</span>
+                  <span className={isDark ? 'text-zinc-600' : 'text-zinc-400'}>/</span>
                   <span
                     onClick={() => router.push('/games')}
-                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
+                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     Game Lounge
                   </span>
-                  <span className={isDark ? 'text-zinc-600' : 'text-slate-400'}>/</span>
+                  <span className={isDark ? 'text-zinc-600' : 'text-zinc-400'}>/</span>
                   <span className="text-rose-600 font-bold">Ludo Arena</span>
                 </div>
               </div>
@@ -2214,17 +2211,23 @@ function LudoPageContent() {
             {/* ========================================================================= */}
             {/* DEDICATED SECTION 1: PLAY WITH LOVED ONES • ONE-TIME CODE (EXCLUSIVE)     */}
             {/* ========================================================================= */}
-            <div className={`w-full rounded-3xl p-6 sm:p-8 border relative overflow-hidden transition-all shadow-xl ${
+            <div className={`w-full rounded-3xl p-6 sm:p-8 border relative overflow-hidden transition-all ${
               isDark
-                ? 'bg-gradient-to-b from-rose-950/25 via-[#16121b]/90 to-[#14151b]/90 border-rose-500/20 shadow-rose-950/20'
-                : 'bg-gradient-to-b from-rose-50/90 via-white to-pink-50/50 border-rose-200 shadow-rose-100/50'
+                ? 'bg-gradient-to-b from-rose-950/25 via-[#16121b]/90 to-[#14151b]/90 border-rose-500/20 shadow-rose-950/20 shadow-xl'
+                : 'bg-white border-zinc-200 shadow-sm'
             }`}>
-              {/* Subtle Ambient Heart Glow */}
-              <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-pink-500/10 blur-3xl pointer-events-none" />
+              {/* Subtle Ambient Heart Glow only in dark mode */}
+              {isDark && (
+                <>
+                  <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
+                  <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-pink-500/10 blur-3xl pointer-events-none" />
+                </>
+              )}
 
               {/* Section Header */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-rose-500/15 relative z-10">
+              <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b relative z-10 ${
+                isDark ? 'border-rose-500/15' : 'border-zinc-100'
+              }`}>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white flex items-center justify-center shadow-md shadow-rose-500/25 shrink-0">
                     <Heart className="w-6 h-6 fill-current animate-pulse" />
@@ -2259,7 +2262,7 @@ function LudoPageContent() {
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 shadow-xs cursor-pointer active:scale-95 ${
                     isDark
                       ? 'bg-white/[0.06] hover:bg-white/[0.12] border-white/15 text-rose-300 hover:text-white'
-                      : 'bg-white hover:bg-rose-50 border-rose-200 text-rose-600 hover:text-rose-700 shadow-sm'
+                      : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-700 shadow-xs'
                   }`}
                   title={isLovePassFlipped ? 'Flip to Boarding Pass' : 'Flip to View Duel Perks & Rules'}
                 >
@@ -2277,7 +2280,7 @@ function LudoPageContent() {
               {/* If Linked Partner exists: Quick status banner */}
               {partner && (
                 <div className={`mt-5 p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-3 ${
-                  isDark ? 'bg-black/30 border-white/[0.08]' : 'bg-white/80 border-rose-100 shadow-xs'
+                  isDark ? 'bg-black/30 border-white/[0.08]' : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className="relative">
@@ -2350,18 +2353,22 @@ function LudoPageContent() {
                   }`}
                 >
                   {/* FRONT SIDE OF PASS: LUXURY PERFORATED CINEMA TICKET */}
-                  <div className={`backface-hidden w-full rounded-3xl border shadow-2xl overflow-hidden transition-colors flex flex-col md:flex-row relative ${
+                  <div className={`backface-hidden w-full rounded-3xl border shadow-md overflow-hidden transition-colors flex flex-col md:flex-row relative ${
                     isDark
                       ? 'bg-gradient-to-br from-[#1b121e] via-[#14141d] to-[#101117] border-rose-500/30 text-white'
-                      : 'bg-gradient-to-br from-rose-50/90 via-white to-pink-50/70 border-rose-300 text-zinc-900'
+                      : 'bg-white border-zinc-200 text-zinc-900'
                   }`}>
                     {/* Left Stub: Duel Seatings & Security (~62% width on desktop) */}
                     <div className="flex-1 p-5 sm:p-7 flex flex-col justify-between relative overflow-hidden">
                       {/* Decorative ambient background */}
-                      <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full bg-rose-500/10 blur-2xl pointer-events-none" />
+                      {isDark && (
+                        <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full bg-rose-500/10 blur-2xl pointer-events-none" />
+                      )}
 
                       {/* Ticket Top Bar */}
-                      <div className="flex items-center justify-between pb-4 border-b border-rose-500/15">
+                      <div className={`flex items-center justify-between pb-4 border-b ${
+                        isDark ? 'border-rose-500/15' : 'border-zinc-100'
+                      }`}>
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-500 flex items-center justify-center">
                             <Ticket className="w-3.5 h-3.5" />
@@ -2390,7 +2397,7 @@ function LudoPageContent() {
                         <div className={`flex-1 p-3.5 sm:p-4 rounded-2xl border text-center transition ${
                           isDark
                             ? 'bg-black/30 border-rose-500/20'
-                            : 'bg-white/90 border-rose-200 shadow-xs'
+                            : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
                         }`}>
                           <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-rose-600 text-white font-black text-sm mb-2 shadow-md shadow-rose-600/30">
                             {(session?.user?.displayName || 'Y')[0]?.toUpperCase()}
@@ -2420,7 +2427,7 @@ function LudoPageContent() {
                         <div className={`flex-1 p-3.5 sm:p-4 rounded-2xl border text-center transition ${
                           isDark
                             ? 'bg-black/30 border-emerald-500/20'
-                            : 'bg-white/90 border-emerald-200 shadow-xs'
+                            : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
                         }`}>
                           <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-emerald-600 text-white font-black text-sm mb-2 shadow-md shadow-emerald-600/30">
                             {partner ? partner.displayName[0]?.toUpperCase() : '♥'}
@@ -2435,7 +2442,9 @@ function LudoPageContent() {
                       </div>
 
                       {/* Left Stub Bottom Security Row */}
-                      <div className="pt-3 border-t border-rose-500/15 flex items-center justify-between text-[10px] flex-wrap gap-2 text-zinc-500">
+                      <div className={`pt-3 border-t flex items-center justify-between text-[10px] flex-wrap gap-2 text-zinc-500 ${
+                        isDark ? 'border-rose-500/15' : 'border-zinc-100'
+                      }`}>
                         <div className="flex items-center gap-3">
                           <span className="flex items-center gap-1 text-zinc-400 dark:text-zinc-400">
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
@@ -2459,26 +2468,28 @@ function LudoPageContent() {
                     {/* Perforation Divider with Round Concave Cutouts (Desktop) */}
                     <div className="hidden md:flex flex-col items-center justify-between relative px-0 py-0 self-stretch">
                       {/* Top Round Notch */}
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40 z-20" />
+                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-white dark:bg-[#111217] border border-zinc-200 dark:border-rose-500/40 z-20" />
                       {/* Dashed Perforated Line */}
-                      <div className="w-0 h-full border-r-2 border-dashed border-rose-300/80 dark:border-rose-500/40 my-3" />
+                      <div className="w-0 h-full border-r-2 border-dashed border-zinc-200 dark:border-rose-500/40 my-3" />
                       {/* Bottom Round Notch */}
-                      <div className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40 z-20" />
+                      <div className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-white dark:bg-[#111217] border border-zinc-200 dark:border-rose-500/40 z-20" />
                     </div>
 
                     {/* Mobile Perforation Divider */}
-                    <div className="md:hidden relative w-full h-0 border-b-2 border-dashed border-rose-300/80 dark:border-rose-500/40">
-                      <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40" />
-                      <div className="absolute -right-3.5 -top-3.5 w-7 h-7 rounded-full bg-slate-50 dark:bg-[#111217] border border-rose-300 dark:border-rose-500/40" />
+                    <div className="md:hidden relative w-full h-0 border-b-2 border-dashed border-zinc-200 dark:border-rose-500/40">
+                      <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full bg-white dark:bg-[#111217] border border-zinc-200 dark:border-rose-500/40" />
+                      <div className="absolute -right-3.5 -top-3.5 w-7 h-7 rounded-full bg-white dark:bg-[#111217] border border-zinc-200 dark:border-rose-500/40" />
                     </div>
 
                     {/* Right Stub: Tear-off Pass & Voucher Action (~38% width on desktop) */}
                     <div className={`w-full md:w-80 p-5 sm:p-7 flex flex-col justify-between shrink-0 ${
-                      isDark ? 'bg-black/25' : 'bg-rose-50/40'
+                      isDark ? 'bg-black/25' : 'bg-zinc-50/50 border-t md:border-t-0 md:border-l border-zinc-100'
                     }`}>
                       <div>
                         {/* Sub-Tabs: Host Pass vs Enter Code */}
-                        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-rose-500/10 border border-rose-500/20 mb-4">
+                        <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl mb-4 border ${
+                          isDark ? 'bg-rose-500/10 border-rose-500/20' : 'bg-zinc-100 border-zinc-200/80'
+                        }`}>
                           <button
                             type="button"
                             onClick={() => setLovePassTab('create')}
@@ -2623,7 +2634,9 @@ function LudoPageContent() {
                       </div>
 
                       {/* Authentic Cinema Ticket Barcode Strip */}
-                      <div className="pt-4 border-t border-rose-500/15 flex flex-col items-center">
+                      <div className={`pt-4 border-t flex flex-col items-center ${
+                        isDark ? 'border-rose-500/15' : 'border-zinc-100'
+                      }`}>
                         <div className="h-6 flex items-end justify-center gap-0.5 opacity-60 dark:opacity-40">
                           <span className="w-0.5 h-full bg-current" />
                           <span className="w-1 h-4/5 bg-current" />
@@ -2648,13 +2661,15 @@ function LudoPageContent() {
                   </div>
 
                   {/* BACK SIDE OF PASS: INTIMATE HOUSE RULES & ROMANCE PERKS */}
-                  <div className={`backface-hidden rotate-y-180 absolute inset-0 w-full h-full rounded-3xl border shadow-2xl p-6 sm:p-8 flex flex-col justify-between overflow-hidden transition-colors ${
+                  <div className={`backface-hidden rotate-y-180 absolute inset-0 w-full h-full rounded-3xl border shadow-sm p-6 sm:p-8 flex flex-col justify-between overflow-hidden transition-colors ${
                     isDark
                       ? 'bg-gradient-to-br from-[#1d121c] via-[#16121c] to-[#111218] border-rose-500/30 text-white'
-                      : 'bg-gradient-to-br from-rose-50 via-white to-pink-50 border-rose-300 text-zinc-900'
+                      : 'bg-white border-zinc-200 text-zinc-900'
                   }`}>
                     {/* Top Bar on Back */}
-                    <div className="flex items-center justify-between pb-4 border-b border-rose-500/15">
+                    <div className={`flex items-center justify-between pb-4 border-b ${
+                      isDark ? 'border-rose-500/15' : 'border-zinc-100'
+                    }`}>
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center">
                           <Heart className="w-4 h-4 fill-current" />
@@ -2675,7 +2690,7 @@ function LudoPageContent() {
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
                           isDark
                             ? 'bg-white/10 hover:bg-white/20 border-white/15 text-white'
-                            : 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-800'
+                            : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-800'
                         }`}
                       >
                         <RotateCw className="w-3 h-3" />
@@ -2686,7 +2701,7 @@ function LudoPageContent() {
                     {/* 4 Romance Perks Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 my-auto py-3">
                       <div className={`p-3.5 rounded-2xl border ${
-                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
                           <div className="w-6 h-6 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center">
@@ -2700,7 +2715,7 @@ function LudoPageContent() {
                       </div>
 
                       <div className={`p-3.5 rounded-2xl border ${
-                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
                           <div className="w-6 h-6 rounded-lg bg-sky-500/15 text-sky-500 flex items-center justify-center">
@@ -2714,7 +2729,7 @@ function LudoPageContent() {
                       </div>
 
                       <div className={`p-3.5 rounded-2xl border ${
-                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
                           <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center">
@@ -2728,7 +2743,7 @@ function LudoPageContent() {
                       </div>
 
                       <div className={`p-3.5 rounded-2xl border ${
-                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-white/80 border-rose-200 shadow-xs'
+                        isDark ? 'bg-black/30 border-rose-500/15' : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
                       }`}>
                         <div className="flex items-center gap-2 mb-1">
                           <div className="w-6 h-6 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
@@ -2743,7 +2758,9 @@ function LudoPageContent() {
                     </div>
 
                     {/* Bottom Authorization strip */}
-                    <div className="pt-3 border-t border-rose-500/15 flex items-center justify-between text-[11px]">
+                    <div className={`pt-3 border-t flex items-center justify-between text-[11px] ${
+                      isDark ? 'border-rose-500/15' : 'border-zinc-100'
+                    }`}>
                       <span className="text-zinc-400 font-mono text-[10px]">
                         AUTHORIZED BY WATCH. STITCHBYTE GAMING
                       </span>
@@ -2769,7 +2786,7 @@ function LudoPageContent() {
                     className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition group border ${
                       isDark
                         ? 'bg-black/20 hover:bg-white/[0.05] border-white/[0.08] text-zinc-400 hover:text-zinc-200'
-                        : 'bg-white/60 hover:bg-white border-rose-200 text-zinc-600 hover:text-zinc-900 shadow-xs'
+                        : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-600 hover:text-zinc-900 shadow-xs'
                     }`}
                   >
                     <Heart className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
