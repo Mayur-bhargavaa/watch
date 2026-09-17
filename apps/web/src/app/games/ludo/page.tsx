@@ -157,6 +157,7 @@ function LudoPageContent() {
   const [partnerConnectError, setPartnerConnectError] = useState<string | null>(null);
   const [partnerPingStatus, setPartnerPingStatus] = useState<string | null>(null);
   const [isPingingPartner, setIsPingingPartner] = useState(false);
+  const [showPartnerConnectInput, setShowPartnerConnectInput] = useState(false);
 
   // Global Theme
   const { theme, resolvedTheme, toggleTheme } = useTheme();
@@ -2188,7 +2189,7 @@ function LudoPageContent() {
                   </h1>
 
                   {/* Subtitle */}
-                  <p className="text-xs sm:text-sm lg:text-base text-zinc-500 font-medium max-w-lg leading-relaxed mb-6 sm:mb-8">
+                  <p className="text-xs sm:text-sm lg:text-base text-zinc-500 font-medium max-w-lg leading-relaxed mb-4 sm:mb-5">
                     Play real-time Ludo with your friends. Simple. Fun.
                     <br className="hidden sm:inline" />
                     No bots, just real players.
@@ -2198,6 +2199,160 @@ function LudoPageContent() {
                   {lobbyError && (
                     <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-semibold">
                       {lobbyError}
+                    </div>
+                  )}
+
+                  {/* Container: Play with Connected Person */}
+                  {partner ? (
+                    <div className="mb-4 sm:mb-5 bg-[#fff5f7] border border-[#fde4eb] rounded-[22px] sm:rounded-[26px] p-3.5 sm:p-4.5 max-w-xl shadow-[0_4px_20px_rgba(238,29,73,0.05)] transition-all">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative shrink-0">
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#ee1d49] to-[#f43f5e] text-white flex items-center justify-center font-bold text-sm shadow-xs ring-2 ring-white overflow-hidden">
+                              {partner.avatarUrl ? (
+                                <img src={partner.avatarUrl} alt={partner.displayName} className="w-full h-full object-cover" />
+                              ) : (
+                                (partner.displayName || partner.username || 'P').charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-white">
+                              <span className="relative flex h-2 w-2">
+                                <span className={`absolute inline-flex h-full w-full rounded-full ${partner.online ? 'animate-ping bg-emerald-400 opacity-75' : 'bg-zinc-400'}`}></span>
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${partner.online ? 'bg-emerald-500' : 'bg-zinc-400'}`}></span>
+                              </span>
+                            </span>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase">
+                                Connected Partner
+                              </span>
+                              <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49]" />
+                            </div>
+                            <h4 className="text-sm sm:text-base font-bold text-zinc-900 truncate">
+                              {partner.displayName || partner.username}
+                            </h4>
+                            <p className="text-[11px] text-zinc-500 truncate">
+                              {partner.online ? 'Online & ready to play' : 'Offline • Tap ping to alert'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={handlePingPartner}
+                            disabled={isPingingPartner}
+                            title={`Ping ${partner.displayName || 'partner'}`}
+                            className="p-2 sm:p-2.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                          >
+                            <Bell className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPingingPartner ? 'animate-bounce' : ''}`} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handlePlayWithPartner}
+                            disabled={isMatchmaking}
+                            className="py-2.5 px-4 sm:px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                          >
+                            <span>{isMatchmaking ? 'Starting...' : 'Play Together'}</span>
+                            <span className="text-sm sm:text-base font-bold">→</span>
+                          </button>
+                        </div>
+                      </div>
+                      {partnerPingStatus && (
+                        <div className="mt-2.5 pt-2 border-t border-rose-200/60 text-[11px] font-medium text-rose-600 flex items-center gap-1.5">
+                          <span>{partnerPingStatus}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mb-4 sm:mb-5 bg-[#fff5f7] border border-[#fde4eb] rounded-[22px] sm:rounded-[26px] p-3.5 sm:p-4 max-w-xl shadow-[0_4px_20px_rgba(238,29,73,0.04)] transition-all">
+                      {!showPartnerConnectInput ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#fee1e7] flex items-center justify-center text-[#ee1d49] shrink-0">
+                              <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase">
+                                  Play With Partner
+                                </span>
+                              </div>
+                              <h4 className="text-xs sm:text-sm font-bold text-zinc-900 truncate">
+                                Play with your connected person
+                              </h4>
+                              <p className="text-[11px] text-zinc-500 truncate">
+                                Link codes to play 1-click matches together
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setShowPartnerConnectInput(true)}
+                            className="py-2 px-3.5 sm:px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs rounded-xl sm:rounded-2xl shadow-[0_4px_14px_rgba(237,28,70,0.2)] transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Connect</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <Heart className="w-3.5 h-3.5 text-[#ee1d49] fill-[#ee1d49]" />
+                              <span className="text-xs font-bold text-zinc-900">Connect with your Partner</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowPartnerConnectInput(false)}
+                              className="text-zinc-400 hover:text-zinc-600 p-1 text-xs cursor-pointer"
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            {myPartnerCode && (
+                              <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#fde4eb]">
+                                <div className="min-w-0">
+                                  <span className="text-[9px] uppercase font-bold text-zinc-400 block">Your Code</span>
+                                  <span className="font-mono font-bold text-zinc-800 text-xs tracking-wider">{myPartnerCode}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleCopyPartnerCode}
+                                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-[#ee1d49] font-medium text-[10px] rounded-lg transition cursor-pointer"
+                                >
+                                  {copiedPartnerCode ? 'Copied!' : 'Copy'}
+                                </button>
+                              </div>
+                            )}
+
+                            <form onSubmit={handleConnectPartner} className="flex gap-1.5">
+                              <input
+                                type="text"
+                                value={partnerInputCode}
+                                onChange={e => setPartnerInputCode(e.target.value.toUpperCase())}
+                                placeholder="THEIR CODE"
+                                className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-mono uppercase bg-white border border-[#fde4eb] text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-[#ee1d49]"
+                              />
+                              <button
+                                type="submit"
+                                disabled={isConnectingPartner || !partnerInputCode.trim()}
+                                className="px-3 py-1.5 bg-[#ed1c46] hover:bg-[#d6143c] disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-xs transition shrink-0 cursor-pointer"
+                              >
+                                {isConnectingPartner ? '...' : 'Link'}
+                              </button>
+                            </form>
+                          </div>
+
+                          {partnerConnectError && (
+                            <p className="text-[11px] text-rose-500 font-medium">{partnerConnectError}</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -2277,7 +2432,7 @@ function LudoPageContent() {
                     <img
                       src="/images/ludo-3d-board.png"
                       alt="Ludo Arena 3D Board"
-                      className="max-w-full max-h-full object-contain drop-shadow-xl select-none pointer-events-none transform hover:scale-[1.02] transition-transform duration-300"
+                      className="max-w-full max-h-full object-contain select-none pointer-events-none transform hover:scale-[1.02] transition-transform duration-300"
                     />
                   </div>
                 </div>
