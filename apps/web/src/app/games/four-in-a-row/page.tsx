@@ -1935,7 +1935,7 @@ function FourInARowContent() {
             {/* Cozy cinematic waiting room background */}
             <div
               className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat select-none pointer-events-none"
-              style={{ backgroundImage: `url('/images/ludo-waiting-bg.jpg')` }}
+              style={{ backgroundImage: `url('/images/four-in-a-row-waiting-bg.jpg')` }}
             >
               <div className="absolute inset-0 bg-black/20 backdrop-blur-[0.5px]" />
             </div>
