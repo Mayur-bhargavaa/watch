@@ -521,9 +521,22 @@ export async function createServer(dbPath = './synccinema.db') {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);
     const friends = db.getFriendsWithStreaks(user.id, (id) => isUserOnline(id));
+    const requests = db.getFriendRequests(user.id);
     return {
       friends,
+      requests,
+      pendingRequestsCount: requests.incoming.length,
       myFriendCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email)
+    };
+  });
+
+  app.get('/api/friends/requests', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const requests = db.getFriendRequests(user.id);
+    return {
+      success: true,
+      ...requests
     };
   });
 
@@ -535,16 +548,67 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'Friend Code is required' });
     }
     try {
-      const friend = db.addFriend(user.id, body.friendCode);
-      const isOnline = isUserOnline(friend.friendUser.id);
-      friend.friendUser.isOnline = isOnline;
+      const result = db.sendFriendRequest(user.id, body.friendCode);
+      if (result.friend) {
+        result.friend.friendUser.isOnline = isUserOnline(result.friend.friendUser.id);
+      }
       return {
         success: true,
-        friend
+        status: result.status,
+        friend: result.friend,
+        message: result.message
       };
     } catch (err: any) {
-      return reply.code(400).send({ error: err.message || 'Failed to add friend' });
+      return reply.code(400).send({ error: err.message || 'Failed to send friend request' });
     }
+  });
+
+  app.post('/api/friends/requests/accept', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { senderUserId?: string };
+    if (!body.senderUserId) {
+      return reply.code(400).send({ error: 'senderUserId is required' });
+    }
+    try {
+      const friend = db.acceptFriendRequest(user.id, body.senderUserId);
+      friend.friendUser.isOnline = isUserOnline(friend.friendUser.id);
+      return {
+        success: true,
+        friend,
+        message: `Accepted request from ${friend.friendUser.displayName}`
+      };
+    } catch (err: any) {
+      return reply.code(400).send({ error: err.message || 'Failed to accept friend request' });
+    }
+  });
+
+  app.post('/api/friends/requests/decline', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { senderUserId?: string };
+    if (!body.senderUserId) {
+      return reply.code(400).send({ error: 'senderUserId is required' });
+    }
+    db.declineFriendRequest(user.id, body.senderUserId);
+    return {
+      success: true,
+      message: 'Friend request declined'
+    };
+  });
+
+  app.post('/api/friends/requests/cancel', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { targetUserId?: string };
+    if (!body.targetUserId) {
+      return reply.code(400).send({ error: 'targetUserId is required' });
+    }
+    db.cancelFriendRequest(user.id, body.targetUserId);
+    return {
+      success: true,
+      message: 'Friend request cancelled'
+    };
   });
 
   app.delete('/api/friends/:friendUserId', async (request, reply) => {

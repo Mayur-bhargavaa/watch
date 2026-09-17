@@ -541,8 +541,26 @@ export interface FriendWithStreak {
   createdAt: string;
 }
 
+export interface FriendRequestItem {
+  requestId: string;
+  user: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    partnerCode: string;
+  };
+  createdAt: string;
+}
+
+export interface FriendRequestsData {
+  incoming: FriendRequestItem[];
+  outgoing: FriendRequestItem[];
+}
+
 export async function getFriendsWithStreaks(token: string): Promise<{
   friends: FriendWithStreak[];
+  requests?: FriendRequestsData;
+  pendingRequestsCount?: number;
   myFriendCode: string;
 }> {
   const res = await fetch(`${API_BASE}/api/friends`, {
@@ -555,9 +573,22 @@ export async function getFriendsWithStreaks(token: string): Promise<{
   return res.json();
 }
 
+export async function getFriendRequests(token: string): Promise<FriendRequestsData> {
+  const res = await fetch(`${API_BASE}/api/friends/requests`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to fetch friend requests');
+  }
+  return res.json();
+}
+
 export async function addFriendByCode(token: string, friendCode: string): Promise<{
   success: boolean;
-  friend: FriendWithStreak;
+  status: 'PENDING' | 'ACCEPTED';
+  friend?: FriendWithStreak;
+  message: string;
 }> {
   const res = await fetch(`${API_BASE}/api/friends/add`, {
     method: 'POST',
@@ -570,6 +601,64 @@ export async function addFriendByCode(token: string, friendCode: string): Promis
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Failed to add friend');
+  }
+  return res.json();
+}
+
+export async function acceptFriendRequest(token: string, senderUserId: string): Promise<{
+  success: boolean;
+  friend: FriendWithStreak;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/friends/requests/accept`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ senderUserId })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to accept friend request');
+  }
+  return res.json();
+}
+
+export async function declineFriendRequest(token: string, senderUserId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/friends/requests/decline`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ senderUserId })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to decline friend request');
+  }
+  return res.json();
+}
+
+export async function cancelFriendRequest(token: string, targetUserId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/friends/requests/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ targetUserId })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to cancel friend request');
   }
   return res.json();
 }

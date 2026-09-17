@@ -19,7 +19,8 @@ import {
 import {
   getFriendsWithStreaks,
   removeFriend,
-  FriendWithStreak
+  FriendWithStreak,
+  FriendRequestsData
 } from '../../lib/api';
 import { AddFriendModal } from './AddFriendModal';
 
@@ -50,6 +51,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 }) => {
   const [friends, setFriends] = useState<FriendWithStreak[]>([]);
   const [myFriendCode, setMyFriendCode] = useState<string>('');
+  const [requestsData, setRequestsData] = useState<FriendRequestsData>({ incoming: [], outgoing: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -68,6 +70,9 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
       const res = await getFriendsWithStreaks(token);
       setFriends(res.friends || []);
       setMyFriendCode(res.myFriendCode || '');
+      if (res.requests) {
+        setRequestsData(res.requests);
+      }
       setError(null);
     } catch (err: any) {
       console.error('Failed to load friends:', err);
@@ -251,10 +256,15 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-rose-600/25 transition shrink-0"
+            className="relative px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-rose-600/25 transition shrink-0"
           >
             <UserPlus className="w-4 h-4" />
             <span>Add Friend</span>
+            {requestsData.incoming.length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white text-rose-600 font-black text-[10px] leading-none shadow-sm animate-pulse">
+                {requestsData.incoming.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -426,11 +436,15 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
         onClose={() => setIsAddModalOpen(false)}
         myFriendCode={myFriendCode}
         token={token}
+        initialRequests={requestsData}
         onFriendAdded={(newFriend) => {
           setFriends((prev) => {
             if (prev.some((f) => f.friendUser.id === newFriend.friendUser.id)) return prev;
             return [newFriend, ...prev];
           });
+        }}
+        onRequestsUpdated={(updated) => {
+          setRequestsData(updated);
         }}
       />
     </div>

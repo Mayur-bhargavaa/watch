@@ -52,6 +52,22 @@ export interface FriendWithStreak {
   createdAt: string;
 }
 
+export interface FriendRequestItem {
+  requestId: string;
+  user: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    partnerCode: string;
+  };
+  createdAt: string;
+}
+
+export interface FriendRequestsData {
+  incoming: FriendRequestItem[];
+  outgoing: FriendRequestItem[];
+}
+
 export class DatabaseService {
   private db: DatabaseSync;
 
@@ -1099,7 +1115,7 @@ export class DatabaseService {
     return d.toISOString().split('T')[0];
   }
 
-  addFriend(userId: string, targetFriendCode: string): FriendWithStreak {
+  sendFriendRequest(userId: string, targetFriendCode: string): { status: 'PENDING' | 'ACCEPTED'; friend?: FriendWithStreak; message: string } {
     const targetUser = this.getUserByPartnerCode(targetFriendCode);
     if (!targetUser) {
       throw new Error('Friend Code not found. Please verify the code.');
@@ -1108,12 +1124,71 @@ export class DatabaseService {
       throw new Error('You cannot add yourself as a friend.');
     }
 
+    // Check if already friends
+    const existingAccepted = this.db.prepare(`
+      SELECT * FROM friendships
+      WHERE user_id_1 = ? AND user_id_2 = ? AND status = 'ACCEPTED'
+    `).get(userId, targetUser.id);
+    if (existingAccepted) {
+      throw new Error(`You are already friends with ${targetUser.displayName}.`);
+    }
+
+    // Check if targetUser already sent userId a pending request -> auto accept
+    const incomingPending = this.db.prepare(`
+      SELECT * FROM friendships
+      WHERE user_id_1 = ? AND user_id_2 = ? AND status = 'PENDING'
+    `).get(targetUser.id, userId);
+
+    if (incomingPending) {
+      const friend = this.acceptFriendRequest(userId, targetUser.id);
+      return {
+        status: 'ACCEPTED',
+        friend,
+        message: `You and ${targetUser.displayName} are now friends! 🔥`
+      };
+    }
+
+    // Check if user already sent a pending request
+    const existingOutgoing = this.db.prepare(`
+      SELECT * FROM friendships
+      WHERE user_id_1 = ? AND user_id_2 = ? AND status = 'PENDING'
+    `).get(userId, targetUser.id);
+    if (existingOutgoing) {
+      return {
+        status: 'PENDING',
+        message: `Friend request to ${targetUser.displayName} is already pending.`
+      };
+    }
+
     const now = new Date().toISOString();
-    const [u1, u2] = this.getCanonicalUserPair(userId, targetUser.id);
+    const friendshipId = `fr_${nanoid(10)}`;
+    const stmt = this.db.prepare(`
+      INSERT INTO friendships (id, user_id_1, user_id_2, status, created_at, updated_at)
+      VALUES (?, ?, ?, 'PENDING', ?, ?)
+      ON CONFLICT(user_id_1, user_id_2) DO UPDATE SET
+        status = 'PENDING',
+        updated_at = excluded.updated_at
+    `);
+    stmt.run(friendshipId, userId, targetUser.id, now, now);
+
+    return {
+      status: 'PENDING',
+      message: `Friend request sent to ${targetUser.displayName}!`
+    };
+  }
+
+  acceptFriendRequest(userId: string, senderUserId: string): FriendWithStreak {
+    const senderUser = this.getUserById(senderUserId);
+    if (!senderUser) {
+      throw new Error('User not found.');
+    }
+
+    const now = new Date().toISOString();
+    const [u1, u2] = this.getCanonicalUserPair(userId, senderUserId);
     const friendshipId1 = `fr_${nanoid(10)}`;
     const friendshipId2 = `fr_${nanoid(10)}`;
 
-    // Insert reciprocal friendships
+    // Set reciprocal friendships to ACCEPTED
     const stmt = this.db.prepare(`
       INSERT INTO friendships (id, user_id_1, user_id_2, status, created_at, updated_at)
       VALUES (?, ?, ?, 'ACCEPTED', ?, ?)
@@ -1121,15 +1196,8 @@ export class DatabaseService {
         status = 'ACCEPTED',
         updated_at = excluded.updated_at
     `);
-    stmt.run(friendshipId1, userId, targetUser.id, now, now);
-    stmt.run(friendshipId2, targetUser.id, userId, now, now);
-
-    // Also connect as partner if user has no active partner
-    if (!this.getPartner(userId)) {
-      try {
-        this.connectPartner(userId, targetFriendCode);
-      } catch {}
-    }
+    stmt.run(friendshipId1, userId, senderUserId, now, now);
+    stmt.run(friendshipId2, senderUserId, userId, now, now);
 
     // Ensure streak record exists
     const streakStmt = this.db.prepare(`
@@ -1138,7 +1206,14 @@ export class DatabaseService {
     `);
     streakStmt.run(`stk_${nanoid(10)}`, u1, u2, now, now);
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Also connect as partner if user has no active partner
+    if (!this.getPartner(userId) && senderUser.partnerCode) {
+      try {
+        this.connectPartner(userId, senderUser.partnerCode);
+      } catch {}
+    }
+
+    const todayStr = now.split('T')[0];
     const yesterdayStr = this.getYesterdayStr(todayStr);
     const streakRow = this.db.prepare(`
       SELECT * FROM friend_streaks WHERE user_id_1 = ? AND user_id_2 = ?
@@ -1152,10 +1227,10 @@ export class DatabaseService {
     return {
       friendshipId: friendshipId1,
       friendUser: {
-        id: targetUser.id,
-        displayName: targetUser.displayName,
-        avatarUrl: targetUser.avatarUrl,
-        partnerCode: targetUser.partnerCode || targetFriendCode.toUpperCase(),
+        id: senderUser.id,
+        displayName: senderUser.displayName,
+        avatarUrl: senderUser.avatarUrl,
+        partnerCode: senderUser.partnerCode || '',
         isOnline: false
       },
       streak: {
@@ -1167,6 +1242,93 @@ export class DatabaseService {
         totalMinutesWatched: streakRow?.total_minutes_watched || 0
       },
       createdAt: now
+    };
+  }
+
+  declineFriendRequest(userId: string, senderUserId: string): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM friendships
+      WHERE user_id_1 = ? AND user_id_2 = ? AND status = 'PENDING'
+    `);
+    stmt.run(senderUserId, userId);
+  }
+
+  cancelFriendRequest(userId: string, targetUserId: string): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM friendships
+      WHERE user_id_1 = ? AND user_id_2 = ? AND status = 'PENDING'
+    `);
+    stmt.run(userId, targetUserId);
+  }
+
+  getFriendRequests(userId: string): FriendRequestsData {
+    const incomingRows = this.db.prepare(`
+      SELECT f.id as request_id, f.created_at,
+             u.id as user_id, u.display_name, u.avatar_url, u.partner_code
+      FROM friendships f
+      JOIN users u ON u.id = f.user_id_1
+      WHERE f.user_id_2 = ? AND f.status = 'PENDING'
+      ORDER BY f.created_at DESC
+    `).all(userId) as any[];
+
+    const outgoingRows = this.db.prepare(`
+      SELECT f.id as request_id, f.created_at,
+             u.id as user_id, u.display_name, u.avatar_url, u.partner_code
+      FROM friendships f
+      JOIN users u ON u.id = f.user_id_2
+      WHERE f.user_id_1 = ? AND f.status = 'PENDING'
+      ORDER BY f.created_at DESC
+    `).all(userId) as any[];
+
+    return {
+      incoming: incomingRows.map(r => ({
+        requestId: r.request_id,
+        user: {
+          id: r.user_id,
+          displayName: r.display_name,
+          avatarUrl: r.avatar_url,
+          partnerCode: r.partner_code || ''
+        },
+        createdAt: r.created_at
+      })),
+      outgoing: outgoingRows.map(r => ({
+        requestId: r.request_id,
+        user: {
+          id: r.user_id,
+          displayName: r.display_name,
+          avatarUrl: r.avatar_url,
+          partnerCode: r.partner_code || ''
+        },
+        createdAt: r.created_at
+      }))
+    };
+  }
+
+  addFriend(userId: string, targetFriendCode: string): FriendWithStreak {
+    const res = this.sendFriendRequest(userId, targetFriendCode);
+    if (res.friend) {
+      return res.friend;
+    }
+    // If pending, construct return
+    const targetUser = this.getUserByPartnerCode(targetFriendCode)!;
+    return {
+      friendshipId: `pending_${nanoid(8)}`,
+      friendUser: {
+        id: targetUser.id,
+        displayName: targetUser.displayName,
+        avatarUrl: targetUser.avatarUrl,
+        partnerCode: targetUser.partnerCode || targetFriendCode.toUpperCase(),
+        isOnline: false
+      },
+      streak: {
+        currentStreak: 0,
+        longestStreak: 0,
+        lastWatchedDate: null,
+        completedToday: false,
+        atRisk: false,
+        totalMinutesWatched: 0
+      },
+      createdAt: new Date().toISOString()
     };
   }
 
