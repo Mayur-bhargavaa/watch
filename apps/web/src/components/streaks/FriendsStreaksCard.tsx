@@ -11,18 +11,16 @@ import {
   Check,
   Sparkles,
   Users,
-  AlertCircle,
-  MoreVertical,
   Search,
-  Clock,
   Trophy,
-  ShieldAlert,
-  Film
+  ChevronRight,
+  Link2,
+  Video,
+  MoreVertical
 } from 'lucide-react';
 import {
   getFriendsWithStreaks,
   removeFriend,
-  addFriendByCode,
   FriendWithStreak
 } from '../../lib/api';
 import { AddFriendModal } from './AddFriendModal';
@@ -49,15 +47,9 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
   const [activeMenuFriendId, setActiveMenuFriendId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  // Search & Filter state
+  // Search & Filter state (Matching Reference Image: All, Active, Streaks)
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'completed' | 'atRisk'>('all');
-
-  // Inline Quick Add Friend form state (for fullPage mode)
-  const [inlineCode, setInlineCode] = useState('');
-  const [inlineAdding, setInlineAdding] = useState(false);
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const [inlineSuccess, setInlineSuccess] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'streaks'>('all');
 
   const fetchFriends = async () => {
     if (!token) return;
@@ -108,37 +100,14 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
     }
   };
 
-  const handleInlineAddFriend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const code = inlineCode.trim().toUpperCase();
-    if (!code) return;
-
-    if (code === myFriendCode?.toUpperCase()) {
-      setInlineError("You cannot add yourself as a friend!");
-      return;
-    }
-
-    setInlineAdding(true);
-    setInlineError(null);
-    setInlineSuccess(null);
-
-    try {
-      const res = await addFriendByCode(token, code);
-      if (res.success && res.friend) {
-        setInlineSuccess(`Added ${res.friend.friendUser.displayName}! 🔥`);
-        setInlineCode('');
-        setFriends((prev) => {
-          if (prev.some((f) => f.friendUser.id === res.friend.friendUser.id)) return prev;
-          return [res.friend, ...prev];
-        });
-        setTimeout(() => setInlineSuccess(null), 3000);
-      }
-    } catch (err: any) {
-      setInlineError(err.message || 'Failed to add friend');
-    } finally {
-      setInlineAdding(false);
-    }
-  };
+  // Stats calculation
+  const totalCompletedToday = useMemo(() => friends.filter((f) => f.streak.completedToday).length, [friends]);
+  const activeCount = useMemo(() => friends.filter((f) => f.friendUser.isOnline).length, [friends]);
+  const streaksCount = useMemo(() => friends.filter((f) => f.streak.currentStreak > 0).length, [friends]);
+  const maxStreak = useMemo(() => {
+    if (friends.length === 0) return 0;
+    return Math.max(...friends.map((f) => Math.max(f.streak.currentStreak, f.streak.longestStreak || 0)));
+  }, [friends]);
 
   // Filtered friends list
   const filteredFriends = useMemo(() => {
@@ -148,404 +117,314 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
         f.friendUser.partnerCode.toLowerCase().includes(searchQuery.toLowerCase());
       if (!matchesSearch) return false;
 
-      if (filterType === 'completed') return f.streak.completedToday;
-      if (filterType === 'atRisk') return f.streak.atRisk;
+      if (activeTab === 'active') return f.friendUser.isOnline;
+      if (activeTab === 'streaks') return f.streak.currentStreak > 0;
       return true;
     });
-  }, [friends, searchQuery, filterType]);
-
-  // Streak Stats
-  const totalCompletedToday = useMemo(() => friends.filter((f) => f.streak.completedToday).length, [friends]);
-  const totalAtRisk = useMemo(() => friends.filter((f) => f.streak.atRisk).length, [friends]);
-  const maxStreak = useMemo(() => {
-    if (friends.length === 0) return 0;
-    return Math.max(...friends.map((f) => Math.max(f.streak.currentStreak, f.streak.longestStreak || 0)));
-  }, [friends]);
+  }, [friends, searchQuery, activeTab]);
 
   return (
-    <div className="w-full space-y-6">
-      {/* FULL PAGE HERO HEADER (Only shown in fullPage mode) */}
-      {fullPage && (
-        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#171821] via-[#1a1c26] to-[#121319] border border-slate-200 dark:border-white/[0.08] p-6 sm:p-8 shadow-2xl">
-          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 bg-gradient-to-br from-amber-500/20 via-rose-500/15 to-transparent rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-xl">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-black uppercase tracking-wider">
-                <Flame className="w-4 h-4 fill-amber-400 text-amber-500" />
-                <span>Snapchat-Style Daily Streaks</span>
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-                Friends & Streaks 🔥
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
-                Connect with your friends, stream synchronized cinema, and battle in games daily to keep your flames burning!
-              </p>
-            </div>
+    <div className="w-full space-y-6 animate-in fade-in duration-200">
+      {/* 1. TOP HEADER ROW (Matching Reference: Left Title/Subtitle, Right 3 Stat Cards) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            Friends & Streaks <span className="text-3xl leading-none">🔥</span>
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            Play, watch, and keep your streaks alive with friends.
+          </p>
+        </div>
 
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-3 gap-3 self-stretch md:self-auto shrink-0">
-              <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#111217]/80 border border-slate-200 dark:border-white/[0.08] text-center shadow-sm">
-                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">{friends.length}</div>
-                <div className="text-[10px] font-bold uppercase text-slate-500 dark:text-zinc-400 mt-0.5">Friends</div>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#111217]/80 border border-slate-200 dark:border-white/[0.08] text-center shadow-sm">
-                <div className="text-xl sm:text-2xl font-black text-emerald-500">{totalCompletedToday}</div>
-                <div className="text-[10px] font-bold uppercase text-slate-500 dark:text-zinc-400 mt-0.5">Today 🔥</div>
-              </div>
-              <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#111217]/80 border border-slate-200 dark:border-white/[0.08] text-center shadow-sm">
-                <div className="text-xl sm:text-2xl font-black text-amber-500">{maxStreak}d</div>
-                <div className="text-[10px] font-bold uppercase text-slate-500 dark:text-zinc-400 mt-0.5">Record 🏆</div>
-              </div>
+        {/* Top Right: 3 Stat Cards (Friends, Today, Record) */}
+        <div className="flex items-center gap-3">
+          {/* Card 1: Friends */}
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
+            <Users className="w-5 h-5 text-slate-400 dark:text-zinc-500 mb-1" />
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+              {friends.length}
+            </div>
+            <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
+              Friends
+            </div>
+          </div>
+
+          {/* Card 2: Today */}
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
+            <span className="text-lg leading-none mb-1">🔥</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+              {totalCompletedToday}
+            </div>
+            <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
+              Today
+            </div>
+          </div>
+
+          {/* Card 3: Record */}
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
+            <Trophy className="w-5 h-5 text-amber-500 mb-1" />
+            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+              {maxStreak}d
+            </div>
+            <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
+              Record
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Main Container Card */}
-      <div className="bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.08] rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden transition-all">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-white/10">
-          <div className="flex items-center space-x-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-600 flex items-center justify-center text-white shadow-lg shadow-rose-500/20 shrink-0">
-              <Flame className="w-6 h-6 fill-amber-300 text-amber-100 animate-pulse" />
+      {/* 2. ADD FRIEND ROW (Matching Reference: Bar with Link icon and Yellow Add Friend Button) */}
+      <div className="rounded-3xl bg-slate-50/90 dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 p-3 sm:p-4 flex items-center justify-between gap-4 shadow-sm">
+        <div
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center space-x-3.5 pl-2 cursor-pointer select-none group min-w-0"
+        >
+          <div className="w-9 h-9 rounded-2xl bg-slate-200/60 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-zinc-400 group-hover:text-slate-700 dark:group-hover:text-white transition shrink-0">
+            <Link2 className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate group-hover:text-slate-900 dark:group-hover:text-white transition">
+              Add a friend by code
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  {fullPage ? 'All Friends & Flame Streaks' : 'Friends & Daily Streaks'}
-                </h3>
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                  🔥 {friends.length}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                Every friend tracks independent daily streaks when watching or playing together.
-              </p>
+            <div className="text-xs text-slate-400 dark:text-zinc-500 truncate">
+              E.g. JAYD91, RAHUL42 • Tap to enter friend code
             </div>
           </div>
+        </div>
 
-          {/* Controls: My Code & Add Friend Button */}
-          <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
-            {myFriendCode && (
-              <button
-                onClick={handleCopyCode}
-                title="Click to copy your Friend Code"
-                className="flex items-center space-x-2 px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold bg-slate-100 dark:bg-[#101115] hover:bg-slate-200 dark:hover:bg-white/10 text-slate-800 dark:text-zinc-200 transition border border-slate-200 dark:border-white/10 shadow-sm active:scale-95"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-emerald-500">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
-                    <span>My Code: <span className="text-rose-600 dark:text-rose-400">{myFriendCode}</span></span>
-                  </>
-                )}
-              </button>
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="px-5 sm:px-6 py-3 rounded-2xl bg-[#FFFC00] hover:bg-[#F5F200] active:scale-95 text-black font-black text-xs sm:text-sm flex items-center space-x-2 shadow-md shadow-amber-400/10 transition shrink-0"
+        >
+          <span className="text-base leading-none">👻</span>
+          <span>Add Friend</span>
+        </button>
+      </div>
+
+      {/* 3. TABS & SEARCH ROW (Matching Reference: All, Active, Streaks with Yellow Underline & Search Input) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+        {/* Left Side: Tabs */}
+        <div className="flex items-center space-x-6 border-b border-slate-200/60 dark:border-white/5 sm:border-none pb-2 sm:pb-0">
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'all'
+                ? 'text-slate-900 dark:text-white'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <span>All ({friends.length})</span>
+            {activeTab === 'all' && (
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#FFFC00] rounded-full" />
             )}
+          </button>
 
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'active'
+                ? 'text-slate-900 dark:text-white'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <span>Active ({activeCount})</span>
+            {activeTab === 'active' && (
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#FFFC00] rounded-full" />
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('streaks')}
+            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'streaks'
+                ? 'text-slate-900 dark:text-white'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            <span>Streaks ({streaksCount})</span>
+            {activeTab === 'streaks' && (
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#FFFC00] rounded-full" />
+            )}
+          </button>
+        </div>
+
+        {/* Right Side: Pill Search Input */}
+        <div className="relative max-w-xs w-full">
+          <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search friends..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50/90 dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#FFFC00]/50"
+          />
+        </div>
+      </div>
+
+      {/* 4. FRIEND CARDS LIST (Matching Reference Card Layout) */}
+      <div className="space-y-3 pt-2">
+        {loading && friends.length === 0 ? (
+          <div className="py-16 flex flex-col items-center justify-center text-slate-400 dark:text-zinc-500 text-xs">
+            <div className="w-8 h-8 border-2 border-[#FFFC00] border-t-transparent rounded-full animate-spin mb-3" />
+            <span>Loading friends...</span>
+          </div>
+        ) : error ? (
+          <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500 flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={fetchFriends} className="font-bold underline ml-2">
+              Retry
+            </button>
+          </div>
+        ) : friends.length === 0 ? (
+          /* Empty State */
+          <div className="py-16 px-6 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#171821]/40">
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-[#FFFC00]/20 text-black flex items-center justify-center mb-4 shadow-sm text-2xl">
+              👻
+            </div>
+            <h4 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
+              No Friends Added Yet
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto mb-5 leading-relaxed">
+              Add your friends using their Friend Code to start building your daily streaks together!
+            </p>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-lg shadow-rose-600/25 transition active:scale-95"
+              className="inline-flex items-center space-x-2 px-6 py-3 rounded-2xl bg-[#FFFC00] hover:bg-[#F5F200] text-black font-black text-xs shadow-md transition active:scale-95"
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Add Friend</span>
+              <UserPlus className="w-4 h-4" />
+              <span>Add Your First Friend</span>
             </button>
           </div>
-        </div>
-
-        {/* INLINE ADD FRIEND CARD (Convenient direct input on page) */}
-        <div className="mt-6 p-4 rounded-2xl bg-slate-50 dark:bg-[#101115] border border-slate-200 dark:border-white/[0.08]">
-          <form onSubmit={handleInlineAddFriend} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={inlineCode}
-                onChange={(e) => {
-                  setInlineCode(e.target.value.toUpperCase());
-                  setInlineError(null);
-                }}
-                placeholder="Enter Friend Code (e.g. JAYD91, RAHUL42)"
-                className="w-full px-4 py-2.5 bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/10 rounded-xl font-mono text-xs uppercase tracking-wider text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                maxLength={16}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={inlineAdding || !inlineCode.trim()}
-              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs shadow-md shadow-rose-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2 shrink-0 active:scale-95"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{inlineAdding ? 'Connecting...' : 'Connect Friend'}</span>
-            </button>
-          </form>
-
-          {inlineError && (
-            <div className="mt-2 text-xs text-rose-500 font-medium">
-              ⚠️ {inlineError}
-            </div>
-          )}
-
-          {inlineSuccess && (
-            <div className="mt-2 text-xs text-emerald-500 font-semibold flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5" />
-              <span>{inlineSuccess}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Filter & Search Bar (Only shown if friends exist or in fullPage mode) */}
-        {friends.length > 0 && (
-          <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-sm">
-              <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search friends by name or code..."
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-[#101115] border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40"
-              />
-            </div>
-
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-              <button
-                onClick={() => setFilterType('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
-                  filterType === 'all'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'bg-slate-100 dark:bg-[#101115] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                All ({friends.length})
-              </button>
-
-              <button
-                onClick={() => setFilterType('completed')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1 ${
-                  filterType === 'completed'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'bg-slate-100 dark:bg-[#101115] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <span>Completed</span>
-                <span className="text-[10px] opacity-80">({totalCompletedToday})</span>
-              </button>
-
-              <button
-                onClick={() => setFilterType('atRisk')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1 ${
-                  filterType === 'atRisk'
-                    ? 'bg-amber-600 text-white shadow-sm'
-                    : 'bg-slate-100 dark:bg-[#101115] text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <span>At Risk</span>
-                <span className="text-[10px] opacity-80">({totalAtRisk})</span>
-              </button>
-            </div>
+        ) : filteredFriends.length === 0 ? (
+          <div className="py-12 text-center text-xs text-slate-500 dark:text-zinc-400">
+            No friends match your search.
           </div>
-        )}
+        ) : (
+          filteredFriends.map((item) => {
+            const { friendUser, streak } = item;
+            const isMenuOpen = activeMenuFriendId === friendUser.id;
 
-        {/* Content Area */}
-        <div className="mt-6">
-          {loading && friends.length === 0 ? (
-            <div className="py-16 flex flex-col items-center justify-center text-slate-400 dark:text-zinc-500 text-xs">
-              <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent rounded-full animate-spin mb-3" />
-              <span>Loading friend streaks...</span>
-            </div>
-          ) : error ? (
-            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-500 flex items-center justify-between">
-              <span>{error}</span>
-              <button onClick={fetchFriends} className="font-bold underline ml-2">
-                Retry
-              </button>
-            </div>
-          ) : friends.length === 0 ? (
-            /* Empty State */
-            <div className="py-12 px-6 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#101115]/50">
-              <div className="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-amber-500/20 to-rose-500/20 text-amber-500 flex items-center justify-center mb-4 shadow-inner">
-                <Flame className="w-8 h-8 fill-amber-400" />
-              </div>
-              <h4 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
-                No Friends Connected Yet
-              </h4>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md mx-auto mb-5 leading-relaxed">
-                Add your friends (like Jay or Rahul) using their Friend Code above to track independent daily streaks whenever you watch movies or play games together!
-              </p>
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-lg shadow-rose-600/25 transition active:scale-95"
+            return (
+              <div
+                key={item.friendshipId}
+                className="relative group p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#171821] hover:border-slate-300 dark:hover:border-white/20 transition shadow-sm hover:shadow-md flex items-center justify-between gap-4"
               >
-                <UserPlus className="w-4 h-4" />
-                <span>Add Your First Friend</span>
-              </button>
-            </div>
-          ) : filteredFriends.length === 0 ? (
-            <div className="py-12 text-center text-xs text-slate-500 dark:text-zinc-400">
-              No friends match your search or filter.
-            </div>
-          ) : (
-            /* Friends Cards Grid */
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredFriends.map((item) => {
-                const { friendUser, streak } = item;
-                const hasStreak = streak.currentStreak > 0;
-                const isMenuOpen = activeMenuFriendId === friendUser.id;
-
-                return (
-                  <div
-                    key={item.friendshipId}
-                    className="relative group p-5 rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-slate-50/80 dark:bg-[#101115] hover:border-slate-300 dark:hover:border-white/20 transition shadow-sm hover:shadow-md flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* User Info & Streak Badge Row */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center space-x-3.5 min-w-0">
-                          <div className="relative shrink-0">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-200 to-slate-300 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center font-bold text-slate-700 dark:text-zinc-200 overflow-hidden shadow-inner text-base">
-                              {friendUser.avatarUrl ? (
-                                <img
-                                  src={friendUser.avatarUrl}
-                                  alt={friendUser.displayName}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span>{friendUser.displayName.charAt(0).toUpperCase()}</span>
-                              )}
-                            </div>
-                            <span
-                              className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#101115] ${
-                                friendUser.isOnline
-                                  ? 'bg-emerald-500 animate-pulse'
-                                  : 'bg-slate-400 dark:bg-zinc-600'
-                              }`}
-                              title={friendUser.isOnline ? 'Online now' : 'Offline'}
-                            />
-                          </div>
-
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                              {friendUser.displayName}
-                            </h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-[10px] font-mono font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md">
-                                #{friendUser.partnerCode}
-                              </span>
-                              <span
-                                className={`text-[10px] font-semibold ${
-                                  friendUser.isOnline ? 'text-emerald-500' : 'text-slate-400 dark:text-zinc-500'
-                                }`}
-                              >
-                                {friendUser.isOnline ? '● Online' : '○ Offline'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Streak Badge */}
-                        <div className="flex flex-col items-end shrink-0">
-                          <div
-                            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-black border transition ${
-                              streak.completedToday
-                                ? 'bg-gradient-to-r from-amber-500/20 to-rose-500/20 border-amber-500/40 text-amber-600 dark:text-amber-400 shadow-sm'
-                                : streak.atRisk
-                                ? 'bg-rose-500/20 border-rose-500/40 text-rose-600 dark:text-rose-400 animate-pulse'
-                                : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500 dark:text-zinc-400'
-                            }`}
-                          >
-                            <Flame
-                              className={`w-4 h-4 ${
-                                hasStreak ? 'fill-amber-400 text-amber-500' : 'text-slate-400 dark:text-zinc-500'
-                              }`}
-                            />
-                            <span>{streak.currentStreak} {streak.currentStreak === 1 ? 'Day' : 'Days'}</span>
-                          </div>
-
-                          <span className="text-[10px] font-medium mt-1">
-                            {streak.completedToday ? (
-                              <span className="text-emerald-500 font-semibold">✓ Completed Today</span>
-                            ) : streak.atRisk ? (
-                              <span className="text-amber-500 font-semibold">⏳ Watch today!</span>
-                            ) : (
-                              <span className="text-slate-400 dark:text-zinc-500">Start streak today</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Extra info row */}
-                      {streak.totalMinutesWatched > 0 && (
-                        <div className="mt-3 flex items-center space-x-2 text-[11px] text-slate-500 dark:text-zinc-400">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{streak.totalMinutesWatched} mins watched together</span>
-                          {streak.longestStreak > 0 && (
-                            <>
-                              <span>•</span>
-                              <span>Best: {streak.longestStreak}d record</span>
-                            </>
-                          )}
-                        </div>
+                {/* Left Side: Avatar & Friend Info */}
+                <div className="flex items-center space-x-3.5 min-w-0">
+                  {/* Yellow Circular Avatar Container (Matching Reference) */}
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#FFFC00] flex items-center justify-center overflow-hidden shadow-sm">
+                      {friendUser.avatarUrl ? (
+                        <img
+                          src={friendUser.avatarUrl}
+                          alt={friendUser.displayName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-black font-black text-lg">
+                          {friendUser.displayName.charAt(0).toUpperCase()}
+                        </span>
                       )}
                     </div>
+                    {/* Status Dot: Green if Online, Grey if Offline */}
+                    <span
+                      className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#171821] ${
+                        friendUser.isOnline ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-zinc-500'
+                      }`}
+                    />
+                  </div>
 
-                    {/* Bottom Action Row */}
-                    <div className="mt-4 pt-3 border-t border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => onStartWatchPartyWithFriend?.(item)}
-                          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600/10 hover:bg-rose-600/20 text-rose-600 dark:text-rose-400 transition active:scale-95"
-                        >
-                          <Tv className="w-3.5 h-3.5" />
-                          <span>Watch Together</span>
-                        </button>
-
-                        <button
-                          onClick={() => onPlayGameWithFriend?.(item)}
-                          className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-400 transition active:scale-95"
-                        >
-                          <Gamepad2 className="w-3.5 h-3.5" />
-                          <span>Play Game</span>
-                        </button>
-                      </div>
-
-                      <div className="relative">
-                        <button
-                          onClick={() =>
-                            setActiveMenuFriendId(isMenuOpen ? null : friendUser.id)
-                          }
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-white/10 transition"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-
-                        {/* Dropdown Menu */}
-                        {isMenuOpen && (
-                          <div className="absolute right-0 bottom-full mb-1.5 w-36 bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl py-1.5 z-20">
-                            <button
-                              disabled={removingId === friendUser.id}
-                              onClick={() => handleRemove(item)}
-                              className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition disabled:opacity-50"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>{removingId === friendUser.id ? 'Removing...' : 'Remove Friend'}</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                      {friendUser.displayName}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-xs font-mono text-slate-400 dark:text-zinc-500">
+                        #{friendUser.partnerCode}
+                      </span>
+                      {/* Status Pill Badge (Matching Reference: e.g. "● Offline") */}
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-zinc-400 font-medium">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            friendUser.isOnline ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-zinc-500'
+                          }`}
+                        />
+                        <span>{friendUser.isOnline ? 'Online' : 'Offline'}</span>
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                </div>
+
+                {/* Right Side: Streak Pill + Action Buttons */}
+                <div className="flex items-center space-x-3 sm:space-x-4 shrink-0">
+                  {/* Streak Pill (Matching Reference: "🔥 0 days >") */}
+                  <div
+                    className={`hidden sm:flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
+                      streak.completedToday
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                        : streak.atRisk
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <span>🔥</span>
+                    <span>{streak.currentStreak} days</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
+                  </div>
+
+                  {/* Watch Button (Matching Reference: Square with Camera icon & "Watch" label) */}
+                  <button
+                    onClick={() => onStartWatchPartyWithFriend?.(item)}
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white dark:bg-[#101115] hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-200/80 dark:border-white/10 flex flex-col items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm active:scale-95"
+                    title="Watch Together"
+                  >
+                    <Video className="w-5 h-5 text-slate-800 dark:text-white" />
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+                      Watch
+                    </span>
+                  </button>
+
+                  {/* Play Button (Matching Reference: Square Yellow with Gamepad icon & "Play" label) */}
+                  <button
+                    onClick={() => onPlayGameWithFriend?.(item)}
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#FFFC00] hover:bg-[#F5F200] text-black flex flex-col items-center justify-center transition shadow-sm active:scale-95"
+                    title="Play Game"
+                  >
+                    <Gamepad2 className="w-5 h-5 text-black" />
+                    <span className="text-[11px] font-black text-black mt-1">
+                      Play
+                    </span>
+                  </button>
+
+                  {/* Dropdown Menu (3 dots) */}
+                  <div className="relative">
+                    <button
+                      onClick={() =>
+                        setActiveMenuFriendId(isMenuOpen ? null : friendUser.id)
+                      }
+                      className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-white/5 transition"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {isMenuOpen && (
+                      <div className="absolute right-0 bottom-full mb-2 w-36 bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl py-1.5 z-20">
+                        <button
+                          disabled={removingId === friendUser.id}
+                          onClick={() => handleRemove(item)}
+                          className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>{removingId === friendUser.id ? 'Removing...' : 'Remove Friend'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Add Friend Modal */}
