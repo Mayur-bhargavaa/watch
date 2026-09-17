@@ -138,43 +138,56 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (Notification.permission !== 'granted') return;
 
       const title = notif.title;
-      const options: any = {
+      const iconUrl =
+        typeof window !== 'undefined'
+          ? new URL('/logos/direct.png', window.location.origin).href
+          : '/logos/direct.png';
+
+      const options: NotificationOptions = {
         body: notif.body,
-        icon: '/logos/direct.png',
-        badge: '/logos/direct.png',
+        icon: iconUrl,
+        badge: iconUrl,
         tag: notif.id,
         data: { url: notif.link || '/dashboard' },
         requireInteraction: true,
-        silent: false,
-        vibrate: [200, 100, 200]
+        silent: false
       };
 
-      // 1. Try ServiceWorkerRegistration.showNotification first (works across tabs, minimized, and background windows)
+      let delivered = false;
+
+      // 1. Try ServiceWorkerRegistration.showNotification (works across tabs, minimized, and background windows)
       if ('serviceWorker' in navigator) {
         try {
-          const reg = await navigator.serviceWorker.ready;
-          if (reg && reg.showNotification) {
+          // Timeout after 800ms so we never hang if serviceWorker.ready is stuck
+          const reg = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 800))
+          ]);
+
+          if (reg && typeof reg.showNotification === 'function') {
             await reg.showNotification(title, options);
-            return;
+            delivered = true;
           }
         } catch (swErr) {
-          console.warn('SW showNotification failed, using fallback:', swErr);
+          console.warn('[Watch] SW showNotification failed, using fallback:', swErr);
         }
       }
 
-      // 2. Fallback to Window Notification API
-      try {
-        const n = new Notification(title, options);
-        n.onclick = (e) => {
-          e.preventDefault();
-          window.focus();
-          if (notif.link) {
-            router.push(notif.link);
-          }
-          n.close();
-        };
-      } catch (notifErr) {
-        console.warn('Window Notification failed:', notifErr);
+      // 2. Fallback to standard Window Notification API if SW was not ready
+      if (!delivered) {
+        try {
+          const n = new Notification(title, options);
+          n.onclick = (e) => {
+            e.preventDefault();
+            window.focus();
+            if (notif.link) {
+              router.push(notif.link);
+            }
+            n.close();
+          };
+        } catch (notifErr) {
+          console.warn('[Watch] Window Notification failed:', notifErr);
+        }
       }
     },
     [router]

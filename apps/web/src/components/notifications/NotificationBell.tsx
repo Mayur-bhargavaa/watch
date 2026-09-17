@@ -79,7 +79,22 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
     }
   };
 
-  const handleTestRoast = () => {
+  const handleTestRoast = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'denied') {
+        alert(
+          'Chrome desktop notifications are blocked. Please click the icon on the left of your URL bar to allow "Notifications", and check macOS System Settings > Notifications > Google Chrome.'
+        );
+        return;
+      }
+      if (Notification.permission === 'default') {
+        const granted = await requestPermission();
+        if (!granted) {
+          return;
+        }
+      }
+    }
+
     triggerLocalNotification({
       title: 'Zomato Roast 🛵💨',
       body: 'Khana thanda ho jayega par aapka reply nahi aayega... Jaldi aao!',
