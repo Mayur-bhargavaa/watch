@@ -146,59 +146,56 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           </p>
         </div>
 
-        {/* Top Right: 3 Stat Cards + Solid Red Add Friend Button */}
-        <div className="flex items-center gap-3 sm:gap-3.5 self-start md:self-auto flex-wrap">
+        {/* Top Right: 3 Stat Cards (Icon + Number in row, Name in column) */}
+        <div className="flex items-center gap-2.5 sm:gap-3 self-start md:self-auto flex-wrap">
           {/* Card 1: Friends */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
-            <Users className="w-5 h-5 text-slate-400 dark:text-zinc-500 mb-1" />
-            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
-              {friends.length}
+          <div className="px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center text-center transition hover:shadow-md min-w-[88px] sm:min-w-[100px]">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Users className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
+              <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-none">
+                {friends.length}
+              </span>
             </div>
-            <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
+            <span className="text-[11px] sm:text-xs text-slate-400 dark:text-zinc-500 font-medium mt-1">
               Friends
-            </div>
+            </span>
           </div>
 
           {/* Card 2: Today */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
-            <span className="text-lg leading-none mb-1">🔥</span>
-            <div className="text-xl sm:text-2xl font-black text-rose-600 leading-tight">
-              {totalCompletedToday}
+          <div className="px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center text-center transition hover:shadow-md min-w-[88px] sm:min-w-[100px]">
+            <div className="flex items-center gap-1.5">
+              <span className="text-base leading-none">🔥</span>
+              <span className="text-lg sm:text-xl font-black text-rose-600 leading-none">
+                {totalCompletedToday}
+              </span>
             </div>
-            <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
+            <span className="text-[11px] sm:text-xs text-slate-400 dark:text-zinc-500 font-medium mt-1">
               Today
-            </div>
+            </span>
           </div>
 
           {/* Card 3: Record */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
-            <Trophy className="w-5 h-5 text-amber-500 mb-1" />
-            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
-              {maxStreak}d
+          <div className="px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center text-center transition hover:shadow-md min-w-[88px] sm:min-w-[100px]">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white leading-none">
+                {maxStreak}d
+              </span>
             </div>
-            <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
+            <span className="text-[11px] sm:text-xs text-slate-400 dark:text-zinc-500 font-medium mt-1">
               Record
-            </div>
+            </span>
           </div>
-
-          {/* Solid Red Add Friend Button (Matching app's proper red) */}
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="h-24 sm:h-28 px-5 sm:px-6 rounded-3xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm flex flex-col items-center justify-center space-y-1.5 shadow-lg shadow-rose-600/25 transition shrink-0"
-          >
-            <UserPlus className="w-5 h-5 text-white" />
-            <span>Add Friend</span>
-          </button>
         </div>
       </div>
 
-      {/* 2. TABS & SEARCH ROW (Proper Red Active Tab Underline, Search Pill) */}
+      {/* 2. TABS & SEARCH ROW (Tabs on Left, Search + Add Friend on Right) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
         {/* Left Side: Tabs */}
-        <div className="flex items-center space-x-6 border-b border-slate-200/60 dark:border-white/5 sm:border-none pb-2 sm:pb-0">
+        <div className="flex items-center space-x-6 border-b border-slate-200/60 dark:border-white/5 sm:border-none pb-2 sm:pb-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('all')}
-            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 ${
+            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 shrink-0 ${
               activeTab === 'all'
                 ? 'text-slate-900 dark:text-white'
                 : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300'
@@ -212,7 +209,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
           <button
             onClick={() => setActiveTab('active')}
-            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 ${
+            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 shrink-0 ${
               activeTab === 'active'
                 ? 'text-slate-900 dark:text-white'
                 : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300'
@@ -226,7 +223,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
           <button
             onClick={() => setActiveTab('streaks')}
-            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 ${
+            className={`relative pb-2 text-sm font-bold transition flex items-center gap-1.5 shrink-0 ${
               activeTab === 'streaks'
                 ? 'text-slate-900 dark:text-white'
                 : 'text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300'
@@ -239,16 +236,26 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           </button>
         </div>
 
-        {/* Right Side: Search Input Pill */}
-        <div className="relative max-w-xs w-full">
-          <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search friends..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50/90 dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-600/40"
-          />
+        {/* Right Side: Search Input Pill & Add Friend Button */}
+        <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-56 md:w-64">
+            <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search friends..."
+              className="w-full pl-10 pr-4 py-2 bg-slate-50/90 dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-600/40"
+            />
+          </div>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-rose-600/25 transition shrink-0"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Add Friend</span>
+          </button>
         </div>
       </div>
 
