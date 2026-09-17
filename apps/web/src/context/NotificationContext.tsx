@@ -100,27 +100,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
     } catch {}
-
-    // Register Service Worker for reliable OS-level desktop notifications in Chrome
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .catch((err) => {
-          console.warn('[Watch] ServiceWorker registration notice:', err);
-        });
-    }
-
-    // Check browser notification permission
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPermission(Notification.permission);
-      // If permission is 'default' (not asked or not granted), show full blur modal
-      if (Notification.permission === 'default') {
-        const dismissed = sessionStorage.getItem(MODAL_DISMISSED_KEY);
-        if (!dismissed) {
-          setShowPermissionModal(true);
-        }
-      }
-    }
   }, []);
 
   // Sync to local storage
@@ -131,69 +110,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch {}
   };
 
-  // Dispatch native browser notification (using ServiceWorker for persistent Chrome OS popups)
-  const dispatchBrowserNotification = useCallback(
-    async (notif: AppNotification) => {
-      if (typeof window === 'undefined' || !('Notification' in window)) return;
-      if (Notification.permission !== 'granted') return;
-
-      const title = notif.title;
-      const iconUrl =
-        typeof window !== 'undefined'
-          ? new URL('/logos/direct.png', window.location.origin).href
-          : '/logos/direct.png';
-
-      const options: NotificationOptions = {
-        body: notif.body,
-        icon: iconUrl,
-        badge: iconUrl,
-        tag: notif.id,
-        data: { url: notif.link || '/dashboard' },
-        requireInteraction: true,
-        silent: false
-      };
-
-      let delivered = false;
-
-      // 1. Try ServiceWorkerRegistration.showNotification (works across tabs, minimized, and background windows)
-      if ('serviceWorker' in navigator) {
-        try {
-          // Timeout after 800ms so we never hang if serviceWorker.ready is stuck
-          const reg = await Promise.race([
-            navigator.serviceWorker.ready,
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 800))
-          ]);
-
-          if (reg && typeof reg.showNotification === 'function') {
-            await reg.showNotification(title, options);
-            delivered = true;
-          }
-        } catch (swErr) {
-          console.warn('[Watch] SW showNotification failed, using fallback:', swErr);
-        }
-      }
-
-      // 2. Fallback to standard Window Notification API if SW was not ready
-      if (!delivered) {
-        try {
-          const n = new Notification(title, options);
-          n.onclick = (e) => {
-            e.preventDefault();
-            window.focus();
-            if (notif.link) {
-              router.push(notif.link);
-            }
-            n.close();
-          };
-        } catch (notifErr) {
-          console.warn('[Watch] Window Notification failed:', notifErr);
-        }
-      }
-    },
-    [router]
-  );
-
-  // Add notification, sound, and show toast + browser alert
+  // Add notification, sound, and show in-app toast
   const pushNotification = useCallback(
     (item: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => {
       const newNotif: AppNotification = {
@@ -214,50 +131,21 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       // Play audio chime
       playChimeSound();
 
-      // Show toast
+      // Show in-app toast
       setActiveToast(newNotif);
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       toastTimeoutRef.current = setTimeout(() => {
         setActiveToast(null);
       }, 6500);
-
-      // Trigger native notification
-      dispatchBrowserNotification(newNotif);
     },
-    [dispatchBrowserNotification]
+    []
   );
 
-  // Request browser notification permission
+  // In-app notifications do not require browser permissions
   const requestPermission = async (): Promise<boolean> => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      setPermission('unsupported');
-      setShowPermissionModal(false);
-      return false;
-    }
-
-    try {
-      const res = await Notification.requestPermission();
-      setPermission(res);
-      if (res === 'granted') {
-        setShowPermissionModal(false);
-        playChimeSound();
-        pushNotification({
-          title: 'Notifications Activated! 🎉',
-          body: 'You are now ready to receive partner roasts, game invites, and watch party syncs!',
-          category: 'system',
-          emoji: '🔔',
-          link: '/dashboard'
-        });
-        return true;
-      } else {
-        setShowPermissionModal(false);
-        sessionStorage.setItem(MODAL_DISMISSED_KEY, 'true');
-        return false;
-      }
-    } catch {
-      setShowPermissionModal(false);
-      return false;
-    }
+    setPermission('granted');
+    setShowPermissionModal(false);
+    return true;
   };
 
   const dismissPermissionModal = () => {

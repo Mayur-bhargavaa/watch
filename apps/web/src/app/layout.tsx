@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '../context/ThemeContext';
 import { NotificationProvider } from '../context/NotificationContext';
-import { NotificationPermissionModal } from '../components/notifications/NotificationPermissionModal';
 import { NotificationToast } from '../components/notifications/NotificationToast';
 
 export const metadata: Metadata = {
@@ -44,7 +43,6 @@ export default function RootLayout({
         <ThemeProvider>
           <NotificationProvider>
             {children}
-            <NotificationPermissionModal />
             <NotificationToast />
           </NotificationProvider>
         </ThemeProvider>
