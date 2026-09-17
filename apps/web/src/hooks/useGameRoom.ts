@@ -116,7 +116,14 @@ export function useGameRoom(roomCode: string | null) {
   } | null>(null);
   const [nudgeAlert, setNudgeAlert] = useState<{
     fromDisplayName: string;
+    message?: string;
     timestamp: number;
+  } | null>(null);
+  const [rematchStatus, setRematchStatus] = useState<{
+    votedUserIds: string[];
+    votedCount: number;
+    totalNeeded: number;
+    allVoted: boolean;
   } | null>(null);
   const [opponentLeftWin, setOpponentLeftWin] = useState<{
     opponentDisplayName: string;
@@ -398,8 +405,9 @@ export function useGameRoom(roomCode: string | null) {
         break;
       }
 
+      case 'game:player_nudged':
       case 'game:nudge': {
-        const { fromDisplayName, fromUserId, targetUserId } = msg.payload;
+        const { fromDisplayName, fromUserId, targetUserId, message } = msg.payload || {};
         const currentUserId = myUserIdRef.current || myUserId;
         const isFromMe = Boolean(currentUserId && fromUserId === currentUserId);
         const isTargetedToMe = !targetUserId || (Boolean(currentUserId) && targetUserId === currentUserId);
@@ -408,6 +416,7 @@ export function useGameRoom(roomCode: string | null) {
           playNudgeChime();
           setNudgeAlert({
             fromDisplayName: fromDisplayName || 'Partner',
+            message: message,
             timestamp: Date.now()
           });
           try {
@@ -428,6 +437,21 @@ export function useGameRoom(roomCode: string | null) {
             setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
           }, 3500);
         }
+        break;
+      }
+
+      case 'game:rematch_status': {
+        setRematchStatus(msg.payload);
+        break;
+      }
+
+      case 'game:rematch_agreed': {
+        setRematchStatus({
+          votedUserIds: [],
+          votedCount: 2,
+          totalNeeded: 2,
+          allVoted: true
+        });
         break;
       }
 
@@ -457,6 +481,7 @@ export function useGameRoom(roomCode: string | null) {
 
       case 'game:started': {
         const { gameState: startState, room: updatedRoom } = msg.payload;
+        setRematchStatus(null);
         setGameState(startState);
         setRoom(prev => {
           if (updatedRoom) return updatedRoom;
@@ -718,12 +743,12 @@ export function useGameRoom(roomCode: string | null) {
     };
   }, []);
 
-  const sendNudge = useCallback((targetUserId?: string) => {
+  const sendNudge = useCallback((targetUserId?: string, message?: string) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
       JSON.stringify({
         type: 'game:nudge',
-        payload: { targetUserId }
+        payload: { targetUserId, message }
       })
     );
   }, []);
@@ -823,6 +848,7 @@ export function useGameRoom(roomCode: string | null) {
     sendChangeTheme,
     sendTyping,
     rematch,
+    rematchStatus,
     sendWebRTCSignal,
     sendCameraState,
     sendVoiceState,

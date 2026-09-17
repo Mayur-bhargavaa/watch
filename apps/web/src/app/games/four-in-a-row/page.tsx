@@ -47,7 +47,8 @@ import {
   LogOut,
   User,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Home
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { ChatReplyTo } from '@synccinema/common';
@@ -297,6 +298,7 @@ function FourInARowContent() {
     clearNudgeAlert,
     dropDisc,
     rematch,
+    rematchStatus,
     sendChat,
     sendReaction,
     sendNudge,
@@ -335,6 +337,18 @@ function FourInARowContent() {
     isExtended: boolean;
   } | null>(null);
   const streakRecordedPairRef = useRef<string | null>(null);
+
+  // Victory Modal dismiss & Rematch Nudge state
+  const [dismissVictoryModal, setDismissVictoryModal] = useState<boolean>(false);
+  const [nudgeFeedback, setNudgeFeedback] = useState<string | null>(null);
+
+  const handleNudgeForRematch = () => {
+    const roast = getRandomRoast('game');
+    sendNudge(undefined, roast.body);
+    triggerSound('nudge');
+    setNudgeFeedback(`🛵 Nudge sent: "${roast.body}"`);
+    setTimeout(() => setNudgeFeedback(null), 4000);
+  };
 
   useEffect(() => {
     if (room?.status === 'PLAYING' && opponentPlayer?.userId && session?.token) {
@@ -2784,11 +2798,21 @@ function FourInARowContent() {
       </main>
 
       {/* =========================================================================
-          VICTORY / ROUND OVER POPUP MODAL
+          VICTORY / ROUND OVER POPUP MODAL (2-Player Agreement, Waiting Screen, Nudge & Home)
          ========================================================================= */}
-      {(winnerInfo || isDraw) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-full max-w-sm p-6 rounded-3xl bg-black/80 border border-white/20 backdrop-blur-2xl shadow-2xl text-center space-y-4">
+      {(winnerInfo || isDraw) && !dismissVictoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-sm p-6 rounded-3xl bg-[#140a15]/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-center space-y-4 relative">
+            {/* Close button to inspect winning board */}
+            <button
+              type="button"
+              onClick={() => setDismissVictoryModal(true)}
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              title="Inspect Board"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
             <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 via-rose-500 to-pink-500 mx-auto flex items-center justify-center shadow-xl shadow-rose-600/40 animate-bounce">
               <Trophy className="w-8 h-8 text-white" />
             </div>
@@ -2808,19 +2832,140 @@ function FourInARowContent() {
               </p>
             </div>
 
-            <div className="flex gap-2 pt-2">
+            {/* Rematch Agreement & Waiting Status */}
+            {(() => {
+              const myId = session?.user?.id || myUserId;
+              const hasVoted = Boolean(rematchStatus?.votedUserIds?.includes(myId));
+              const votedCount = rematchStatus?.votedCount ?? 0;
+              const totalNeeded = rematchStatus?.totalNeeded ?? 2;
+              const allVoted = Boolean(rematchStatus?.allVoted);
+
+              if (allVoted) {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-center space-y-1">
+                    <div className="flex items-center justify-center space-x-2 text-emerald-400 text-xs font-black">
+                      <Check className="w-4 h-4" />
+                      <span>Both players agreed! Starting rematch...</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (hasVoted) {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2.5 animate-fadeIn">
+                    <div className="flex items-center justify-center space-x-2 text-amber-400 text-xs font-black">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                      <span>Waiting for partner to accept rematch ({votedCount}/{totalNeeded})</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400">
+                      Match will start as soon as both players click rematch.
+                    </p>
+
+                    {/* Nudge Partner Button */}
+                    <button
+                      type="button"
+                      onClick={handleNudgeForRematch}
+                      className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20 cursor-pointer"
+                    >
+                      <span>🛵</span>
+                      <span>Nudge Partner to Rematch 💬</span>
+                    </button>
+                    {nudgeFeedback && (
+                      <p className="text-[10px] text-emerald-400 font-semibold animate-fadeIn">
+                        {nudgeFeedback}
+                      </p>
+                    )}
+                  </div>
+                );
+              }
+
+              if (votedCount > 0 && !hasVoted) {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-center space-y-1 animate-pulse">
+                    <p className="text-xs font-black text-rose-300">
+                      🔥 Partner wants a rematch! ({votedCount}/{totalNeeded})
+                    </p>
+                    <p className="text-[11px] text-zinc-300">
+                      Click Play Rematch below to accept and begin!
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="text-[11px] text-zinc-400">
+                  Both players must agree to start a rematch.
+                </div>
+              );
+            })()}
+
+            {/* Action Buttons: Home & Rematch */}
+            <div className="flex gap-2.5 pt-2">
+              {/* Go Home */}
               <button
+                type="button"
+                onClick={() => {
+                  triggerSound('click');
+                  sendLeave();
+                  router.push('/games');
+                }}
+                className="flex-1 py-3 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-white text-xs font-bold border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Home className="w-4 h-4 text-zinc-400" />
+                <span>Go Home 🏠</span>
+              </button>
+
+              {/* Rematch */}
+              <button
+                type="button"
+                disabled={rematchStatus?.votedUserIds?.includes(session?.user?.id || myUserId)}
                 onClick={() => {
                   triggerSound('click');
                   rematch();
                 }}
-                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 active:scale-95 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2"
+                className={`flex-1 py-3 rounded-2xl text-white text-xs font-black shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  rematchStatus?.votedUserIds?.includes(session?.user?.id || myUserId)
+                    ? 'bg-zinc-700 opacity-60 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 active:scale-95 shadow-rose-600/30'
+                }`}
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>Play Rematch 🔄</span>
+                <span>
+                  {rematchStatus?.votedUserIds?.includes(session?.user?.id || myUserId)
+                    ? 'Waiting (1/2)'
+                    : 'Play Rematch 🔄'}
+                </span>
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Header Banner when Victory Modal is closed to inspect board */}
+      {(winnerInfo || isDraw) && dismissVictoryModal && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/85 backdrop-blur-xl border border-white/20 shadow-2xl animate-fadeIn">
+          <span className="text-xs font-black text-white">
+            {winnerInfo ? `🏆 ${winnerInfo.winnerColor?.toUpperCase()} Won` : '🤝 Game Draw'}
+          </span>
+          <div className="h-4 w-px bg-white/20" />
+          <button
+            type="button"
+            onClick={() => setDismissVictoryModal(false)}
+            className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer"
+          >
+            Rematch Menu 🔄
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              sendLeave();
+              router.push('/games');
+            }}
+            className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition cursor-pointer"
+          >
+            Home 🏠
+          </button>
         </div>
       )}
 

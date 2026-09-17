@@ -51,7 +51,10 @@ import {
   RotateCw,
   Tv,
   Ticket,
-  LogOut
+  LogOut,
+  RotateCcw,
+  Trophy,
+  Home
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { ChatReplyTo } from '@synccinema/common';
@@ -385,6 +388,7 @@ function LudoPageContent() {
     sendNudge,
     sendLeave,
     rematch,
+    rematchStatus,
     sendChangeTheme,
     sendTyping,
     sendWebRTCSignal,
@@ -421,6 +425,21 @@ function LudoPageContent() {
     setNudgeFeedback(`Nudged ${name}! 🔔`);
     setTimeout(() => setNudgeFeedback(null), 3500);
   }, [sendNudge]);
+
+  const [dismissVictoryModal, setDismissVictoryModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (gameState && !gameState.winnerColor) {
+      setDismissVictoryModal(false);
+    }
+  }, [gameState?.winnerColor]);
+
+  const handleNudgeForRematch = () => {
+    const roast = getRandomRoast('game');
+    sendNudge(undefined, roast.body);
+    setNudgeFeedback(`🛵 Nudge sent: "${roast.body}"`);
+    setTimeout(() => setNudgeFeedback(null), 4000);
+  };
 
   // WebRTC Audio / Video Call hook for In-Game Calling
   const effectiveUserId = myPlayer?.userId || session?.user?.id || (typeof window !== 'undefined' ? getStoredSession()?.user?.id : '') || '';
@@ -2674,6 +2693,172 @@ function LudoPageContent() {
         </div>
       )}
 
+
+      {/* =========================================================================
+          VICTORY / ROUND OVER POPUP MODAL (2-Player Agreement, Waiting Screen, Nudge & Home)
+         ========================================================================= */}
+      {gameState?.winnerColor && !dismissVictoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-sm p-6 rounded-3xl bg-[#140a15]/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-center space-y-4 relative">
+            {/* Close button to inspect winning board */}
+            <button
+              type="button"
+              onClick={() => setDismissVictoryModal(true)}
+              className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              title="Inspect Board"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 via-rose-500 to-pink-500 mx-auto flex items-center justify-center shadow-xl shadow-rose-600/40 animate-bounce">
+              <Trophy className="w-8 h-8 text-white" />
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-black text-white">
+                {myPlayer?.color === gameState.winnerColor
+                  ? '🎉 YOU WON!'
+                  : `🎉 ${gameState.winnerColor.toUpperCase()} WINS!`}
+              </h2>
+              <p className="text-xs text-zinc-300 mt-1">
+                {gameState.winnerColor.toUpperCase()} has moved all pawns Home and won the Ludo Arena!
+              </p>
+            </div>
+
+            {/* Rematch Agreement & Waiting Status */}
+            {(() => {
+              const myId = session?.user?.id || myPlayer?.userId || '';
+              const hasVoted = Boolean(rematchStatus?.votedUserIds?.includes(myId));
+              const votedCount = rematchStatus?.votedCount ?? 0;
+              const totalNeeded = rematchStatus?.totalNeeded ?? 2;
+              const allVoted = Boolean(rematchStatus?.allVoted);
+
+              if (allVoted) {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-center space-y-1">
+                    <div className="flex items-center justify-center space-x-2 text-emerald-400 text-xs font-black">
+                      <Check className="w-4 h-4" />
+                      <span>Both players agreed! Starting rematch...</span>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (hasVoted) {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2.5 animate-fadeIn">
+                    <div className="flex items-center justify-center space-x-2 text-amber-400 text-xs font-black">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                      <span>Waiting for partner to accept rematch ({votedCount}/{totalNeeded})</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400">
+                      Match will start as soon as both players click rematch.
+                    </p>
+
+                    {/* Nudge Partner Button */}
+                    <button
+                      type="button"
+                      onClick={handleNudgeForRematch}
+                      className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20 cursor-pointer"
+                    >
+                      <span>🛵</span>
+                      <span>Nudge Partner to Rematch 💬</span>
+                    </button>
+                    {nudgeFeedback && (
+                      <p className="text-[10px] text-emerald-400 font-semibold animate-fadeIn">
+                        {nudgeFeedback}
+                      </p>
+                    )}
+                  </div>
+                );
+              }
+
+              if (votedCount > 0 && !hasVoted) {
+                return (
+                  <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-center space-y-1 animate-pulse">
+                    <p className="text-xs font-black text-rose-300">
+                      🔥 Partner requested a rematch! ({votedCount}/{totalNeeded})
+                    </p>
+                    <p className="text-[11px] text-zinc-300">
+                      Click Play Rematch below to accept and begin!
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="text-[11px] text-zinc-400">
+                  Both players must agree to start a rematch.
+                </div>
+              );
+            })()}
+
+            {/* Action Buttons: Home & Rematch */}
+            <div className="flex gap-2.5 pt-2">
+              {/* Go Home */}
+              <button
+                type="button"
+                onClick={() => {
+                  sendLeave();
+                  router.push('/games');
+                }}
+                className="flex-1 py-3 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-white text-xs font-bold border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Home className="w-4 h-4 text-zinc-400" />
+                <span>Go Home 🏠</span>
+              </button>
+
+              {/* Rematch */}
+              <button
+                type="button"
+                disabled={rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '')}
+                onClick={() => {
+                  rematch();
+                }}
+                className={`flex-1 py-3 rounded-2xl text-white text-xs font-black shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                  rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '')
+                    ? 'bg-zinc-700 opacity-60 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 active:scale-95 shadow-rose-600/30'
+                }`}
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>
+                  {rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '')
+                    ? 'Waiting (1/2)'
+                    : 'Play Rematch 🔄'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Header Banner when Victory Modal is closed to inspect board */}
+      {gameState?.winnerColor && dismissVictoryModal && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/85 backdrop-blur-xl border border-white/20 shadow-2xl animate-fadeIn">
+          <span className="text-xs font-black text-white">
+            🏆 {gameState.winnerColor.toUpperCase()} Won the Game!
+          </span>
+          <div className="h-4 w-px bg-white/20" />
+          <button
+            type="button"
+            onClick={() => setDismissVictoryModal(false)}
+            className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer"
+          >
+            Rematch Menu 🔄
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              sendLeave();
+              router.push('/games');
+            }}
+            className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition cursor-pointer"
+          >
+            Home 🏠
+          </button>
+        </div>
+      )}
 
       {/* RULES MODAL */}
       {showRulesModal && (

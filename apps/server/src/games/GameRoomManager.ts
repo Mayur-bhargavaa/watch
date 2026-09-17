@@ -35,6 +35,8 @@ export class GameRoomManager {
   private roomThemes = new Map<string, string>();
   // roomId -> recent chat message history (up to 50)
   private roomChatHistory = new Map<string, any[]>();
+  // roomId -> Set of userIds who voted for rematch
+  private rematchVotes = new Map<string, Set<string>>();
 
   constructor(db: DatabaseService) {
     this.db = db;
@@ -334,12 +336,52 @@ export class GameRoomManager {
   }
 
   /**
-   * Handle Rematch Action
+   * Handle Rematch Action (requires agreement from both players)
    */
   public handleRematch(roomId: string, userId: string): void {
     const room = this.db.getGameRoomById(roomId);
     if (!room) return;
-    this.startGame(room);
+
+    if (!this.rematchVotes.has(roomId)) {
+      this.rematchVotes.set(roomId, new Set());
+    }
+    const votes = this.rematchVotes.get(roomId)!;
+    votes.add(userId);
+
+    const totalNeeded = room.players.length;
+    const votedUserIds = Array.from(votes);
+    const allVoted = votes.size >= totalNeeded;
+
+    // Broadcast rematch progress to all players in the room
+    this.broadcast(roomId, {
+      type: 'game:rematch_status',
+      roomId,
+      payload: {
+        votedUserIds,
+        votedCount: votes.size,
+        totalNeeded,
+        allVoted
+      }
+    });
+
+    // Only restart game when all connected players agree!
+    if (allVoted) {
+      this.rematchVotes.delete(roomId);
+      this.broadcast(roomId, {
+        type: 'game:rematch_agreed',
+        roomId,
+        payload: {
+          message: 'Both players agreed! Rematch starting...'
+        }
+      });
+      // Short delay for clean UI transition
+      setTimeout(() => {
+        const freshRoom = this.db.getGameRoomById(roomId);
+        if (freshRoom) {
+          this.startGame(freshRoom);
+        }
+      }, 500);
+    }
   }
 
   /**
@@ -508,6 +550,21 @@ export class GameRoomManager {
       case 'game:rematch':
         this.handleRematch(client.roomId, client.userId);
         break;
+
+      case 'game:nudge': {
+        const roast = msg.payload?.message || 'Rematch accept karle, haarne se kyu darr raha hai? 😉';
+        this.broadcast(client.roomId, {
+          type: 'game:player_nudged',
+          roomId: client.roomId,
+          payload: {
+            fromUserId: client.userId,
+            fromDisplayName: client.displayName,
+            message: roast,
+            timestamp: Date.now()
+          }
+        });
+        break;
+      }
 
       case 'game:drop_disc':
         this.handleDropDisc(client.roomId, client.userId, Number(msg.payload?.column ?? msg.payload?.col));
