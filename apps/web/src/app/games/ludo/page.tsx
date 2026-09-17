@@ -84,6 +84,9 @@ import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffec
 import { StickerPicker, StickerMessageView } from '../../../components/chat/StickerPicker';
 import { parseStickerMessage, formatStickerMessage } from '../../../components/chat/StickersData';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
+import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
+import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
+import { FriendWithStreak } from '../../../lib/api';
 
 export interface BoardTheme {
   id: string;
@@ -160,6 +163,8 @@ function LudoPageContent() {
   const [partnerPingStatus, setPartnerPingStatus] = useState<string | null>(null);
   const [isPingingPartner, setIsPingingPartner] = useState(false);
   const [showPartnerConnectInput, setShowPartnerConnectInput] = useState(false);
+  const [isFriendDrawerOpen, setIsFriendDrawerOpen] = useState(false);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
 
   // Global Theme
   const { theme, resolvedTheme, toggleTheme } = useTheme();
@@ -506,6 +511,18 @@ function LudoPageContent() {
           }
         }
 
+        const queryPartnerCode = searchParams.get('partnerCode') || searchParams.get('code');
+        const queryFriendId = searchParams.get('friendId');
+        if (queryPartnerCode || queryFriendId) {
+          try {
+            const connectRes = await connectUserPartner(currentSession.token, queryPartnerCode || undefined, queryFriendId || undefined);
+            if (connectRes?.partner) {
+              setPartner(connectRes.partner);
+              return;
+            }
+          } catch {}
+        }
+
         const partnerRes = await getUserPartner(currentSession.token).catch(() => null);
         if (partnerRes?.partner) {
           setPartner(partnerRes.partner);
@@ -685,17 +702,33 @@ function LudoPageContent() {
   };
 
   // Play with Partner
-  const handlePlayWithPartner = async () => {
-    if (!partner || !session?.token) return;
+  const handlePlayWithPartner = async (customFriendId?: string) => {
+    if ((!partner && !customFriendId) || !session?.token) return;
     setIsMatchmaking(true);
     setLobbyError(null);
     try {
-      const res = await playWithPartner(session.token);
+      const targetId = typeof customFriendId === 'string' ? customFriendId : partner?.id;
+      const res = await playWithPartner(session.token, 'ludo', targetId);
       router.push(`/games/ludo?room=${res.room.roomCode}`);
     } catch (err: any) {
       setLobbyError(err.message || 'Failed to connect with partner');
       setIsMatchmaking(false);
     }
+  };
+
+  const handleSelectFriendFromDrawer = (friend: FriendWithStreak) => {
+    setPartner({
+      id: friend.friendUser.id,
+      displayName: friend.friendUser.displayName,
+      partnerCode: friend.friendUser.partnerCode,
+      avatarUrl: friend.friendUser.avatarUrl,
+      online: Boolean(friend.friendUser.isOnline)
+    });
+  };
+
+  const handlePlayWithFriendFromDrawer = (friend: FriendWithStreak) => {
+    handleSelectFriendFromDrawer(friend);
+    handlePlayWithPartner(friend.friendUser.id);
   };
 
   // Public Matchmaking
@@ -1510,6 +1543,32 @@ function LudoPageContent() {
         />
       )}
 
+      {/* Game Friend / Opponent Selector Drawer */}
+      <GameFriendSelectorDrawer
+        isOpen={isFriendDrawerOpen}
+        onClose={() => setIsFriendDrawerOpen(false)}
+        token={session?.token}
+        currentPartnerId={partner?.id}
+        currentPartnerCode={partner?.partnerCode}
+        gameTitle="Ludo"
+        onSelectFriend={handleSelectFriendFromDrawer}
+        onPlayWithFriend={handlePlayWithFriendFromDrawer}
+        onOpenAddFriend={() => setIsAddFriendModalOpen(true)}
+      />
+
+      {/* Add Friend Modal */}
+      {session?.token && isAddFriendModalOpen && (
+        <AddFriendModal
+          isOpen={isAddFriendModalOpen}
+          onClose={() => setIsAddFriendModalOpen(false)}
+          myFriendCode={myPartnerCode}
+          token={session.token}
+          onFriendAdded={(newFriend) => {
+            handleSelectFriendFromDrawer(newFriend);
+          }}
+        />
+      )}
+
       {/* Opponent Left Victory Modal */}
       {opponentLeftWin && (
         <AlertModal
@@ -2283,11 +2342,20 @@ function LudoPageContent() {
                             </span>
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase">
                                 Connected Partner
                               </span>
                               <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49]" />
+                              <button
+                                type="button"
+                                onClick={() => setIsFriendDrawerOpen(true)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ee1d49]/10 hover:bg-[#ee1d49]/20 text-[#ee1d49] text-[10px] font-bold tracking-tight transition cursor-pointer active:scale-95"
+                                title="Change or switch friend to play with"
+                              >
+                                <Users className="w-2.5 h-2.5" />
+                                <span>Switch</span>
+                              </button>
                             </div>
                             <h4 className={`text-sm sm:text-base font-bold truncate ${
                               isDark ? 'text-white' : 'text-zinc-900'
@@ -2366,14 +2434,28 @@ function LudoPageContent() {
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setShowPartnerConnectInput(true)}
-                            className="py-2 px-3.5 sm:px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs rounded-xl sm:rounded-2xl shadow-[0_4px_14px_rgba(237,28,70,0.2)] transition flex items-center gap-1.5 shrink-0 cursor-pointer"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            <span>Connect</span>
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setIsFriendDrawerOpen(true)}
+                              className="py-2 px-3 sm:px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs rounded-xl sm:rounded-2xl shadow-[0_4px_14px_rgba(237,28,70,0.2)] transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            >
+                              <Users className="w-3.5 h-3.5" />
+                              <span>Choose Friend</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowPartnerConnectInput(true)}
+                              className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                                isDark
+                                  ? 'border-white/10 text-zinc-300 hover:bg-white/5'
+                                  : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'
+                              }`}
+                              title="Enter partner code manually"
+                            >
+                              Code
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-3">

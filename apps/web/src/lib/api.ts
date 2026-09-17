@@ -356,7 +356,8 @@ export async function getUserPartner(token: string): Promise<{
 
 export async function connectUserPartner(
   token: string,
-  partnerCode: string
+  partnerCode?: string,
+  friendUserId?: string
 ): Promise<{ success: boolean; partner: any }> {
   const res = await fetch(`${API_BASE}/api/user/partner/connect`, {
     method: 'POST',
@@ -364,7 +365,7 @@ export async function connectUserPartner(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`
     },
-    body: JSON.stringify({ partnerCode })
+    body: JSON.stringify({ partnerCode, friendUserId })
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -491,7 +492,8 @@ export async function sendHeartbeat(token: string): Promise<{
 
 export async function playWithPartner(
   token: string,
-  gameType: 'ludo' | 'four-in-a-row' = 'ludo'
+  gameType: 'ludo' | 'four-in-a-row' = 'ludo',
+  friendUserId?: string
 ): Promise<{
   success: boolean;
   room: GameRoom;
@@ -504,7 +506,7 @@ export async function playWithPartner(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`
     },
-    body: JSON.stringify({ gameType })
+    body: JSON.stringify({ gameType, friendUserId, targetUserId: friendUserId })
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

@@ -484,12 +484,19 @@ export async function createServer(dbPath = './synccinema.db') {
   app.post('/api/user/partner/connect', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);
-    const body = (request.body || {}) as { partnerCode?: string };
-    if (!body.partnerCode) {
-      return reply.code(400).send({ error: 'Partner Code is required' });
+    const body = (request.body || {}) as { partnerCode?: string; friendUserId?: string; userId?: string };
+    let code = body.partnerCode;
+    if (!code && (body.friendUserId || body.userId)) {
+      const targetUser = db.getUserById(body.friendUserId || body.userId!);
+      if (targetUser?.partnerCode) {
+        code = targetUser.partnerCode;
+      }
+    }
+    if (!code) {
+      return reply.code(400).send({ error: 'Partner Code or Friend ID is required' });
     }
     try {
-      const partner = db.connectPartner(user.id, body.partnerCode);
+      const partner = db.connectPartner(user.id, code);
       const isOnline = isUserOnline(partner.partnerUserId);
       return {
         success: true,
@@ -651,22 +658,49 @@ export async function createServer(dbPath = './synccinema.db') {
   // Human-Only Game Rooms & Matchmaking Endpoints
   // =====================================================================
 
-  // Play with Partner (Deterministic Smart Pairing)
+  // Play with Partner / Friend (Deterministic Smart Pairing)
   app.post('/api/games/partner/play', async (request, reply) => {
     const user = await getRequestUser(request);
-    const body = (request.body || {}) as { gameType?: string };
+    const body = (request.body || {}) as {
+      gameType?: string;
+      targetUserId?: string;
+      friendUserId?: string;
+      partnerCode?: string;
+    };
     const rawGameType = body.gameType || 'ludo';
     const gameType: 'ludo' | 'four-in-a-row' =
       rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
-    const partner = db.getPartner(user.id);
-    if (!partner) {
-      return reply.code(400).send({ error: 'No partner connected. Please connect a partner first.' });
+
+    let targetUser: any = null;
+    const targetId = body.targetUserId || body.friendUserId;
+    if (targetId) {
+      targetUser = db.getUserById(targetId);
+    } else if (body.partnerCode) {
+      targetUser = db.getUserByPartnerCode(body.partnerCode);
+    }
+
+    let partnerUserId: string;
+
+    if (targetUser && targetUser.id !== user.id) {
+      partnerUserId = targetUser.id;
+      // Also ensure connected in partner_connections so updated_at makes them primary
+      try {
+        if (targetUser.partnerCode) {
+          db.connectPartner(user.id, targetUser.partnerCode);
+        }
+      } catch {}
+    } else {
+      const partner = db.getPartner(user.id);
+      if (!partner) {
+        return reply.code(400).send({ error: 'No partner or friend selected. Please choose a friend to play with.' });
+      }
+      partnerUserId = partner.partnerUserId;
     }
 
     const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
 
     // 1. Check if partner is ALREADY waiting in an open game room
-    const partnerWaitingRoom = db.findUserWaitingGameRoom(partner.partnerUserId);
+    const partnerWaitingRoom = db.findUserWaitingGameRoom(partnerUserId);
     if (
       partnerWaitingRoom &&
       partnerWaitingRoom.gameType === gameType &&
@@ -694,7 +728,7 @@ export async function createServer(dbPath = './synccinema.db') {
         gameType: myWaitingRoom.gameType,
         timestamp: Date.now()
       };
-      presenceManager.sendToUser(partner.partnerUserId, {
+      presenceManager.sendToUser(partnerUserId, {
         type: 'partner:game_invite',
         payload: invitePayload
       });
@@ -723,7 +757,7 @@ export async function createServer(dbPath = './synccinema.db') {
       gameType,
       timestamp: Date.now()
     };
-    presenceManager.sendToUser(partner.partnerUserId, {
+    presenceManager.sendToUser(partnerUserId, {
       type: 'partner:game_invite',
       payload: invitePayload
     });

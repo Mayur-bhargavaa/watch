@@ -1041,6 +1041,7 @@ export class DatabaseService {
       FROM partner_connections pc
       JOIN users u ON u.id = pc.partner_user_id
       WHERE pc.user_id = ? AND pc.status = 'ACCEPTED'
+      ORDER BY pc.updated_at DESC
       LIMIT 1
     `);
     const row = stmt.get(userId) as any;
