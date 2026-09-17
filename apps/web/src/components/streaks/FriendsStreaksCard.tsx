@@ -24,6 +24,7 @@ import {
   FriendRequestsData
 } from '../../lib/api';
 import { AddFriendModal } from './AddFriendModal';
+import { StreakDetailsDrawer } from './StreakDetailsDrawer';
 
 // Helper to ensure every user & friend has a proper Bitmoji avatar
 function getBitmojiAvatarUrl(url?: string, fallbackSeed?: string): string {
@@ -60,6 +61,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
   const [copied, setCopied] = useState(false);
   const [activeMenuFriendId, setActiveMenuFriendId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [selectedStreakFriend, setSelectedStreakFriend] = useState<FriendWithStreak | null>(null);
 
   // Search & Filter state (All, Active, Streaks)
   const [searchQuery, setSearchQuery] = useState('');
@@ -362,20 +364,23 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
                 {/* Right Side: Streak Pill + Action Buttons */}
                 <div className="flex items-center space-x-3 sm:space-x-4 shrink-0">
-                  {/* Streak Pill */}
-                  <div
-                    className={`hidden sm:flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
+                  {/* Streak Pill (Click to open Streak Details Calendar Drawer) */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStreakFriend(item)}
+                    className={`flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 rounded-full text-xs font-bold transition cursor-pointer hover:scale-105 active:scale-95 ${
                       streak.completedToday
-                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-sm'
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-sm hover:bg-rose-500/25'
                         : streak.atRisk
-                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse'
-                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-zinc-400'
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse hover:bg-amber-500/25'
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-white/10'
                     }`}
+                    title="View streak calendar and stats"
                   >
                     <span>🔥</span>
                     <span>{streak.currentStreak} days</span>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
-                  </div>
+                  </button>
 
                   {/* Watch Button (Square with Camera icon & "Watch" label) */}
                   <button
@@ -447,6 +452,27 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
         }}
         onRequestsUpdated={(updated) => {
           setRequestsData(updated);
+        }}
+      />
+
+      {/* Streak Details & Activity Calendar Drawer */}
+      <StreakDetailsDrawer
+        isOpen={Boolean(selectedStreakFriend)}
+        onClose={() => setSelectedStreakFriend(null)}
+        friend={selectedStreakFriend}
+        onWatchTogether={(f) => {
+          if (onStartWatchPartyWithFriend) {
+            onStartWatchPartyWithFriend(f);
+          } else {
+            router.push(`/watch?partner=${f.friendUser.partnerCode}`);
+          }
+        }}
+        onPlayGame={(f, game) => {
+          if (onPlayGameWithFriend) {
+            onPlayGameWithFriend(f);
+          } else {
+            router.push(`/games/${game}?partnerCode=${f.friendUser.partnerCode}`);
+          }
         }}
       />
     </div>

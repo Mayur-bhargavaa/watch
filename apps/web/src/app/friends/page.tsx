@@ -57,6 +57,7 @@ import {
   DiscoverableUserItem,
   UserSession
 } from '../../lib/api';
+import { StreakDetailsDrawer } from '../../components/streaks/StreakDetailsDrawer';
 
 // Bitmoji avatar helper
 function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string {
@@ -111,6 +112,7 @@ function FriendsPageContent() {
   // Game/Room launch loading
   const [launchingActionId, setLaunchingActionId] = useState<string | null>(null);
   const [activeFriendMenuId, setActiveFriendMenuId] = useState<string | null>(null);
+  const [selectedStreakFriend, setSelectedStreakFriend] = useState<FriendWithStreak | null>(null);
 
   // Load Session
   useEffect(() => {
@@ -1236,14 +1238,20 @@ function FriendsPageContent() {
                             </div>
                           </div>
 
-                          {/* Streak Badge */}
+                          {/* Streak Badge (Click to open streak drawer) */}
                           <div className="flex flex-col items-end shrink-0">
-                            <div className="px-3 py-1 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedStreakFriend(friend)}
+                              className="px-3 py-1 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1.5 shadow-2xs transition cursor-pointer hover:scale-105 active:scale-95"
+                              title="View streak calendar and details"
+                            >
                               <Flame className="w-4 h-4 fill-amber-500 text-amber-500" />
                               <span className="font-black text-xs sm:text-sm">
                                 {friend.streak?.currentStreak ?? 0}d
                               </span>
-                            </div>
+                              <ChevronRight className="w-3.5 h-3.5 text-amber-500/70" />
+                            </button>
                             {friend.streak?.atRisk && (
                               <span className="text-[10px] text-rose-500 font-bold mt-1 animate-pulse">
                                 At risk today! 🔥
@@ -1325,6 +1333,15 @@ function FriendsPageContent() {
 
         </div>
       </main>
+
+      {/* Streak Calendar & Activity Drawer */}
+      <StreakDetailsDrawer
+        isOpen={Boolean(selectedStreakFriend)}
+        onClose={() => setSelectedStreakFriend(null)}
+        friend={selectedStreakFriend}
+        onWatchTogether={(f) => handleWatchPartyWithFriend(f)}
+        onPlayGame={(f, game) => handlePlayGame(f, game)}
+      />
 
     </div>
   );
