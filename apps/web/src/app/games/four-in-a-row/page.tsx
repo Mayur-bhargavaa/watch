@@ -67,7 +67,6 @@ import {
   joinGameRoom,
   playWithPartner,
   invitePartnerToGame,
-  pingPartner,
   sendHeartbeat,
   recordFriendStreak,
   UserSession
