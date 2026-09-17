@@ -2212,7 +2212,7 @@ function LudoPageContent() {
                               {partner.avatarUrl ? (
                                 <img src={partner.avatarUrl} alt={partner.displayName} className="w-full h-full object-cover" />
                               ) : (
-                                (partner.displayName || partner.username || 'P').charAt(0).toUpperCase()
+                                (partner.displayName || partner.partnerCode || 'P').charAt(0).toUpperCase()
                               )}
                             </div>
                             <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-white">
@@ -2230,7 +2230,7 @@ function LudoPageContent() {
                               <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49]" />
                             </div>
                             <h4 className="text-sm sm:text-base font-bold text-zinc-900 truncate">
-                              {partner.displayName || partner.username}
+                              {partner.displayName || partner.partnerCode}
                             </h4>
                             <p className="text-[11px] text-zinc-500 truncate">
                               {partner.online ? 'Online & ready to play' : 'Offline • Tap ping to alert'}
