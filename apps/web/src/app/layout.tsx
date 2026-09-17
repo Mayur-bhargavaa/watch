@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '../context/ThemeContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { NotificationToast } from '../components/notifications/NotificationToast';
+import { NotificationPermissionModal } from '../components/notifications/NotificationPermissionModal';
 
 export const metadata: Metadata = {
   title: 'Watch — Watch Together, Play Together',
@@ -43,6 +44,7 @@ export default function RootLayout({
         <ThemeProvider>
           <NotificationProvider>
             {children}
+            <NotificationPermissionModal />
             <NotificationToast />
           </NotificationProvider>
         </ThemeProvider>

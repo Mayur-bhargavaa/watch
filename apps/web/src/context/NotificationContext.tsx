@@ -89,7 +89,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load notifications from local storage on mount
+  // Load notifications from local storage on mount + bootstrap Chrome notifications
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -100,6 +100,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
     } catch {}
+
+    // Register Service Worker (required for Chrome OS-level desktop banners)
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    // Check current browser permission state
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPermission(Notification.permission);
+      if (Notification.permission === 'default') {
+        const dismissed = sessionStorage.getItem(MODAL_DISMISSED_KEY);
+        if (!dismissed) {
+          setShowPermissionModal(true);
+        }
+      }
+    } else {
+      setPermission('unsupported');
+    }
   }, []);
 
   // Sync to local storage
@@ -110,7 +128,55 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch {}
   };
 
-  // Add notification, sound, and show in-app toast
+  // Send Chrome OS-level desktop popup via ServiceWorker (with fallback)
+  const dispatchDesktopNotification = useCallback(
+    async (notif: AppNotification) => {
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+
+      const iconUrl = new URL('/logos/direct.png', window.location.origin).href;
+      const options: NotificationOptions = {
+        body: notif.body,
+        icon: iconUrl,
+        badge: iconUrl,
+        tag: notif.id,
+        data: { url: notif.link || '/dashboard' },
+        requireInteraction: false,
+        silent: false
+      };
+
+      let delivered = false;
+
+      // Try ServiceWorker first (works even when tab is in background or different window)
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000))
+          ]);
+          if (reg && typeof reg.showNotification === 'function') {
+            await reg.showNotification(notif.title, options);
+            delivered = true;
+          }
+        } catch {}
+      }
+
+      // Fallback: use window Notification API directly
+      if (!delivered) {
+        try {
+          const n = new Notification(notif.title, options);
+          n.onclick = () => {
+            window.focus();
+            if (notif.link) router.push(notif.link);
+            n.close();
+          };
+        } catch {}
+      }
+    },
+    [router]
+  );
+
+  // Add notification, play sound, show in-app toast, and fire Chrome desktop popup
   const pushNotification = useCallback(
     (item: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => {
       const newNotif: AppNotification = {
@@ -137,15 +203,42 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       toastTimeoutRef.current = setTimeout(() => {
         setActiveToast(null);
       }, 6500);
+
+      // Fire Chrome desktop popup (only if permission granted)
+      dispatchDesktopNotification(newNotif);
     },
-    []
+    [dispatchDesktopNotification]
   );
 
-  // In-app notifications do not require browser permissions
+  // Request browser notification permission (shows OS prompt)
   const requestPermission = async (): Promise<boolean> => {
-    setPermission('granted');
-    setShowPermissionModal(false);
-    return true;
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setPermission('unsupported');
+      setShowPermissionModal(false);
+      return false;
+    }
+    try {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      setShowPermissionModal(false);
+      if (result === 'granted') {
+        playChimeSound();
+        pushNotification({
+          title: '🔔 Notifications Activated!',
+          body: "You'll now get partner roasts, game invites and watch party alerts even when this tab is hidden.",
+          category: 'system',
+          emoji: '🔔',
+          link: '/dashboard'
+        });
+        return true;
+      } else {
+        sessionStorage.setItem(MODAL_DISMISSED_KEY, 'true');
+        return false;
+      }
+    } catch {
+      setShowPermissionModal(false);
+      return false;
+    }
   };
 
   const dismissPermissionModal = () => {
