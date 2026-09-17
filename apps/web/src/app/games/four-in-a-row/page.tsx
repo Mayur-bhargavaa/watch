@@ -718,8 +718,8 @@ function FourInARowContent() {
   };
 
   // Play with Partner
-  const handlePlayWithPartner = async (customFriendId?: string) => {
-    if ((!partner && !customFriendId) || !session?.token) return;
+  const handlePlayWithPartner = async (customFriendId?: string | React.MouseEvent) => {
+    if ((!partner && typeof customFriendId !== 'string') || !session?.token) return;
     setIsCreatingRoom(true);
     setLobbyError(null);
     try {
@@ -1749,7 +1749,7 @@ function FourInARowContent() {
                           </button>
                           <button
                             type="button"
-                            onClick={handlePlayWithPartner}
+                            onClick={() => handlePlayWithPartner()}
                             disabled={isCreatingRoom}
                             className="py-2.5 px-4 sm:px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                           >
