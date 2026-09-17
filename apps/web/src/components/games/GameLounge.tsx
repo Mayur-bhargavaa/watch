@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Gamepad2, Sparkles, Clock, X, Bell, Check, Users, ChevronRight } from 'lucide-react';
+import { Gamepad2, Sparkles, Clock, X } from 'lucide-react';
 
 export interface GameItem {
   id: string;
@@ -23,7 +23,7 @@ export const GAMES_CATALOG: GameItem[] = [
     title: 'LUDO PARTY',
     subtext: 'Classic 4-Player Board',
     badge: '🔥 Live Multiplayer',
-    badgeColor: 'bg-rose-600',
+    badgeColor: 'bg-rose-600 text-white shadow-rose-600/30',
     category: 'Board Game',
     players: '2-4 Players',
     icon: '🎲',
@@ -34,8 +34,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'connect4',
     title: 'FOUR IN A ROW',
     subtext: 'Vertical Disc Duel',
-    badge: 'Instant Queue',
-    badgeColor: 'bg-[#6355ff]',
+    badge: '🔥 Live 2-Player',
+    badgeColor: 'bg-[#6355ff] text-white shadow-indigo-600/30',
     category: 'Strategy Arcade',
     players: '2 Players',
     icon: '🔴',
@@ -46,8 +46,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'moduko',
     title: 'MODUKO',
     subtext: 'Logic & Sudoku Puzzles',
-    badge: 'Top Pick',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Logic Puzzle',
     players: 'Solo & Co-op',
     icon: '🧩',
@@ -58,8 +58,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'trivia',
     title: 'CINEMA TRIVIA',
     subtext: '15s Rapid Movie Quiz',
-    badge: 'Party Favorite',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Movie Quiz',
     players: '2-6 Players',
     icon: '🎬',
@@ -70,8 +70,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'emoji',
     title: 'EMOJI GUESS',
     subtext: 'Decipher The Film',
-    badge: 'Trending',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Word Puzzle',
     players: '2-6 Players',
     icon: '🍿',
@@ -82,8 +82,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'pictionary',
     title: 'CO-OP PICTIONARY',
     subtext: 'Live Sketch & Guess',
-    badge: 'Multiplayer',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Live Sketch',
     players: '2-6 Players',
     icon: '🎨',
@@ -94,8 +94,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'reflex',
     title: 'REFLEX DUEL',
     subtext: 'Millisecond Reaction',
-    badge: 'Fast Action',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Speed Duel',
     players: 'Up to 6',
     icon: '⚡',
@@ -106,8 +106,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'chess',
     title: 'CHESS CINEMA',
     subtext: 'Grandmaster Board',
-    badge: 'Classic',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Classic Strategy',
     players: '2 Players',
     icon: '♟️',
@@ -118,8 +118,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'uno',
     title: 'CARD LOUNGE',
     subtext: 'Uno & Party Cards',
-    badge: 'Party Mode',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Card Game',
     players: '2-6 Players',
     icon: '🃏',
@@ -130,8 +130,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'battleship',
     title: 'BATTLESHIP',
     subtext: 'Naval Combat Fleet',
-    badge: 'Strategy',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Naval Strategy',
     players: '2 Players',
     icon: '🚢',
@@ -142,8 +142,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'wordguess',
     title: 'WORD GUESS',
     subtext: 'Secret Word Wordle',
-    badge: 'New',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Word Game',
     players: 'Solo & Party',
     icon: '🔤',
@@ -154,8 +154,8 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'popcorn',
     title: 'POPCORN FRENZY',
     subtext: 'Speed Reflex Clicker',
-    badge: 'Arcade',
-    badgeColor: 'bg-[#6355ff]',
+    badge: 'Coming Soon',
+    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
     category: 'Arcade',
     players: 'Party Leaderboard',
     icon: '🍿',
@@ -184,8 +184,16 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
   hideHeader = true
 }) => {
   const router = useRouter();
-  const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
-  const [notifiedGameId, setNotifiedGameId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ game: GameItem; id: number } | null>(null);
+  const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleGameCardClick = (game: GameItem) => {
     if (game.id === 'ludo') {
@@ -196,7 +204,15 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
       router.push('/games/four-in-a-row');
       return;
     }
-    setSelectedGame(game);
+
+    // Trigger Coming Soon Toast
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    setToast({ game, id: Date.now() });
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+    }, 3500);
   };
 
   return (
@@ -261,11 +277,18 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-r from-[#141521] via-[#141521]/70 to-transparent" />
               </div>
 
-              {/* Top Left Badge matching reference pill */}
+              {/* Top Left Badge matching status */}
               <div className="relative z-10">
                 {game.badge && (
-                  <span className="inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold tracking-wide text-white bg-[#6355ff] shadow-md shadow-indigo-600/30">
-                    {game.badge}
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold tracking-wide shadow-md ${
+                      game.badgeColor || 'bg-[#6355ff] text-white shadow-indigo-600/30'
+                    }`}
+                  >
+                    {game.id !== 'ludo' && game.id !== 'connect4' && (
+                      <Clock className="w-3 h-3 text-amber-300" />
+                    )}
+                    <span>{game.badge}</span>
                   </span>
                 )}
               </div>
@@ -285,93 +308,48 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* COMING SOON MODAL (Triggered on click of any card)                        */}
+      {/* COMING SOON FLOATING TOAST NOTIFICATION                                   */}
       {/* ========================================================================= */}
-      {selectedGame && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-          <div className="bg-[#151724] border border-white/10 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-5 shadow-2xl relative text-center">
-            {/* Close Button */}
-            <button
-              onClick={() => {
-                setSelectedGame(null);
-                setNotifiedGameId(null);
-              }}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1.5 rounded-full hover:bg-white/5 transition"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Glowing Game Icon & Artwork */}
-            <div className="relative w-24 h-24 rounded-3xl mx-auto overflow-hidden shadow-2xl shadow-violet-600/30 border-2 border-white/20">
-              <img
-                src={selectedGame.artwork}
-                alt={selectedGame.title}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-3xl">
-                {selectedGame.icon}
-              </div>
+      {toast && (
+        <div
+          key={toast.id}
+          className="fixed bottom-6 right-6 z-50 max-w-sm sm:max-w-md w-[calc(100vw-3rem)] p-4 rounded-2xl bg-[#141524]/95 border border-white/20 backdrop-blur-2xl shadow-[0_20px_50px_rgba(0,0,0,0.7),0_0_25px_rgba(99,85,255,0.25)] text-white animate-in slide-in-from-bottom-5 fade-in duration-200"
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600/30 to-indigo-600/30 border border-violet-500/40 flex items-center justify-center text-xl shrink-0 shadow-inner">
+              {toast.game.icon || '🚀'}
             </div>
 
-            {/* Title & Description */}
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#6355ff]/15 text-[#8c82ff] text-xs font-bold border border-[#6355ff]/30 mb-1">
-                <Clock className="w-3.5 h-3.5" />
-                <span>COMING SOON</span>
+            <div className="flex-1 min-w-0 pr-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <Clock className="w-3 h-3" />
+                  Coming Soon
+                </span>
+                <span className="text-[11px] text-zinc-400 font-medium">
+                  {toast.game.category}
+                </span>
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">
-                {selectedGame.title}
-              </h3>
-              <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto leading-relaxed">
-                {selectedGame.description}
+              <h4 className="text-sm sm:text-base font-black uppercase tracking-tight text-white truncate">
+                {toast.game.title}
+              </h4>
+              <p className="text-xs text-zinc-300/90 mt-0.5 leading-relaxed">
+                This game is currently under development. Stay tuned for the upcoming release!
               </p>
             </div>
 
-            {/* Specs Box */}
-            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-left space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Category:</span>
-                <span className="font-bold text-white">{selectedGame.category}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Player Capacity:</span>
-                <span className="font-bold text-white">{selectedGame.players} (Max 6 / Room)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Sync Engine:</span>
-                <span className="font-bold text-emerald-400">Cristian NTP Sub-15ms</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Status:</span>
-                <span className="font-bold text-amber-400">Coming Soon to Watch Party 🚀</span>
-              </div>
-            </div>
-
-            {/* Notification / Action Buttons */}
-            {notifiedGameId === selectedGame.id ? (
-              <div className="py-2.5 px-4 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs font-bold flex items-center justify-center gap-2 animate-bounce">
-                <Check className="w-4 h-4" />
-                <span>You will be notified as soon as {selectedGame.title} launches!</span>
-              </div>
-            ) : (
-              <button
-                onClick={() => setNotifiedGameId(selectedGame.id)}
-                className="w-full py-3 px-4 bg-[#6355ff] hover:bg-[#5244e6] text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 active:scale-95"
-              >
-                <Bell className="w-4 h-4" />
-                <span>Notify Me on Launch</span>
-              </button>
-            )}
-
             <button
-              onClick={() => {
-                setSelectedGame(null);
-                setNotifiedGameId(null);
-              }}
-              className="w-full py-2 bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-semibold rounded-xl transition"
+              onClick={() => setToast(null)}
+              className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition shrink-0"
+              title="Dismiss"
             >
-              Close
+              <X className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Shrinking progress bar */}
+          <div className="mt-3 w-full bg-white/10 h-1 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-violet-500 to-amber-500 animate-pulse" />
           </div>
         </div>
       )}
