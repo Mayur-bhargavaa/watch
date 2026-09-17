@@ -166,9 +166,9 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
             <button
               type="submit"
               disabled={loading || !friendCodeInput.trim()}
-              className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-2xl bg-[#FFFC00] hover:bg-[#F5F200] text-black font-black text-sm shadow-md shadow-amber-400/20 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
+              className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-sm shadow-lg shadow-rose-600/25 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
             >
-              <span className="text-base leading-none">👻</span>
+              <UserPlus className="w-4 h-4" />
               <span>{loading ? 'Adding Friend...' : 'Connect & Start Streaks'}</span>
             </button>
           </form>

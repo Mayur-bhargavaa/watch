@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Flame,
   UserPlus,
@@ -21,9 +22,22 @@ import {
 import {
   getFriendsWithStreaks,
   removeFriend,
+  getStoredSession,
   FriendWithStreak
 } from '../../lib/api';
 import { AddFriendModal } from './AddFriendModal';
+
+// Helper to ensure every user & friend has a proper Bitmoji avatar matching the saved section
+function getBitmojiAvatarUrl(url?: string, fallbackSeed?: string): string {
+  if (url && url.trim() !== '') {
+    if (url.startsWith('/avatars/')) return url;
+    return url
+      .replace(/[?&]radius=[^&]+/g, '')
+      .replace(/[?&]backgroundColor=[^&]+/g, '');
+  }
+  const seed = encodeURIComponent(fallbackSeed || 'watch_avatar');
+  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&skinColor=edb98a&top=shortCurly&hairColor=4a312c&accessoriesProbability=0&clothing=blazerAndShirt&clothesColor=25557c&eyes=wink&mouth=smile`;
+}
 
 interface FriendsStreaksCardProps {
   token: string;
@@ -40,6 +54,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 }) => {
   const [friends, setFriends] = useState<FriendWithStreak[]>([]);
   const [myFriendCode, setMyFriendCode] = useState<string>('');
+  const [myAvatarUrl, setMyAvatarUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -47,7 +62,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
   const [activeMenuFriendId, setActiveMenuFriendId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  // Search & Filter state (Matching Reference Image: All, Active, Streaks)
+  // Search & Filter state (All, Active, Streaks)
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'streaks'>('all');
 
@@ -69,6 +84,10 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
   useEffect(() => {
     fetchFriends();
+    const session = getStoredSession();
+    if (session?.user?.avatarUrl) {
+      setMyAvatarUrl(session.user.avatarUrl);
+    }
     const interval = setInterval(fetchFriends, 25000);
     return () => clearInterval(interval);
   }, [token]);
@@ -125,19 +144,19 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-200">
-      {/* 1. TOP HEADER ROW (Matching Reference: Left Title/Subtitle, Right 3 Stat Cards) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
+      {/* 1. TOP HEADER ROW (Matching Reference Layout with Theme Colors & Standing Bitmoji) */}
+      <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 pt-2">
+        <div className="space-y-1">
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             Friends & Streaks <span className="text-3xl leading-none">🔥</span>
           </h1>
-          <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-zinc-400">
             Play, watch, and keep your streaks alive with friends.
           </p>
         </div>
 
-        {/* Top Right: 3 Stat Cards (Friends, Today, Record) */}
-        <div className="flex items-center gap-3">
+        {/* Top Right: 3 Stat Cards + User's Standing Bitmoji (Same as Saved Section) */}
+        <div className="flex items-center gap-3 sm:gap-4 self-start md:self-auto">
           {/* Card 1: Friends */}
           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
             <Users className="w-5 h-5 text-slate-400 dark:text-zinc-500 mb-1" />
@@ -152,7 +171,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           {/* Card 2: Today */}
           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
             <span className="text-lg leading-none mb-1">🔥</span>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+            <div className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 leading-tight">
               {totalCompletedToday}
             </div>
             <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
@@ -163,27 +182,42 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           {/* Card 3: Record */}
           <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center p-3 text-center transition hover:shadow-md">
             <Trophy className="w-5 h-5 text-amber-500 mb-1" />
-            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+            <div className="text-xl sm:text-2xl font-black text-amber-500 leading-tight">
               {maxStreak}d
             </div>
             <div className="text-xs text-slate-400 dark:text-zinc-500 font-medium">
               Record
             </div>
           </div>
+
+          {/* User's Saved Bitmoji (Same as Saved Section) */}
+          <Link
+            href="/profile"
+            className="hidden lg:block shrink-0 pl-1 transition-transform duration-300 hover:scale-105 active:scale-95 group"
+            title="Your Saved Bitmoji • Click to customize in Profile"
+          >
+            <div className="w-20 h-24 relative flex items-end justify-center">
+              <img
+                src={getBitmojiAvatarUrl(myAvatarUrl)}
+                alt="Your Saved Bitmoji"
+                className="h-24 w-auto object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.3)] filter"
+              />
+            </div>
+          </Link>
         </div>
       </div>
 
-      {/* 2. ADD FRIEND ROW (Matching Reference: Bar with Link icon and Yellow Add Friend Button) */}
+      {/* 2. ADD FRIEND ROW (Theme Colors: Rose Gradient Button, Opens Modal) */}
       <div className="rounded-3xl bg-slate-50/90 dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 p-3 sm:p-4 flex items-center justify-between gap-4 shadow-sm">
         <div
           onClick={() => setIsAddModalOpen(true)}
           className="flex items-center space-x-3.5 pl-2 cursor-pointer select-none group min-w-0"
         >
-          <div className="w-9 h-9 rounded-2xl bg-slate-200/60 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-zinc-400 group-hover:text-slate-700 dark:group-hover:text-white transition shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-rose-500/10 dark:bg-rose-500/15 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:scale-105 transition shrink-0">
             <Link2 className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate group-hover:text-slate-900 dark:group-hover:text-white transition">
+            <div className="text-sm font-bold text-slate-700 dark:text-zinc-200 truncate group-hover:text-rose-600 dark:group-hover:text-rose-400 transition">
               Add a friend by code
             </div>
             <div className="text-xs text-slate-400 dark:text-zinc-500 truncate">
@@ -194,14 +228,14 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="px-5 sm:px-6 py-3 rounded-2xl bg-[#FFFC00] hover:bg-[#F5F200] active:scale-95 text-black font-black text-xs sm:text-sm flex items-center space-x-2 shadow-md shadow-amber-400/10 transition shrink-0"
+          className="px-5 sm:px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 active:scale-95 text-white font-bold text-xs sm:text-sm flex items-center space-x-2 shadow-lg shadow-rose-600/20 transition shrink-0"
         >
-          <span className="text-base leading-none">👻</span>
+          <UserPlus className="w-4 h-4" />
           <span>Add Friend</span>
         </button>
       </div>
 
-      {/* 3. TABS & SEARCH ROW (Matching Reference: All, Active, Streaks with Yellow Underline & Search Input) */}
+      {/* 3. TABS & SEARCH ROW (Active Tab: Rose Underline, Search Pill) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
         {/* Left Side: Tabs */}
         <div className="flex items-center space-x-6 border-b border-slate-200/60 dark:border-white/5 sm:border-none pb-2 sm:pb-0">
@@ -215,7 +249,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           >
             <span>All ({friends.length})</span>
             {activeTab === 'all' && (
-              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#FFFC00] rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-rose-600 rounded-full" />
             )}
           </button>
 
@@ -229,7 +263,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           >
             <span>Active ({activeCount})</span>
             {activeTab === 'active' && (
-              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#FFFC00] rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-rose-600 rounded-full" />
             )}
           </button>
 
@@ -243,7 +277,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           >
             <span>Streaks ({streaksCount})</span>
             {activeTab === 'streaks' && (
-              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#FFFC00] rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-rose-600 rounded-full" />
             )}
           </button>
         </div>
@@ -256,16 +290,16 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search friends..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-50/90 dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#FFFC00]/50"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50/90 dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 rounded-full text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40"
           />
         </div>
       </div>
 
-      {/* 4. FRIEND CARDS LIST (Matching Reference Card Layout) */}
+      {/* 4. FRIEND CARDS LIST (Bitmoji Avatar & Theme Colored Play/Watch Buttons) */}
       <div className="space-y-3 pt-2">
         {loading && friends.length === 0 ? (
           <div className="py-16 flex flex-col items-center justify-center text-slate-400 dark:text-zinc-500 text-xs">
-            <div className="w-8 h-8 border-2 border-[#FFFC00] border-t-transparent rounded-full animate-spin mb-3" />
+            <div className="w-8 h-8 border-2 border-rose-600 border-t-transparent rounded-full animate-spin mb-3" />
             <span>Loading friends...</span>
           </div>
         ) : error ? (
@@ -278,8 +312,8 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
         ) : friends.length === 0 ? (
           /* Empty State */
           <div className="py-16 px-6 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#171821]/40">
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-[#FFFC00]/20 text-black flex items-center justify-center mb-4 shadow-sm text-2xl">
-              👻
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-rose-500/10 text-rose-600 flex items-center justify-center mb-4 shadow-sm">
+              <Users className="w-8 h-8" />
             </div>
             <h4 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
               No Friends Added Yet
@@ -289,7 +323,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
             </p>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center space-x-2 px-6 py-3 rounded-2xl bg-[#FFFC00] hover:bg-[#F5F200] text-black font-black text-xs shadow-md transition active:scale-95"
+              className="inline-flex items-center space-x-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition active:scale-95"
             >
               <UserPlus className="w-4 h-4" />
               <span>Add Your First Friend</span>
@@ -303,34 +337,30 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           filteredFriends.map((item) => {
             const { friendUser, streak } = item;
             const isMenuOpen = activeMenuFriendId === friendUser.id;
+            const bitmojiUrl = getBitmojiAvatarUrl(friendUser.avatarUrl, friendUser.displayName);
 
             return (
               <div
                 key={item.friendshipId}
                 className="relative group p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#171821] hover:border-slate-300 dark:hover:border-white/20 transition shadow-sm hover:shadow-md flex items-center justify-between gap-4"
               >
-                {/* Left Side: Avatar & Friend Info */}
+                {/* Left Side: Bitmoji Avatar & Friend Info */}
                 <div className="flex items-center space-x-3.5 min-w-0">
-                  {/* Yellow Circular Avatar Container (Matching Reference) */}
+                  {/* Bitmoji Circular Container (Theme Styling) */}
                   <div className="relative shrink-0">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#FFFC00] flex items-center justify-center overflow-hidden shadow-sm">
-                      {friendUser.avatarUrl ? (
-                        <img
-                          src={friendUser.avatarUrl}
-                          alt={friendUser.displayName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-black font-black text-lg">
-                          {friendUser.displayName.charAt(0).toUpperCase()}
-                        </span>
-                      )}
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-100 dark:bg-white/[0.08] border border-slate-200 dark:border-white/10 flex items-center justify-center overflow-hidden shadow-inner p-0.5">
+                      <img
+                        src={bitmojiUrl}
+                        alt={friendUser.displayName}
+                        className="w-full h-full object-contain"
+                      />
                     </div>
                     {/* Status Dot: Green if Online, Grey if Offline */}
                     <span
                       className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#171821] ${
                         friendUser.isOnline ? 'bg-emerald-500' : 'bg-slate-400 dark:bg-zinc-500'
                       }`}
+                      title={friendUser.isOnline ? 'Online now' : 'Offline'}
                     />
                   </div>
 
@@ -342,7 +372,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
                       <span className="text-xs font-mono text-slate-400 dark:text-zinc-500">
                         #{friendUser.partnerCode}
                       </span>
-                      {/* Status Pill Badge (Matching Reference: e.g. "● Offline") */}
+                      {/* Status Pill Badge */}
                       <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-zinc-400 font-medium">
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
@@ -357,13 +387,13 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
 
                 {/* Right Side: Streak Pill + Action Buttons */}
                 <div className="flex items-center space-x-3 sm:space-x-4 shrink-0">
-                  {/* Streak Pill (Matching Reference: "🔥 0 days >") */}
+                  {/* Streak Pill */}
                   <div
                     className={`hidden sm:flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition ${
                       streak.completedToday
-                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-sm'
                         : streak.atRisk
-                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse'
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 animate-pulse'
                         : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-zinc-400'
                     }`}
                   >
@@ -372,7 +402,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
                   </div>
 
-                  {/* Watch Button (Matching Reference: Square with Camera icon & "Watch" label) */}
+                  {/* Watch Button (Square with Camera icon & "Watch" label) */}
                   <button
                     onClick={() => onStartWatchPartyWithFriend?.(item)}
                     className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white dark:bg-[#101115] hover:bg-slate-50 dark:hover:bg-white/5 border border-slate-200/80 dark:border-white/10 flex flex-col items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm active:scale-95"
@@ -384,14 +414,14 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
                     </span>
                   </button>
 
-                  {/* Play Button (Matching Reference: Square Yellow with Gamepad icon & "Play" label) */}
+                  {/* Play Button (Theme Colored Rose/Amber with Gamepad icon & "Play" label) */}
                   <button
                     onClick={() => onPlayGameWithFriend?.(item)}
-                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-[#FFFC00] hover:bg-[#F5F200] text-black flex flex-col items-center justify-center transition shadow-sm active:scale-95"
+                    className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white flex flex-col items-center justify-center transition shadow-md shadow-rose-600/20 active:scale-95"
                     title="Play Game"
                   >
-                    <Gamepad2 className="w-5 h-5 text-black" />
-                    <span className="text-[11px] font-black text-black mt-1">
+                    <Gamepad2 className="w-5 h-5 text-white" />
+                    <span className="text-[11px] font-bold text-white mt-1">
                       Play
                     </span>
                   </button>
