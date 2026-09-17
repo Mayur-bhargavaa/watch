@@ -340,7 +340,6 @@ function FourInARowContent() {
 
   // Victory Modal dismiss & Rematch Nudge state
   const [dismissVictoryModal, setDismissVictoryModal] = useState<boolean>(false);
-  const [nudgeFeedback, setNudgeFeedback] = useState<string | null>(null);
 
   const handleNudgeForRematch = () => {
     const roast = getRandomRoast('game');
