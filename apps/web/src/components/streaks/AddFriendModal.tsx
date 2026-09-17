@@ -101,6 +101,20 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
   const handleCopyCode = async () => {
     if (!myFriendCode) return;
     try {
@@ -212,8 +226,14 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
   const incomingCount = requests.incoming.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden my-auto">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden my-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-5 sm:p-6 pb-4 border-b border-slate-100 dark:border-white/10 shrink-0">
           <div className="flex items-center space-x-3">
@@ -230,7 +250,11 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-white/5 transition"
           >
             <X className="w-5 h-5" />
