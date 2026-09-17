@@ -40,7 +40,8 @@ export type SidebarNavItem =
   | 'watchlist'
   | 'friends'
   | 'rooms'
-  | 'games';
+  | 'games'
+  | 'profile';
 
 interface AppSidebarProps {
   activeNav?: SidebarNavItem;
@@ -101,6 +102,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       ? 'rooms'
       : pathname.startsWith('/games')
       ? 'games'
+      : pathname === '/profile'
+      ? 'profile'
       : 'dashboard');
 
   const handleLogout = () => {
@@ -301,29 +304,43 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           </span>
         </button>
 
-        {/* User Card */}
+        {/* User Card - Links directly to /profile */}
         {session?.user && (
-          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-100/80 dark:bg-white/[0.04]">
-            <div className="flex items-center space-x-2.5 min-w-0">
+          <div
+            className={`flex items-center justify-between p-2.5 rounded-2xl transition group ${
+              currentActive === 'profile'
+                ? 'bg-slate-200/90 dark:bg-white/[0.08] ring-1 ring-[#ee1d49]/30 shadow-xs'
+                : 'bg-slate-100/80 dark:bg-white/[0.04] hover:bg-slate-100 dark:hover:bg-white/[0.07]'
+            }`}
+          >
+            <Link
+              href="/profile"
+              onClick={onMobileClose}
+              className="flex items-center space-x-2.5 min-w-0 flex-1 cursor-pointer"
+              title="View Profile & Settings"
+            >
               <img
                 src={getBitmojiAvatarUrl(session.user.avatarUrl, session.user.displayName)}
                 alt={session.user.displayName}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shrink-0 shadow-xs"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shrink-0 shadow-xs group-hover:scale-105 transition-transform duration-200"
               />
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ee1d49] transition-colors">
                   {session.user.displayName}
                 </p>
                 <p className="text-[10px] font-mono text-[#ee1d49] font-bold truncate">
                   #{session.user.partnerCode || 'USER'}
                 </p>
               </div>
-            </div>
+            </Link>
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLogout();
+              }}
               title="Log Out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer shrink-0 ml-1"
             >
               <LogOut className="w-4 h-4" />
             </button>

@@ -52,9 +52,11 @@ import {
   Volume2,
   Video,
   Shield,
-  Monitor
+  Monitor,
+  Menu
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { AppSidebar } from '../../components/layout/AppSidebar';
 import {
   getStoredSession,
   clearStoredSession,
@@ -225,6 +227,7 @@ function ProfileContent() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
   const activeVibe = useMemo(() => {
     return CINEMA_VIBES.find(v => v.id === selectedVibeId) || CINEMA_VIBES[0];
@@ -445,158 +448,30 @@ function ProfileContent() {
     <div className="min-h-screen bg-slate-50 dark:bg-[#111217] text-slate-900 dark:text-slate-100 flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150">
       
       {/* ========================================================================= */}
-      {/* 1. LEFT SIDEBAR NAVIGATION (IDENTICAL TO DASHBOARD)                        */}
+      {/* 1. CENTRALIZED APP SIDEBAR                                                */}
       {/* ========================================================================= */}
-      <aside className="w-64 bg-white dark:bg-[#14151b] border-r border-slate-200 dark:border-white/[0.06] p-6 flex flex-col justify-between shrink-0 hidden lg:flex select-none transition-colors duration-150">
-        <div className="space-y-8">
-          {/* Logo: STITCHBYTE. with Bold Red Accent Dot */}
-          <div
-            onClick={() => {
-              router.push('/dashboard');
-            }}
-            className="flex items-center space-x-2.5 cursor-pointer select-none"
-          >
-            <div className="p-1.5 bg-rose-600 rounded-xl text-white shadow-lg shadow-rose-600/30">
-              <Film className="w-4 h-4 fill-current" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-xl font-black tracking-tight text-slate-900 dark:text-white">Watch<span className="text-rose-600 text-2xl leading-none">.</span></span>
-              <span className="text-[9px] font-semibold text-slate-400 dark:text-zinc-500 tracking-widest uppercase mt-0.5">Powered by StitchByte</span>
-            </div>
-          </div>
-
-          {/* Navigation Groups */}
-          <div className="space-y-6">
-            {/* Nav Group 1: Menu */}
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
-                Menu
-              </div>
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard')}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
-              >
-                <Film className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
-                <span>Browse Cinema</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard?tab=watchlist')}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
-              >
-                <Heart className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
-                <span>Watchlist</span>
-              </button>
-            </div>
-
-            {/* Nav Group 2: Social / Rooms */}
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
-                Social
-              </div>
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard?tab=myrooms')}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
-              >
-                <Users className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
-                <span>My Rooms</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard?tab=parties')}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
-              >
-                <Tv className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
-                <span>Watch Parties</span>
-                <span className="ml-auto text-[10px] bg-rose-600/20 text-rose-500 dark:text-rose-400 px-1.5 py-0.5 rounded-full font-bold">
-                  Max 6
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard?tab=games')}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
-              >
-                <Gamepad2 className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
-                <span>Game Lounge</span>
-                <span className="ml-auto text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                  PLAY
-                </span>
-              </button>
-            </div>
-
-            {/* Nav Group 3: General */}
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
-                General
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsName(displayName || session?.user.displayName || '');
-                  setShowSettingsModal(true);
-                }}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
-              >
-                <Settings className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
-                <span>Settings</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Log out</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* User Profile Card at Bottom of Sidebar */}
-        <div
-          className="flex items-center space-x-3 p-3 rounded-2xl bg-slate-100 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer group shadow-sm dark:shadow-lg"
-        >
-          {/* Normal circular avatar */}
-          <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-900 border border-slate-300 dark:border-white/10 ring-2 ring-[#d2281e]/40 shrink-0 flex items-center justify-center">
-            {avatarUrl || session?.user.avatarUrl ? (
-              <img
-                src={avatarUrl || session.user.avatarUrl}
-                alt={displayName || session.user.displayName || 'Avatar'}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-tr from-[#d2281e] to-amber-500 flex items-center justify-center text-white text-sm font-bold">
-                {((displayName || session?.user.displayName || 'U')[0]).toUpperCase()}
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#d2281e] transition">
-              {displayName || session?.user.displayName || 'User'}
-            </div>
-            <div className="text-[10px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1">
-              {(calculatedAge || session?.user.age) ? <span>🎂 {calculatedAge || session?.user.age}y · </span> : null}
-              <span>{session?.user.isMarried || relationshipStatus === 'married' ? '💍 Married' : 'Cinema Fan'}</span>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <AppSidebar
+        activeNav="profile"
+        isMobileOpen={isMobileSidebarOpen}
+        onMobileClose={() => setIsMobileSidebarOpen(false)}
+      />
 
       {/* ========================================================================= */}
-      {/* 2. MAIN DASHBOARD CONTENT AREA                                            */}
+      {/* 2. MAIN PROFILE CONTENT AREA                                              */}
       {/* ========================================================================= */}
       <div className="flex-1 flex flex-col h-screen overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
         
         {/* Top Header Bar */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center space-x-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
+              title="Open Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <button
               onClick={() => router.push('/dashboard')}
               className="w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm"
