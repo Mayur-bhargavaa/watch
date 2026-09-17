@@ -168,7 +168,12 @@ export default function GameLobbyPage() {
     if (!session?.token || !partner) return;
     setIsPinging(true);
     try {
-      await pingPartner(session.token, partner.id);
+      await pingPartner({
+        targetCode: partner.partnerCode,
+        fromCode: session.user.partnerCode,
+        fromName: session.user.displayName,
+        gameType: 'games'
+      });
       setPingStatus(`Ping sent to ${partner.displayName}! 🔔`);
       setTimeout(() => setPingStatus(null), 4000);
     } catch {
