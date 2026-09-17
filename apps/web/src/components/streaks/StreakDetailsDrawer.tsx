@@ -13,7 +13,6 @@ import {
   Gamepad2,
   ChevronLeft,
   ChevronRight,
-  Info,
   Sparkles
 } from 'lucide-react';
 import { FriendWithStreak } from '../../lib/api';
@@ -64,17 +63,78 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
     if (isOpen) {
       setCurrentDate(new Date());
     }
-  }, [isOpen, friend]);
+  }, [isOpen]);
 
-  if (!isOpen || !friend) return null;
+  // Safe data extraction (defined before hooks, safe with null/undefined)
+  const currentStreak = friend?.streak?.currentStreak ?? 0;
+  const longestStreak = friend?.streak?.longestStreak ?? 0;
+  const lastDate = friend?.streak?.lastWatchedDate ?? null;
+  const completedToday = Boolean(friend?.streak?.completedToday);
+  const atRisk = Boolean(friend?.streak?.atRisk);
+  const totalMinutes = friend?.streak?.totalMinutesWatched ?? 0;
 
-  const { friendUser, streak } = friend;
-  const currentStreak = streak?.currentStreak ?? 0;
-  const longestStreak = streak?.longestStreak ?? 0;
-  const lastDate = streak?.lastWatchedDate ?? null;
-  const completedToday = Boolean(streak?.completedToday);
-  const atRisk = Boolean(streak?.atRisk);
-  const totalMinutes = streak?.totalMinutesWatched ?? 0;
+  // Compute Active Streak Dates Set (Hook called unconditionally at top level!)
+  const activeStreakDates = useMemo(() => {
+    const dates = new Set<string>();
+    if (currentStreak > 0 && lastDate) {
+      try {
+        const cleanDate = lastDate.includes('T') ? lastDate.split('T')[0] : lastDate;
+        const parts = cleanDate.split('-').map(Number);
+        if (parts.length === 3 && !parts.some(isNaN)) {
+          const [y, m, d] = parts;
+          for (let i = 0; i < currentStreak; i++) {
+            const dt = new Date(y, m - 1, d - i);
+            if (!isNaN(dt.getTime())) {
+              const yStr = dt.getFullYear();
+              const mStr = String(dt.getMonth() + 1).padStart(2, '0');
+              const dStr = String(dt.getDate()).padStart(2, '0');
+              dates.add(`${yStr}-${mStr}-${dStr}`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse active streak dates:', e);
+      }
+    }
+    return dates;
+  }, [currentStreak, lastDate]);
+
+  // Calendar calculations (Safe with invalid dates)
+  const safeDate = useMemo(() => {
+    return currentDate instanceof Date && !isNaN(currentDate.getTime())
+      ? currentDate
+      : new Date();
+  }, [currentDate]);
+
+  const year = safeDate.getFullYear();
+  const month = safeDate.getMonth();
+
+  const monthName = useMemo(() => {
+    try {
+      return safeDate.toLocaleString('default', { month: 'long' });
+    } catch {
+      return 'Month';
+    }
+  }, [safeDate]);
+
+  const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const prevMonth = () => {
+    setCurrentDate(new Date(year, month - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(year, month + 1, 1));
+  };
+
+  const todayStr = useMemo(() => {
+    try {
+      return new Date().toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  }, []);
 
   // Format Total Watch Time
   const formatMinutes = (mins: number) => {
@@ -87,60 +147,59 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
   // Format Last Watched Date
   const formatLastDate = (dateStr: string | null) => {
     if (!dateStr) return 'No activity yet';
-    const todayStr = new Date().toISOString().split('T')[0];
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    const yesterdayStr = d.toISOString().split('T')[0];
-
-    if (dateStr === todayStr) return 'Today 🔥';
-    if (dateStr === yesterdayStr) return 'Yesterday';
     try {
-      const parsed = new Date(dateStr + 'T00:00:00');
+      const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      const today = new Date().toISOString().split('T')[0];
+      const yd = new Date();
+      yd.setDate(yd.getDate() - 1);
+      const yesterday = yd.toISOString().split('T')[0];
+
+      if (clean === today) return 'Today 🔥';
+      if (clean === yesterday) return 'Yesterday';
+
+      const parts = clean.split('-').map(Number);
+      if (parts.length === 3 && !parts.some(isNaN)) {
+        const parsed = new Date(parts[0], parts[1] - 1, parts[2]);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+      }
+      return clean;
+    } catch {
+      return 'Recently';
+    }
+  };
+
+  // Format Friendship Start Date safely
+  const formatFriendshipDate = (dateStr?: string | null) => {
+    if (!dateStr) return 'Recently';
+    try {
+      const parsed = new Date(dateStr);
+      if (isNaN(parsed.getTime())) return 'Recently';
       return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
-      return dateStr;
+      return 'Recently';
     }
   };
 
-  // Compute Active Streak Dates Set
-  const activeStreakDates = useMemo(() => {
-    const dates = new Set<string>();
-    if (currentStreak > 0 && lastDate) {
-      try {
-        const base = new Date(lastDate + 'T00:00:00');
-        for (let i = 0; i < currentStreak; i++) {
-          const d = new Date(base);
-          d.setDate(base.getDate() - i);
-          dates.add(d.toISOString().split('T')[0]);
-        }
-      } catch {}
-    }
-    return dates;
-  }, [currentStreak, lastDate]);
+  // Guard clause placed AFTER all hooks have run!
+  if (!isOpen || !friend) {
+    return null;
+  }
 
-  // Calendar calculations
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-
-  const monthName = currentDate.toLocaleString('default', { month: 'long' });
-  const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sunday
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const prevMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+  const friendUser = friend.friendUser || {
+    id: '',
+    displayName: 'Friend',
+    avatarUrl: null,
+    partnerCode: 'USER',
+    isOnline: false
   };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
-  };
-
-  const todayStr = new Date().toISOString().split('T')[0];
 
   return (
     <div className="fixed inset-0 z-[110] overflow-hidden">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300 animate-fadeIn"
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-300 animate-fadeIn cursor-pointer"
         onClick={onClose}
       />
 
@@ -154,7 +213,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
               <div className="relative shrink-0">
                 <img
                   src={getBitmojiAvatarUrl(friendUser.avatarUrl, friendUser.displayName)}
-                  alt={friendUser.displayName}
+                  alt={friendUser.displayName || 'Friend'}
                   className="w-11 h-11 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shadow-xs"
                 />
                 <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white dark:bg-zinc-900 ring-1 ring-white/50">
@@ -169,14 +228,14 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-base font-bold text-zinc-900 dark:text-white truncate">
-                    {friendUser.displayName}
+                    {friendUser.displayName || 'Friend'}
                   </h3>
                   <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
                     🔥 Streak
                   </span>
                 </div>
                 <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400 truncate">
-                  #{friendUser.partnerCode}
+                  #{friendUser.partnerCode || 'USER'}
                 </p>
               </div>
             </div>
@@ -315,17 +374,20 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
               {/* Days Grid */}
               <div className="grid grid-cols-7 gap-1.5 text-center">
                 {/* Blank days before the 1st */}
-                {Array.from({ length: firstDayIndex }).map((_, i) => (
+                {Array.from({ length: Math.max(0, firstDayIndex || 0) }).map((_, i) => (
                   <div key={`blank-${i}`} className="h-8 w-8" />
                 ))}
 
                 {/* Days of the month */}
-                {Array.from({ length: daysInMonth }).map((_, i) => {
+                {Array.from({ length: Math.max(0, daysInMonth || 0) }).map((_, i) => {
                   const dayNum = i + 1;
                   const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
                   const isToday = dateString === todayStr;
                   const isActiveStreakDay = activeStreakDates.has(dateString);
-                  const isFuture = new Date(dateString + 'T23:59:59') > new Date();
+                  let isFuture = false;
+                  try {
+                    isFuture = new Date(year, month, dayNum, 23, 59, 59) > new Date();
+                  } catch {}
 
                   let dayStyle = 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-white/10';
                   if (isActiveStreakDay) {
@@ -388,8 +450,8 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                   <span>Friendship Started</span>
                 </span>
-                <span className="font-mono text-zinc-800 dark:text-zinc-200">
-                  {new Date(friend.createdAt).toLocaleDateString()}
+                <span className="font-mono text-zinc-800 dark:text-zinc-200 text-xs">
+                  {formatFriendshipDate(friend.createdAt)}
                 </span>
               </div>
 
