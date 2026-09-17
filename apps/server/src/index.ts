@@ -898,15 +898,25 @@ export async function createServer(dbPath = './synccinema.db') {
       timestamp: Date.now()
     };
 
-    const sentInPresence = presenceManager.sendToUser(partner.partnerUserId, {
+    // Also support targetPartnerCode from body if specified
+    const targetCode = (request.body as any)?.targetPartnerCode;
+    let targetUserId = partner.partnerUserId;
+    if (targetCode) {
+      const explicitUser = db.getUserByPartnerCode(targetCode);
+      if (explicitUser) {
+        targetUserId = explicitUser.id;
+      }
+    }
+
+    const sentInPresence = presenceManager.sendToUser(targetUserId, {
       type: 'partner:game_invite',
       payload: invitePayload
     });
-    const sentInGame = gameRoomManager.sendToUser(partner.partnerUserId, {
+    const sentInGame = gameRoomManager.sendToUser(targetUserId, {
       type: 'partner:game_invite',
       payload: invitePayload
     });
-    const sentInParty = syncManager.sendToUser(partner.partnerUserId, {
+    const sentInParty = syncManager.sendToUser(targetUserId, {
       type: 'partner:game_invite',
       payload: invitePayload
     });
@@ -915,6 +925,56 @@ export async function createServer(dbPath = './synccinema.db') {
       success: true,
       deliveredLive: sentInPresence || sentInGame || sentInParty,
       invite: invitePayload
+    };
+  });
+
+  // Partner Ping Endpoint (Used across games and lobby)
+  app.post('/api/games/partner/ping', async (request, reply) => {
+    const body = (request.body || {}) as {
+      targetCode: string;
+      fromCode?: string;
+      fromName?: string;
+      roomCode?: string;
+      gameType?: string;
+    };
+
+    if (!body.targetCode) {
+      return reply.code(400).send({ error: 'Target partner code is required' });
+    }
+
+    const targetUser = db.getUserByPartnerCode(body.targetCode.toUpperCase());
+    if (!targetUser) {
+      return reply.code(404).send({ error: 'Partner code not found' });
+    }
+
+    const pingPayload = {
+      id: `ping_${nanoid(8)}`,
+      fromCode: body.fromCode || 'ANON',
+      fromName: body.fromName || 'Your Partner',
+      targetCode: body.targetCode.toUpperCase(),
+      roomCode: body.roomCode ? body.roomCode.toUpperCase() : undefined,
+      gameType: body.gameType || 'ludo',
+      createdAt: Date.now(),
+      read: false
+    };
+
+    const sentInPresence = presenceManager.sendToUser(targetUser.id, {
+      type: 'partner:ping',
+      payload: pingPayload
+    });
+    const sentInGame = gameRoomManager.sendToUser(targetUser.id, {
+      type: 'partner:ping',
+      payload: pingPayload
+    });
+    const sentInParty = syncManager.sendToUser(targetUser.id, {
+      type: 'partner:ping',
+      payload: pingPayload
+    });
+
+    return {
+      success: true,
+      deliveredLive: sentInPresence || sentInGame || sentInParty,
+      ping: pingPayload
     };
   });
 

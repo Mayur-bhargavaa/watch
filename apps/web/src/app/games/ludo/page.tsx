@@ -671,10 +671,10 @@ function LudoPageContent() {
   const handlePingPartner = async () => {
     if (!partner || !session?.token) return;
     setIsPingingPartner(true);
-    setPartnerPingStatus(null);
+    const currentRoomCode = room?.roomCode || roomParam;
     try {
-      if (room?.roomCode) {
-        const res = await invitePartnerToGame(session.token, partner.partnerCode, room.roomCode, 'ludo');
+      if (currentRoomCode) {
+        const res = await invitePartnerToGame(session.token, partner.partnerCode, currentRoomCode, 'ludo');
         if (res.deliveredLive) {
           setPartnerPingStatus(`🚀 Game invite delivered live to ${partner.displayName}!`);
         } else {

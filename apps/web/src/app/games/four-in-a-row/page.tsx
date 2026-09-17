@@ -66,6 +66,8 @@ import {
   getGameRoom,
   joinGameRoom,
   playWithPartner,
+  invitePartnerToGame,
+  pingPartner,
   sendHeartbeat,
   recordFriendStreak,
   UserSession
@@ -691,18 +693,32 @@ function FourInARowContent() {
   };
 
   const handlePingPartner = async () => {
-    if (!partner) return;
+    if (!partner || !session?.token) return;
     setIsPingingPartner(true);
     setPartnerPingStatus(null);
+    const currentRoomCode = roomParam;
     try {
-      await pingPartner({
-        targetCode: partner.partnerCode,
-        fromCode: myPartnerCode,
-        fromName: session?.user?.displayName || 'Partner',
-        roomCode: roomParam || undefined,
-        gameType: 'four-in-a-row'
-      });
-      setPartnerPingStatus(`🔔 Ping notification delivered to ${partner.displayName}!`);
+      if (currentRoomCode) {
+        const res = await invitePartnerToGame(session.token, partner.partnerCode, currentRoomCode, 'four-in-a-row');
+        if (res.deliveredLive) {
+          setPartnerPingStatus(`🚀 Game invite delivered live to ${partner.displayName}!`);
+        } else {
+          setPartnerPingStatus(`🔔 Game invite sent to ${partner.displayName}!`);
+        }
+      } else {
+        const res = await pingPartner({
+          targetCode: partner.partnerCode,
+          fromCode: myPartnerCode,
+          fromName: session?.user?.displayName || 'Partner',
+          roomCode: undefined,
+          gameType: 'four-in-a-row'
+        });
+        if (res.deliveredLive) {
+          setPartnerPingStatus(`🚀 Live notification delivered to ${partner.displayName}!`);
+        } else {
+          setPartnerPingStatus(`🔔 Ping notification queued for ${partner.displayName}!`);
+        }
+      }
     } catch (err: any) {
       setPartnerPingStatus(`⚠️ ${err.message || 'Failed to ping partner'}`);
     } finally {
