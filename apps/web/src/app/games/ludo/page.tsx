@@ -991,7 +991,7 @@ function LudoPageContent() {
 
                 <button
                   type="button"
-                  onClick={() => router.push('/games')}
+                  onClick={() => router.push('/dashboard?tab=games')}
                   className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
                 >
                   <Gamepad2 className="w-4 h-4 text-zinc-400" />
@@ -1118,7 +1118,7 @@ function LudoPageContent() {
               <div className="flex items-center gap-2 text-xs">
                 <button
                   type="button"
-                  onClick={() => router.push('/games')}
+                  onClick={() => router.push('/dashboard?tab=games')}
                   className={`lg:hidden px-2.5 py-1.5 rounded-xl border flex items-center gap-1 font-semibold ${
                     isDark ? 'bg-white/[0.05] text-zinc-300 border-white/[0.08]' : 'bg-zinc-100 text-zinc-700 border-zinc-200'
                   }`}
@@ -1136,7 +1136,7 @@ function LudoPageContent() {
                   </span>
                   <span className={isDark ? 'text-zinc-600' : 'text-zinc-400'}>/</span>
                   <span
-                    onClick={() => router.push('/games')}
+                    onClick={() => router.push('/dashboard?tab=games')}
                     className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     Game Lounge
@@ -1501,7 +1501,7 @@ function LudoPageContent() {
           type="success"
           confirmText="Back to Lounge"
           cancelText="Stay on Board"
-          onConfirm={() => router.push('/games')}
+          onConfirm={() => router.push('/dashboard?tab=games')}
         />
       )}
 

@@ -519,7 +519,7 @@ function ProfileContent() {
 
               <button
                 type="button"
-                onClick={() => router.push('/games')}
+                onClick={() => router.push('/dashboard?tab=games')}
                 className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition"
               >
                 <Gamepad2 className="w-4 h-4 text-slate-400 dark:text-zinc-400" />

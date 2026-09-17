@@ -926,7 +926,7 @@ function FourInARowContent() {
           type="success"
           confirmText="Back to Lounge"
           cancelText="Stay on Board"
-          onConfirm={() => router.push('/games')}
+          onConfirm={() => router.push('/dashboard?tab=games')}
         />
       )}
 
@@ -970,7 +970,7 @@ function FourInARowContent() {
                   }
                 );
               } else {
-                router.push('/games');
+                router.push('/dashboard?tab=games');
               }
             }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1e1e1e]/80 hover:bg-[#1e1e1e] active:scale-95 text-[#ff758f] text-xs font-black border border-white/10 transition shadow-sm"
