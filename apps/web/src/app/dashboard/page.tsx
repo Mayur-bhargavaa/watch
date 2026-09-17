@@ -47,6 +47,7 @@ import {
 import { GameLounge } from '../../components/games/GameLounge';
 import { FriendsStreaksCard } from '../../components/streaks/FriendsStreaksCard';
 import { AppSidebar } from '../../components/layout/AppSidebar';
+import { NotificationBell } from '../../components/notifications/NotificationBell';
 
 // Helper to extract YouTube Video ID from any format (watch?v=, youtu.be/, embed/, shorts/)
 function extractYouTubeId(urlOrId: string): string | null {
@@ -656,6 +657,11 @@ export default function DashboardPage() {
               </button>
             )}
           </form>
+
+          {/* Notification Bell directly next to Search Bar */}
+          <div className="shrink-0">
+            <NotificationBell />
+          </div>
 
           {/* Top Right Header with Max 6 Indicator & Theme Toggle in exact original spot */}
           <div className="flex items-center space-x-2.5 shrink-0 pr-36 sm:pr-44">

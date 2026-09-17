@@ -101,6 +101,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     } catch {}
 
+    // Register Service Worker for reliable OS-level desktop notifications in Chrome
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .catch((err) => {
+          console.warn('[Watch] ServiceWorker registration notice:', err);
+        });
+    }
+
     // Check browser notification permission
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setPermission(Notification.permission);
@@ -122,28 +131,50 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch {}
   };
 
-  // Dispatch native browser notification
+  // Dispatch native browser notification (using ServiceWorker for persistent Chrome OS popups)
   const dispatchBrowserNotification = useCallback(
-    (notif: AppNotification) => {
-      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-        try {
-          const n = new Notification(notif.title, {
-            body: notif.body,
-            icon: '/favicon.ico',
-            badge: '/favicon.ico',
-            tag: notif.id,
-            requireInteraction: false
-          });
+    async (notif: AppNotification) => {
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
 
-          n.onclick = (e) => {
-            e.preventDefault();
-            window.focus();
-            if (notif.link) {
-              router.push(notif.link);
-            }
-            n.close();
-          };
-        } catch {}
+      const title = notif.title;
+      const options: any = {
+        body: notif.body,
+        icon: '/logos/direct.png',
+        badge: '/logos/direct.png',
+        tag: notif.id,
+        data: { url: notif.link || '/dashboard' },
+        requireInteraction: true,
+        silent: false,
+        vibrate: [200, 100, 200]
+      };
+
+      // 1. Try ServiceWorkerRegistration.showNotification first (works across tabs, minimized, and background windows)
+      if ('serviceWorker' in navigator) {
+        try {
+          const reg = await navigator.serviceWorker.ready;
+          if (reg && reg.showNotification) {
+            await reg.showNotification(title, options);
+            return;
+          }
+        } catch (swErr) {
+          console.warn('SW showNotification failed, using fallback:', swErr);
+        }
+      }
+
+      // 2. Fallback to Window Notification API
+      try {
+        const n = new Notification(title, options);
+        n.onclick = (e) => {
+          e.preventDefault();
+          window.focus();
+          if (notif.link) {
+            router.push(notif.link);
+          }
+          n.close();
+        };
+      } catch (notifErr) {
+        console.warn('Window Notification failed:', notifErr);
       }
     },
     [router]

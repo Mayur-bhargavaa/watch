@@ -45,6 +45,8 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
   const {
     notifications,
     unreadCount,
+    permission,
+    requestPermission,
     markAsRead,
     markAllAsRead,
     clearAll,
@@ -221,18 +223,32 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
           </div>
 
           {/* Footer Quick Action */}
-          <div className="p-3 bg-slate-50/70 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/[0.04] flex items-center justify-between">
+          <div className="p-3 bg-slate-50/70 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/[0.04] flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={handleTestRoast}
               className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 hover:text-[#ee1d49] transition flex items-center space-x-1 cursor-pointer"
+              title="Test roast notification & Chrome desktop popup"
             >
               <Sparkles className="w-3 h-3 text-[#ee1d49]" />
-              <span>Test Roast</span>
+              <span>Test Chrome Popup 🚀</span>
             </button>
-            <span className="text-[9px] font-mono text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
-              Live Alerts
-            </span>
+
+            {permission !== 'granted' ? (
+              <button
+                type="button"
+                onClick={() => requestPermission()}
+                className="px-2 py-1 rounded-lg bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-[10px] font-bold transition flex items-center space-x-1 cursor-pointer shadow-xs"
+              >
+                <Bell className="w-3 h-3" />
+                <span>Enable Alerts</span>
+              </button>
+            ) : (
+              <span className="text-[9px] font-mono text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Chrome Alerts ON</span>
+              </span>
+            )}
           </div>
         </div>
       )}
