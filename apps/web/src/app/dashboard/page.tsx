@@ -633,12 +633,8 @@ export default function DashboardPage() {
                 Social
               </div>
               <button
-                onClick={() => setActiveNav('friends')}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition ${
-                  activeNav === 'friends'
-                    ? 'text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-sm relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-rose-600 before:rounded-r font-bold'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
-                }`}
+                onClick={() => router.push('/friends')}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04] transition cursor-pointer"
               >
                 <div className="flex items-center space-x-3 min-w-0">
                   <Flame

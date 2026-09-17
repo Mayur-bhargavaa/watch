@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Flame,
   UserPlus,
@@ -49,6 +50,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
   onStartWatchPartyWithFriend,
   onPlayGameWithFriend
 }) => {
+  const router = useRouter();
   const [friends, setFriends] = useState<FriendWithStreak[]>([]);
   const [myFriendCode, setMyFriendCode] = useState<string>('');
   const [requestsData, setRequestsData] = useState<FriendRequestsData>({ incoming: [], outgoing: [] });
@@ -255,8 +257,8 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           </div>
 
           <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="relative px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-rose-600/25 transition shrink-0"
+            onClick={() => router.push('/friends?tab=discover')}
+            className="relative px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs flex items-center space-x-1.5 shadow-md shadow-rose-600/25 transition shrink-0 cursor-pointer"
           >
             <UserPlus className="w-4 h-4" />
             <span>Add Friend</span>
