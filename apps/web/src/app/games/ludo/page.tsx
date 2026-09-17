@@ -882,7 +882,9 @@ function LudoPageContent() {
   const disconnectedOpponentName = opponentPlayer?.displayName || disconnectedPlayer?.displayName || 'Partner';
 
   return (
-    <div className={`min-h-screen flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
+    <div className={`flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
+      roomParam ? 'min-h-screen overflow-y-auto' : 'h-screen w-screen overflow-hidden'
+    } ${
       isDark ? 'bg-[#111217] text-white' : 'bg-white text-zinc-900'
     }`}>
       {/* Active Match Background & Atmosphere (when in active room) */}
@@ -1080,7 +1082,9 @@ function LudoPageContent() {
       {/* ========================================================================= */}
       {/* 2. MAIN CONTENT AREA (FULL-SCREEN IN MATCH, ADAPTIVE IN LOBBY)            */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-y-auto relative">
+      <div className={`flex-1 flex flex-col relative ${
+        roomParam ? 'min-h-screen overflow-y-auto' : 'h-screen overflow-hidden'
+      }`}>
         {/* TOP NAVIGATION BAR */}
         <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
           isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
@@ -1507,7 +1511,9 @@ function LudoPageContent() {
 
 
       {/* MAIN CONTAINER */}
-      <main className="flex-1 w-full max-w-[1600px] mx-auto p-3 sm:p-5 flex flex-col justify-start z-10">
+      <main className={`flex-1 w-full flex flex-col justify-start z-10 ${
+        roomParam ? 'max-w-[1600px] mx-auto p-3 sm:p-5' : 'h-[calc(100vh-4rem)] max-w-none p-0 overflow-hidden'
+      }`}>
         {/* ROOM VIEW: CONNECTING OR ERROR STATE */}
         {roomParam && !isWaiting && !isPlayingOrFinished && (
           <div className="w-full max-w-md mx-auto my-auto p-8 rounded-3xl bg-black/60 border border-white/20 backdrop-blur-2xl text-center space-y-4 shadow-2xl">
@@ -2162,27 +2168,27 @@ function LudoPageContent() {
 
         {/* LOBBY VIEW (When not in an active room) */}
         {!roomParam && (
-          <div className="w-full flex-1 flex flex-col justify-between relative z-10 select-none bg-white min-h-[calc(100vh-4rem)]">
+          <div className="w-full h-full flex flex-col justify-between relative z-10 select-none bg-white px-6 sm:px-10 lg:px-14 py-4 sm:py-6 overflow-hidden">
             {/* Top / Main Hero Container */}
-            <div className="max-w-7xl mx-auto w-full px-6 sm:px-12 lg:px-16 pt-8 sm:pt-12 pb-6">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+            <div className="w-full flex-1 flex items-center max-w-7xl mx-auto">
+              <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
                 
                 {/* Left Column: Eyebrow, Title, Subtitle, Two Action Cards */}
                 <div className="lg:col-span-7 flex flex-col justify-center">
                   
                   {/* Eyebrow */}
-                  <div className="text-[11px] sm:text-xs font-bold tracking-[0.25em] text-[#f43f5e] uppercase mb-3 sm:mb-4">
+                  <div className="text-[11px] sm:text-xs font-bold tracking-[0.25em] text-[#f43f5e] uppercase mb-2 sm:mb-3">
                     ROLL • MOVE • HAVE FUN
                   </div>
 
                   {/* Main Hero Heading */}
-                  <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none mb-4 sm:mb-5">
+                  <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight leading-none mb-3 sm:mb-4">
                     <span className="text-[#ee1d49]">Ludo</span>{' '}
                     <span className="text-[#131727]">Arena</span>
                   </h1>
 
                   {/* Subtitle */}
-                  <p className="text-sm sm:text-base text-zinc-500 font-medium max-w-lg leading-relaxed mb-8 sm:mb-10">
+                  <p className="text-xs sm:text-sm lg:text-base text-zinc-500 font-medium max-w-lg leading-relaxed mb-6 sm:mb-8">
                     Play real-time Ludo with your friends. Simple. Fun.
                     <br className="hidden sm:inline" />
                     No bots, just real players.
@@ -2190,29 +2196,29 @@ function LudoPageContent() {
 
                   {/* Error banner if any */}
                   {lobbyError && (
-                    <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-semibold">
+                    <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-semibold">
                       {lobbyError}
                     </div>
                   )}
 
                   {/* Two Pastel Cards Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 max-w-xl">
                     
                     {/* Card 1: Create a Room */}
-                    <div className="bg-[#fff5f7] border border-[#fde4eb] rounded-[28px] p-6 sm:p-7 flex flex-col justify-between shadow-[0_4px_24px_rgba(238,29,73,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(238,29,73,0.08)]">
+                    <div className="bg-[#fff5f7] border border-[#fde4eb] rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between shadow-[0_4px_24px_rgba(238,29,73,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(238,29,73,0.08)]">
                       <div>
                         {/* Icon Badge */}
-                        <div className="w-12 h-12 rounded-full bg-[#fee1e7] flex items-center justify-center text-[#ee1d49] mb-6">
-                          <Users className="w-5 h-5 fill-current" />
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#fee1e7] flex items-center justify-center text-[#ee1d49] mb-4 sm:mb-5">
+                          <Users className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                         </div>
 
                         {/* Title */}
-                        <h3 className="text-xl font-bold text-zinc-900 tracking-tight mb-2">
+                        <h3 className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight mb-1.5">
                           Create a Room
                         </h3>
 
                         {/* Description */}
-                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-8">
+                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-5 sm:mb-6">
                           Start a new game and invite your friends.
                         </p>
                       </div>
@@ -2221,31 +2227,31 @@ function LudoPageContent() {
                       <button
                         type="button"
                         onClick={() => setShowCreateModal(true)}
-                        className="w-full py-3.5 px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full py-3 px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
                       >
-                        <span className="text-lg leading-none font-bold">+</span>
+                        <span className="text-base sm:text-lg leading-none font-bold">+</span>
                         <span>Create Room</span>
                       </button>
                     </div>
 
                     {/* Card 2: Join a Room */}
-                    <div className="bg-[#f5f9ff] border border-[#e3eeff] rounded-[28px] p-6 sm:p-7 flex flex-col justify-between shadow-[0_4px_24px_rgba(24,93,242,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(24,93,242,0.08)]">
+                    <div className="bg-[#f5f9ff] border border-[#e3eeff] rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between shadow-[0_4px_24px_rgba(24,93,242,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(24,93,242,0.08)]">
                       <div>
                         {/* Icon Badge */}
-                        <div className="w-12 h-12 rounded-full bg-[#dce8fe] flex items-center justify-center text-[#185df2] mb-6">
-                          <svg className="w-5 h-5 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#dce8fe] flex items-center justify-center text-[#185df2] mb-4 sm:mb-5">
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                           </svg>
                         </div>
 
                         {/* Title */}
-                        <h3 className="text-xl font-bold text-zinc-900 tracking-tight mb-2">
+                        <h3 className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight mb-1.5">
                           Join a Room
                         </h3>
 
                         {/* Description */}
-                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-8">
+                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-5 sm:mb-6">
                           Enter a room code to join your friend's game.
                         </p>
                       </div>
@@ -2254,9 +2260,9 @@ function LudoPageContent() {
                       <button
                         type="button"
                         onClick={() => setShowJoinModal(true)}
-                        className="w-full py-3.5 px-5 bg-[#185df2] hover:bg-[#144ecc] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(24,93,242,0.25)] hover:shadow-[0_6px_20px_rgba(24,93,242,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                        className="w-full py-3 px-4 bg-[#185df2] hover:bg-[#144ecc] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(24,93,242,0.25)] hover:shadow-[0_6px_20px_rgba(24,93,242,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
                       >
-                        <span className="text-base font-bold">→</span>
+                        <span className="text-sm sm:text-base font-bold">→</span>
                         <span>Join Room</span>
                       </button>
                     </div>
@@ -2267,11 +2273,11 @@ function LudoPageContent() {
 
                 {/* Right Column: 3D Isometric Board Graphic with Accents */}
                 <div className="lg:col-span-5 flex items-center justify-center relative">
-                  <div className="relative w-full max-w-[440px] sm:max-w-[480px] lg:max-w-[520px] aspect-square flex items-center justify-center">
+                  <div className="relative w-full max-w-[340px] sm:max-w-[400px] lg:max-w-[460px] max-h-[50vh] aspect-square flex items-center justify-center">
                     <img
                       src="/images/ludo-3d-board.png"
                       alt="Ludo Arena 3D Board"
-                      className="w-full h-auto object-contain drop-shadow-xl select-none pointer-events-none transform hover:scale-[1.02] transition-transform duration-300"
+                      className="max-w-full max-h-full object-contain drop-shadow-xl select-none pointer-events-none transform hover:scale-[1.02] transition-transform duration-300"
                     />
                   </div>
                 </div>
@@ -2280,13 +2286,13 @@ function LudoPageContent() {
             </div>
 
             {/* Bottom Row / Footer Decoration */}
-            <div className="w-full max-w-7xl mx-auto px-6 sm:px-12 lg:px-16 pb-8 pt-4 flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+            <div className="w-full max-w-7xl mx-auto pt-2 pb-1 flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 shrink-0">
               {/* Bottom Left: Handwritten flourish */}
               <div className="flex items-center">
                 <img
                   src="/images/ludo-flourish.png"
                   alt="Good Games, Brighter Friendships"
-                  className="h-20 sm:h-24 w-auto object-contain select-none pointer-events-none"
+                  className="h-14 sm:h-18 lg:h-20 w-auto object-contain select-none pointer-events-none"
                 />
               </div>
 
