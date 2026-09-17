@@ -3,16 +3,15 @@
 import React, { useState, useMemo } from 'react';
 import {
   Sparkles,
-  Dice5,
   Check,
   Glasses,
-  Smile,
   Palette,
   Shirt,
   Scissors,
   User,
   CheckCircle2,
-  Heart
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 export interface AvatarConfig {
@@ -34,12 +33,13 @@ interface AvatarStudioProps {
   onChange: (avatarUrl: string) => void;
 }
 
-// 3D Standing Clay/Plush Companions (Matching user reference)
+// 3D Standing Clay/Plush Companions — all available looks
 export const STANDING_COMPANIONS = [
   {
     id: 'standing_heart',
     name: 'Standing Heart Plush',
     tag: '3D Soft Plush with Glowing Heart & Folded Arms',
+    emoji: '💗',
     url: '/avatars/standing_heart.png',
     preview: '/avatars/standing_heart.png'
   },
@@ -47,6 +47,7 @@ export const STANDING_COMPANIONS = [
     id: 'standing_cinema',
     name: 'On-Air Cinema Host',
     tag: '3D Plush with Studio Headphones & Folded Arms',
+    emoji: '🎙️',
     url: '/avatars/standing_cinema.jpg',
     preview: '/avatars/standing_cinema.jpg'
   },
@@ -54,6 +55,7 @@ export const STANDING_COMPANIONS = [
     id: 'standing_star',
     name: 'Golden Star Persona',
     tag: '3D Plush with Shining Star & Warm Rim Light',
+    emoji: '⭐',
     url: '/avatars/standing_star.jpg',
     preview: '/avatars/standing_star.jpg'
   },
@@ -61,8 +63,25 @@ export const STANDING_COMPANIONS = [
     id: 'standing_blush',
     name: 'Blushing Companion',
     tag: '3D Plush with Rosy Cheeks & Glowing Heart',
+    emoji: '🌸',
     url: '/avatars/standing_blush.jpg',
     preview: '/avatars/standing_blush.jpg'
+  },
+  {
+    id: 'standing_heart_cutout',
+    name: 'Heart Cutout Edition',
+    tag: 'Transparent Cutout with Heart Glow Effect',
+    emoji: '❤️',
+    url: '/avatars/standing_heart_cutout.png',
+    preview: '/avatars/standing_heart_cutout.png'
+  },
+  {
+    id: 'standing_heart_transparent',
+    name: 'Crystal Heart Plush',
+    tag: 'High-Res Crystal Clear Heart Companion',
+    emoji: '💎',
+    url: '/avatars/standing_heart_transparent.png',
+    preview: '/avatars/standing_heart_transparent.png'
   }
 ];
 
@@ -245,7 +264,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
   // Start on 3D standing companions by default
   const isDirectStanding = Boolean(value && value.startsWith('/avatars/'));
   const [activeTab, setActiveTab] = useState<'standing' | 'appearance' | 'style' | 'presets'>(
-    isDirectStanding ? 'standing' : 'standing'
+    'standing'
   );
 
   const [standingUrl, setStandingUrl] = useState<string>(
@@ -253,6 +272,12 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
   );
 
   const [useStanding, setUseStanding] = useState<boolean>(isDirectStanding || !value);
+
+  // Carousel index for step-by-step browsing of 3D looks
+  const initialIdx = isDirectStanding
+    ? Math.max(0, STANDING_COMPANIONS.findIndex((c) => c.url === value))
+    : 0;
+  const [carouselIndex, setCarouselIndex] = useState<number>(initialIdx);
 
   const [config, setConfig] = useState<AvatarConfig>(() => {
     return {
@@ -285,35 +310,12 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
     setUseStanding(true);
   };
 
-  const handleShuffle = () => {
-    if (useStanding) {
-      // Pick random standing companion
-      const randomComp = STANDING_COMPANIONS[Math.floor(Math.random() * STANDING_COMPANIONS.length)];
-      setStandingUrl(randomComp.url);
-      return;
-    }
-
-    const randomSkin = SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)].id;
-    const randomTop = HAIR_STYLES[Math.floor(Math.random() * HAIR_STYLES.length)].id;
-    const randomHairCol = HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)].id;
-    const randomAcc = ACCESSORIES[Math.floor(Math.random() * ACCESSORIES.length)].id;
-    const randomCloth = CLOTHING_OPTIONS[Math.floor(Math.random() * CLOTHING_OPTIONS.length)].id;
-    const randomBg = BG_PALETTES[Math.floor(Math.random() * BG_PALETTES.length)].id;
-    const randomEyes = ['happy', 'wink', 'default', 'surprised'][Math.floor(Math.random() * 4)];
-    const randomMouth = ['smile', 'twinkle', 'default'][Math.floor(Math.random() * 3)];
-
-    setConfig(prev => ({
-      ...prev,
-      seed: `watch_${Math.random().toString(36).substring(2, 7)}`,
-      skinColor: randomSkin,
-      top: randomTop,
-      hairColor: randomHairCol,
-      accessories: randomAcc,
-      clothing: randomCloth,
-      bgColor: randomBg,
-      eyes: randomEyes,
-      mouth: randomMouth
-    }));
+  // Carousel navigation
+  const handleCarouselPrev = () => {
+    setCarouselIndex((prev) => (prev - 1 + STANDING_COMPANIONS.length) % STANDING_COMPANIONS.length);
+  };
+  const handleCarouselNext = () => {
+    setCarouselIndex((prev) => (prev + 1) % STANDING_COMPANIONS.length);
   };
 
   const handleApplyPreset = (presetConfig: Partial<AvatarConfig>) => {
@@ -340,15 +342,13 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
             {/* Ledge / Bar bottom counter matching reference image */}
             <div className="absolute bottom-0 inset-x-0 h-1.5 bg-[#d2281e] shadow-[0_0_10px_rgba(210,40,30,0.9)]" />
           </div>
-          
-          <button
-            type="button"
-            onClick={handleShuffle}
-            title="Randomize Avatar Persona"
-            className="absolute -bottom-1 -right-1 p-2 bg-[#d2281e] text-white rounded-full shadow-lg hover:bg-[#b82017] active:scale-95 transition-all flex items-center justify-center"
-          >
-            <Dice5 className="w-4 h-4" />
-          </button>
+
+          {/* Selected indicator */}
+          {useStanding && (
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#d2281e] text-white rounded-full shadow-lg flex items-center justify-center">
+              <Check className="w-3.5 h-3.5" />
+            </div>
+          )}
         </div>
 
         {/* Persona Identity Badge & Controls */}
@@ -362,23 +362,24 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
             {displayName ? `${displayName}'s Standing Avatar` : 'Your Standing Cinema Avatar'}
           </h3>
 
-          <p className="text-[11px] text-zinc-500 max-w-sm leading-relaxed">
-            Standing upright with hands resting on the cinema booth counter — just like your reference!
-          </p>
+          {/* Show currently selected look name always */}
+          {useStanding ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-[#d2281e]">✓ Selected:</span>
+              <span className="text-[11px] text-zinc-700 font-semibold">
+                {STANDING_COMPANIONS.find((c) => c.url === standingUrl)?.name ?? 'Custom Look'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-[#d2281e]">✓ Selected:</span>
+              <span className="text-[11px] text-zinc-700 font-semibold">Custom Avatar</span>
+            </div>
+          )}
 
-          <div className="pt-0.5 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-            <button
-              type="button"
-              onClick={handleShuffle}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-100 transition shadow-sm"
-            >
-              <Dice5 className="w-3.5 h-3.5 text-[#d2281e]" />
-              <span>🎲 Shuffle Look</span>
-            </button>
-            <span className="text-[11px] text-zinc-400 font-medium">
-              3D Plush Standing Characters
-            </span>
-          </div>
+          <p className="text-[11px] text-zinc-400 leading-relaxed">
+            Browse all looks using ← → below and click <strong>Select This Look</strong>.
+          </p>
         </div>
       </div>
 
@@ -437,53 +438,149 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
         </button>
       </div>
 
-      {/* Tab 1: 3D STANDING COMPANIONS (FEATURED) */}
-      {activeTab === 'standing' && (
-        <div className="space-y-3.5">
-          <div className="grid grid-cols-2 gap-3">
-            {STANDING_COMPANIONS.map((comp) => {
-              const isSelected = useStanding && standingUrl === comp.url;
-              return (
+      {/* Tab 1: 3D STANDING COMPANIONS — Full Carousel */}
+      {activeTab === 'standing' && (() => {
+        const comp = STANDING_COMPANIONS[carouselIndex];
+        const isSelected = useStanding && standingUrl === comp.url;
+        return (
+          <div className="space-y-4">
+            {/* Step counter */}
+            <div className="flex items-center justify-center gap-2">
+              {STANDING_COMPANIONS.map((_, i) => (
                 <button
-                  key={comp.id}
+                  key={i}
                   type="button"
-                  onClick={() => handleSelectStanding(comp.url)}
-                  className={`p-3 rounded-2xl border text-left transition flex items-center gap-3 relative ${
-                    isSelected
-                      ? 'bg-red-50/70 border-[#d2281e] shadow-md ring-2 ring-[#d2281e]/30'
-                      : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100/80'
+                  onClick={() => setCarouselIndex(i)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    i === carouselIndex
+                      ? 'bg-[#d2281e] scale-125'
+                      : 'bg-zinc-300 hover:bg-zinc-400'
                   }`}
-                >
-                  <div className="w-12 h-14 rounded-t-xl rounded-b-md overflow-hidden bg-black shrink-0 relative border border-[#d2281e]/40 shadow-sm">
-                    <img
-                      src={comp.preview}
-                      alt={comp.name}
-                      className="w-full h-full object-cover object-bottom"
-                    />
-                    <div className="absolute bottom-0 inset-x-0 h-1 bg-[#d2281e]" />
+                />
+              ))}
+              <span className="text-[10px] text-zinc-400 font-mono ml-1">
+                {carouselIndex + 1}/{STANDING_COMPANIONS.length}
+              </span>
+            </div>
+
+            {/* Large carousel card */}
+            <div className={`relative rounded-3xl border-2 overflow-hidden transition-all ${
+              isSelected
+                ? 'border-[#d2281e] shadow-xl ring-4 ring-[#d2281e]/20'
+                : 'border-zinc-200 shadow-md'
+            }`}>
+              {/* Avatar image — large */}
+              <div className="bg-zinc-950 flex items-end justify-center" style={{ height: 220 }}>
+                <img
+                  src={comp.preview}
+                  alt={comp.name}
+                  className="h-full w-full object-cover object-bottom transition-all duration-300"
+                />
+                <div className="absolute bottom-0 inset-x-0 h-2 bg-[#d2281e] shadow-[0_0_12px_rgba(210,40,30,0.9)]" />
+              </div>
+
+              {/* Selected badge overlay */}
+              {isSelected && (
+                <div className="absolute top-3 right-3 flex items-center gap-1 bg-[#d2281e] text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg">
+                  <Check className="w-3 h-3" />
+                  <span>Selected</span>
+                </div>
+              )}
+
+              {/* Info strip */}
+              <div className="bg-white px-4 py-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-zinc-900">
+                    {comp.emoji} {comp.name}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-black text-zinc-900 truncate">
-                      {comp.name}
-                    </div>
-                    <div className="text-[10px] text-zinc-500 line-clamp-2 leading-tight mt-0.5">
-                      {comp.tag}
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-[#d2281e] text-white flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+                  <div className="text-[11px] text-zinc-500 mt-0.5">{comp.tag}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation row */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCarouselPrev}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition active:scale-95"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Previous</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleSelectStanding(comp.url);
+                }}
+                className={`flex-[2] py-2.5 rounded-2xl text-xs font-black transition active:scale-95 flex items-center justify-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                    : 'bg-[#d2281e] hover:bg-[#b82017] text-white shadow-md shadow-[#d2281e]/30'
+                }`}
+              >
+                {isSelected ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>This Look is Active!</span>
+                  </>
+                ) : (
+                  <span>✨ Select This Look</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCarouselNext}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition active:scale-95"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* All looks strip */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider text-center">All Looks</p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {STANDING_COMPANIONS.map((c, i) => {
+                  const isSel = useStanding && standingUrl === c.url;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setCarouselIndex(i);
+                        handleSelectStanding(c.url);
+                      }}
+                      className={`shrink-0 relative w-16 h-20 rounded-xl overflow-hidden border-2 transition-all ${
+                        isSel
+                          ? 'border-[#d2281e] shadow-md ring-2 ring-[#d2281e]/30'
+                          : i === carouselIndex
+                          ? 'border-zinc-400'
+                          : 'border-zinc-200 hover:border-zinc-400'
+                      }`}
+                    >
+                      <img src={c.preview} alt={c.name} className="w-full h-full object-cover object-bottom" />
+                      <div className="absolute bottom-0 inset-x-0 h-1 bg-[#d2281e]" />
+                      {isSel && (
+                        <div className="absolute inset-0 bg-[#d2281e]/20 flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white drop-shadow" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-400 font-medium text-center">
+              Standing characters display with the counter bar across your dashboard and room seats.
+            </p>
           </div>
-          <p className="text-[11px] text-zinc-400 font-medium text-center">
-            Standing characters display with the counter bar across your dashboard and room seats.
-          </p>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tab 2: Hair & Skin */}
       {activeTab === 'appearance' && (
