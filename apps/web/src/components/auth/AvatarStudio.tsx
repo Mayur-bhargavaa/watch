@@ -118,17 +118,34 @@ const MOUTH_STYLES = [
   { id: 'tongue',  name: 'Tongue',  emoji: '😛' },
 ];
 
+// Pre-made diverse character starters — user picks one, then customises
+const CHARACTER_PRESETS: AvatarConfig[] = [
+  { seed: 'rohan',    skinColor: 'f8d25c', top: 'shortWaved',  hairColor: '2c1b18', accessories: 'round',          clothing: 'hoodie',           clothesColor: 'd2281e', eyes: 'wink',      mouth: 'smile',   bgColor: '09090b' },
+  { seed: 'maya',     skinColor: 'edb98a', top: 'bob',          hairColor: '724133', accessories: 'sunglasses',     clothing: 'hoodie',           clothesColor: 'db2777', eyes: 'happy',     mouth: 'smile',   bgColor: '25557c' },
+  { seed: 'arjun',    skinColor: 'd08b5b', top: 'shortFlat',   hairColor: '2c1b18', accessories: 'wayfarers',      clothing: 'blazerAndShirt',   clothesColor: '09090b', eyes: 'default',   mouth: 'serious', bgColor: '047857' },
+  { seed: 'priya',    skinColor: 'ae5d29', top: 'fro',          hairColor: '4a312c', accessories: 'prescription02', clothing: 'collarAndSweater', clothesColor: '4338ca', eyes: 'hearts',    mouth: 'tongue',  bgColor: 'd97706' },
+  { seed: 'riya',     skinColor: 'ffd1b1', top: 'curvy',        hairColor: 'b58143', accessories: 'none',           clothing: 'graphicShirt',     clothesColor: 'ff5c5c', eyes: 'happy',     mouth: 'twinkle', bgColor: '4338ca' },
+  { seed: 'karan',    skinColor: '614335', top: 'dreads01',     hairColor: '2c1b18', accessories: 'none',           clothing: 'overall',          clothesColor: '25557c', eyes: 'wink',      mouth: 'smile',   bgColor: 'db2777' },
+  { seed: 'anika',    skinColor: 'f8d25c', top: 'bun',          hairColor: 'c93305', accessories: 'round',          clothing: 'shirtCrewNeck',    clothesColor: '047857', eyes: 'closed',    mouth: 'smile',   bgColor: '1e3a5f' },
+  { seed: 'dev',      skinColor: 'edb98a', top: 'shortCurly',  hairColor: '4a312c', accessories: 'sunglasses',     clothing: 'hoodie',           clothesColor: '929598', eyes: 'surprised', mouth: 'smile',   bgColor: 'd2281e' },
+  { seed: 'zara',     skinColor: 'd08b5b', top: 'straight01',  hairColor: 'd6b370', accessories: 'wayfarers',      clothing: 'collarAndSweater', clothesColor: 'db2777', eyes: 'hearts',    mouth: 'twinkle', bgColor: '2d2d2d' },
+  { seed: 'vikram',   skinColor: 'ae5d29', top: 'winterHat02', hairColor: '2c1b18', accessories: 'none',           clothing: 'hoodie',           clothesColor: '4338ca', eyes: 'wink',      mouth: 'tongue',  bgColor: '047857' },
+  { seed: 'isha',     skinColor: 'ffd1b1', top: 'shortRound',  hairColor: 'e8e1e1', accessories: 'kurt',           clothing: 'blazerAndShirt',   clothesColor: '09090b', eyes: 'default',   mouth: 'serious', bgColor: 'd97706' },
+  { seed: 'nikhil',   skinColor: '614335', top: 'shortWaved',  hairColor: 'b58143', accessories: 'prescription02', clothing: 'graphicShirt',     clothesColor: 'ff5c5c', eyes: 'happy',     mouth: 'smile',   bgColor: '25557c' },
+];
+
 // Steps for the step-by-step wizard
 const STEPS = [
-  { id: 'skin',       label: 'Skin',       emoji: '🎨' },
-  { id: 'hair',       label: 'Hair',       emoji: '💇' },
-  { id: 'haircolor',  label: 'Hair Color', emoji: '🎀' },
-  { id: 'eyes',       label: 'Eyes',       emoji: '👁️' },
-  { id: 'mouth',      label: 'Mouth',      emoji: '😊' },
-  { id: 'glasses',    label: 'Glasses',    emoji: '👓' },
-  { id: 'outfit',     label: 'Outfit',     emoji: '👕' },
-  { id: 'color',      label: 'Color',      emoji: '🎨' },
-  { id: 'bg',         label: 'Background', emoji: '🌈' },
+  { id: 'pick',       label: 'Pick Character', emoji: '🧑' },
+  { id: 'skin',       label: 'Skin',           emoji: '🎨' },
+  { id: 'hair',       label: 'Hair',           emoji: '💇' },
+  { id: 'haircolor',  label: 'Hair Color',     emoji: '🎀' },
+  { id: 'eyes',       label: 'Eyes',           emoji: '👁️' },
+  { id: 'mouth',      label: 'Mouth',          emoji: '😊' },
+  { id: 'glasses',    label: 'Glasses',        emoji: '👓' },
+  { id: 'outfit',     label: 'Outfit',         emoji: '👕' },
+  { id: 'color',      label: 'Outfit Color',   emoji: '🎨' },
+  { id: 'bg',         label: 'Background',     emoji: '🌈' },
 ] as const;
 
 type StepId = typeof STEPS[number]['id'];
@@ -290,6 +307,50 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
           <span className="text-base">{currentStep.emoji}</span>
           {currentStep.label}
         </h4>
+
+        {/* PICK CHARACTER */}
+        {currentStep.id === 'pick' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">
+              Choose a character as your starting look. You can fully customise it in the next steps!
+            </p>
+            <div className="grid grid-cols-4 gap-2.5 max-h-72 overflow-y-auto pr-0.5">
+              {CHARACTER_PRESETS.map((preset, i) => {
+                const presetUrl = buildAvatarUrl(preset);
+                const isSelected = config.seed === preset.seed;
+                return (
+                  <button
+                    key={preset.seed}
+                    type="button"
+                    onClick={() => setConfig({ ...preset })}
+                    className={`relative rounded-2xl overflow-hidden border-2 transition-all active:scale-95 ${
+                      isSelected
+                        ? 'border-[#d2281e] shadow-lg ring-2 ring-[#d2281e]/30 scale-105'
+                        : 'border-zinc-200 hover:border-zinc-400 hover:scale-105'
+                    }`}
+                    style={{ aspectRatio: '1' }}
+                  >
+                    <img
+                      src={presetUrl}
+                      alt={`Character ${i + 1}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    {isSelected && (
+                      <div className="absolute inset-0 bg-[#d2281e]/10 flex items-end justify-center pb-1">
+                        <div className="bg-[#d2281e] text-white text-[8px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                          <Check className="w-2 h-2" />
+                          You
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-zinc-400 text-center">Tap any character → click <strong>Next</strong> to customise it your way</p>
+          </div>
+        )}
 
         {/* SKIN */}
         {currentStep.id === 'skin' && (
