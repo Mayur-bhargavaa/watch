@@ -1088,7 +1088,7 @@ function LudoPageContent() {
       }`}>
         {/* TOP NAVIGATION BAR */}
         <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
-          isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
+          isDark || isWaiting ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
         }`}>
           {/* Left: Breadcrumbs or Leave Match */}
           <div className="flex items-center gap-3">
@@ -1387,11 +1387,11 @@ function LudoPageContent() {
 
           {/* Video Boxes Side by Side (matching user reference image) */}
           {!isPipMinimized && (
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 pt-1">
               {videoGridParticipants.map(participant => (
                 <div
                   key={participant.userId}
-                  className="relative w-28 sm:w-34 h-20 sm:h-24 rounded-2xl bg-black/75 border border-white/15 overflow-hidden flex flex-col items-center justify-center shadow-inner"
+                  className="relative w-28 sm:w-32 h-24 sm:h-26 rounded-2xl bg-black/60 border border-white/15 overflow-hidden flex flex-col items-center justify-center p-2 shadow-inner"
                 >
                   {participant.isCameraOn && participant.stream ? (
                     <VideoAvatar
@@ -1400,29 +1400,26 @@ function LudoPageContent() {
                       displayName={participant.displayName}
                     />
                   ) : (
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-600 via-pink-600 to-rose-500 text-white font-bold text-xs flex items-center justify-center shadow">
-                        {participant.displayName?.[0]?.toUpperCase() || 'U'}
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="relative">
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#ff2b5e] to-[#d6143c] text-white font-black text-base sm:text-lg flex items-center justify-center shadow-md">
+                          {participant.displayName?.[0]?.toUpperCase() || 'U'}
+                        </div>
+                        <span
+                          className={`w-4 h-4 rounded-full flex items-center justify-center absolute -bottom-0.5 -right-0.5 shadow-sm border border-[#190d15] ${
+                            participant.isMuted
+                              ? 'bg-rose-600 text-white'
+                              : 'bg-emerald-500 text-slate-950'
+                          }`}
+                        >
+                          {participant.isMuted ? <MicOff className="w-2.5 h-2.5" /> : <Mic className="w-2.5 h-2.5" />}
+                        </span>
                       </div>
-                      <span className="text-[9px] text-zinc-400 font-semibold">Cam Off</span>
+                      <span className="text-[11px] font-bold text-white mt-1.5 truncate max-w-[80px]">
+                        {participant.isSelf ? 'You' : participant.displayName}
+                      </span>
                     </div>
                   )}
-
-                  {/* Bottom Bar: Name on Left, Round Red/Green Mic Icon on Right (Exact layout as screenshot) */}
-                  <div className="absolute bottom-1.5 left-2 right-2 flex items-center justify-between pointer-events-none">
-                    <span className="text-[11px] font-bold text-white drop-shadow-[0_1.5px_3px_rgba(0,0,0,0.95)] truncate max-w-[65px]">
-                      {participant.isSelf ? 'You' : participant.displayName}
-                    </span>
-                    <span
-                      className={`w-5 h-5 rounded-full flex items-center justify-center shadow-md drop-shadow ${
-                        participant.isMuted
-                          ? 'bg-rose-600 text-white'
-                          : 'bg-emerald-500 text-slate-950'
-                      }`}
-                    >
-                      {participant.isMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                    </span>
-                  </div>
                 </div>
               ))}
             </div>
@@ -1513,7 +1510,11 @@ function LudoPageContent() {
 
       {/* MAIN CONTAINER */}
       <main className={`flex-1 w-full flex flex-col justify-start z-10 ${
-        roomParam ? 'max-w-[1600px] mx-auto p-3 sm:p-5' : 'h-[calc(100vh-4rem)] max-w-none p-0 overflow-hidden'
+        roomParam && !isWaiting
+          ? 'max-w-[1600px] mx-auto p-3 sm:p-5'
+          : (roomParam && isWaiting
+              ? 'max-w-none p-0 h-[calc(100vh-4rem)] relative overflow-hidden'
+              : 'h-[calc(100vh-4rem)] max-w-none p-0 overflow-hidden')
       }`}>
         {/* ROOM VIEW: CONNECTING OR ERROR STATE */}
         {roomParam && !isWaiting && !isPlayingOrFinished && (
@@ -1539,7 +1540,7 @@ function LudoPageContent() {
                 <p className="text-xs text-zinc-400">Room Code: {roomParam}</p>
                 <button
                   onClick={() => router.push('/games/ludo')}
-                  className="mt-4 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-300 text-xs font-medium transition"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition"
                 >
                   Cancel
                 </button>
@@ -1548,166 +1549,191 @@ function LudoPageContent() {
           </div>
         )}
 
-        {/* ROOM VIEW: WAITING ROOM */}
+        {/* ROOM VIEW: WAITING ROOM (Exact pixel-to-pixel match with reference mockup) */}
         {roomParam && isWaiting && (
-          <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-5 py-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className={`w-full border rounded-2xl p-6 sm:p-8 shadow-2xl text-center flex flex-col items-center ${
-              isDark ? 'bg-[#14151b] border-white/[0.08]' : 'bg-white border-zinc-200 shadow-xl'
-            }`}>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-semibold mb-3">
-                <ShieldCheck className="w-3.5 h-3.5" />
+          <div className="relative w-full h-full min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            {/* Cozy cinematic waiting room background */}
+            <div
+              className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat select-none pointer-events-none"
+              style={{ backgroundImage: `url('/images/ludo-waiting-bg.jpg')` }}
+            >
+              <div className="absolute inset-0 bg-black/20 backdrop-blur-[0.5px]" />
+            </div>
+
+            {/* Floating Glassmorphic Waiting Card */}
+            <div className="relative z-10 w-full max-w-xl my-auto rounded-[32px] sm:rounded-[36px] p-6 sm:p-8 bg-[#0e0c18]/70 border border-white/20 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.7),0_0_35px_rgba(255,43,94,0.12)] text-center overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              
+              {/* Strict Zero-Bots Matchmaking Pill */}
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#0d2a20]/90 border border-[#10b981]/50 text-[#34d399] text-[11px] font-semibold tracking-wide mb-4 shadow-sm">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#34d399]" />
                 <span>Strict Zero-Bots Matchmaking</span>
               </div>
 
-              <h2 className={`text-2xl sm:text-3xl font-extrabold ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                Waiting for Players
+              {/* Waiting for Players Heading */}
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
+                Waiting <span className="font-medium text-white/90">for</span> <span className="text-[#ff2b5e]">Players</span>
               </h2>
-              <p className={`text-xs mt-1 max-w-md ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                Match will begin automatically when <strong>{room.maxPlayers} human players</strong> join. No bots will ever be injected.
+
+              {/* Match Subtitle */}
+              <p className="text-xs sm:text-[13px] text-zinc-300 font-normal leading-relaxed max-w-sm mx-auto mb-6">
+                Match will begin automatically when <span className="text-[#ff2b5e] font-semibold">{room.maxPlayers} human players</span> join.
+                <br />
+                No bots will ever be injected.
               </p>
 
-              {/* Temporary Room Code Badge */}
-              <div className={`mt-5 p-4 rounded-xl border flex flex-col sm:flex-row items-center gap-4 w-full justify-between ${
-                isDark ? 'bg-black/30 border-white/[0.06]' : 'bg-zinc-50 border-zinc-200'
-              }`}>
-                <div className="text-left">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider block ${
-                    isDark ? 'text-zinc-400' : 'text-zinc-500'
-                  }`}>
-                    Temporary Room Code
+              {/* Room Code Card */}
+              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-4 sm:p-4.5 flex items-center justify-between gap-3 mb-5 shadow-inner">
+                <div className="text-left min-w-0">
+                  <span className="text-[10px] font-bold text-zinc-400 tracking-wider uppercase block">
+                    ROOM CODE
                   </span>
-                  <span className="text-2xl font-mono font-bold text-rose-500 tracking-wider">
+                  <span className="text-2xl sm:text-3xl font-mono font-black text-[#ff2b5e] tracking-wider block mt-0.5 leading-tight">
                     {room.roomCode}
+                  </span>
+                  <span className="text-[11px] text-zinc-400 block mt-0.5 truncate">
+                    Share this code with your friend
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
+                    type="button"
                     onClick={handleCopyRoomCode}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 ${
-                      isDark
-                        ? 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-200 hover:text-white border-white/[0.08]'
-                        : 'bg-white hover:bg-zinc-100 text-zinc-700 hover:text-zinc-950 border-zinc-200 shadow-xs'
-                    }`}
+                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition cursor-pointer active:scale-95"
+                    title="Copy Code"
                   >
-                    {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedRoomCode ? 'Code Copied' : 'Copy Code'}</span>
+                    {copiedRoomCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                   </button>
 
                   <button
+                    type="button"
                     onClick={handleCopyRoomLink}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
+                    className="py-2.5 px-4 sm:px-5 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(255,43,94,0.4)] transition active:scale-95 flex items-center gap-2 cursor-pointer"
                   >
-                    {copiedRoomLink ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-                    <span>{copiedRoomLink ? 'Link Copied' : 'Share Link'}</span>
+                    <Share2 className="w-4 h-4" />
+                    <span>{copiedRoomLink ? 'Link Copied!' : 'Share Link'}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Player Slots Progress */}
-              <div className="mt-6 w-full">
-                <div className={`flex items-center justify-between text-xs font-semibold mb-2.5 ${
-                  isDark ? 'text-zinc-300' : 'text-zinc-700'
-                }`}>
+              {/* Joined Seats Section */}
+              <div className="w-full mb-5">
+                <div className="flex items-center justify-between text-xs font-semibold text-white/90 mb-3 px-0.5">
                   <span>Joined Seats ({room.players.length}/{room.maxPlayers})</span>
-                  <span className="text-emerald-500 font-mono text-[11px]">
-                    {room.maxPlayers - room.players.length} seat(s) remaining
+                  <span className="text-[11px] text-zinc-300 flex items-center gap-1.5 font-normal">
+                    <span className="w-2.5 h-2.5 rounded-full border border-rose-400/80 inline-block shrink-0" />
+                    <span>{room.maxPlayers - room.players.length} seat remaining</span>
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   {Array.from({ length: room.maxPlayers }).map((_, seatIdx) => {
                     const player = room.players.find(p => p.seat === seatIdx);
+                    if (player) {
+                      return (
+                        <div
+                          key={seatIdx}
+                          className="bg-[#181322]/90 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[120px]"
+                        >
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff2b5e] to-[#d6143c] text-white font-black text-lg flex items-center justify-center mb-2 shadow-sm">
+                            {(player.displayName?.[0] || 'P').toUpperCase()}
+                          </div>
+                          <span className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
+                            {player.displayName}
+                          </span>
+                          <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
+                            {player.seat === 0 ? (
+                              <>
+                                <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Host
+                              </>
+                            ) : (
+                              <>
+                                <User className="w-3.5 h-3.5 text-zinc-400" /> Player
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div
                         key={seatIdx}
-                        className={`p-3.5 rounded-xl border flex flex-col items-center justify-center text-center transition ${
-                          player
-                            ? (isDark
-                                ? 'bg-white/[0.04] border-white/[0.1] text-white shadow-xs'
-                                : 'bg-white border-zinc-200 text-zinc-900 shadow-xs')
-                            : (isDark
-                                ? 'bg-white/[0.02] border-dashed border-white/[0.06] text-zinc-500'
-                                : 'bg-zinc-50/70 border-dashed border-zinc-200 text-zinc-400')
-                        }`}
+                        className="bg-[#14111d]/60 border border-dashed border-white/20 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-inner min-h-[120px]"
                       >
-                        <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm mb-2 shadow-xs ${
-                            player
-                              ? 'bg-gradient-to-tr from-rose-600 to-pink-600 text-white'
-                              : (isDark ? 'bg-white/[0.05] text-zinc-600' : 'bg-zinc-100 text-zinc-400')
-                          }`}
-                        >
-                          {player ? player.displayName[0]?.toUpperCase() : seatIdx + 1}
+                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-zinc-400 flex items-center justify-center mb-2">
+                          <User className="w-5 h-5 text-zinc-400" />
                         </div>
-
-                        <span className={`text-xs font-semibold truncate max-w-full ${
-                          player ? (isDark ? 'text-white' : 'text-zinc-900') : (isDark ? 'text-zinc-500' : 'text-zinc-400')
-                        }`}>
-                          {player ? player.displayName : 'Waiting...'}
-                        </span>
-
-                        <span className="text-[10px] text-zinc-400 mt-1 flex items-center justify-center">
-                          {player ? (
-                            player.seat === 0 ? (
-                              <span className="inline-flex items-center gap-1 text-amber-500 font-medium">
-                                <Crown className="w-3 h-3" /> Host
-                              </span>
-                            ) : (
-                              <span className={`inline-flex items-center gap-1 font-medium ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                                <User className="w-3 h-3" /> Player
-                              </span>
-                            )
-                          ) : (
-                            'Empty Seat'
-                          )}
-                        </span>
+                        <span className="text-xs sm:text-sm font-semibold text-zinc-300">Waiting...</span>
+                        <span className="text-[11px] text-zinc-500 mt-0.5">Player {seatIdx + 1}</span>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Invite Connected Partner CTA */}
-              {partner && (
-                <div className={`mt-6 w-full p-4 rounded-xl border flex items-center justify-between ${
-                  isDark ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-zinc-50 border-zinc-200'
-                }`}>
-                  <div className="text-left flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold flex items-center justify-center text-xs">
-                      {partner.displayName[0]}
-                    </div>
-                    <div>
-                      <div className={`text-xs font-semibold flex items-center gap-1.5 ${
-                        isDark ? 'text-white' : 'text-zinc-900'
-                      }`}>
-                        <span>Partner: {partner.displayName}</span>
-                        {partner.online ? (
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
-                        ) : (
-                          <span className="w-2 h-2 rounded-full bg-zinc-400" title="Offline" />
-                        )}
+              {/* Partner Quick-Invite Container */}
+              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-inner">
+                {partner ? (
+                  <>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#ff2b5e] to-[#d6143c] text-white font-black text-xs flex items-center justify-center shrink-0">
+                        {(partner.displayName?.[0] || partner.partnerCode?.[0] || 'P').toUpperCase()}
                       </div>
-                      <span className="text-[10px] text-zinc-400 font-mono">{partner.partnerCode}</span>
+                      <div className="text-left min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-white truncate">
+                            Partner: {partner.displayName}
+                          </span>
+                          <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                            <span>{partner.online ? 'Online' : 'Offline'}</span>
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-zinc-400 font-mono block">Code: {partner.partnerCode}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <button
-                    onClick={handlePingPartner}
-                    disabled={isPingingPartner}
-                    className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl transition shadow-xs flex items-center gap-1.5"
-                  >
-                    <Bell className="w-3.5 h-3.5" />
-                    <span>{isPingingPartner ? 'Inviting...' : 'Invite Partner'}</span>
-                  </button>
-                </div>
-              )}
+                    <button
+                      type="button"
+                      onClick={handlePingPartner}
+                      disabled={isPingingPartner}
+                      className="py-2 px-3.5 sm:px-4 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 disabled:opacity-50"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-white" />
+                      <span>{isPingingPartner ? 'Inviting...' : 'Invite Partner'}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2.5 text-left min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 text-rose-400 flex items-center justify-center shrink-0">
+                        <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">Invite your Partner</span>
+                        <span className="text-[10px] text-zinc-400 block">Link codes to invite with 1-click</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowSettings(true)}
+                      className="py-2 px-3.5 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Connect</span>
+                    </button>
+                  </>
+                )}
+              </div>
 
               {partnerPingStatus && (
-                <div className="mt-3 text-xs text-rose-500 font-medium">
+                <div className="mt-2.5 text-[11px] font-medium text-rose-300 text-center animate-in fade-in">
                   {partnerPingStatus}
                 </div>
               )}
+
             </div>
           </div>
         )}
