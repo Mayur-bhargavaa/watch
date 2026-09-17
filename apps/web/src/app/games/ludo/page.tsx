@@ -986,22 +986,14 @@ function LudoPageContent() {
                 <button
                   type="button"
                   onClick={() => router.push('/dashboard?tab=games')}
-                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100/80 dark:hover:bg-white/[0.04] transition"
+                  className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-zinc-900 dark:text-white bg-zinc-100 dark:bg-white/[0.08] shadow-sm relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-rose-600 before:rounded-r font-bold transition"
                 >
-                  <Gamepad2 className="w-4 h-4 text-zinc-400" />
+                  <Gamepad2 className="w-4 h-4 text-rose-500" />
                   <span>Game Lounge</span>
+                  <span className="ml-auto text-[10px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+                    PLAY
+                  </span>
                 </button>
-
-                {/* Sub-Item: Ludo Arena (Current Active) */}
-                <div className="pl-4">
-                  <div className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200/70 dark:border-rose-500/25">
-                    <Dice5 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                    <span>Ludo Arena</span>
-                    <span className="ml-auto text-[9px] bg-rose-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                      PLAY
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* Nav Group 3: General */}
