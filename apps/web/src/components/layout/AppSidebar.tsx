@@ -39,8 +39,7 @@ export type SidebarNavItem =
   | 'watchlist'
   | 'friends'
   | 'rooms'
-  | 'ludo'
-  | 'four-in-a-row';
+  | 'games';
 
 interface AppSidebarProps {
   activeNav?: SidebarNavItem;
@@ -99,10 +98,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       ? 'friends'
       : pathname === '/rooms'
       ? 'rooms'
-      : pathname.includes('/ludo')
-      ? 'ludo'
-      : pathname.includes('/four-in-a-row') || pathname.includes('/connect4')
-      ? 'four-in-a-row'
+      : pathname.startsWith('/games')
+      ? 'games'
       : 'dashboard');
 
   const handleLogout = () => {
@@ -249,12 +246,12 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <span>My Rooms</span>
             </Link>
 
-            {/* Ludo Arena */}
+            {/* Game Lobby */}
             <Link
-              href="/games/ludo"
+              href="/games"
               onClick={onMobileClose}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-                currentActive === 'ludo'
+                currentActive === 'games'
                   ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                   : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
               }`}
@@ -262,36 +259,16 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <div className="flex items-center space-x-3 min-w-0">
                 <Gamepad2
                   className={`w-4 h-4 shrink-0 ${
-                    currentActive === 'ludo'
+                    currentActive === 'games'
                       ? 'text-[#ee1d49]'
                       : 'text-slate-400 dark:text-zinc-400'
                   }`}
                 />
-                <span className="truncate whitespace-nowrap">Ludo Arena</span>
+                <span className="truncate whitespace-nowrap">Game Lobby</span>
               </div>
               <span className="text-[9px] bg-[#ee1d49]/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
-                HOT
+                PLAY
               </span>
-            </Link>
-
-            {/* Four in a Row */}
-            <Link
-              href="/games/four-in-a-row"
-              onClick={onMobileClose}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-                currentActive === 'four-in-a-row'
-                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
-                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <Gamepad2
-                className={`w-4 h-4 shrink-0 ${
-                  currentActive === 'four-in-a-row'
-                    ? 'text-[#ee1d49]'
-                    : 'text-slate-400 dark:text-zinc-400'
-                }`}
-              />
-              <span>Four in a Row</span>
             </Link>
           </div>
         </div>
