@@ -634,20 +634,22 @@ export default function DashboardPage() {
               </div>
               <button
                 onClick={() => setActiveNav('friends')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-semibold transition ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs font-semibold transition ${
                   activeNav === 'friends'
                     ? 'text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-sm relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-rose-600 before:rounded-r font-bold'
                     : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
                 }`}
               >
-                <Flame
-                  className={`w-4 h-4 ${
-                    activeNav === 'friends' ? 'text-amber-500 fill-amber-500/20' : 'text-slate-400 dark:text-zinc-400'
-                  }`}
-                />
-                <span>Friends & Streaks</span>
-                <span className="ml-auto text-[10px] bg-gradient-to-r from-amber-500/20 to-rose-500/20 text-rose-500 dark:text-amber-400 px-1.5 py-0.5 rounded-full font-black border border-amber-500/30">
-                  🔥 STREAKS
+                <div className="flex items-center space-x-3 min-w-0">
+                  <Flame
+                    className={`w-4 h-4 shrink-0 ${
+                      activeNav === 'friends' ? 'text-amber-500 fill-amber-500/20' : 'text-slate-400 dark:text-zinc-400'
+                    }`}
+                  />
+                  <span className="truncate whitespace-nowrap">Friends & Streaks</span>
+                </div>
+                <span className="text-sm shrink-0 leading-none pl-2" title="Daily Streaks">
+                  🔥
                 </span>
               </button>
 
@@ -1191,6 +1193,7 @@ export default function DashboardPage() {
           <div className="w-full pb-10 animate-fadeIn pt-4 space-y-6">
             <FriendsStreaksCard
               token={session.token}
+              fullPage={true}
               onStartWatchPartyWithFriend={(f) => handleDirectCreateRoom(`Watch with ${f.friendUser.displayName}`)}
               onPlayGameWithFriend={(f) => router.push(`/games/four-in-a-row?partnerCode=${f.friendUser.partnerCode}`)}
             />
