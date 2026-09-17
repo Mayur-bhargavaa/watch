@@ -2195,7 +2195,9 @@ function LudoPageContent() {
 
         {/* LOBBY VIEW (When not in an active room) */}
         {!roomParam && (
-          <div className="w-full h-full flex flex-col justify-between relative z-10 select-none bg-white px-6 sm:px-10 lg:px-14 py-4 sm:py-6 overflow-hidden">
+          <div className={`w-full h-full flex flex-col justify-between relative z-10 select-none px-6 sm:px-10 lg:px-14 py-4 sm:py-6 overflow-hidden transition-colors duration-200 ${
+            isDark ? 'bg-[#0c0d12] text-white' : 'bg-white text-zinc-900'
+          }`}>
             {/* Top / Main Hero Container */}
             <div className="w-full flex-1 flex items-center max-w-7xl mx-auto">
               <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -2211,11 +2213,13 @@ function LudoPageContent() {
                   {/* Main Hero Heading */}
                   <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight leading-none mb-3 sm:mb-4">
                     <span className="text-[#ee1d49]">Ludo</span>{' '}
-                    <span className="text-[#131727]">Arena</span>
+                    <span className={isDark ? 'text-white' : 'text-[#131727]'}>Arena</span>
                   </h1>
 
                   {/* Subtitle */}
-                  <p className="text-xs sm:text-sm lg:text-base text-zinc-500 font-medium max-w-lg leading-relaxed mb-4 sm:mb-5">
+                  <p className={`text-xs sm:text-sm lg:text-base font-medium max-w-lg leading-relaxed mb-4 sm:mb-5 ${
+                    isDark ? 'text-zinc-400' : 'text-zinc-500'
+                  }`}>
                     Play real-time Ludo with your friends. Simple. Fun.
                     <br className="hidden sm:inline" />
                     No bots, just real players.
@@ -2230,7 +2234,11 @@ function LudoPageContent() {
 
                   {/* Container: Play with Connected Person */}
                   {partner ? (
-                    <div className="mb-4 sm:mb-5 bg-[#fff5f7] border border-[#fde4eb] rounded-[22px] sm:rounded-[26px] p-3.5 sm:p-4.5 max-w-xl shadow-[0_4px_20px_rgba(238,29,73,0.05)] transition-all">
+                    <div className={`mb-4 sm:mb-5 rounded-[22px] sm:rounded-[26px] p-3.5 sm:p-4.5 max-w-xl transition-all ${
+                      isDark
+                        ? 'bg-[#18121f]/90 border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]'
+                        : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_20px_rgba(238,29,73,0.05)]'
+                    }`}>
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="relative shrink-0">
@@ -2255,10 +2263,14 @@ function LudoPageContent() {
                               </span>
                               <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49]" />
                             </div>
-                            <h4 className="text-sm sm:text-base font-bold text-zinc-900 truncate">
+                            <h4 className={`text-sm sm:text-base font-bold truncate ${
+                              isDark ? 'text-white' : 'text-zinc-900'
+                            }`}>
                               {partner.displayName || partner.partnerCode}
                             </h4>
-                            <p className="text-[11px] text-zinc-500 truncate">
+                            <p className={`text-[11px] truncate ${
+                              isDark ? 'text-zinc-400' : 'text-zinc-500'
+                            }`}>
                               {partner.online ? 'Online & ready to play' : 'Offline • Tap ping to alert'}
                             </p>
                           </div>
@@ -2270,7 +2282,11 @@ function LudoPageContent() {
                             onClick={handlePingPartner}
                             disabled={isPingingPartner}
                             title={`Ping ${partner.displayName || 'partner'}`}
-                            className="p-2 sm:p-2.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                            className={`p-2 sm:p-2.5 rounded-xl border transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 ${
+                              isDark
+                                ? 'border-white/10 bg-white/5 hover:bg-white/10 text-rose-300'
+                                : 'border-rose-200 bg-white hover:bg-rose-50 text-rose-600'
+                            }`}
                           >
                             <Bell className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isPingingPartner ? 'animate-bounce' : ''}`} />
                           </button>
@@ -2286,17 +2302,23 @@ function LudoPageContent() {
                         </div>
                       </div>
                       {partnerPingStatus && (
-                        <div className="mt-2.5 pt-2 border-t border-rose-200/60 text-[11px] font-medium text-rose-600 flex items-center gap-1.5">
+                        <div className="mt-2.5 pt-2 border-t border-rose-200/60 text-[11px] font-medium text-rose-400 flex items-center gap-1.5">
                           <span>{partnerPingStatus}</span>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="mb-4 sm:mb-5 bg-[#fff5f7] border border-[#fde4eb] rounded-[22px] sm:rounded-[26px] p-3.5 sm:p-4 max-w-xl shadow-[0_4px_20px_rgba(238,29,73,0.04)] transition-all">
+                    <div className={`mb-4 sm:mb-5 rounded-[22px] sm:rounded-[26px] p-3.5 sm:p-4 max-w-xl transition-all ${
+                      isDark
+                        ? 'bg-[#18121f]/90 border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)]'
+                        : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_20px_rgba(238,29,73,0.04)]'
+                    }`}>
                       {!showPartnerConnectInput ? (
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#fee1e7] flex items-center justify-center text-[#ee1d49] shrink-0">
+                            <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-[#ee1d49] shrink-0 ${
+                              isDark ? 'bg-rose-500/15' : 'bg-[#fee1e7]'
+                            }`}>
                               <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                             </div>
                             <div className="min-w-0">
@@ -2305,10 +2327,14 @@ function LudoPageContent() {
                                   Play With Partner
                                 </span>
                               </div>
-                              <h4 className="text-xs sm:text-sm font-bold text-zinc-900 truncate">
+                              <h4 className={`text-xs sm:text-sm font-bold truncate ${
+                                isDark ? 'text-white' : 'text-zinc-900'
+                              }`}>
                                 Play with your connected person
                               </h4>
-                              <p className="text-[11px] text-zinc-500 truncate">
+                              <p className={`text-[11px] truncate ${
+                                isDark ? 'text-zinc-400' : 'text-zinc-500'
+                              }`}>
                                 Link codes to play 1-click matches together
                               </p>
                             </div>
@@ -2328,12 +2354,14 @@ function LudoPageContent() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                               <Heart className="w-3.5 h-3.5 text-[#ee1d49] fill-[#ee1d49]" />
-                              <span className="text-xs font-bold text-zinc-900">Connect with your Partner</span>
+                              <span className={`text-xs font-bold ${
+                                isDark ? 'text-white' : 'text-zinc-900'
+                              }`}>Connect with your Partner</span>
                             </div>
                             <button
                               type="button"
                               onClick={() => setShowPartnerConnectInput(false)}
-                              className="text-zinc-400 hover:text-zinc-600 p-1 text-xs cursor-pointer"
+                              className="text-zinc-400 hover:text-zinc-300 p-1 text-xs cursor-pointer"
                             >
                               ✕
                             </button>
@@ -2341,15 +2369,21 @@ function LudoPageContent() {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                             {myPartnerCode && (
-                              <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#fde4eb]">
+                              <div className={`flex items-center justify-between p-2 rounded-xl border ${
+                                isDark ? 'bg-white/5 border-white/10' : 'bg-white border-[#fde4eb]'
+                              }`}>
                                 <div className="min-w-0">
                                   <span className="text-[9px] uppercase font-bold text-zinc-400 block">Your Code</span>
-                                  <span className="font-mono font-bold text-zinc-800 text-xs tracking-wider">{myPartnerCode}</span>
+                                  <span className={`font-mono font-bold text-xs tracking-wider ${
+                                    isDark ? 'text-white' : 'text-zinc-800'
+                                  }`}>{myPartnerCode}</span>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={handleCopyPartnerCode}
-                                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-[#ee1d49] font-medium text-[10px] rounded-lg transition cursor-pointer"
+                                  className={`px-2 py-1 font-medium text-[10px] rounded-lg transition cursor-pointer ${
+                                    isDark ? 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300' : 'bg-rose-50 hover:bg-rose-100 text-[#ee1d49]'
+                                  }`}
                                 >
                                   {copiedPartnerCode ? 'Copied!' : 'Copy'}
                                 </button>
@@ -2362,7 +2396,9 @@ function LudoPageContent() {
                                 value={partnerInputCode}
                                 onChange={e => setPartnerInputCode(e.target.value.toUpperCase())}
                                 placeholder="THEIR CODE"
-                                className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-mono uppercase bg-white border border-[#fde4eb] text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-[#ee1d49]"
+                                className={`flex-1 min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-mono uppercase focus:outline-none focus:border-[#ee1d49] ${
+                                  isDark ? 'bg-black/40 border border-white/10 text-white placeholder-zinc-500' : 'bg-white border border-[#fde4eb] text-zinc-900 placeholder-zinc-400'
+                                }`}
                               />
                               <button
                                 type="submit"
@@ -2375,7 +2411,7 @@ function LudoPageContent() {
                           </div>
 
                           {partnerConnectError && (
-                            <p className="text-[11px] text-rose-500 font-medium">{partnerConnectError}</p>
+                            <p className="text-[11px] text-rose-400 font-medium">{partnerConnectError}</p>
                           )}
                         </div>
                       )}
@@ -2386,20 +2422,30 @@ function LudoPageContent() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 max-w-xl">
                     
                     {/* Card 1: Create a Room */}
-                    <div className="bg-[#fff5f7] border border-[#fde4eb] rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between shadow-[0_4px_24px_rgba(238,29,73,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(238,29,73,0.08)]">
+                    <div className={`rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between transition-all ${
+                      isDark
+                        ? 'bg-[#18121f]/90 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/20'
+                        : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_24px_rgba(238,29,73,0.04)] hover:shadow-[0_8px_30px_rgba(238,29,73,0.08)]'
+                    }`}>
                       <div>
                         {/* Icon Badge */}
-                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#fee1e7] flex items-center justify-center text-[#ee1d49] mb-4 sm:mb-5">
+                        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center mb-4 sm:mb-5 ${
+                          isDark ? 'bg-rose-500/15 border border-rose-500/30 text-rose-400' : 'bg-[#fee1e7] text-[#ee1d49]'
+                        }`}>
                           <Users className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                         </div>
 
                         {/* Title */}
-                        <h3 className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight mb-1.5">
+                        <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-1.5 ${
+                          isDark ? 'text-white' : 'text-zinc-900'
+                        }`}>
                           Create a Room
                         </h3>
 
                         {/* Description */}
-                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-5 sm:mb-6">
+                        <p className={`text-xs sm:text-[13px] font-normal leading-relaxed mb-5 sm:mb-6 ${
+                          isDark ? 'text-zinc-400' : 'text-zinc-500'
+                        }`}>
                           Start a new game and invite your friends.
                         </p>
                       </div>
@@ -2416,10 +2462,16 @@ function LudoPageContent() {
                     </div>
 
                     {/* Card 2: Join a Room */}
-                    <div className="bg-[#f5f9ff] border border-[#e3eeff] rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between shadow-[0_4px_24px_rgba(24,93,242,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(24,93,242,0.08)]">
+                    <div className={`rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between transition-all ${
+                      isDark
+                        ? 'bg-[#121626]/90 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/20'
+                        : 'bg-[#f5f9ff] border border-[#e3eeff] shadow-[0_4px_24px_rgba(24,93,242,0.04)] hover:shadow-[0_8px_30px_rgba(24,93,242,0.08)]'
+                    }`}>
                       <div>
                         {/* Icon Badge */}
-                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#dce8fe] flex items-center justify-center text-[#185df2] mb-4 sm:mb-5">
+                        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center mb-4 sm:mb-5 ${
+                          isDark ? 'bg-blue-500/15 border border-blue-500/30 text-blue-400' : 'bg-[#dce8fe] text-[#185df2]'
+                        }`}>
                           <svg className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
@@ -2427,12 +2479,16 @@ function LudoPageContent() {
                         </div>
 
                         {/* Title */}
-                        <h3 className="text-lg sm:text-xl font-bold text-zinc-900 tracking-tight mb-1.5">
+                        <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-1.5 ${
+                          isDark ? 'text-white' : 'text-zinc-900'
+                        }`}>
                           Join a Room
                         </h3>
 
                         {/* Description */}
-                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-5 sm:mb-6">
+                        <p className={`text-xs sm:text-[13px] font-normal leading-relaxed mb-5 sm:mb-6 ${
+                          isDark ? 'text-zinc-400' : 'text-zinc-500'
+                        }`}>
                           Enter a room code to join your friend's game.
                         </p>
                       </div>
@@ -2456,7 +2512,7 @@ function LudoPageContent() {
                 <div className="lg:col-span-5 flex items-center justify-center relative">
                   <div className="relative w-full max-w-[340px] sm:max-w-[400px] lg:max-w-[460px] max-h-[50vh] aspect-square flex items-center justify-center">
                     <img
-                      src="/images/ludo-3d-board.png"
+                      src={isDark ? "/images/ludo-3d-board-dark.png" : "/images/ludo-3d-board.png"}
                       alt="Ludo Arena 3D Board"
                       className="max-w-full max-h-full object-contain select-none pointer-events-none transform hover:scale-[1.02] transition-transform duration-300"
                     />
@@ -2471,14 +2527,16 @@ function LudoPageContent() {
               {/* Bottom Left: Handwritten flourish */}
               <div className="flex items-center">
                 <img
-                  src="/images/ludo-flourish.png"
+                  src={isDark ? "/images/ludo-flourish-dark.png" : "/images/ludo-flourish.png"}
                   alt="Good Games, Brighter Friendships"
                   className="h-14 sm:h-18 lg:h-20 w-auto object-contain select-none pointer-events-none"
                 />
               </div>
 
               {/* Bottom Right: PLAY • CONNECT • REPEAT */}
-              <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.3em] text-zinc-400 uppercase">
+              <div className={`text-[10px] sm:text-[11px] font-bold tracking-[0.3em] uppercase ${
+                isDark ? 'text-zinc-500' : 'text-zinc-400'
+              }`}>
                 PLAY • CONNECT • REPEAT
               </div>
             </div>
@@ -2490,24 +2548,30 @@ function LudoPageContent() {
       {/* CREATE ROOM MODAL */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-zinc-200 rounded-[28px] p-6 sm:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative">
+          <div className={`border rounded-[28px] p-6 sm:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative ${
+            isDark ? 'bg-[#14151b] border-white/10 text-white' : 'bg-white border-zinc-200 text-zinc-900'
+          }`}>
             <button
               type="button"
               onClick={() => setShowCreateModal(false)}
-              className="absolute top-5 right-5 p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition"
+              className={`absolute top-5 right-5 p-2 rounded-full transition ${
+                isDark ? 'hover:bg-white/10 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700'
+              }`}
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-11 h-11 rounded-2xl bg-[#fee1e7] flex items-center justify-center text-[#ee1d49]">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
+                isDark ? 'bg-[#ee1d49]/20 text-[#ee1d49]' : 'bg-[#fee1e7] text-[#ee1d49]'
+              }`}>
                 <Users className="w-5 h-5 fill-current" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-zinc-900 tracking-tight">
+                <h3 className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-zinc-900'}`}>
                   Create a Room
                 </h3>
-                <p className="text-xs text-zinc-500 font-medium">
+                <p className={`text-xs font-medium ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                   Select players and generate your instant table
                 </p>
               </div>
@@ -2515,7 +2579,7 @@ function LudoPageContent() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-zinc-700 block mb-2">
+                <label className={`text-xs font-semibold block mb-2 ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
                   Number of Players
                 </label>
                 <div className="grid grid-cols-3 gap-2.5">
@@ -2527,6 +2591,8 @@ function LudoPageContent() {
                       className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all border ${
                         selectedMaxPlayers === count
                           ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
+                          : isDark
+                          ? 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
                           : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
                       }`}
                     >
@@ -2537,15 +2603,17 @@ function LudoPageContent() {
               </div>
 
               {partner && (
-                <div className="p-3.5 bg-rose-50/70 border border-rose-100 rounded-2xl flex items-center justify-between">
+                <div className={`p-3.5 border rounded-2xl flex items-center justify-between ${
+                  isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-200' : 'bg-rose-50/70 border-rose-100 text-zinc-800'
+                }`}>
                   <div className="flex items-center gap-2.5">
                     <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-                    <span className="text-xs font-semibold text-zinc-800">
+                    <span className="text-xs font-semibold">
                       Partner: {partner.displayName}
                     </span>
                   </div>
                   {partner.online && (
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full">
                       Online
                     </span>
                   )}
@@ -2571,24 +2639,30 @@ function LudoPageContent() {
       {/* JOIN ROOM MODAL */}
       {showJoinModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-zinc-200 rounded-[28px] p-6 sm:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative">
+          <div className={`border rounded-[28px] p-6 sm:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative ${
+            isDark ? 'bg-[#14151b] border-white/10 text-white' : 'bg-white border-zinc-200 text-zinc-900'
+          }`}>
             <button
               type="button"
               onClick={() => setShowJoinModal(false)}
-              className="absolute top-5 right-5 p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition"
+              className={`absolute top-5 right-5 p-2 rounded-full transition ${
+                isDark ? 'hover:bg-white/10 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700'
+              }`}
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-11 h-11 rounded-2xl bg-[#dce8fe] flex items-center justify-center text-[#185df2]">
+              <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
+                isDark ? 'bg-[#185df2]/20 text-[#185df2]' : 'bg-[#dce8fe] text-[#185df2]'
+              }`}>
                 <Lock className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-zinc-900 tracking-tight">
+                <h3 className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-zinc-900'}`}>
                   Join a Room
                 </h3>
-                <p className="text-xs text-zinc-500 font-medium">
+                <p className={`text-xs font-medium ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
                   Enter a room code or your friend's invite code
                 </p>
               </div>
@@ -2603,7 +2677,7 @@ function LudoPageContent() {
               className="space-y-4"
             >
               <div>
-                <label className="text-xs font-semibold text-zinc-700 block mb-2">
+                <label className={`text-xs font-semibold block mb-2 ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
                   Room or Duel Code
                 </label>
                 <input
@@ -2612,7 +2686,11 @@ function LudoPageContent() {
                   onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
                   placeholder="E.G. LUDO-8F72"
                   autoFocus
-                  className="w-full px-4 py-3.5 rounded-2xl text-base font-mono uppercase tracking-widest bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-[#185df2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#185df2] transition-all text-center"
+                  className={`w-full px-4 py-3.5 rounded-2xl text-base font-mono uppercase tracking-widest border transition-all text-center focus:outline-none focus:ring-1 focus:ring-[#185df2] ${
+                    isDark
+                      ? 'bg-white/5 border-white/10 text-white placeholder-zinc-500 focus:border-[#185df2] focus:bg-white/10'
+                      : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-[#185df2] focus:bg-white'
+                  }`}
                 />
               </div>
 
