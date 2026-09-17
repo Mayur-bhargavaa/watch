@@ -890,21 +890,12 @@ function LudoPageContent() {
     }`}>
       {/* Active Match Background & Atmosphere (when in active room) */}
       {roomParam ? (
-        <>
-          <div
-            className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
-            style={{
-              backgroundImage: `url('${currentTheme.bgUrl}')`
-            }}
-          />
-          {/* Live Animated Theme Atmosphere */}
-          <DynamicThemeEffects themeId={currentTheme.id} />
-
-          {/* Subtle overlay */}
-          <div className={`fixed inset-0 pointer-events-none z-0 ${
-            isDark ? 'bg-black/50 backdrop-blur-[0.2px]' : 'bg-white/70 backdrop-blur-[0.2px]'
-          }`} />
-        </>
+        <div
+          className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
+          style={{
+            backgroundImage: `url('${currentTheme.bgUrl}')`
+          }}
+        />
       ) : (
         /* Modern Background for Lobby */
         <div className="fixed inset-0 pointer-events-none z-0">

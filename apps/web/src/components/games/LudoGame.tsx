@@ -2202,6 +2202,18 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               {renderedPawns.map(({ token, x, y, groundY, isLegal, isMyColor, color, isHopping, scale, isInGame }) => {
                 const cfg = COLOR_CONFIG[color];
 
+                const handlePawnClick = (e: React.MouseEvent | React.TouchEvent) => {
+                  e.stopPropagation();
+                  if (isLegal) {
+                    if (autoMoveTimerRef.current) {
+                      clearTimeout(autoMoveTimerRef.current);
+                      autoMoveTimerRef.current = null;
+                    }
+                    hideCenterDice();
+                    onMoveToken(token.id);
+                  }
+                };
+
                 return (
                   <g
                     key={`pawn-${color}-${token.id}`}
@@ -2209,18 +2221,11 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     style={{
                       opacity: isInGame ? 1 : 0.26,
                       filter: isInGame ? undefined : 'grayscale(60%)',
-                      transition: 'opacity 0.4s ease, filter 0.4s ease'
+                      transition: 'opacity 0.4s ease, filter 0.4s ease',
+                      pointerEvents: isLegal ? 'all' : undefined
                     }}
-                    onClick={() => {
-                      if (isLegal) {
-                        if (autoMoveTimerRef.current) {
-                          clearTimeout(autoMoveTimerRef.current);
-                          autoMoveTimerRef.current = null;
-                        }
-                        hideCenterDice();
-                        onMoveToken(token.id);
-                      }
-                    }}
+                    onClick={handlePawnClick}
+                    onTouchEnd={handlePawnClick}
                   >
                     {/* A. Ground Contact Shadow */}
                     <g
@@ -2287,6 +2292,17 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                           : 'transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)'
                       }}
                     >
+                      {/* Generous invisible hitbox covering entire pawn body and ground area */}
+                      {isLegal && (
+                        <circle
+                          cx={0}
+                          cy={-14}
+                          r={26}
+                          fill="transparent"
+                          className="cursor-pointer"
+                          style={{ pointerEvents: 'all' }}
+                        />
+                      )}
                       {isLegal && !isHopping ? (
                         <g>
                           <animateTransform
