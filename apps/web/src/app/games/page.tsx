@@ -31,6 +31,7 @@ import {
 } from '../../lib/api';
 import { GameFriendSelectorDrawer } from '../../components/games/GameFriendSelectorDrawer';
 import { AddFriendModal } from '../../components/streaks/AddFriendModal';
+import { getRandomRoast } from '../../lib/roastMessages';
 
 export interface GameItem {
   id: string;
@@ -167,15 +168,17 @@ export default function GameLobbyPage() {
   const handlePingPartner = async () => {
     if (!session?.token || !partner) return;
     setIsPinging(true);
+    const roast = getRandomRoast('game');
     try {
       await pingPartner({
         targetCode: partner.partnerCode,
         fromCode: session.user.partnerCode,
         fromName: session.user.displayName,
-        gameType: 'games'
+        gameType: 'games',
+        customMessage: roast.body
       });
-      setPingStatus(`Ping sent to ${partner.displayName}! 🔔`);
-      setTimeout(() => setPingStatus(null), 4000);
+      setPingStatus(`Sent roast to ${partner.displayName}! 🎲 "${roast.body}"`);
+      setTimeout(() => setPingStatus(null), 5000);
     } catch {
       setPingStatus('Failed to send ping');
       setTimeout(() => setPingStatus(null), 3000);

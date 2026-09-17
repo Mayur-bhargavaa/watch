@@ -296,6 +296,7 @@ export async function pingPartner(params: {
   fromName?: string;
   roomCode?: string;
   gameType?: string;
+  customMessage?: string;
 }): Promise<{ success: boolean; deliveredLive: boolean; ping: PartnerPing }> {
   const res = await fetch(`${API_BASE}/api/games/partner/ping`, {
     method: 'POST',
@@ -305,6 +306,30 @@ export async function pingPartner(params: {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Failed to ping partner');
+  }
+  return res.json();
+}
+
+export async function sendPartnerNudge(
+  token: string,
+  params: {
+    targetPartnerCode: string;
+    message?: string;
+    category?: string;
+    link?: string;
+  }
+): Promise<{ success: boolean; deliveredLive: boolean; nudge: any }> {
+  const res = await fetch(`${API_BASE}/api/notifications/nudge`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(params)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to send nudge');
   }
   return res.json();
 }

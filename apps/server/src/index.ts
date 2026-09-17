@@ -954,6 +954,7 @@ export async function createServer(dbPath = './synccinema.db') {
       targetCode: body.targetCode.toUpperCase(),
       roomCode: body.roomCode ? body.roomCode.toUpperCase() : undefined,
       gameType: body.gameType || 'ludo',
+      customMessage: (body as any).customMessage,
       createdAt: Date.now(),
       read: false
     };
@@ -975,6 +976,57 @@ export async function createServer(dbPath = './synccinema.db') {
       success: true,
       deliveredLive: sentInPresence || sentInGame || sentInParty,
       ping: pingPayload
+    };
+  });
+
+  // Dedicated Live Nudge & Roast Endpoint
+  app.post('/api/notifications/nudge', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const body = (request.body || {}) as {
+      targetPartnerCode: string;
+      message?: string;
+      category?: string;
+      link?: string;
+    };
+
+    if (!body.targetPartnerCode) {
+      return reply.code(400).send({ error: 'Target partner code is required' });
+    }
+
+    const targetUser = db.getUserByPartnerCode(body.targetPartnerCode.toUpperCase());
+    if (!targetUser) {
+      return reply.code(404).send({ error: 'Target partner not found' });
+    }
+
+    const nudgePayload = {
+      id: `nudge_${nanoid(8)}`,
+      fromUserId: user.id,
+      fromName: user.displayName,
+      fromPartnerCode: user.partnerCode,
+      fromAvatar: user.avatarUrl,
+      message: body.message,
+      category: body.category || 'nudge',
+      link: body.link || '/friends',
+      timestamp: Date.now()
+    };
+
+    const sentInPresence = presenceManager.sendToUser(targetUser.id, {
+      type: 'partner:nudge',
+      payload: nudgePayload
+    });
+    const sentInGame = gameRoomManager.sendToUser(targetUser.id, {
+      type: 'partner:nudge',
+      payload: nudgePayload
+    });
+    const sentInParty = syncManager.sendToUser(targetUser.id, {
+      type: 'partner:nudge',
+      payload: nudgePayload
+    });
+
+    return {
+      success: true,
+      deliveredLive: sentInPresence || sentInGame || sentInParty,
+      nudge: nudgePayload
     };
   });
 

@@ -21,6 +21,7 @@ import {
   getFriendRequests,
   UserSession
 } from '../../lib/api';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 // Bitmoji avatar helper
 function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string {
@@ -130,16 +131,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             </div>
           </Link>
 
-          {/* Mobile Close Button */}
-          {onMobileClose && (
-            <button
-              type="button"
-              onClick={onMobileClose}
-              className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center space-x-1.5">
+            {/* Real-time Notification Bell with Badge */}
+            <NotificationBell />
+
+            {/* Mobile Close Button */}
+            {onMobileClose && (
+              <button
+                type="button"
+                onClick={onMobileClose}
+                className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Navigation Sections */}

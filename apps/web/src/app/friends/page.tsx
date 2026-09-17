@@ -53,11 +53,13 @@ import {
   removeFriend,
   createPartyRoom,
   connectUserPartner,
+  sendPartnerNudge,
   FriendWithStreak,
   FriendRequestsData,
   DiscoverableUserItem,
   UserSession
 } from '../../lib/api';
+import { getRandomRoast } from '../../lib/roastMessages';
 import { StreakDetailsDrawer } from '../../components/streaks/StreakDetailsDrawer';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 
@@ -356,6 +358,33 @@ function FriendsPageContent() {
       setTimeout(() => setFeedback(null), 3000);
     } catch (err: any) {
       setFeedback({ type: 'error', message: err.message || 'Failed to remove friend.' });
+    }
+  };
+
+  // Nudge friend with funny Zomato roast
+  const handleNudgeFriend = async (friend: FriendWithStreak) => {
+    if (!session?.token) return;
+    const roast = getRandomRoast('nudge');
+    setActionLoadingId(friend.friendUser.id);
+    try {
+      await sendPartnerNudge(session.token, {
+        targetPartnerCode: friend.friendUser.partnerCode,
+        message: roast.body,
+        category: 'nudge',
+        link: '/friends'
+      });
+      setFeedback({
+        type: 'success',
+        message: `🛵 Sent roast to ${friend.friendUser.displayName}: "${roast.body}"`
+      });
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || 'Failed to send nudge.'
+      });
+    } finally {
+      setActionLoadingId(null);
+      setTimeout(() => setFeedback(null), 5000);
     }
   };
 
@@ -1140,13 +1169,13 @@ function FriendsPageContent() {
 
                         {/* Action Toolbar */}
                         <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1">
+                          <div className="flex items-center gap-1.5 flex-1 flex-wrap">
                             {/* Watch Together */}
                             <button
                               type="button"
                               disabled={isLaunching}
                               onClick={() => handleWatchPartyWithFriend(friend)}
-                              className="flex-1 py-2 px-3 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                              className="flex-1 min-w-[70px] py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer disabled:opacity-50"
                             >
                               <Video className="w-3.5 h-3.5 text-[#ee1d49]" />
                               <span>{isLaunching ? 'Starting...' : 'Watch'}</span>
@@ -1156,7 +1185,7 @@ function FriendsPageContent() {
                             <button
                               type="button"
                               onClick={() => handlePlayGame(friend, 'ludo')}
-                              className="py-2 px-3 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                              className="py-2 px-2.5 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
                               title="Play Ludo Arena"
                             >
                               <Gamepad2 className="w-3.5 h-3.5" />
@@ -1167,11 +1196,23 @@ function FriendsPageContent() {
                             <button
                               type="button"
                               onClick={() => handlePlayGame(friend, 'four-in-a-row')}
-                              className="py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                              className="py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
                               title="Play Four in a Row"
                             >
                               <Gamepad2 className="w-3.5 h-3.5" />
                               <span>4-in-Row</span>
+                            </button>
+
+                            {/* Nudge with Zomato Roast */}
+                            <button
+                              type="button"
+                              disabled={actionLoadingId === friend.friendUser.id}
+                              onClick={() => handleNudgeFriend(friend)}
+                              className="py-2 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+                              title="Send playful Zomato-style roast nudge"
+                            >
+                              <span>🛵</span>
+                              <span>Nudge</span>
                             </button>
                           </div>
 

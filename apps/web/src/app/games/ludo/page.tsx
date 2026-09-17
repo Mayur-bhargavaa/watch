@@ -88,6 +88,7 @@ import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSe
 import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { FriendWithStreak } from '../../../lib/api';
+import { getRandomRoast } from '../../../lib/roastMessages';
 
 export interface BoardTheme {
   id: string;
@@ -681,15 +682,17 @@ function LudoPageContent() {
           setPartnerPingStatus(`🔔 Game invite sent to ${partner.displayName}!`);
         }
       } else {
+        const roast = getRandomRoast('game');
         const res = await pingPartner({
           targetCode: partner.partnerCode,
           fromCode: myPartnerCode,
           fromName: session.user.displayName,
           roomCode: undefined,
-          gameType: 'ludo'
+          gameType: 'ludo',
+          customMessage: roast.body
         });
         if (res.deliveredLive) {
-          setPartnerPingStatus(`🚀 Live notification delivered to ${partner.displayName}!`);
+          setPartnerPingStatus(`🚀 Live roast delivered to ${partner.displayName}! "${roast.body}"`);
         } else {
           setPartnerPingStatus(`🔔 Ping notification queued for ${partner.displayName}!`);
         }
