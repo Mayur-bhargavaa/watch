@@ -361,13 +361,12 @@ function FriendsPageContent() {
     try {
       // Connect partner in background so they are the connected partner
       await connectUserPartner(session.token, friend.friendUser.partnerCode, friend.friendUser.id).catch(() => {});
-      const res = await createPartyRoom(session.token, {
+      const res = await createPartyRoom({
+        token: session.token,
         title: `Cinema with ${friend.friendUser.displayName}`,
-        videoUrl: 'https://www.youtube.com/watch?v=zSWdZVtXT7E',
-        type: 'youtube',
-        maxCapacity: 6,
-        playbackMode: 'together',
-        privacy: 'public'
+        sourceUrl: 'https://www.youtube.com/watch?v=zSWdZVtXT7E',
+        mediaTitle: `Cinema with ${friend.friendUser.displayName}`,
+        activityMode: 'CINEMA'
       });
       router.push(`/room/${res.room.slug}`);
     } catch (err: any) {
