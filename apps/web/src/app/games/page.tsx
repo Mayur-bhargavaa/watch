@@ -500,7 +500,7 @@ export default function GameLobbyPage() {
         <AddFriendModal
           isOpen={isAddFriendModalOpen}
           onClose={() => setIsAddFriendModalOpen(false)}
-          myFriendCode={session?.user?.partnerCode}
+          myFriendCode={session?.user?.partnerCode || ''}
           token={session.token}
           onFriendAdded={(newFriend) => {
             handleSelectFriend(newFriend);
