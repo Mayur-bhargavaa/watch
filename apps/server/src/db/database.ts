@@ -20,6 +20,38 @@ import {
   LudoGameState
 } from '@synccinema/common';
 
+export interface FriendStreak {
+  id: string;
+  userId1: string;
+  userId2: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastWatchedDate: string | null;
+  totalMinutesWatched: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FriendWithStreak {
+  friendshipId: string;
+  friendUser: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    partnerCode: string;
+    isOnline: boolean;
+  };
+  streak: {
+    currentStreak: number;
+    longestStreak: number;
+    lastWatchedDate: string | null;
+    completedToday: boolean;
+    atRisk: boolean;
+    totalMinutesWatched: number;
+  };
+  createdAt: string;
+}
+
 export class DatabaseService {
   private db: DatabaseSync;
 
@@ -170,6 +202,38 @@ export class DatabaseService {
       CREATE INDEX IF NOT EXISTS idx_partner_conn_user ON partner_connections(user_id);
       CREATE INDEX IF NOT EXISTS idx_partner_conn_partner ON partner_connections(partner_user_id);
 
+      CREATE TABLE IF NOT EXISTS friendships (
+        id TEXT PRIMARY KEY,
+        user_id_1 TEXT NOT NULL,
+        user_id_2 TEXT NOT NULL,
+        status TEXT DEFAULT 'ACCEPTED',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(user_id_1, user_id_2),
+        FOREIGN KEY (user_id_1) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id_2) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_friendships_user1 ON friendships(user_id_1);
+      CREATE INDEX IF NOT EXISTS idx_friendships_user2 ON friendships(user_id_2);
+
+      CREATE TABLE IF NOT EXISTS friend_streaks (
+        id TEXT PRIMARY KEY,
+        user_id_1 TEXT NOT NULL,
+        user_id_2 TEXT NOT NULL,
+        current_streak INTEGER DEFAULT 0,
+        longest_streak INTEGER DEFAULT 0,
+        last_watched_date TEXT,
+        total_minutes_watched INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(user_id_1, user_id_2),
+        FOREIGN KEY (user_id_1) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id_2) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_friend_streaks_users ON friend_streaks(user_id_1, user_id_2);
+
       CREATE TABLE IF NOT EXISTS game_rooms (
         id TEXT PRIMARY KEY,
         room_code TEXT UNIQUE NOT NULL,
@@ -271,6 +335,15 @@ export class DatabaseService {
 
     try {
       this.db.exec("ALTER TABLE users ADD COLUMN viewing_vibe TEXT");
+    } catch {}
+
+    // Auto-migrate any partner_connections into friendships
+    try {
+      this.db.exec(`
+        INSERT OR IGNORE INTO friendships (id, user_id_1, user_id_2, status, created_at, updated_at)
+        SELECT id, user_id, partner_user_id, status, created_at, updated_at
+        FROM partner_connections;
+      `);
     } catch {}
 
     // On server startup, reset any stale connected status from previous runs
@@ -1010,6 +1083,241 @@ export class DatabaseService {
       WHERE user_id = ? OR partner_user_id = ?
     `);
     stmt.run(userId, userId);
+  }
+
+  // =====================================================================
+  // Friends & Snapchat-Style Friend-to-Friend Streaks Engine
+  // =====================================================================
+
+  private getCanonicalUserPair(userIdA: string, userIdB: string): [string, string] {
+    return [userIdA, userIdB].sort() as [string, string];
+  }
+
+  private getYesterdayStr(dateStr: string): string {
+    const d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().split('T')[0];
+  }
+
+  addFriend(userId: string, targetFriendCode: string): FriendWithStreak {
+    const targetUser = this.getUserByPartnerCode(targetFriendCode);
+    if (!targetUser) {
+      throw new Error('Friend Code not found. Please verify the code.');
+    }
+    if (targetUser.id === userId) {
+      throw new Error('You cannot add yourself as a friend.');
+    }
+
+    const now = new Date().toISOString();
+    const [u1, u2] = this.getCanonicalUserPair(userId, targetUser.id);
+    const friendshipId1 = `fr_${nanoid(10)}`;
+    const friendshipId2 = `fr_${nanoid(10)}`;
+
+    // Insert reciprocal friendships
+    const stmt = this.db.prepare(`
+      INSERT INTO friendships (id, user_id_1, user_id_2, status, created_at, updated_at)
+      VALUES (?, ?, ?, 'ACCEPTED', ?, ?)
+      ON CONFLICT(user_id_1, user_id_2) DO UPDATE SET
+        status = 'ACCEPTED',
+        updated_at = excluded.updated_at
+    `);
+    stmt.run(friendshipId1, userId, targetUser.id, now, now);
+    stmt.run(friendshipId2, targetUser.id, userId, now, now);
+
+    // Also connect as partner if user has no active partner
+    if (!this.getPartner(userId)) {
+      try {
+        this.connectPartner(userId, targetFriendCode);
+      } catch {}
+    }
+
+    // Ensure streak record exists
+    const streakStmt = this.db.prepare(`
+      INSERT OR IGNORE INTO friend_streaks (id, user_id_1, user_id_2, current_streak, longest_streak, last_watched_date, total_minutes_watched, created_at, updated_at)
+      VALUES (?, ?, ?, 0, 0, NULL, 0, ?, ?)
+    `);
+    streakStmt.run(`stk_${nanoid(10)}`, u1, u2, now, now);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterdayStr = this.getYesterdayStr(todayStr);
+    const streakRow = this.db.prepare(`
+      SELECT * FROM friend_streaks WHERE user_id_1 = ? AND user_id_2 = ?
+    `).get(u1, u2) as any;
+
+    const currentStreak = streakRow?.current_streak || 0;
+    const lastDate = streakRow?.last_watched_date || null;
+    const completedToday = lastDate === todayStr;
+    const atRisk = !completedToday && lastDate === yesterdayStr && currentStreak > 0;
+
+    return {
+      friendshipId: friendshipId1,
+      friendUser: {
+        id: targetUser.id,
+        displayName: targetUser.displayName,
+        avatarUrl: targetUser.avatarUrl,
+        partnerCode: targetUser.partnerCode || targetFriendCode.toUpperCase(),
+        isOnline: false
+      },
+      streak: {
+        currentStreak,
+        longestStreak: streakRow?.longest_streak || 0,
+        lastWatchedDate: lastDate,
+        completedToday,
+        atRisk,
+        totalMinutesWatched: streakRow?.total_minutes_watched || 0
+      },
+      createdAt: now
+    };
+  }
+
+  removeFriend(userId: string, friendUserId: string): void {
+    const stmt = this.db.prepare(`
+      DELETE FROM friendships
+      WHERE (user_id_1 = ? AND user_id_2 = ?) OR (user_id_1 = ? AND user_id_2 = ?)
+    `);
+    stmt.run(userId, friendUserId, friendUserId, userId);
+  }
+
+  getFriendsWithStreaks(userId: string, isOnlineCheck?: (id: string) => boolean): FriendWithStreak[] {
+    const stmt = this.db.prepare(`
+      SELECT f.id as friendship_id, f.created_at as friendship_created_at,
+             u.id as friend_id, u.display_name, u.avatar_url, u.partner_code
+      FROM friendships f
+      JOIN users u ON u.id = f.user_id_2
+      WHERE f.user_id_1 = ? AND f.status = 'ACCEPTED'
+      ORDER BY f.created_at DESC
+    `);
+    const rows = stmt.all(userId) as any[];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterdayStr = this.getYesterdayStr(todayStr);
+
+    return rows.map((row) => {
+      const [u1, u2] = this.getCanonicalUserPair(userId, row.friend_id);
+      const streakRow = this.db.prepare(`
+        SELECT * FROM friend_streaks WHERE user_id_1 = ? AND user_id_2 = ?
+      `).get(u1, u2) as any;
+
+      const currentStreak = streakRow?.current_streak || 0;
+      const lastDate = streakRow?.last_watched_date || null;
+      const completedToday = lastDate === todayStr;
+      const atRisk = !completedToday && lastDate === yesterdayStr && currentStreak > 0;
+
+      return {
+        friendshipId: row.friendship_id,
+        friendUser: {
+          id: row.friend_id,
+          displayName: row.display_name,
+          avatarUrl: row.avatar_url,
+          partnerCode: row.partner_code || '',
+          isOnline: isOnlineCheck ? isOnlineCheck(row.friend_id) : false
+        },
+        streak: {
+          currentStreak,
+          longestStreak: streakRow?.longest_streak || 0,
+          lastWatchedDate: lastDate,
+          completedToday,
+          atRisk,
+          totalMinutesWatched: streakRow?.total_minutes_watched || 0
+        },
+        createdAt: row.friendship_created_at
+      };
+    });
+  }
+
+  recordSessionBetweenUsers(userIdA: string, userIdB: string, minutes: number = 1): { streak: any; status: 'ALREADY_COMPLETED' | 'EXTENDED' | 'RESET_STARTED' } {
+    const [u1, u2] = this.getCanonicalUserPair(userIdA, userIdB);
+    const now = new Date().toISOString();
+    const todayStr = now.split('T')[0];
+    const yesterdayStr = this.getYesterdayStr(todayStr);
+
+    const existing = this.db.prepare(`
+      SELECT * FROM friend_streaks WHERE user_id_1 = ? AND user_id_2 = ?
+    `).get(u1, u2) as any;
+
+    if (!existing) {
+      // First session ever between this pair! Starts Day 1 streak
+      const id = `stk_${nanoid(10)}`;
+      this.db.prepare(`
+        INSERT INTO friend_streaks (id, user_id_1, user_id_2, current_streak, longest_streak, last_watched_date, total_minutes_watched, created_at, updated_at)
+        VALUES (?, ?, ?, 1, 1, ?, ?, ?, ?)
+      `).run(id, u1, u2, todayStr, minutes, now, now);
+
+      return {
+        status: 'RESET_STARTED',
+        streak: {
+          currentStreak: 1,
+          longestStreak: 1,
+          lastWatchedDate: todayStr,
+          completedToday: true,
+          totalMinutesWatched: minutes
+        }
+      };
+    }
+
+    const lastDate = existing.last_watched_date;
+    const totalMinutes = (existing.total_minutes_watched || 0) + minutes;
+
+    if (lastDate === todayStr) {
+      // Already completed today!
+      this.db.prepare(`
+        UPDATE friend_streaks
+        SET total_minutes_watched = ?, updated_at = ?
+        WHERE user_id_1 = ? AND user_id_2 = ?
+      `).run(totalMinutes, now, u1, u2);
+
+      return {
+        status: 'ALREADY_COMPLETED',
+        streak: {
+          currentStreak: existing.current_streak,
+          longestStreak: existing.longest_streak,
+          lastWatchedDate: todayStr,
+          completedToday: true,
+          totalMinutesWatched: totalMinutes
+        }
+      };
+    }
+
+    if (lastDate === yesterdayStr) {
+      // Watched yesterday -> consecutive day! Streak incremented
+      const newStreak = existing.current_streak + 1;
+      const longest = Math.max(existing.longest_streak, newStreak);
+      this.db.prepare(`
+        UPDATE friend_streaks
+        SET current_streak = ?, longest_streak = ?, last_watched_date = ?, total_minutes_watched = ?, updated_at = ?
+        WHERE user_id_1 = ? AND user_id_2 = ?
+      `).run(newStreak, longest, todayStr, totalMinutes, now, u1, u2);
+
+      return {
+        status: 'EXTENDED',
+        streak: {
+          currentStreak: newStreak,
+          longestStreak: longest,
+          lastWatchedDate: todayStr,
+          completedToday: true,
+          totalMinutesWatched: totalMinutes
+        }
+      };
+    }
+
+    // Missed a day -> Resets to Day 1
+    const newStreak = 1;
+    const longest = Math.max(existing.longest_streak, 1);
+    this.db.prepare(`
+      UPDATE friend_streaks
+      SET current_streak = ?, longest_streak = ?, last_watched_date = ?, total_minutes_watched = ?, updated_at = ?
+      WHERE user_id_1 = ? AND user_id_2 = ?
+    `).run(newStreak, longest, todayStr, totalMinutes, now, u1, u2);
+
+    return {
+      status: 'RESET_STARTED',
+      streak: {
+        currentStreak: newStreak,
+        longestStreak: longest,
+        lastWatchedDate: todayStr,
+        completedToday: true,
+        totalMinutesWatched: totalMinutes
+      }
+    };
   }
 
   // =====================================================================

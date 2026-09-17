@@ -38,6 +38,8 @@ import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffec
 import { StickerPicker, StickerMessageView } from '../../../components/chat/StickerPicker';
 import { parseStickerMessage, formatStickerMessage } from '../../../components/chat/StickersData';
 import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/ChatReplyUI';
+import { getStoredSession, recordFriendStreak } from '../../../lib/api';
+import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 
 export interface RoomTheme {
   id: string;
@@ -568,6 +570,42 @@ export default function RoomPage() {
   const activeMembers = members.filter((m) => m.isConnected !== false);
   const selfMember = activeMembers.find((m) => m.userId === myUserId);
   const selfDisplayName = selfMember?.displayName || 'You';
+
+  // Friend streak celebration state
+  const [streakCelebration, setStreakCelebration] = useState<{
+    friendName: string;
+    streakCount: number;
+    isExtended: boolean;
+  } | null>(null);
+  const recordedStreaksRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const session = getStoredSession();
+    if (!session?.token || activeMembers.length < 2) return;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const otherMembers = activeMembers.filter((m) => m.userId !== myUserId);
+
+    for (const other of otherMembers) {
+      const pairKey = `${other.userId}_${todayStr}`;
+      if (recordedStreaksRef.current.has(pairKey)) continue;
+      recordedStreaksRef.current.add(pairKey);
+
+      recordFriendStreak(session.token, other.userId, 1)
+        .then((res) => {
+          if (res.success && (res.status === 'EXTENDED' || res.status === 'RESET_STARTED')) {
+            setStreakCelebration({
+              friendName: other.displayName || 'Friend',
+              streakCount: res.streak.currentStreak,
+              isExtended: res.status === 'EXTENDED'
+            });
+          }
+        })
+        .catch(() => {
+          // Silently ignore if member is not on friends list
+        });
+    }
+  }, [activeMembers, myUserId]);
 
   const handleCopyInvite = () => {
     if (typeof window !== 'undefined') {
@@ -1427,6 +1465,17 @@ export default function RoomPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Snapchat-Style Friend Streak Celebration Modal */}
+      {streakCelebration && (
+        <StreakCelebrationModal
+          isOpen={!!streakCelebration}
+          onClose={() => setStreakCelebration(null)}
+          friendName={streakCelebration.friendName}
+          streakCount={streakCelebration.streakCount}
+          isExtended={streakCelebration.isExtended}
+        />
       )}
     </div>
   );

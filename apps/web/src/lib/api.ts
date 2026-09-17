@@ -513,5 +513,106 @@ export async function playWithPartner(
   return res.json();
 }
 
+// =====================================================================
+// Snapchat-Style Friends & Daily Streaks (🔥) API
+// =====================================================================
+
+export interface FriendStreakInfo {
+  currentStreak: number;
+  longestStreak: number;
+  lastWatchedDate: string | null;
+  completedToday: boolean;
+  atRisk: boolean;
+  totalMinutesWatched: number;
+}
+
+export interface FriendUser {
+  id: string;
+  displayName: string;
+  avatarUrl?: string;
+  partnerCode: string;
+  isOnline: boolean;
+}
+
+export interface FriendWithStreak {
+  friendshipId: string;
+  friendUser: FriendUser;
+  streak: FriendStreakInfo;
+  createdAt: string;
+}
+
+export async function getFriendsWithStreaks(token: string): Promise<{
+  friends: FriendWithStreak[];
+  myFriendCode: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/friends`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to fetch friends');
+  }
+  return res.json();
+}
+
+export async function addFriendByCode(token: string, friendCode: string): Promise<{
+  success: boolean;
+  friend: FriendWithStreak;
+}> {
+  const res = await fetch(`${API_BASE}/api/friends/add`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ friendCode })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to add friend');
+  }
+  return res.json();
+}
+
+export async function removeFriend(token: string, friendUserId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/api/friends/${encodeURIComponent(friendUserId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to remove friend');
+  }
+  return res.json();
+}
+
+export async function recordFriendStreak(
+  token: string,
+  friendUserId: string,
+  minutes: number = 1
+): Promise<{
+  success: boolean;
+  status: 'ALREADY_COMPLETED' | 'EXTENDED' | 'RESET_STARTED';
+  streak: FriendStreakInfo;
+}> {
+  const res = await fetch(`${API_BASE}/api/streaks/record`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ friendUserId, minutes })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to record streak');
+  }
+  return res.json();
+}
+
+
 
 

@@ -73,6 +73,7 @@ import {
   pingPartner,
   sendHeartbeat,
   playWithPartner,
+  recordFriendStreak,
   WS_BASE,
   UserSession
 } from '../../../lib/api';
@@ -82,6 +83,7 @@ import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
 import { StickerPicker, StickerMessageView } from '../../../components/chat/StickerPicker';
 import { parseStickerMessage, formatStickerMessage } from '../../../components/chat/StickersData';
+import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 
 export interface BoardTheme {
   id: string;
@@ -873,6 +875,36 @@ function LudoPageContent() {
     return room.players.find(p => p.userId !== session?.user?.id) || null;
   }, [room, session]);
 
+  // Friend streak celebration state
+  const [streakCelebration, setStreakCelebration] = useState<{
+    friendName: string;
+    streakCount: number;
+    isExtended: boolean;
+  } | null>(null);
+  const streakRecordedPairRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (room?.status === 'PLAYING' && opponentPlayer?.userId && session?.token) {
+      const todayKey = `${opponentPlayer.userId}_${new Date().toISOString().split('T')[0]}`;
+      if (streakRecordedPairRef.current === todayKey) return;
+      streakRecordedPairRef.current = todayKey;
+
+      recordFriendStreak(session.token, opponentPlayer.userId, 1)
+        .then((res) => {
+          if (res.success && (res.status === 'EXTENDED' || res.status === 'RESET_STARTED')) {
+            setStreakCelebration({
+              friendName: opponentPlayer.displayName || 'Friend',
+              streakCount: res.streak.currentStreak,
+              isExtended: res.status === 'EXTENDED'
+            });
+          }
+        })
+        .catch(() => {
+          // Silently ignore if opponent is not added as friend
+        });
+    }
+  }, [room?.status, opponentPlayer?.userId, session?.token, opponentPlayer?.displayName]);
+
   // Opponent status and disconnection detection
   const isOpponentDisconnected = useMemo(() => {
     if (opponentPlayer && !opponentPlayer.isConnected) return true;
@@ -1464,6 +1496,17 @@ function LudoPageContent() {
             setAlertModalState(null);
             if (cb) cb();
           }}
+        />
+      )}
+
+      {/* Snapchat-Style Friend Streak Celebration Modal */}
+      {streakCelebration && (
+        <StreakCelebrationModal
+          isOpen={!!streakCelebration}
+          onClose={() => setStreakCelebration(null)}
+          friendName={streakCelebration.friendName}
+          streakCount={streakCelebration.streakCount}
+          isExtended={streakCelebration.isExtended}
         />
       )}
 

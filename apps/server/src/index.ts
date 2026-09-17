@@ -514,6 +514,65 @@ export async function createServer(dbPath = './synccinema.db') {
   });
 
   // =====================================================================
+  // Friends & Snapchat-Style Streaks Endpoints
+  // =====================================================================
+
+  app.get('/api/friends', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const friends = db.getFriendsWithStreaks(user.id, (id) => isUserOnline(id));
+    return {
+      friends,
+      myFriendCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email)
+    };
+  });
+
+  app.post('/api/friends/add', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { friendCode?: string };
+    if (!body.friendCode) {
+      return reply.code(400).send({ error: 'Friend Code is required' });
+    }
+    try {
+      const friend = db.addFriend(user.id, body.friendCode);
+      const isOnline = isUserOnline(friend.friendUser.id);
+      friend.friendUser.isOnline = isOnline;
+      return {
+        success: true,
+        friend
+      };
+    } catch (err: any) {
+      return reply.code(400).send({ error: err.message || 'Failed to add friend' });
+    }
+  });
+
+  app.delete('/api/friends/:friendUserId', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const { friendUserId } = request.params as { friendUserId: string };
+    if (!friendUserId) {
+      return reply.code(400).send({ error: 'friendUserId is required' });
+    }
+    db.removeFriend(user.id, friendUserId);
+    return { success: true, message: 'Friend removed' };
+  });
+
+  app.post('/api/streaks/record', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { friendUserId?: string; minutes?: number };
+    if (!body.friendUserId) {
+      return reply.code(400).send({ error: 'friendUserId is required' });
+    }
+    const result = db.recordSessionBetweenUsers(user.id, body.friendUserId, body.minutes || 1);
+    return {
+      success: true,
+      status: result.status,
+      streak: result.streak
+    };
+  });
+
+  // =====================================================================
   // Human-Only Game Rooms & Matchmaking Endpoints
   // =====================================================================
 
