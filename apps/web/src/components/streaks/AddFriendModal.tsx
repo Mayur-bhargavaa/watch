@@ -13,16 +13,20 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  KeyRound
+  KeyRound,
+  Search,
+  Users
 } from 'lucide-react';
 import {
   addFriendByCode,
   getFriendRequests,
+  getDiscoverableUsers,
   acceptFriendRequest,
   declineFriendRequest,
   cancelFriendRequest,
   FriendWithStreak,
-  FriendRequestsData
+  FriendRequestsData,
+  DiscoverableUserItem
 } from '../../lib/api';
 
 // Helper for bitmoji avatars
@@ -63,6 +67,12 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Discover users state
+  const [discoverUsers, setDiscoverUsers] = useState<DiscoverableUserItem[]>([]);
+  const [loadingDiscover, setLoadingDiscover] = useState(false);
+  const [discoverSearch, setDiscoverSearch] = useState('');
+  const [sendingUserId, setSendingUserId] = useState<string | null>(null);
+
   // Requests state
   const [requests, setRequests] = useState<FriendRequestsData>(
     initialRequests || { incoming: [], outgoing: [] }
@@ -77,7 +87,20 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
     }
   }, [initialRequests]);
 
-  // Load fresh requests when modal opens or tab changes to requests
+  const loadDiscoverUsers = async (searchQuery?: string) => {
+    if (!token) return;
+    setLoadingDiscover(true);
+    try {
+      const res = await getDiscoverableUsers(token, searchQuery);
+      setDiscoverUsers(res.users || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingDiscover(false);
+    }
+  };
+
+  // Load fresh requests and discoverable users when modal opens
   const loadRequests = async () => {
     if (!token) return;
     setLoadingRequests(true);
@@ -95,11 +118,22 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadRequests();
+      loadDiscoverUsers(discoverSearch);
       if (initialRequests && initialRequests.incoming.length > 0) {
         setActiveTab('requests');
       }
     }
   }, [isOpen]);
+
+  // Debounce search for discoverable users
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        loadDiscoverUsers(discoverSearch);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [discoverSearch]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -223,6 +257,32 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
     }
   };
 
+  const handleSendRequestToUser = async (targetUser: DiscoverableUserItem) => {
+    setSendingUserId(targetUser.id);
+    setError(null);
+    try {
+      const res = await addFriendByCode(token, targetUser.partnerCode);
+      if (res.success) {
+        if (res.status === 'ACCEPTED' && res.friend) {
+          setSuccessMessage(`You and ${targetUser.displayName} are now friends! 🔥`);
+          onFriendAdded(res.friend);
+          setDiscoverUsers((prev) => prev.filter((u) => u.id !== targetUser.id));
+        } else {
+          setSuccessMessage(`Friend request sent to ${targetUser.displayName}!`);
+          setDiscoverUsers((prev) =>
+            prev.map((u) => (u.id === targetUser.id ? { ...u, requestStatus: 'SENT' } : u))
+          );
+        }
+        await loadRequests();
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err: any) {
+      setError(err.message || `Failed to send request to ${targetUser.displayName}`);
+    } finally {
+      setSendingUserId(null);
+    }
+  };
+
   const incomingCount = requests.incoming.length;
 
   return (
@@ -261,7 +321,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
           </button>
         </div>
 
-        {/* 2 Tabs: Join with Code & Requests */}
+        {/* 2 Tabs: Discover & Add, and Requests */}
         <div className="flex items-center border-b border-slate-200/80 dark:border-white/10 px-6 pt-1 bg-slate-50/50 dark:bg-black/20 shrink-0">
           <button
             onClick={() => {
@@ -275,8 +335,8 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
                 : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200'
             }`}
           >
-            <KeyRound className="w-4 h-4" />
-            <span>Join with Code</span>
+            <Users className="w-4 h-4" />
+            <span>Discover & Add</span>
             {activeTab === 'code' && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-600 rounded-full" />
             )}
@@ -326,26 +386,151 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
           </div>
         )}
 
-        {/* Tab 1: Join with Code */}
+        {/* Tab 1: Discover & Add */}
         {activeTab === 'code' && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
-            {/* Section 1: My Friend Code */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-500/10 via-amber-500/5 to-purple-500/10 border border-rose-500/20">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-rose-500" /> Your Friend Code
+          <div className="p-5 sm:p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+            {/* Section 1: All Users to Send Friend Request */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-rose-600" /> People on SyncCinema ({discoverUsers.length})
                 </span>
-                <span className="text-[11px] text-slate-500 dark:text-zinc-400">
-                  Share with friends
+                <span className="text-[11px] text-slate-400 dark:text-zinc-500">
+                  Tap to add friend
                 </span>
               </div>
-              <div className="flex items-center justify-between bg-white dark:bg-[#101115] border border-slate-200 dark:border-white/10 rounded-xl px-4 py-2.5">
-                <span className="font-mono text-base font-black tracking-widest text-rose-600 dark:text-rose-400">
-                  {myFriendCode || 'LOADING...'}
-                </span>
+
+              {/* Search Bar for Discoverable Users */}
+              <div className="relative w-full">
+                <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={discoverSearch}
+                  onChange={(e) => setDiscoverSearch(e.target.value)}
+                  placeholder="Search users by name or code (e.g. Jay, Rahul)..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-[#101115] border border-slate-200 dark:border-white/10 rounded-2xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-600/40"
+                />
+              </div>
+
+              {/* Users List */}
+              {loadingDiscover && discoverUsers.length === 0 ? (
+                <div className="py-8 flex flex-col items-center justify-center text-slate-400 dark:text-zinc-500 text-xs">
+                  <div className="w-6 h-6 border-2 border-rose-600 border-t-transparent rounded-full animate-spin mb-2" />
+                  <span>Finding users...</span>
+                </div>
+              ) : discoverUsers.length === 0 ? (
+                <div className="p-6 rounded-2xl bg-slate-50 dark:bg-[#101115]/50 border border-slate-200/80 dark:border-white/10 text-center space-y-1">
+                  <Users className="w-6 h-6 text-slate-300 dark:text-zinc-600 mx-auto" />
+                  <p className="text-xs font-medium text-slate-600 dark:text-zinc-400">
+                    No users found matching your search.
+                  </p>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-500">
+                    You can also add someone directly by their friend code below!
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {discoverUsers.map((u) => {
+                    const isSending = sendingUserId === u.id;
+                    return (
+                      <div
+                        key={u.id}
+                        className="p-3 rounded-2xl bg-white dark:bg-[#101115] border border-slate-200/80 dark:border-white/10 shadow-sm flex items-center justify-between gap-3 hover:border-slate-300 dark:hover:border-white/20 transition"
+                      >
+                        {/* Avatar & User Details */}
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/[0.08] border border-slate-200 dark:border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                            <img
+                              src={getBitmojiAvatarUrl(u.avatarUrl, u.id)}
+                              alt={u.displayName}
+                              className="w-9 h-9 object-contain drop-shadow-sm"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                              {u.displayName}
+                            </div>
+                            <div className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono">
+                              #{u.partnerCode}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="shrink-0">
+                          {u.requestStatus === 'SENT' ? (
+                            <span className="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center gap-1 border border-amber-500/20">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>Requested</span>
+                            </span>
+                          ) : u.requestStatus === 'RECEIVED' ? (
+                            <button
+                              onClick={() => handleAcceptRequest(u.id, u.displayName)}
+                              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-rose-600/25 flex items-center gap-1 transition"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Accept</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleSendRequestToUser(u)}
+                              disabled={isSending}
+                              className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs shadow-md shadow-rose-600/25 flex items-center space-x-1 transition disabled:opacity-50"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              <span>{isSending ? 'Sending...' : 'Add'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Section 2: Enter Friend Code Directly */}
+            <div className="pt-4 border-t border-slate-100 dark:border-white/10 space-y-4">
+              <form onSubmit={handleAddFriend} className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400">
+                  Or Enter Friend's Code Directly
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={friendCodeInput}
+                    onChange={(e) => {
+                      setFriendCodeInput(e.target.value.toUpperCase());
+                      setError(null);
+                    }}
+                    placeholder="e.g. JAYD91, RAHUL42"
+                    className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-[#101115] border border-slate-200 dark:border-white/10 rounded-xl font-mono text-sm uppercase tracking-wider text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-600/50"
+                    maxLength={16}
+                  />
+                  <button
+                    type="submit"
+                    disabled={loading || !friendCodeInput.trim()}
+                    className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/25 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95 shrink-0 flex items-center gap-1.5"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>{loading ? 'Sending...' : 'Send'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Personal Friend Code Box */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#101115]/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
+                    Your Friend Code
+                  </div>
+                  <div className="font-mono text-sm font-black tracking-wider text-rose-600 dark:text-rose-400">
+                    {myFriendCode || 'LOADING...'}
+                  </div>
+                </div>
                 <button
                   onClick={handleCopyCode}
-                  className="flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition active:scale-95"
+                  className="flex items-center space-x-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition active:scale-95 shrink-0"
                 >
                   {copied ? (
                     <>
@@ -360,49 +545,6 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
                   )}
                 </button>
               </div>
-            </div>
-
-            {/* Section 2: Enter Friend's Code */}
-            <form onSubmit={handleAddFriend} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
-                  Enter Friend's Code
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={friendCodeInput}
-                    onChange={(e) => {
-                      setFriendCodeInput(e.target.value.toUpperCase());
-                      setError(null);
-                    }}
-                    placeholder="e.g. JAYD91, RAHUL42"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-[#101115] border border-slate-200 dark:border-white/10 rounded-xl font-mono text-sm uppercase tracking-wider text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-rose-600/50"
-                    maxLength={16}
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !friendCodeInput.trim()}
-                className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm shadow-lg shadow-rose-600/25 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>{loading ? 'Sending Request...' : 'Send Friend Request'}</span>
-              </button>
-            </form>
-
-            {/* Explanation Tip */}
-            <div className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed bg-slate-50 dark:bg-[#101115]/60 p-3.5 rounded-xl border border-slate-200 dark:border-white/10">
-              <p className="font-semibold text-slate-700 dark:text-zinc-300 mb-1 flex items-center gap-1">
-                <span>🔥 How Friend Requests & Streaks Work:</span>
-              </p>
-              <ul className="list-disc list-inside space-y-1 text-slate-500 dark:text-zinc-400">
-                <li>Entering a friend's code sends a request to their Requests tab.</li>
-                <li>Once accepted, they appear in your friends list and streaks begin!</li>
-                <li>Watch movies, videos, or play games daily to keep your streaks alive.</li>
-              </ul>
             </div>
           </div>
         )}

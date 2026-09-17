@@ -68,6 +68,14 @@ export interface FriendRequestsData {
   outgoing: FriendRequestItem[];
 }
 
+export interface DiscoverableUserItem {
+  id: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  partnerCode: string;
+  requestStatus: 'NONE' | 'SENT' | 'RECEIVED';
+}
+
 export class DatabaseService {
   private db: DatabaseSync;
 
@@ -1338,6 +1346,52 @@ export class DatabaseService {
       WHERE (user_id_1 = ? AND user_id_2 = ?) OR (user_id_1 = ? AND user_id_2 = ?)
     `);
     stmt.run(userId, friendUserId, friendUserId, userId);
+  }
+
+  getDiscoverableUsers(currentUserId: string, search?: string): DiscoverableUserItem[] {
+    let query = `
+      SELECT u.id, u.display_name, u.avatar_url, u.partner_code,
+             (SELECT status FROM friendships WHERE user_id_1 = ? AND user_id_2 = u.id) as outgoing_status,
+             (SELECT status FROM friendships WHERE user_id_1 = u.id AND user_id_2 = ?) as incoming_status
+      FROM users u
+      WHERE u.id != ?
+        AND u.id NOT IN (
+          SELECT user_id_2 FROM friendships WHERE user_id_1 = ? AND status = 'ACCEPTED'
+        )
+    `;
+    const params: any[] = [currentUserId, currentUserId, currentUserId, currentUserId];
+
+    if (search && search.trim()) {
+      query += ` AND (u.display_name LIKE ? OR u.partner_code LIKE ?)`;
+      const term = `%${search.trim()}%`;
+      params.push(term, term);
+    }
+
+    query += ` ORDER BY u.created_at DESC LIMIT 60`;
+
+    const rows = this.db.prepare(query).all(...params) as any[];
+
+    return rows.map((row) => {
+      let requestStatus: 'NONE' | 'SENT' | 'RECEIVED' = 'NONE';
+      if (row.outgoing_status === 'PENDING') {
+        requestStatus = 'SENT';
+      } else if (row.incoming_status === 'PENDING') {
+        requestStatus = 'RECEIVED';
+      }
+
+      let code = row.partner_code;
+      if (!code) {
+        code = this.ensureUserPartnerCode(row.id, row.display_name, row.avatar_url);
+      }
+
+      return {
+        id: row.id,
+        displayName: row.display_name,
+        avatarUrl: row.avatar_url,
+        partnerCode: code,
+        requestStatus
+      };
+    });
   }
 
   getFriendsWithStreaks(userId: string, isOnlineCheck?: (id: string) => boolean): FriendWithStreak[] {

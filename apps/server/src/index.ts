@@ -540,6 +540,17 @@ export async function createServer(dbPath = './synccinema.db') {
     };
   });
 
+  app.get('/api/friends/discover', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const { search } = request.query as { search?: string };
+    const users = db.getDiscoverableUsers(user.id, search);
+    return {
+      success: true,
+      users
+    };
+  });
+
   app.post('/api/friends/add', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);

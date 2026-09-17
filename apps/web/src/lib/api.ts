@@ -557,6 +557,14 @@ export interface FriendRequestsData {
   outgoing: FriendRequestItem[];
 }
 
+export interface DiscoverableUserItem {
+  id: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  partnerCode: string;
+  requestStatus: 'NONE' | 'SENT' | 'RECEIVED';
+}
+
 export async function getFriendsWithStreaks(token: string): Promise<{
   friends: FriendWithStreak[];
   requests?: FriendRequestsData;
@@ -580,6 +588,21 @@ export async function getFriendRequests(token: string): Promise<FriendRequestsDa
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Failed to fetch friend requests');
+  }
+  return res.json();
+}
+
+export async function getDiscoverableUsers(token: string, search?: string): Promise<{
+  success: boolean;
+  users: DiscoverableUserItem[];
+}> {
+  const query = search && search.trim() ? `?search=${encodeURIComponent(search.trim())}` : '';
+  const res = await fetch(`${API_BASE}/api/friends/discover${query}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to fetch discoverable users');
   }
   return res.json();
 }
