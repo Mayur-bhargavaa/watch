@@ -139,23 +139,26 @@ export default function WatchlistPage() {
 
     setIsSubmitting(true);
     try {
-      const room = await createPartyRoom(session.token, {
+      const data = await createPartyRoom({
         title: title || 'Watch Party Room',
-        currentVideoUrl: videoUrl || ''
+        sourceUrl: videoUrl || '',
+        mediaTitle: title || 'Watch Party Room',
+        activityMode: 'CINEMA',
+        token: session.token
       });
 
       const hostOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://watch.stitchbyte.in';
-      const invite = `${hostOrigin}/room/${room.slug}`;
+      const invite = data.inviteUrl || `${hostOrigin}/room/${data.room.slug}`;
 
       setCreatedRoomInfo({
-        slug: room.slug,
+        slug: data.room.slug,
         inviteUrl: invite,
-        title: room.title
+        title: data.room.title || title
       });
 
       // Quick auto-redirect
       setTimeout(() => {
-        router.push(`/room/${room.slug}`);
+        router.push(`/room/${data.room.slug}`);
       }, 1500);
     } catch (err: any) {
       console.error('Failed to create room:', err);

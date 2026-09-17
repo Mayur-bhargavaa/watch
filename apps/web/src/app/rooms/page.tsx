@@ -72,15 +72,18 @@ export default function RoomsPage() {
 
     setIsSubmitting(true);
     try {
-      const room = await createPartyRoom(session.token, {
+      const data = await createPartyRoom({
         title: newRoomTitle.trim() || 'Watch Party Room',
-        currentVideoUrl: newRoomUrl.trim() || ''
+        sourceUrl: newRoomUrl.trim() || '',
+        mediaTitle: newRoomTitle.trim() || 'Watch Party Room',
+        activityMode: 'CINEMA',
+        token: session.token
       });
 
       setShowCreateModal(false);
       setNewRoomTitle('');
       setNewRoomUrl('');
-      router.push(`/room/${room.slug}`);
+      router.push(`/room/${data.room.slug}`);
     } catch (err: any) {
       console.error('Failed to create room:', err);
     } finally {
