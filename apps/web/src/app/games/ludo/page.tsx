@@ -213,6 +213,8 @@ function LudoPageContent() {
 
   // Modals
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [alertModalState, setAlertModalState] = useState<{
     title: string;
@@ -2160,629 +2162,285 @@ function LudoPageContent() {
 
         {/* LOBBY VIEW (When not in an active room) */}
         {!roomParam && (
-          <div className="w-full max-w-4xl mx-auto space-y-8 sm:space-y-10 py-6 pb-16 animate-in fade-in zoom-in-95 duration-300 relative z-10">
-            {/* Header Hero */}
-            <div className="text-center pt-2 pb-2">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-semibold mb-4">
-                <Dice5 className="w-3.5 h-3.5" />
-                <span>Classic Real-Time Board Game</span>
-              </div>
-              <h1 className={`text-3xl sm:text-5xl font-extrabold tracking-tight ${
-                isDark ? 'text-white' : 'text-zinc-900'
-              }`}>
-                Ludo Arena
-              </h1>
-              <p className={`text-sm sm:text-base mt-2 max-w-lg mx-auto leading-relaxed ${
-                isDark ? 'text-zinc-400' : 'text-zinc-600'
-              }`}>
-                Play real-time Ludo with your partner or create a private room with friends. Zero bots, pure co-play.
-              </p>
-
-              {/* Feature Highlights Bar */}
-              <div className="flex items-center justify-center gap-2.5 mt-5 flex-wrap">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium ${
-                  isDark ? 'bg-[#14151b] border-white/[0.08] text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-xs'
-                }`}>
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                  Strict Zero-Bots
-                </span>
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium ${
-                  isDark ? 'bg-[#14151b] border-white/[0.08] text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-xs'
-                }`}>
-                  <Video className="w-3.5 h-3.5 text-sky-500" />
-                  Live Voice & Cam
-                </span>
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium ${
-                  isDark ? 'bg-[#14151b] border-white/[0.08] text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-xs'
-                }`}>
-                  <Zap className="w-3.5 h-3.5 text-amber-500" />
-                  Low-Latency Sync
-                </span>
-              </div>
-            </div>
-
-            {lobbyError && (
-              <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-xs font-semibold text-center">
-                {lobbyError}
-              </div>
-            )}
-
-            {/* ========================================================================= */}
-            {/* DEDICATED SECTION 1: PLAY WITH LOVED ONES • ONE-TIME CODE (EXCLUSIVE)     */}
-            {/* ========================================================================= */}
-            <div className={`w-full rounded-3xl p-6 sm:p-8 border relative overflow-hidden transition-all ${
-              isDark
-                ? 'bg-gradient-to-b from-rose-950/25 via-[#16121b]/90 to-[#14151b]/90 border-rose-500/20 shadow-rose-950/20 shadow-xl'
-                : 'bg-white border-zinc-200 shadow-sm'
-            }`}>
-              {/* Subtle Ambient Heart Glow only in dark mode */}
-              {isDark && (
-                <>
-                  <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
-                  <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-pink-500/10 blur-3xl pointer-events-none" />
-                </>
-              )}
-
-              {/* Section Header */}
-              <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b relative z-10 ${
-                isDark ? 'border-rose-500/15' : 'border-zinc-100'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white flex items-center justify-center shadow-md shadow-rose-500/25 shrink-0">
-                    <Heart className="w-6 h-6 fill-current animate-pulse" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className={`text-lg sm:text-xl font-extrabold tracking-tight ${
-                        isDark ? 'text-white' : 'text-zinc-900'
-                      }`}>
-                        Play with Loved Ones
-                      </h2>
-                      <span className="px-2.5 py-0.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-500 text-[10px] font-bold uppercase tracking-wider">
-                        One-Time Code Only
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                        <Ticket className="w-3 h-3" />
-                        VIP Duel Pass
-                      </span>
-                    </div>
-                    <p className={`text-xs sm:text-sm mt-0.5 ${
-                      isDark ? 'text-zinc-400' : 'text-zinc-600'
-                    }`}>
-                      Private 2-player intimate duel. Generate a single-use cinema pass or enter your loved one's code.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Rules Modal Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowRulesModal(true)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-2 shadow-xs cursor-pointer active:scale-95 ${
-                    isDark
-                      ? 'bg-white/[0.06] hover:bg-white/[0.12] border-white/15 text-zinc-300 hover:text-white'
-                      : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-700 shadow-xs'
-                  }`}
-                  title="View Game Rules"
-                >
-                  <HelpCircle className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Rules & Safe Zones</span>
-                </button>
-              </div>
-
-              {loveSectionError && (
-                <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/25 text-rose-500 rounded-xl text-xs font-semibold text-center">
-                  {loveSectionError}
-                </div>
-              )}
-
-              {/* If Linked Partner exists: Quick status banner */}
-              {partner && (
-                <div className={`mt-5 p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-3 ${
-                  isDark ? 'bg-black/30 border-white/[0.08]' : 'bg-zinc-50/80 border-zinc-200 shadow-xs'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
-                        {partner.displayName[0]?.toUpperCase()}
-                      </div>
-                      <span
-                        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 ${
-                          isDark ? 'border-[#14151b]' : 'border-white'
-                        } ${partner.online ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}`}
-                        title={partner.online ? 'Online' : 'Offline'}
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs sm:text-sm font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                          {partner.displayName}
-                        </span>
-                        {partner.online ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 text-[10px] font-semibold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Online
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-500/10 border border-zinc-500/20 text-zinc-500 text-[10px] font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-                            Offline
-                          </span>
-                        )}
-                      </div>
-                      <span className={`text-[11px] block mt-0.5 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-                        Linked Co-Play Partner
-                      </span>
-                    </div>
+          <div className="w-full flex-1 flex flex-col justify-between relative z-10 select-none bg-white min-h-[calc(100vh-4rem)]">
+            {/* Top / Main Hero Container */}
+            <div className="max-w-7xl mx-auto w-full px-6 sm:px-12 lg:px-16 pt-8 sm:pt-12 pb-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
+                
+                {/* Left Column: Eyebrow, Title, Subtitle, Two Action Cards */}
+                <div className="lg:col-span-7 flex flex-col justify-center">
+                  
+                  {/* Eyebrow */}
+                  <div className="text-[11px] sm:text-xs font-bold tracking-[0.25em] text-[#f43f5e] uppercase mb-3 sm:mb-4">
+                    ROLL • MOVE • HAVE FUN
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {partner.online ? (
-                      <button
-                        onClick={handlePlayWithPartner}
-                        disabled={isMatchmaking}
-                        className="flex-1 sm:flex-initial px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl shadow-xs transition active:scale-[0.98] flex items-center justify-center gap-2"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Play Together</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handlePingPartner}
-                        disabled={isPingingPartner}
-                        className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 ${
-                          isDark
-                            ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-200'
-                            : 'bg-white hover:bg-zinc-100 border-zinc-200 text-zinc-700 shadow-xs'
-                        }`}
-                      >
-                        <Bell className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>{isPingingPartner ? 'Pinging...' : 'Ping Partner'}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+                  {/* Main Hero Heading */}
+                  <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none mb-4 sm:mb-5">
+                    <span className="text-[#ee1d49]">Ludo</span>{' '}
+                    <span className="text-[#131727]">Arena</span>
+                  </h1>
 
-              {/* MODERN 1v1 DUEL CARD */}
-              <div className={`mt-6 rounded-2xl border p-5 sm:p-7 relative z-10 ${
-                isDark
-                  ? 'bg-white/[0.02] border-white/[0.08]'
-                  : 'bg-zinc-50/60 border-zinc-200'
-              }`}>
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                  {/* Left Column: 1v1 Matchup (6 cols) */}
-                  <div className="lg:col-span-6 flex flex-col justify-between space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-rose-500 font-bold">
-                        1v1 PRIVATE ARENA
-                      </span>
-                      <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Live RTC
-                      </span>
-                    </div>
-
-                    {/* Seat 01 vs Seat 02 */}
-                    <div className="grid grid-cols-2 gap-3 relative">
-                      {/* Seat 01: You */}
-                      <div className={`p-4 rounded-xl border text-center transition ${
-                        isDark ? 'bg-[#14151b] border-white/10' : 'bg-white border-zinc-200 shadow-xs'
-                      }`}>
-                        <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-rose-600 text-white font-bold text-sm mb-2 shadow-sm">
-                          {(session?.user?.displayName || 'Y')[0]?.toUpperCase()}
-                        </div>
-                        <div className={`text-xs sm:text-sm font-bold truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                          {session?.user?.displayName || 'You (Host)'}
-                        </div>
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 text-[10px] font-semibold">
-                          Seat 01 • Red
-                        </span>
-                      </div>
-
-                      {/* Duel VS Badge Centered */}
-                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white dark:bg-[#1f2029] border border-zinc-200 dark:border-white/15 text-rose-600 dark:text-rose-400 font-black text-[10px] flex items-center justify-center shadow-sm z-10">
-                        VS
-                      </div>
-
-                      {/* Seat 02: Loved One */}
-                      <div className={`p-4 rounded-xl border text-center transition ${
-                        isDark ? 'bg-[#14151b] border-white/10' : 'bg-white border-zinc-200 shadow-xs'
-                      }`}>
-                        <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-emerald-600 text-white font-bold text-sm mb-2 shadow-sm">
-                          {partner ? partner.displayName[0]?.toUpperCase() : '♥'}
-                        </div>
-                        <div className={`text-xs sm:text-sm font-bold truncate ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                          {partner ? partner.displayName : 'Loved One'}
-                        </div>
-                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-semibold">
-                          Seat 02 • Green
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Features row */}
-                    <div className="flex items-center gap-3 text-[11px] text-zinc-500 flex-wrap pt-1">
-                      <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        Zero Bots
-                      </span>
-                      <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                        <Video className="w-3.5 h-3.5 text-sky-500" />
-                        Live Cam & Voice
-                      </span>
-                      <span className="flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">
-                        <Star className="w-3.5 h-3.5 text-amber-500" />
-                        Safe Sanctuaries
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Code Generation / Joining (6 cols) */}
-                  <div className={`lg:col-span-6 p-5 sm:p-6 rounded-2xl border ${
-                    isDark ? 'bg-[#14151b] border-white/10' : 'bg-white border-zinc-200 shadow-xs'
-                  }`}>
-                    {/* Tab Switcher */}
-                    <div className={`grid grid-cols-2 gap-1 p-1 rounded-xl mb-4 border ${
-                      isDark ? 'bg-white/[0.04] border-white/10' : 'bg-zinc-100 border-zinc-200'
-                    }`}>
-                      <button
-                        type="button"
-                        onClick={() => setLovePassTab('create')}
-                        className={`py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          lovePassTab === 'create'
-                            ? 'bg-rose-600 text-white shadow-xs'
-                            : (isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-600 hover:text-zinc-900')
-                        }`}
-                      >
-                        Create 1-Time Code
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setLovePassTab('join')}
-                        className={`py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          lovePassTab === 'join'
-                            ? 'bg-rose-600 text-white shadow-xs'
-                            : (isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-600 hover:text-zinc-900')
-                        }`}
-                      >
-                        Enter Code
-                      </button>
-                    </div>
-
-                    {lovePassTab === 'create' ? (
-                      /* Create Tab */
-                      <div>
-                        {!generatedLoveCode ? (
-                          <div className="space-y-3 text-center py-2">
-                            <p className={`text-xs leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                              Generate a single-use private duel code. Share it with your partner or send the direct link.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={handleGenerateLoveCode}
-                              disabled={isGeneratingLoveCode}
-                              className="w-full py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-60"
-                            >
-                              <Sparkles className="w-3.5 h-3.5" />
-                              <span>{isGeneratingLoveCode ? 'Generating...' : 'Generate 1-Time Duel Code'}</span>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div className="text-center p-3 rounded-xl bg-zinc-50 dark:bg-black/30 border border-zinc-200 dark:border-white/10">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500 block mb-0.5">
-                                YOUR 1-TIME DUEL CODE
-                              </span>
-                              <div className="font-mono text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 tracking-wider">
-                                {generatedLoveCode}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={handleCopyLoveCode}
-                                className={`flex-1 py-2 px-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                                  isDark
-                                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                                    : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-800 shadow-xs'
-                                }`}
-                              >
-                                {copiedLoveCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                                <span>{copiedLoveCode ? 'Copied' : 'Copy Code'}</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleCopyLoveLink}
-                                className={`flex-1 py-2 px-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer ${
-                                  isDark
-                                    ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white'
-                                    : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-800 shadow-xs'
-                                }`}
-                              >
-                                {copiedLoveLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
-                                <span>{copiedLoveLink ? 'Copied' : 'Copy Link'}</span>
-                              </button>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => router.push(`/games/ludo?room=${generatedLoveCode}`)}
-                              className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" />
-                              <span>Board Table as Host</span>
-                              <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={handleGenerateLoveCode}
-                              disabled={isGeneratingLoveCode}
-                              className={`w-full text-center text-[10px] font-medium transition cursor-pointer ${
-                                isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-700'
-                              }`}
-                            >
-                              Generate different code
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      /* Join Tab */
-                      <form onSubmit={handleJoinWithLoveCode} className="space-y-3">
-                        <div>
-                          <label className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${
-                            isDark ? 'text-zinc-400' : 'text-zinc-600'
-                          }`}>
-                            Partner's 1-Time Code
-                          </label>
-                          <input
-                            type="text"
-                            value={loveCodeInput}
-                            onChange={e => setLoveCodeInput(e.target.value.toUpperCase())}
-                            placeholder="E.G. LOVE-9A42"
-                            className={`w-full px-3 py-2.5 rounded-xl text-xs font-mono uppercase tracking-wider transition-all focus:outline-none focus:ring-2 focus:ring-rose-500/50 ${
-                              isDark
-                                ? 'bg-[#0f1015] border border-white/10 text-white placeholder-zinc-500 focus:border-rose-500'
-                                : 'bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-rose-500 focus:bg-white'
-                            }`}
-                          />
-                        </div>
-                        <button
-                          type="submit"
-                          disabled={isJoiningLoveRoom || !loveCodeInput.trim()}
-                          className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>{isJoiningLoveRoom ? 'Entering Table...' : 'Enter Love Table'}</span>
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Romantic tip if not permanently paired */}
-              {!partner && (
-                <div className="mt-6 text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowSettingsModal(true)}
-                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition group border ${
-                      isDark
-                        ? 'bg-black/20 hover:bg-white/[0.05] border-white/[0.08] text-zinc-400 hover:text-zinc-200'
-                        : 'bg-zinc-50 hover:bg-zinc-100 border-zinc-200 text-zinc-600 hover:text-zinc-900 shadow-xs'
-                    }`}
-                  >
-                    <Heart className="w-3.5 h-3.5 text-rose-500 group-hover:scale-110 transition-transform" />
-                    <span>Tip: Connect your partner in <strong className={isDark ? 'text-zinc-200 underline' : 'text-zinc-900 underline'}>Settings</strong> for 1-click duo invites anytime</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* ========================================================================= */}
-            {/* DISTINCT SECTION 2: MULTIPLAYER & PARTY TABLES (GENERAL)                  */}
-            {/* ========================================================================= */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className={`text-base sm:text-lg font-bold tracking-tight ${
-                    isDark ? 'text-white' : 'text-zinc-900'
-                  }`}>
-                    Multiplayer & Party Tables
-                  </h2>
-                  <p className={`text-xs font-medium ${
-                    isDark ? 'text-zinc-400' : 'text-zinc-500'
-                  }`}>
-                    Host or join games with friends and family (2 to 4 players)
+                  {/* Subtitle */}
+                  <p className="text-sm sm:text-base text-zinc-500 font-medium max-w-lg leading-relaxed mb-8 sm:mb-10">
+                    Play real-time Ludo with your friends. Simple. Fun.
+                    <br className="hidden sm:inline" />
+                    No bots, just real players.
                   </p>
-                </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                  isDark ? 'bg-white/[0.04] border-white/[0.08] text-zinc-400' : 'bg-zinc-100 border-zinc-200 text-zinc-600'
-                }`}>
-                  Up to 4 Players
-                </span>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Card 1: Host Table */}
-                <div className={`border rounded-2xl p-6 shadow-sm flex flex-col justify-between transition-all ${
-                  isDark ? 'bg-[#14151b] border-white/[0.08]' : 'bg-white border-zinc-200'
-                }`}>
-                  <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
-                        <Crown className="w-5 h-5" />
-                      </div>
+                  {/* Error banner if any */}
+                  {lobbyError && (
+                    <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-semibold">
+                      {lobbyError}
+                    </div>
+                  )}
+
+                  {/* Two Pastel Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-xl">
+                    
+                    {/* Card 1: Create a Room */}
+                    <div className="bg-[#fff5f7] border border-[#fde4eb] rounded-[28px] p-6 sm:p-7 flex flex-col justify-between shadow-[0_4px_24px_rgba(238,29,73,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(238,29,73,0.08)]">
                       <div>
-                        <h3 className={`text-base font-bold tracking-tight ${
-                          isDark ? 'text-white' : 'text-zinc-900'
-                        }`}>
-                          Host Private Table
+                        {/* Icon Badge */}
+                        <div className="w-12 h-12 rounded-full bg-[#fee1e7] flex items-center justify-center text-[#ee1d49] mb-6">
+                          <Users className="w-5 h-5 fill-current" />
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-xl font-bold text-zinc-900 tracking-tight mb-2">
+                          Create a Room
                         </h3>
-                        <p className={`text-xs font-medium ${
-                          isDark ? 'text-zinc-400' : 'text-zinc-500'
-                        }`}>
-                          Create a new room and invite players
+
+                        {/* Description */}
+                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-8">
+                          Start a new game and invite your friends.
                         </p>
                       </div>
-                    </div>
 
-                    <div className="space-y-3 mt-5">
-                      <label className={`text-xs font-semibold block ${
-                        isDark ? 'text-zinc-300' : 'text-zinc-700'
-                      }`}>
-                        Select Table Size
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {([2, 3, 4] as const).map(count => (
-                          <button
-                            key={count}
-                            type="button"
-                            onClick={() => setSelectedMaxPlayers(count)}
-                            className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all border ${
-                              selectedMaxPlayers === count
-                                ? 'bg-rose-600 border-rose-500 text-white shadow-xs'
-                                : (isDark
-                                    ? 'bg-white/[0.03] border-white/[0.06] text-zinc-400 hover:text-white hover:bg-white/[0.06]'
-                                    : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100')
-                            }`}
-                          >
-                            {count} Players {count === 2 ? '(Duel)' : ''}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={`mt-6 pt-4 border-t ${isDark ? 'border-white/[0.06]' : 'border-zinc-100'}`}>
-                    <button
-                      type="button"
-                      onClick={handleCreateCustomRoom}
-                      disabled={isMatchmaking}
-                      className="w-full py-3.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-sm rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
-                    >
-                      <Crown className="w-4 h-4" />
-                      <span>Create {selectedMaxPlayers}-Player Room</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Card 2: Join with Code */}
-                <div className={`border rounded-2xl p-6 shadow-sm flex flex-col justify-between transition-all ${
-                  isDark ? 'bg-[#14151b] border-white/[0.08]' : 'bg-white border-zinc-200'
-                }`}>
-                  <div>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
-                        isDark ? 'bg-white/[0.05] border-white/[0.08] text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-600'
-                      }`}>
-                        <Lock className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className={`text-base font-bold tracking-tight ${
-                          isDark ? 'text-white' : 'text-zinc-900'
-                        }`}>
-                          Join with Code
-                        </h3>
-                        <p className={`text-xs font-medium ${
-                          isDark ? 'text-zinc-400' : 'text-zinc-500'
-                        }`}>
-                          Enter a room code shared by your friend
-                        </p>
-                      </div>
-                    </div>
-
-                    <form onSubmit={handleJoinWithCode} className="space-y-3 mt-5">
-                      <label className={`text-xs font-semibold block ${
-                        isDark ? 'text-zinc-300' : 'text-zinc-700'
-                      }`}>
-                        Room Code
-                      </label>
-                      <input
-                        type="text"
-                        value={roomCodeInput}
-                        onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
-                        placeholder="E.G. LUDO-8F72"
-                        className={`w-full px-4 py-3 rounded-xl text-sm font-mono uppercase tracking-widest transition-all focus:outline-none focus:ring-1 focus:ring-rose-500 ${
-                          isDark
-                            ? 'bg-[#0f1015] border border-white/[0.1] text-white placeholder-zinc-500 focus:border-rose-500'
-                            : 'bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-rose-500 focus:bg-white'
-                        }`}
-                      />
+                      {/* Button */}
                       <button
-                        type="submit"
-                        disabled={isJoiningRoom || !roomCodeInput.trim()}
-                        className={`w-full mt-4 py-3.5 border font-semibold text-sm rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${
-                          isDark
-                            ? 'bg-white/[0.08] hover:bg-white/[0.12] border-white/[0.1] text-white'
-                            : 'bg-zinc-900 hover:bg-zinc-800 border-zinc-900 text-white'
-                        }`}
+                        type="button"
+                        onClick={() => setShowCreateModal(true)}
+                        className="w-full py-3.5 px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        <Play className="w-4 h-4 fill-current text-white" />
-                        <span>{isJoiningRoom ? 'Joining...' : 'Join Table'}</span>
+                        <span className="text-lg leading-none font-bold">+</span>
+                        <span>Create Room</span>
                       </button>
-                    </form>
+                    </div>
+
+                    {/* Card 2: Join a Room */}
+                    <div className="bg-[#f5f9ff] border border-[#e3eeff] rounded-[28px] p-6 sm:p-7 flex flex-col justify-between shadow-[0_4px_24px_rgba(24,93,242,0.04)] transition-all hover:shadow-[0_8px_30px_rgba(24,93,242,0.08)]">
+                      <div>
+                        {/* Icon Badge */}
+                        <div className="w-12 h-12 rounded-full bg-[#dce8fe] flex items-center justify-center text-[#185df2] mb-6">
+                          <svg className="w-5 h-5 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                          </svg>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-xl font-bold text-zinc-900 tracking-tight mb-2">
+                          Join a Room
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-xs sm:text-[13px] text-zinc-500 font-normal leading-relaxed mb-8">
+                          Enter a room code to join your friend's game.
+                        </p>
+                      </div>
+
+                      {/* Button */}
+                      <button
+                        type="button"
+                        onClick={() => setShowJoinModal(true)}
+                        className="w-full py-3.5 px-5 bg-[#185df2] hover:bg-[#144ecc] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(24,93,242,0.25)] hover:shadow-[0_6px_20px_rgba(24,93,242,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <span className="text-base font-bold">→</span>
+                        <span>Join Room</span>
+                      </button>
+                    </div>
+
                   </div>
 
-                  <div className={`mt-6 pt-4 border-t text-center ${isDark ? 'border-white/[0.06]' : 'border-zinc-100'}`}>
-                    <span className="text-xs text-zinc-500">
-                      Need help? Click the <button type="button" onClick={() => setShowRulesModal(true)} className="text-rose-500 underline hover:text-rose-400">Rules</button> guide above.
-                    </span>
+                </div>
+
+                {/* Right Column: 3D Isometric Board Graphic with Accents */}
+                <div className="lg:col-span-5 flex items-center justify-center relative">
+                  <div className="relative w-full max-w-[440px] sm:max-w-[480px] lg:max-w-[520px] aspect-square flex items-center justify-center">
+                    <img
+                      src="/images/ludo-3d-board.png"
+                      alt="Ludo Arena 3D Board"
+                      className="w-full h-auto object-contain drop-shadow-xl select-none pointer-events-none transform hover:scale-[1.02] transition-transform duration-300"
+                    />
                   </div>
                 </div>
+
               </div>
             </div>
 
-            {/* Quick Rules Reference Strip */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className={`p-3.5 rounded-xl border flex flex-col gap-1.5 transition ${
-                isDark ? 'bg-[#14151b] border-white/[0.06]' : 'bg-white border-zinc-200 shadow-xs'
-              }`}>
-                <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
-                  <Dice5 className="w-4 h-4" />
-                </div>
-                <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>Roll a 6</span>
-                <p className={`text-[11px] leading-tight ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Unlocks pawns from yard onto the board track.</p>
+            {/* Bottom Row / Footer Decoration */}
+            <div className="w-full max-w-7xl mx-auto px-6 sm:px-12 lg:px-16 pb-8 pt-4 flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+              {/* Bottom Left: Handwritten flourish */}
+              <div className="flex items-center">
+                <img
+                  src="/images/ludo-flourish.png"
+                  alt="Good Games, Brighter Friendships"
+                  className="h-20 sm:h-24 w-auto object-contain select-none pointer-events-none"
+                />
               </div>
 
-              <div className={`p-3.5 rounded-xl border flex flex-col gap-1.5 transition ${
-                isDark ? 'bg-[#14151b] border-white/[0.06]' : 'bg-white border-zinc-200 shadow-xs'
-              }`}>
-                <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
-                  <RefreshCw className="w-4 h-4" />
-                </div>
-                <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>Bonus Turn</span>
-                <p className={`text-[11px] leading-tight ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Rolling a 6 or capturing grants an extra roll.</p>
-              </div>
-
-              <div className={`p-3.5 rounded-xl border flex flex-col gap-1.5 transition ${
-                isDark ? 'bg-[#14151b] border-white/[0.06]' : 'bg-white border-zinc-200 shadow-xs'
-              }`}>
-                <div className="w-7 h-7 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
-                  <Zap className="w-4 h-4" />
-                </div>
-                <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>Capture Rivals</span>
-                <p className={`text-[11px] leading-tight ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Land on opponents to send them back home.</p>
-              </div>
-
-              <div className={`p-3.5 rounded-xl border flex flex-col gap-1.5 transition ${
-                isDark ? 'bg-[#14151b] border-white/[0.06]' : 'bg-white border-zinc-200 shadow-xs'
-              }`}>
-                <div className="w-7 h-7 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-500">
-                  <Star className="w-4 h-4" />
-                </div>
-                <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-zinc-900'}`}>Safe Zones</span>
-                <p className={`text-[11px] leading-tight ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>Star tiles protect pawns from being captured.</p>
+              {/* Bottom Right: PLAY • CONNECT • REPEAT */}
+              <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.3em] text-zinc-400 uppercase">
+                PLAY • CONNECT • REPEAT
               </div>
             </div>
           </div>
         )}
       </main>
+
+
+      {/* CREATE ROOM MODAL */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-zinc-200 rounded-[28px] p-6 sm:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative">
+            <button
+              type="button"
+              onClick={() => setShowCreateModal(false)}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-2xl bg-[#fee1e7] flex items-center justify-center text-[#ee1d49]">
+                <Users className="w-5 h-5 fill-current" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-zinc-900 tracking-tight">
+                  Create a Room
+                </h3>
+                <p className="text-xs text-zinc-500 font-medium">
+                  Select players and generate your instant table
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-zinc-700 block mb-2">
+                  Number of Players
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {([2, 3, 4] as const).map(count => (
+                    <button
+                      key={count}
+                      type="button"
+                      onClick={() => setSelectedMaxPlayers(count)}
+                      className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all border ${
+                        selectedMaxPlayers === count
+                          ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
+                          : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                      }`}
+                    >
+                      {count} Players {count === 2 ? '(Duel)' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {partner && (
+                <div className="p-3.5 bg-rose-50/70 border border-rose-100 rounded-2xl flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                    <span className="text-xs font-semibold text-zinc-800">
+                      Partner: {partner.displayName}
+                    </span>
+                  </div>
+                  {partner.online && (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      Online
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowCreateModal(false);
+                  await handleCreateCustomRoom();
+                }}
+                disabled={isMatchmaking}
+                className="w-full py-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer mt-2"
+              >
+                <span>{isMatchmaking ? 'Setting up Room...' : `Create ${selectedMaxPlayers}-Player Room`}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* JOIN ROOM MODAL */}
+      {showJoinModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-zinc-200 rounded-[28px] p-6 sm:p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in-95 duration-150 relative">
+            <button
+              type="button"
+              onClick={() => setShowJoinModal(false)}
+              className="absolute top-5 right-5 p-2 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-11 h-11 rounded-2xl bg-[#dce8fe] flex items-center justify-center text-[#185df2]">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-zinc-900 tracking-tight">
+                  Join a Room
+                </h3>
+                <p className="text-xs text-zinc-500 font-medium">
+                  Enter a room code or your friend's invite code
+                </p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await handleJoinWithCode(e);
+                setShowJoinModal(false);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="text-xs font-semibold text-zinc-700 block mb-2">
+                  Room or Duel Code
+                </label>
+                <input
+                  type="text"
+                  value={roomCodeInput}
+                  onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
+                  placeholder="E.G. LUDO-8F72"
+                  autoFocus
+                  className="w-full px-4 py-3.5 rounded-2xl text-base font-mono uppercase tracking-widest bg-zinc-50 border border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-[#185df2] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#185df2] transition-all text-center"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isJoiningRoom || !roomCodeInput.trim()}
+                className="w-full py-4 bg-[#185df2] hover:bg-[#144ecc] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(24,93,242,0.25)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>{isJoiningRoom ? 'Connecting...' : 'Join Game Now'}</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
 
       {/* RULES MODAL */}
       {showRulesModal && (
