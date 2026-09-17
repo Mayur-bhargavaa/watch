@@ -886,6 +886,9 @@ function FourInARowContent() {
     guestCameraOn &&
     guestActiveStream &&
     guestActiveStream.getVideoTracks().length > 0 &&
+    guestActiveStream.getVideoTracks().some(t => t.enabled && t.readyState !== 'ended')
+  );
+
   return (
     <div className={`flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
       roomParam ? 'min-h-screen overflow-y-auto' : 'h-screen w-screen overflow-hidden'
