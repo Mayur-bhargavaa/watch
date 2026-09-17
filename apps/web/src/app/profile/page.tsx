@@ -555,7 +555,7 @@ function ProfileContent() {
               <div className="relative group">
                 <div className="w-28 h-28 rounded-full overflow-hidden bg-slate-100 dark:bg-zinc-900 border-4 border-slate-200 dark:border-white/10 shadow-md flex items-center justify-center">
                   <img
-                    src={avatarUrl || session.user.avatarUrl || '/avatars/standing_heart_transparent@2x.png'}
+                    src={avatarUrl || session.user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(session.user.displayName || 'watchfan')}&backgroundColor=d2281e&radius=20`}
                     alt={displayName || 'Persona'}
                     className="w-full h-full object-cover object-center"
                   />

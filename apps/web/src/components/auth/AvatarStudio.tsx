@@ -1,18 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import {
-  Sparkles,
-  Check,
-  Glasses,
-  Palette,
-  Shirt,
-  Scissors,
-  User,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { Check, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 
 export interface AvatarConfig {
   seed: string;
@@ -33,212 +22,120 @@ interface AvatarStudioProps {
   onChange: (avatarUrl: string) => void;
 }
 
-// 3D Standing Clay/Plush Companions — all available looks
-export const STANDING_COMPANIONS = [
-  {
-    id: 'standing_heart',
-    name: 'Standing Heart Plush',
-    tag: '3D Soft Plush with Glowing Heart & Folded Arms',
-    emoji: '💗',
-    url: '/avatars/standing_heart.png',
-    preview: '/avatars/standing_heart.png'
-  },
-  {
-    id: 'standing_cinema',
-    name: 'On-Air Cinema Host',
-    tag: '3D Plush with Studio Headphones & Folded Arms',
-    emoji: '🎙️',
-    url: '/avatars/standing_cinema.jpg',
-    preview: '/avatars/standing_cinema.jpg'
-  },
-  {
-    id: 'standing_star',
-    name: 'Golden Star Persona',
-    tag: '3D Plush with Shining Star & Warm Rim Light',
-    emoji: '⭐',
-    url: '/avatars/standing_star.jpg',
-    preview: '/avatars/standing_star.jpg'
-  },
-  {
-    id: 'standing_blush',
-    name: 'Blushing Companion',
-    tag: '3D Plush with Rosy Cheeks & Glowing Heart',
-    emoji: '🌸',
-    url: '/avatars/standing_blush.jpg',
-    preview: '/avatars/standing_blush.jpg'
-  },
-  {
-    id: 'standing_heart_cutout',
-    name: 'Heart Cutout Edition',
-    tag: 'Transparent Cutout with Heart Glow Effect',
-    emoji: '❤️',
-    url: '/avatars/standing_heart_cutout.png',
-    preview: '/avatars/standing_heart_cutout.png'
-  },
-  {
-    id: 'standing_heart_transparent',
-    name: 'Crystal Heart Plush',
-    tag: 'High-Res Crystal Clear Heart Companion',
-    emoji: '💎',
-    url: '/avatars/standing_heart_transparent.png',
-    preview: '/avatars/standing_heart_transparent.png'
-  }
-];
+// ─── Data ────────────────────────────────────────────────────────────────────
 
-// Aesthetic Palettes
 const SKIN_TONES = [
-  { id: 'ffd1b1', name: 'Fair', hex: '#ffd1b1' },
-  { id: 'f8d25c', name: 'Golden', hex: '#f8d25c' },
-  { id: 'edb98a', name: 'Warm', hex: '#edb98a' },
-  { id: 'd08b5b', name: 'Caramel', hex: '#d08b5b' },
-  { id: 'ae5d29', name: 'Deep Bronze', hex: '#ae5d29' },
-  { id: '614335', name: 'Rich Espresso', hex: '#614335' }
+  { id: 'ffd1b1', name: 'Fair',         hex: '#ffd1b1' },
+  { id: 'f8d25c', name: 'Golden',       hex: '#f8d25c' },
+  { id: 'edb98a', name: 'Warm Beige',   hex: '#edb98a' },
+  { id: 'd08b5b', name: 'Caramel',      hex: '#d08b5b' },
+  { id: 'ae5d29', name: 'Bronze',       hex: '#ae5d29' },
+  { id: '614335', name: 'Espresso',     hex: '#614335' },
 ];
 
 const HAIR_STYLES = [
-  { id: 'shortFlat', name: 'Classic Short' },
-  { id: 'shortCurly', name: 'Curly Fade' },
-  { id: 'shortRound', name: 'Crew Cut' },
-  { id: 'shortWaved', name: 'Wavy Crop' },
-  { id: 'bob', name: 'Sleek Bob' },
-  { id: 'bun', name: 'Top Bun' },
-  { id: 'straight01', name: 'Long Straight' },
-  { id: 'curvy', name: 'Wavy Flow' },
-  { id: 'dreads01', name: 'Dreadlocks' },
-  { id: 'fro', name: 'Afro Puff' },
-  { id: 'winterHat02', name: 'Beanie' }
+  { id: 'shortFlat',    name: 'Classic Short',   emoji: '💇' },
+  { id: 'shortCurly',   name: 'Curly Fade',      emoji: '🌀' },
+  { id: 'shortRound',   name: 'Crew Cut',         emoji: '✂️' },
+  { id: 'shortWaved',   name: 'Wavy Crop',        emoji: '🌊' },
+  { id: 'bob',          name: 'Sleek Bob',        emoji: '💁' },
+  { id: 'bun',          name: 'Top Bun',          emoji: '🍡' },
+  { id: 'straight01',   name: 'Long Straight',    emoji: '💆' },
+  { id: 'curvy',        name: 'Wavy Flow',        emoji: '〰️' },
+  { id: 'dreads01',     name: 'Dreadlocks',       emoji: '🎵' },
+  { id: 'fro',          name: 'Afro Puff',        emoji: '⭕' },
+  { id: 'winterHat02',  name: 'Beanie',           emoji: '🧢' },
+  { id: 'hat',          name: 'Cap',              emoji: '🎩' },
 ];
 
 const HAIR_COLORS = [
-  { id: '2c1b18', name: 'Jet Black', hex: '#2c1b18' },
-  { id: '4a312c', name: 'Dark Brunette', hex: '#4a312c' },
-  { id: '724133', name: 'Warm Chestnut', hex: '#724133' },
-  { id: 'b58143', name: 'Honey Blonde', hex: '#b58143' },
-  { id: 'd6b370', name: 'Golden Blonde', hex: '#d6b370' },
-  { id: 'c93305', name: 'Auburn Red', hex: '#c93305' },
-  { id: 'e8e1e1', name: 'Platinum Silver', hex: '#cbd5e1' }
+  { id: '2c1b18', name: 'Jet Black',       hex: '#2c1b18' },
+  { id: '4a312c', name: 'Dark Brown',      hex: '#4a312c' },
+  { id: '724133', name: 'Chestnut',        hex: '#724133' },
+  { id: 'b58143', name: 'Honey Blonde',   hex: '#b58143' },
+  { id: 'd6b370', name: 'Golden Blonde',  hex: '#d6b370' },
+  { id: 'c93305', name: 'Auburn Red',     hex: '#c93305' },
+  { id: 'e8e1e1', name: 'Platinum',       hex: '#cbd5e1' },
+  { id: 'a55728', name: 'Copper',         hex: '#a55728' },
 ];
 
 const ACCESSORIES = [
-  { id: 'none', name: 'None' },
-  { id: 'round', name: 'Round Glasses' },
-  { id: 'prescription02', name: 'Modern Frames' },
-  { id: 'sunglasses', name: 'Cool Sunglasses' },
-  { id: 'wayfarers', name: 'Wayfarer Shades' }
+  { id: 'none',           name: 'None',           emoji: '🚫' },
+  { id: 'round',          name: 'Round Glasses',  emoji: '🔵' },
+  { id: 'prescription02', name: 'Modern Frames',  emoji: '👓' },
+  { id: 'sunglasses',     name: 'Sunglasses',     emoji: '🕶️' },
+  { id: 'wayfarers',      name: 'Wayfarers',      emoji: '😎' },
+  { id: 'kurt',           name: 'Square Frames',  emoji: '🟦' },
 ];
 
 const CLOTHING_OPTIONS = [
-  { id: 'hoodie', name: 'Comfy Hoodie' },
-  { id: 'graphicShirt', name: 'Cinema Tee' },
-  { id: 'shirtCrewNeck', name: 'Crewneck' },
-  { id: 'blazerAndShirt', name: 'Chic Blazer' },
-  { id: 'collarAndSweater', name: 'Smart Sweater' }
+  { id: 'hoodie',           name: 'Hoodie',        emoji: '🧥' },
+  { id: 'graphicShirt',     name: 'Graphic Tee',   emoji: '👕' },
+  { id: 'shirtCrewNeck',    name: 'Crewneck',      emoji: '👔' },
+  { id: 'blazerAndShirt',   name: 'Blazer',        emoji: '🕴️' },
+  { id: 'collarAndSweater', name: 'Sweater',       emoji: '🧶' },
+  { id: 'overall',          name: 'Overalls',      emoji: '🥼' },
 ];
 
-const BG_PALETTES = [
-  { id: 'd2281e', name: 'Watch Red', hex: '#d2281e' },
-  { id: '09090b', name: 'Midnight', hex: '#09090b' },
+const CLOTHES_COLORS = [
+  { id: 'd2281e', name: 'Watch Red',    hex: '#d2281e' },
+  { id: '25557c', name: 'Ocean Blue',   hex: '#25557c' },
+  { id: '09090b', name: 'Midnight',     hex: '#09090b' },
+  { id: '4338ca', name: 'Indigo',       hex: '#4338ca' },
+  { id: '047857', name: 'Emerald',      hex: '#047857' },
+  { id: 'db2777', name: 'Rose',         hex: '#db2777' },
+  { id: 'd97706', name: 'Amber',        hex: '#d97706' },
+  { id: 'e6e6e6', name: 'Light Grey',   hex: '#e6e6e6' },
+  { id: '929598', name: 'Slate Grey',   hex: '#929598' },
+  { id: 'ff5c5c', name: 'Coral',        hex: '#ff5c5c' },
+];
+
+const BG_COLORS = [
+  { id: 'd2281e', name: 'Watch Red',    hex: '#d2281e' },
+  { id: '09090b', name: 'Midnight',     hex: '#09090b' },
   { id: '4338ca', name: 'Indigo Night', hex: '#4338ca' },
-  { id: '047857', name: 'Emerald', hex: '#047857' },
-  { id: 'b91c1c', name: 'Crimson', hex: '#b91c1c' },
-  { id: 'db2777', name: 'Sunset Rose', hex: '#db2777' },
-  { id: 'd97706', name: 'Warm Amber', hex: '#d97706' }
+  { id: '047857', name: 'Emerald',      hex: '#047857' },
+  { id: 'db2777', name: 'Sunset Rose',  hex: '#db2777' },
+  { id: 'd97706', name: 'Amber',        hex: '#d97706' },
+  { id: '1e3a5f', name: 'Navy',         hex: '#1e3a5f' },
+  { id: '2d2d2d', name: 'Charcoal',     hex: '#2d2d2d' },
 ];
 
-const PRESETS: Array<{ name: string; tag: string; config: Partial<AvatarConfig> }> = [
-  {
-    name: 'The Cinephile',
-    tag: 'Popcorn Ready',
-    config: {
-      skinColor: 'ffd1b1',
-      top: 'shortWaved',
-      hairColor: '2c1b18',
-      accessories: 'round',
-      clothing: 'hoodie',
-      clothesColor: 'd2281e',
-      eyes: 'happy',
-      mouth: 'smile',
-      bgColor: '09090b'
-    }
-  },
-  {
-    name: 'The Gamer',
-    tag: 'Ready Player 1',
-    config: {
-      skinColor: 'f8d25c',
-      top: 'shortCurly',
-      hairColor: '4a312c',
-      accessories: 'wayfarers',
-      clothing: 'graphicShirt',
-      clothesColor: '25557c',
-      eyes: 'wink',
-      mouth: 'smile',
-      bgColor: 'd2281e'
-    }
-  },
-  {
-    name: 'Cozy Partner',
-    tag: 'Movie Night',
-    config: {
-      skinColor: 'edb98a',
-      top: 'bun',
-      hairColor: '724133',
-      accessories: 'none',
-      clothing: 'collarAndSweater',
-      clothesColor: 'e6e6e6',
-      eyes: 'happy',
-      mouth: 'smile',
-      bgColor: '4338ca'
-    }
-  },
-  {
-    name: 'Cool Shades',
-    tag: 'VIP Lounge',
-    config: {
-      skinColor: 'ae5d29',
-      top: 'shortFlat',
-      hairColor: '2c1b18',
-      accessories: 'sunglasses',
-      clothing: 'blazerAndShirt',
-      clothesColor: '262e33',
-      eyes: 'default',
-      mouth: 'serious',
-      bgColor: '047857'
-    }
-  },
-  {
-    name: 'Casual Chill',
-    tag: 'Weekend Vibe',
-    config: {
-      skinColor: 'd08b5b',
-      top: 'straight01',
-      hairColor: 'c93305',
-      accessories: 'prescription02',
-      clothing: 'shirtCrewNeck',
-      clothesColor: 'ff5c5c',
-      eyes: 'happy',
-      mouth: 'smile',
-      bgColor: 'db2777'
-    }
-  },
-  {
-    name: 'Night Owl',
-    tag: 'Midnight Streamer',
-    config: {
-      skinColor: '614335',
-      top: 'winterHat02',
-      hairColor: '2c1b18',
-      accessories: 'none',
-      clothing: 'hoodie',
-      clothesColor: '929598',
-      eyes: 'wink',
-      mouth: 'twinkle',
-      bgColor: 'd97706'
-    }
-  }
+const EYE_STYLES = [
+  { id: 'happy',     name: 'Happy',     emoji: '😊' },
+  { id: 'wink',      name: 'Wink',      emoji: '😉' },
+  { id: 'default',   name: 'Default',   emoji: '🙂' },
+  { id: 'surprised', name: 'Surprised', emoji: '😮' },
+  { id: 'closed',    name: 'Closed',    emoji: '😌' },
+  { id: 'hearts',    name: 'Hearts',    emoji: '😍' },
 ];
 
-function buildDiceBearUrl(cfg: AvatarConfig): string {
+const MOUTH_STYLES = [
+  { id: 'smile',   name: 'Smile',   emoji: '😁' },
+  { id: 'twinkle', name: 'Twinkle', emoji: '✨' },
+  { id: 'default', name: 'Calm',    emoji: '😐' },
+  { id: 'serious', name: 'Serious', emoji: '😑' },
+  { id: 'tongue',  name: 'Tongue',  emoji: '😛' },
+];
+
+// Steps for the step-by-step wizard
+const STEPS = [
+  { id: 'skin',       label: 'Skin',       emoji: '🎨' },
+  { id: 'hair',       label: 'Hair',       emoji: '💇' },
+  { id: 'haircolor',  label: 'Hair Color', emoji: '🎀' },
+  { id: 'eyes',       label: 'Eyes',       emoji: '👁️' },
+  { id: 'mouth',      label: 'Mouth',      emoji: '😊' },
+  { id: 'glasses',    label: 'Glasses',    emoji: '👓' },
+  { id: 'outfit',     label: 'Outfit',     emoji: '👕' },
+  { id: 'color',      label: 'Color',      emoji: '🎨' },
+  { id: 'bg',         label: 'Background', emoji: '🌈' },
+] as const;
+
+type StepId = typeof STEPS[number]['id'];
+
+// ─── URL builder ─────────────────────────────────────────────────────────────
+
+function buildAvatarUrl(cfg: AvatarConfig): string {
   const params = new URLSearchParams();
   params.set('seed', cfg.seed);
   params.set('skinColor', cfg.skinColor);
@@ -255,559 +152,440 @@ function buildDiceBearUrl(cfg: AvatarConfig): string {
   params.set('eyes', cfg.eyes || 'happy');
   params.set('mouth', cfg.mouth || 'smile');
   params.set('backgroundColor', cfg.bgColor);
-  params.set('radius', '0');
-
+  params.set('radius', '20');
   return `https://api.dicebear.com/7.x/avataaars/svg?${params.toString()}`;
 }
 
+const DEFAULT_CONFIG: AvatarConfig = {
+  seed: 'watchfan',
+  skinColor: 'f8d25c',
+  top: 'shortWaved',
+  hairColor: '2c1b18',
+  accessories: 'round',
+  clothing: 'hoodie',
+  clothesColor: 'd2281e',
+  eyes: 'wink',
+  mouth: 'smile',
+  bgColor: 'd2281e',
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps) {
-  // Start on 3D standing companions by default
-  const isDirectStanding = Boolean(value && value.startsWith('/avatars/'));
-  const [activeTab, setActiveTab] = useState<'standing' | 'appearance' | 'style' | 'presets'>(
-    'standing'
-  );
-
-  const [standingUrl, setStandingUrl] = useState<string>(
-    isDirectStanding ? value : '/avatars/standing_heart.png'
-  );
-
-  const [useStanding, setUseStanding] = useState<boolean>(isDirectStanding || !value);
-
-  // Carousel index for step-by-step browsing of 3D looks
-  const initialIdx = isDirectStanding
-    ? Math.max(0, STANDING_COMPANIONS.findIndex((c) => c.url === value))
-    : 0;
-  const [carouselIndex, setCarouselIndex] = useState<number>(initialIdx);
+  const [step, setStep] = useState<number>(0);
 
   const [config, setConfig] = useState<AvatarConfig>(() => {
+    // If existing value is a DiceBear URL, keep it. Otherwise use defaults.
+    if (value && value.startsWith('/avatars/')) {
+      // Was a standing sticker — reset to bitmoji default
+      return {
+        ...DEFAULT_CONFIG,
+        seed: displayName ? displayName.toLowerCase().replace(/\s+/g, '') : 'watchfan',
+      };
+    }
     return {
+      ...DEFAULT_CONFIG,
       seed: displayName ? displayName.toLowerCase().replace(/\s+/g, '') : 'watchfan',
-      skinColor: 'edb98a',
-      top: 'shortWaved',
-      hairColor: '2c1b18',
-      accessories: 'none',
-      clothing: 'hoodie',
-      clothesColor: 'd2281e',
-      eyes: 'happy',
-      mouth: 'smile',
-      bgColor: 'd2281e'
     };
   });
 
-  const generatedUrl = useMemo(() => {
-    return buildDiceBearUrl(config);
-  }, [config]);
+  const avatarUrl = useMemo(() => buildAvatarUrl(config), [config]);
 
-  const activeAvatarUrl = useStanding ? standingUrl : generatedUrl;
-
-  // Sync to parent
+  // Sync to parent on every change
   React.useEffect(() => {
-    onChange(activeAvatarUrl);
-  }, [activeAvatarUrl, onChange]);
+    onChange(avatarUrl);
+  }, [avatarUrl, onChange]);
 
-  const handleSelectStanding = (url: string) => {
-    setStandingUrl(url);
-    setUseStanding(true);
+  const update = useCallback(<K extends keyof AvatarConfig>(key: K, val: AvatarConfig[K]) => {
+    setConfig(prev => ({ ...prev, [key]: val }));
+  }, []);
+
+  const handleRandomize = () => {
+    const rand = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+    setConfig({
+      seed: `watch_${Math.random().toString(36).substring(2, 7)}`,
+      skinColor: rand(SKIN_TONES).id,
+      top: rand(HAIR_STYLES).id,
+      hairColor: rand(HAIR_COLORS).id,
+      accessories: rand(ACCESSORIES).id,
+      clothing: rand(CLOTHING_OPTIONS).id,
+      clothesColor: rand(CLOTHES_COLORS).id,
+      eyes: rand(EYE_STYLES).id,
+      mouth: rand(MOUTH_STYLES).id,
+      bgColor: rand(BG_COLORS).id,
+    });
   };
 
-  // Carousel navigation
-  const handleCarouselPrev = () => {
-    setCarouselIndex((prev) => (prev - 1 + STANDING_COMPANIONS.length) % STANDING_COMPANIONS.length);
-  };
-  const handleCarouselNext = () => {
-    setCarouselIndex((prev) => (prev + 1) % STANDING_COMPANIONS.length);
-  };
-
-  const handleApplyPreset = (presetConfig: Partial<AvatarConfig>) => {
-    setUseStanding(false);
-    setConfig(prev => ({
-      ...prev,
-      ...presetConfig
-    }));
-  };
+  const currentStep = STEPS[step];
+  const isFirst = step === 0;
+  const isLast = step === STEPS.length - 1;
 
   return (
     <div className="space-y-5">
-      {/* Studio Header & Hero Standing Preview */}
-      <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-3xl bg-zinc-50 border border-zinc-200">
-        
-        {/* 3D Standing Stage Preview with Bottom Counter Bar */}
-        <div className="relative group shrink-0">
-          <div className="w-24 h-28 sm:w-28 sm:h-32 rounded-t-3xl rounded-b-2xl border-2 border-[#d2281e]/60 shadow-xl overflow-hidden bg-zinc-950 flex items-end justify-center relative">
-            <img
-              src={activeAvatarUrl}
-              alt="Avatar Persona Preview"
-              className="w-full h-full object-cover object-bottom transition-transform duration-300 group-hover:scale-105"
-            />
-            {/* Ledge / Bar bottom counter matching reference image */}
-            <div className="absolute bottom-0 inset-x-0 h-1.5 bg-[#d2281e] shadow-[0_0_10px_rgba(210,40,30,0.9)]" />
-          </div>
 
-          {/* Selected indicator */}
-          {useStanding && (
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#d2281e] text-white rounded-full shadow-lg flex items-center justify-center">
-              <Check className="w-3.5 h-3.5" />
-            </div>
-          )}
+      {/* ── Live Avatar Preview ── */}
+      <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-3xl bg-zinc-50 border border-zinc-200">
+        {/* Avatar */}
+        <div className="relative shrink-0">
+          <div className="w-28 h-28 rounded-3xl overflow-hidden shadow-xl border-2 border-[#d2281e]/50">
+            <img
+              key={avatarUrl}
+              src={avatarUrl}
+              alt="Your Bitmoji Avatar"
+              className="w-full h-full object-cover transition-all duration-300"
+            />
+          </div>
+          {/* Randomize button */}
+          <button
+            type="button"
+            onClick={handleRandomize}
+            title="Randomize everything"
+            className="absolute -bottom-1.5 -right-1.5 p-2 rounded-full bg-[#d2281e] text-white shadow-lg hover:bg-[#b82017] active:scale-95 transition-all"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
         </div>
 
-        {/* Persona Identity Badge & Controls */}
-        <div className="flex-1 text-center sm:text-left space-y-1.5">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d2281e]/10 text-[#d2281e] text-[10.5px] font-black uppercase tracking-wider">
-            <Sparkles className="w-3 h-3" />
-            <span>3D Standing Persona Stage</span>
+        {/* Info */}
+        <div className="flex-1 text-center sm:text-left space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#d2281e]/10 text-[#d2281e] text-[10px] font-black uppercase tracking-wider">
+            ✨ Your Bitmoji
           </div>
-
-          <h3 className="text-sm sm:text-base font-black text-zinc-950 tracking-tight">
-            {displayName ? `${displayName}'s Standing Avatar` : 'Your Standing Cinema Avatar'}
+          <h3 className="text-base font-black text-zinc-900 tracking-tight">
+            {displayName ? `${displayName}'s Avatar` : 'Your Custom Avatar'}
           </h3>
-
-          {/* Show currently selected look name always */}
-          {useStanding ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-[#d2281e]">✓ Selected:</span>
-              <span className="text-[11px] text-zinc-700 font-semibold">
-                {STANDING_COMPANIONS.find((c) => c.url === standingUrl)?.name ?? 'Custom Look'}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-[#d2281e]">✓ Selected:</span>
-              <span className="text-[11px] text-zinc-700 font-semibold">Custom Avatar</span>
-            </div>
-          )}
-
           <p className="text-[11px] text-zinc-400 leading-relaxed">
-            Browse all looks using ← → below and click <strong>Select This Look</strong>.
+            Customize skin, hair, eyes, outfit and more below. Your avatar updates live!
+          </p>
+          <p className="text-[10px] text-zinc-500 font-semibold">
+            Step {step + 1} of {STEPS.length} — <span className="text-[#d2281e]">{currentStep.emoji} {currentStep.label}</span>
           </p>
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex rounded-2xl bg-zinc-100 p-1 border border-zinc-200 text-xs font-bold overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('standing')}
-          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
-            activeTab === 'standing'
-              ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
-              : 'text-zinc-500 hover:text-zinc-900'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#d2281e]" />
-          <span>3D Standing Characters</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setActiveTab('appearance'); setUseStanding(false); }}
-          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
-            activeTab === 'appearance'
-              ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
-              : 'text-zinc-500 hover:text-zinc-900'
-          }`}
-        >
-          <Scissors className="w-3.5 h-3.5 text-[#d2281e]" />
-          <span>Hair & Skin</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setActiveTab('style'); setUseStanding(false); }}
-          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
-            activeTab === 'style'
-              ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
-              : 'text-zinc-500 hover:text-zinc-900'
-          }`}
-        >
-          <Shirt className="w-3.5 h-3.5 text-[#d2281e]" />
-          <span>Style & Mood</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => { setActiveTab('presets'); setUseStanding(false); }}
-          className={`flex-1 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition shrink-0 ${
-            activeTab === 'presets'
-              ? 'bg-white text-zinc-950 shadow-sm border border-zinc-200/80'
-              : 'text-zinc-500 hover:text-zinc-900'
-          }`}
-        >
-          <Palette className="w-3.5 h-3.5 text-[#d2281e]" />
-          <span>Presets</span>
-        </button>
+      {/* ── Step Progress Dots ── */}
+      <div className="flex items-center justify-center gap-1.5 flex-wrap">
+        {STEPS.map((s, i) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setStep(i)}
+            title={s.label}
+            className={`transition-all rounded-full font-bold text-[9px] flex items-center justify-center
+              ${i === step
+                ? 'w-8 h-5 bg-[#d2281e] text-white px-1'
+                : i < step
+                ? 'w-2 h-2 bg-[#d2281e]/60'
+                : 'w-2 h-2 bg-zinc-200 hover:bg-zinc-300'
+              }`}
+          >
+            {i === step ? s.emoji : ''}
+          </button>
+        ))}
       </div>
 
-      {/* Tab 1: 3D STANDING COMPANIONS — Full Carousel */}
-      {activeTab === 'standing' && (() => {
-        const comp = STANDING_COMPANIONS[carouselIndex];
-        const isSelected = useStanding && standingUrl === comp.url;
-        return (
-          <div className="space-y-4">
-            {/* Step counter */}
-            <div className="flex items-center justify-center gap-2">
-              {STANDING_COMPANIONS.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setCarouselIndex(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    i === carouselIndex
-                      ? 'bg-[#d2281e] scale-125'
-                      : 'bg-zinc-300 hover:bg-zinc-400'
-                  }`}
-                />
-              ))}
-              <span className="text-[10px] text-zinc-400 font-mono ml-1">
-                {carouselIndex + 1}/{STANDING_COMPANIONS.length}
-              </span>
-            </div>
+      {/* ── Step Content ── */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-4 min-h-[180px]">
+        <h4 className="text-xs font-black text-zinc-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <span className="text-base">{currentStep.emoji}</span>
+          {currentStep.label}
+        </h4>
 
-            {/* Large carousel card */}
-            <div className={`relative rounded-3xl border-2 overflow-hidden transition-all ${
-              isSelected
-                ? 'border-[#d2281e] shadow-xl ring-4 ring-[#d2281e]/20'
-                : 'border-zinc-200 shadow-md'
-            }`}>
-              {/* Avatar image — large */}
-              <div className="bg-zinc-950 flex items-end justify-center" style={{ height: 220 }}>
-                <img
-                  src={comp.preview}
-                  alt={comp.name}
-                  className="h-full w-full object-cover object-bottom transition-all duration-300"
-                />
-                <div className="absolute bottom-0 inset-x-0 h-2 bg-[#d2281e] shadow-[0_0_12px_rgba(210,40,30,0.9)]" />
-              </div>
-
-              {/* Selected badge overlay */}
-              {isSelected && (
-                <div className="absolute top-3 right-3 flex items-center gap-1 bg-[#d2281e] text-white text-[10px] font-black px-2 py-1 rounded-full shadow-lg">
-                  <Check className="w-3 h-3" />
-                  <span>Selected</span>
-                </div>
-              )}
-
-              {/* Info strip */}
-              <div className="bg-white px-4 py-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-black text-zinc-900">
-                    {comp.emoji} {comp.name}
-                  </div>
-                  <div className="text-[11px] text-zinc-500 mt-0.5">{comp.tag}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation row */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleCarouselPrev}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition active:scale-95"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Previous</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  handleSelectStanding(comp.url);
-                }}
-                className={`flex-[2] py-2.5 rounded-2xl text-xs font-black transition active:scale-95 flex items-center justify-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                    : 'bg-[#d2281e] hover:bg-[#b82017] text-white shadow-md shadow-[#d2281e]/30'
-                }`}
-              >
-                {isSelected ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>This Look is Active!</span>
-                  </>
-                ) : (
-                  <span>✨ Select This Look</span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCarouselNext}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition active:scale-95"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* All looks strip */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider text-center">All Looks</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {STANDING_COMPANIONS.map((c, i) => {
-                  const isSel = useStanding && standingUrl === c.url;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setCarouselIndex(i);
-                        handleSelectStanding(c.url);
-                      }}
-                      className={`shrink-0 relative w-16 h-20 rounded-xl overflow-hidden border-2 transition-all ${
-                        isSel
-                          ? 'border-[#d2281e] shadow-md ring-2 ring-[#d2281e]/30'
-                          : i === carouselIndex
-                          ? 'border-zinc-400'
-                          : 'border-zinc-200 hover:border-zinc-400'
-                      }`}
-                    >
-                      <img src={c.preview} alt={c.name} className="w-full h-full object-cover object-bottom" />
-                      <div className="absolute bottom-0 inset-x-0 h-1 bg-[#d2281e]" />
-                      {isSel && (
-                        <div className="absolute inset-0 bg-[#d2281e]/20 flex items-center justify-center">
-                          <Check className="w-4 h-4 text-white drop-shadow" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <p className="text-[11px] text-zinc-400 font-medium text-center">
-              Standing characters display with the counter bar across your dashboard and room seats.
-            </p>
-          </div>
-        );
-      })()}
-
-      {/* Tab 2: Hair & Skin */}
-      {activeTab === 'appearance' && (
-        <div className="space-y-3.5">
-          
-          {/* Skin Tone Selector */}
-          <div>
-            <label className="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-              <User className="w-3 h-3 text-[#d2281e]" />
-              <span>Skin Tone</span>
-            </label>
-            <div className="flex items-center gap-2 overflow-x-auto py-1">
+        {/* SKIN */}
+        {currentStep.id === 'skin' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Pick your skin tone</p>
+            <div className="grid grid-cols-3 gap-2.5">
               {SKIN_TONES.map(tone => (
                 <button
                   key={tone.id}
                   type="button"
-                  onClick={() => {
-                    setUseStanding(false);
-                    setConfig(prev => ({ ...prev, skinColor: tone.id }));
-                  }}
-                  className={`relative w-8 h-8 rounded-full border-2 transition-all shrink-0 ${
-                    config.skinColor === tone.id && !useStanding
-                      ? 'border-[#d2281e] scale-110 shadow-md ring-2 ring-[#d2281e]/30'
-                      : 'border-white hover:scale-105'
+                  onClick={() => update('skinColor', tone.id)}
+                  className={`relative flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all ${
+                    config.skinColor === tone.id
+                      ? 'border-[#d2281e] bg-red-50 shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
                   }`}
-                  style={{ backgroundColor: tone.hex }}
-                  title={tone.name}
                 >
-                  {config.skinColor === tone.id && !useStanding && (
-                    <Check className="w-4 h-4 text-white drop-shadow mx-auto" />
+                  <div
+                    className="w-10 h-10 rounded-full shadow-sm border border-white/50"
+                    style={{ backgroundColor: tone.hex }}
+                  />
+                  <span className="text-[10px] font-bold text-zinc-600">{tone.name}</span>
+                  {config.skinColor === tone.id && (
+                    <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[#d2281e] flex items-center justify-center">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </div>
                   )}
                 </button>
               ))}
             </div>
           </div>
+        )}
 
-          {/* Hair Style Selector */}
-          <div>
-            <label className="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-              <Scissors className="w-3 h-3 text-[#d2281e]" />
-              <span>Hairstyle</span>
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-36 overflow-y-auto pr-1">
-              {HAIR_STYLES.map(h => {
-                const isSelected = config.top === h.id && !useStanding;
-                return (
-                  <button
-                    key={h.id}
-                    type="button"
-                    onClick={() => {
-                      setUseStanding(false);
-                      setConfig(prev => ({ ...prev, top: h.id }));
-                    }}
-                    className={`py-1.5 px-2.5 text-xs font-bold rounded-xl text-left border transition truncate ${
-                      isSelected
-                        ? 'bg-[#d2281e]/10 border-[#d2281e] text-[#d2281e] shadow-sm'
-                        : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
-                    }`}
-                  >
-                    {h.name}
-                  </button>
-                );
-              })}
+        {/* HAIR STYLE */}
+        {currentStep.id === 'hair' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Choose your hairstyle</p>
+            <div className="grid grid-cols-2 gap-2">
+              {HAIR_STYLES.map(h => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => update('top', h.id)}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border-2 text-left transition-all ${
+                    config.top === h.id
+                      ? 'border-[#d2281e] bg-red-50 text-[#d2281e] shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50 text-zinc-700'
+                  }`}
+                >
+                  <span className="text-base">{h.emoji}</span>
+                  <span className="text-[11px] font-bold">{h.name}</span>
+                  {config.top === h.id && <Check className="w-3.5 h-3.5 ml-auto shrink-0 text-[#d2281e]" />}
+                </button>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Hair Color Selector */}
-          <div>
-            <label className="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-              <Palette className="w-3 h-3 text-[#d2281e]" />
-              <span>Hair Color</span>
-            </label>
-            <div className="flex items-center gap-2 overflow-x-auto py-1">
+        {/* HAIR COLOR */}
+        {currentStep.id === 'haircolor' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Choose your hair color</p>
+            <div className="grid grid-cols-4 gap-3">
               {HAIR_COLORS.map(color => (
                 <button
                   key={color.id}
                   type="button"
-                  onClick={() => {
-                    setUseStanding(false);
-                    setConfig(prev => ({ ...prev, hairColor: color.id }));
-                  }}
-                  className={`relative w-8 h-8 rounded-full border-2 transition-all shrink-0 ${
-                    config.hairColor === color.id && !useStanding
-                      ? 'border-[#d2281e] scale-110 shadow-md ring-2 ring-[#d2281e]/30'
-                      : 'border-white hover:scale-105'
+                  onClick={() => update('hairColor', color.id)}
+                  className={`relative flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all ${
+                    config.hairColor === color.id
+                      ? 'border-[#d2281e] bg-red-50 shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
                   }`}
-                  style={{ backgroundColor: color.hex }}
-                  title={color.name}
                 >
-                  {config.hairColor === color.id && !useStanding && (
-                    <Check className="w-4 h-4 text-white drop-shadow mx-auto" />
+                  <div
+                    className="w-8 h-8 rounded-full border border-white/40 shadow-sm"
+                    style={{ backgroundColor: color.hex }}
+                  />
+                  <span className="text-[9px] font-bold text-zinc-500 text-center leading-tight">{color.name}</span>
+                  {config.hairColor === color.id && (
+                    <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#d2281e] flex items-center justify-center">
+                      <Check className="w-2 h-2 text-white" />
+                    </div>
                   )}
                 </button>
               ))}
             </div>
           </div>
+        )}
 
-        </div>
-      )}
-
-      {/* Tab 3: Style & Mood */}
-      {activeTab === 'style' && (
-        <div className="space-y-3.5">
-          
-          {/* Eyewear / Accessories */}
-          <div>
-            <label className="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-              <Glasses className="w-3 h-3 text-[#d2281e]" />
-              <span>Glasses & Eyewear</span>
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {ACCESSORIES.map(acc => {
-                const isSelected = config.accessories === acc.id && !useStanding;
-                return (
-                  <button
-                    key={acc.id}
-                    type="button"
-                    onClick={() => {
-                      setUseStanding(false);
-                      setConfig(prev => ({ ...prev, accessories: acc.id }));
-                    }}
-                    className={`py-1.5 px-2.5 text-xs font-bold rounded-xl text-left border transition truncate ${
-                      isSelected
-                        ? 'bg-[#d2281e]/10 border-[#d2281e] text-[#d2281e] shadow-sm'
-                        : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
-                    }`}
-                  >
-                    {acc.name}
-                  </button>
-                );
-              })}
+        {/* EYES */}
+        {currentStep.id === 'eyes' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Choose your eye expression</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {EYE_STYLES.map(e => (
+                <button
+                  key={e.id}
+                  type="button"
+                  onClick={() => update('eyes', e.id)}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-2xl border-2 transition-all ${
+                    config.eyes === e.id
+                      ? 'border-[#d2281e] bg-red-50 shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
+                  }`}
+                >
+                  <span className="text-2xl">{e.emoji}</span>
+                  <span className="text-[10px] font-bold text-zinc-600">{e.name}</span>
+                </button>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Outfit */}
-          <div>
-            <label className="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-              <Shirt className="w-3 h-3 text-[#d2281e]" />
-              <span>Clothing</span>
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {CLOTHING_OPTIONS.map(c => {
-                const isSelected = config.clothing === c.id && !useStanding;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => {
-                      setUseStanding(false);
-                      setConfig(prev => ({ ...prev, clothing: c.id }));
-                    }}
-                    className={`py-1.5 px-2.5 text-xs font-bold rounded-xl text-left border transition truncate ${
-                      isSelected
-                        ? 'bg-[#d2281e]/10 border-[#d2281e] text-[#d2281e] shadow-sm'
-                        : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
-                    }`}
-                  >
-                    {c.name}
-                  </button>
-                );
-              })}
+        {/* MOUTH */}
+        {currentStep.id === 'mouth' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Choose your expression</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {MOUTH_STYLES.map(m => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => update('mouth', m.id)}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-3 rounded-2xl border-2 transition-all ${
+                    config.mouth === m.id
+                      ? 'border-[#d2281e] bg-red-50 shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
+                  }`}
+                >
+                  <span className="text-2xl">{m.emoji}</span>
+                  <span className="text-[10px] font-bold text-zinc-600">{m.name}</span>
+                </button>
+              ))}
             </div>
           </div>
+        )}
 
-          {/* Background Palette */}
-          <div>
-            <label className="text-[11px] font-black text-zinc-700 uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-              <Palette className="w-3 h-3 text-[#d2281e]" />
-              <span>Backdrop Color</span>
-            </label>
-            <div className="flex items-center gap-2 overflow-x-auto py-1">
-              {BG_PALETTES.map(bg => (
+        {/* GLASSES */}
+        {currentStep.id === 'glasses' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Add glasses or eyewear</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ACCESSORIES.map(acc => (
+                <button
+                  key={acc.id}
+                  type="button"
+                  onClick={() => update('accessories', acc.id)}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border-2 text-left transition-all ${
+                    config.accessories === acc.id
+                      ? 'border-[#d2281e] bg-red-50 text-[#d2281e] shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50 text-zinc-700'
+                  }`}
+                >
+                  <span className="text-base">{acc.emoji}</span>
+                  <span className="text-[11px] font-bold">{acc.name}</span>
+                  {config.accessories === acc.id && <Check className="w-3.5 h-3.5 ml-auto shrink-0 text-[#d2281e]" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* OUTFIT STYLE */}
+        {currentStep.id === 'outfit' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Choose your outfit</p>
+            <div className="grid grid-cols-2 gap-2">
+              {CLOTHING_OPTIONS.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => update('clothing', c.id)}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl border-2 text-left transition-all ${
+                    config.clothing === c.id
+                      ? 'border-[#d2281e] bg-red-50 text-[#d2281e] shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50 text-zinc-700'
+                  }`}
+                >
+                  <span className="text-base">{c.emoji}</span>
+                  <span className="text-[11px] font-bold">{c.name}</span>
+                  {config.clothing === c.id && <Check className="w-3.5 h-3.5 ml-auto shrink-0 text-[#d2281e]" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* OUTFIT COLOR */}
+        {currentStep.id === 'color' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Pick your outfit color</p>
+            <div className="grid grid-cols-5 gap-3">
+              {CLOTHES_COLORS.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => update('clothesColor', c.id)}
+                  className={`relative flex flex-col items-center gap-1.5 p-2 rounded-2xl border-2 transition-all ${
+                    config.clothesColor === c.id
+                      ? 'border-[#d2281e] bg-red-50 shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
+                  }`}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full border border-white/30 shadow-sm"
+                    style={{ backgroundColor: c.hex }}
+                  />
+                  <span className="text-[8px] font-bold text-zinc-500 text-center leading-tight">{c.name}</span>
+                  {config.clothesColor === c.id && (
+                    <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-[#d2281e] flex items-center justify-center">
+                      <Check className="w-2 h-2 text-white" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* BACKGROUND */}
+        {currentStep.id === 'bg' && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-zinc-400">Choose your avatar background</p>
+            <div className="grid grid-cols-4 gap-3">
+              {BG_COLORS.map(bg => (
                 <button
                   key={bg.id}
                   type="button"
-                  onClick={() => {
-                    setUseStanding(false);
-                    setConfig(prev => ({ ...prev, bgColor: bg.id }));
-                  }}
-                  className={`relative w-8 h-8 rounded-full border-2 transition-all shrink-0 ${
-                    config.bgColor === bg.id && !useStanding
-                      ? 'border-[#d2281e] scale-110 shadow-md ring-2 ring-[#d2281e]/30'
-                      : 'border-white hover:scale-105'
+                  onClick={() => update('bgColor', bg.id)}
+                  className={`relative flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all ${
+                    config.bgColor === bg.id
+                      ? 'border-[#d2281e] bg-red-50 shadow-md'
+                      : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
                   }`}
-                  style={{ backgroundColor: bg.hex }}
-                  title={bg.name}
                 >
-                  {config.bgColor === bg.id && !useStanding && (
-                    <Check className="w-4 h-4 text-white drop-shadow mx-auto" />
+                  <div
+                    className="w-9 h-9 rounded-full shadow-sm border border-white/20"
+                    style={{ backgroundColor: bg.hex }}
+                  />
+                  <span className="text-[9px] font-bold text-zinc-500 text-center leading-tight">{bg.name}</span>
+                  {config.bgColor === bg.id && (
+                    <div className="absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full bg-[#d2281e] flex items-center justify-center">
+                      <Check className="w-2 h-2 text-white" />
+                    </div>
                   )}
                 </button>
               ))}
             </div>
           </div>
+        )}
+      </div>
 
+      {/* ── Prev / Next Navigation ── */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setStep(s => Math.max(0, s - 1))}
+          disabled={isFirst}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 text-xs font-bold text-zinc-700 transition active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back
+        </button>
+
+        <div className="flex-1 text-center">
+          <span className="text-[10px] text-zinc-400 font-mono">{step + 1} / {STEPS.length}</span>
         </div>
-      )}
 
-      {/* Tab 4: Presets */}
-      {activeTab === 'presets' && (
-        <div className="grid grid-cols-2 gap-2.5">
-          {PRESETS.map((p, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleApplyPreset(p.config)}
-              className="p-2.5 text-left rounded-2xl bg-zinc-50 hover:bg-red-50/40 border border-zinc-200 hover:border-[#d2281e]/40 transition group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-zinc-900 group-hover:text-[#d2281e] transition">
-                  {p.name}
-                </span>
-                <Sparkles className="w-3 h-3 text-zinc-400 group-hover:text-[#d2281e] transition" />
-              </div>
-              <p className="text-[10px] text-zinc-500 mt-0.5">{p.tag}</p>
-            </button>
-          ))}
-        </div>
-      )}
+        {isLast ? (
+          <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-emerald-500 text-white text-xs font-black shadow-md shadow-emerald-500/30">
+            <Check className="w-4 h-4" />
+            All Done!
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setStep(s => Math.min(STEPS.length - 1, s + 1))}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#d2281e] hover:bg-[#b82017] text-white text-xs font-bold transition active:scale-95 shadow-md shadow-[#d2281e]/20"
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+      </div>
 
-      {/* Strict Anti-Upload & Safety Notice */}
+      {/* Privacy note */}
       <div className="p-2.5 rounded-2xl bg-zinc-50 border border-zinc-200/80 flex items-start gap-2">
-        <CheckCircle2 className="w-3.5 h-3.5 text-[#d2281e] shrink-0 mt-0.5" />
+        <Check className="w-3.5 h-3.5 text-[#d2281e] shrink-0 mt-0.5" />
         <p className="text-[10.5px] text-zinc-500 leading-tight">
-          <strong>Privacy note:</strong> Photo uploads are disabled to keep watch parties safe and private. You can choose any 3D standing character or custom persona anytime!
+          <strong>Privacy note:</strong> Photo uploads are disabled. Your avatar is generated from your customization choices — no photos stored!
         </p>
       </div>
     </div>
   );
 }
+
+// Keep exported for backward compatibility (no longer used in UI but may be imported)
+export const STANDING_COMPANIONS: never[] = [];
