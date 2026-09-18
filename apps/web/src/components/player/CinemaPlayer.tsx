@@ -13,7 +13,6 @@ import {
   Pause,
   RotateCcw,
   RotateCw,
-  SkipForward,
   Volume2,
   VolumeX,
   Maximize2,
@@ -25,7 +24,8 @@ import {
   VideoOff,
   ScreenShare,
   X,
-  Radio
+  Radio,
+  Clapperboard
 } from 'lucide-react';
 
 function playCountdownTone(freq: number, duration = 0.2) {
@@ -108,6 +108,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [newMediaUrl, setNewMediaUrl] = useState<string>('');
   const [countdownStep, setCountdownStep] = useState<number | 'START' | null>(null);
+  const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
 
   // Synchronized 3-2-1 Countdown Timer & Sounds
   useEffect(() => {
@@ -311,10 +312,94 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   const movieTitle = media?.title || roomTitle || 'Watch Party';
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full h-full min-h-0 bg-black rounded-xl overflow-hidden shadow-2xl group select-none flex flex-col justify-between"
-    >
+    <div className={`relative w-full h-full ${isTheaterMode ? 'theater-shell' : ''}`}
+      style={isTheaterMode ? {
+        background: 'radial-gradient(ellipse at center bottom, #1a0a00 0%, #0d0500 40%, #000000 100%)',
+        perspective: '900px',
+        perspectiveOrigin: '50% 30%',
+        padding: '0',
+        overflow: 'hidden',
+      } : {}}>
+
+      {/* ── 3D Theater Environment (only when theater mode is ON) ── */}
+      {isTheaterMode && (
+        <>
+          {/* Ceiling with ornate border */}
+          <div className="absolute top-0 inset-x-0 h-8 z-0 pointer-events-none"
+            style={{ background: 'linear-gradient(to bottom, #1a0800 0%, transparent 100%)' }} />
+
+          {/* Left wall */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 z-0 pointer-events-none"
+            style={{ background: 'linear-gradient(to right, #0a0300 0%, transparent 100%)' }} />
+
+          {/* Right wall */}
+          <div className="absolute right-0 top-0 bottom-0 w-8 z-0 pointer-events-none"
+            style={{ background: 'linear-gradient(to left, #0a0300 0%, transparent 100%)' }} />
+
+          {/* Ambient screen glow */}
+          <div className="absolute inset-0 z-0 pointer-events-none"
+            style={{
+              background: 'radial-gradient(ellipse 70% 45% at 50% 38%, rgba(229,9,20,0.12) 0%, transparent 70%)',
+            }} />
+
+          {/* Floor / Stage gradient */}
+          <div className="absolute bottom-0 inset-x-0 h-24 z-0 pointer-events-none"
+            style={{ background: 'linear-gradient(to top, #0d0400 0%, transparent 100%)' }} />
+
+          {/* Seat row silhouettes */}
+          <div className="absolute bottom-0 inset-x-0 z-10 pointer-events-none flex items-end justify-center overflow-hidden" style={{ height: 56 }}>
+            <svg width="100%" height="56" viewBox="0 0 800 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Back row */}
+              {Array.from({ length: 20 }).map((_, i) => (
+                <g key={`b${i}`} transform={`translate(${i * 40 + 4}, 4)`}>
+                  <rect x="0" y="16" width="32" height="20" rx="4" fill="#1a0a00" />
+                  <ellipse cx="16" cy="14" rx="10" ry="12" fill="#1a0a00" />
+                </g>
+              ))}
+              {/* Front row — slightly larger, overlapping */}
+              {Array.from({ length: 18 }).map((_, i) => (
+                <g key={`f${i}`} transform={`translate(${i * 44 + 8}, 18)`}>
+                  <rect x="0" y="14" width="36" height="24" rx="5" fill="#120700" />
+                  <ellipse cx="18" cy="12" rx="12" ry="14" fill="#120700" />
+                </g>
+              ))}
+            </svg>
+          </div>
+
+          {/* Curtain left */}
+          <div className="absolute left-0 top-0 bottom-0 w-5 z-10 pointer-events-none"
+            style={{
+              background: 'linear-gradient(to right, #5c0a00 0%, #2a0400 60%, transparent 100%)',
+              opacity: 0.7
+            }} />
+          {/* Curtain right */}
+          <div className="absolute right-0 top-0 bottom-0 w-5 z-10 pointer-events-none"
+            style={{
+              background: 'linear-gradient(to left, #5c0a00 0%, #2a0400 60%, transparent 100%)',
+              opacity: 0.7
+            }} />
+
+          {/* Theater mode badge */}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex items-center gap-1.5 bg-black/60 border border-[#E50914]/40 text-[#E50914] text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase backdrop-blur-sm">
+            <Clapperboard className="w-3 h-3" />
+            3D Theater
+          </div>
+        </>
+      )}
+
+      {/* ── Actual player box — 3D perspective tilt in theater mode ── */}
+      <div
+        ref={containerRef}
+        className="relative w-full h-full min-h-0 bg-black rounded-xl overflow-hidden shadow-2xl group select-none flex flex-col justify-between"
+        style={isTheaterMode ? {
+          transform: 'rotateX(4deg) scaleX(0.92)',
+          transformOrigin: '50% 0%',
+          boxShadow: '0 0 60px 20px rgba(229,9,20,0.25), 0 0 120px 40px rgba(229,9,20,0.1)',
+          borderRadius: '8px',
+          zIndex: 20,
+          position: 'relative',
+        } : {}}
+      >
       {/* 1. Video Canvas / Media Stage (100% Real Video & Screen Stream) */}
       <div className="relative w-full flex-1 min-h-0 bg-black overflow-hidden flex items-center justify-center">
         {/* Subtle Brand Watermark */}
@@ -647,6 +732,19 @@ export const CinemaPlayer = memo(function CinemaPlayer({
               <Settings className="w-4 h-4" />
             </button>
 
+            {/* 3D Theater Mode Toggle */}
+            <button
+              onClick={() => setIsTheaterMode(t => !t)}
+              className={`p-1 transition hidden sm:inline-flex items-center gap-1 ${
+                isTheaterMode
+                  ? 'text-[#E50914] drop-shadow-[0_0_6px_rgba(229,9,20,0.8)]'
+                  : 'text-zinc-300 hover:text-white'
+              }`}
+              title={isTheaterMode ? 'Exit 3D Theater' : 'View in 3D Theater 🎬'}
+            >
+              <Clapperboard className="w-4 h-4" />
+            </button>
+
             {/* Picture in Picture */}
             <button
               onClick={handleTogglePiP}
@@ -716,7 +814,9 @@ export const CinemaPlayer = memo(function CinemaPlayer({
             </div>
           </div>
         </div>
+        </div>
       )}
+    </div>
     </div>
   );
 });
