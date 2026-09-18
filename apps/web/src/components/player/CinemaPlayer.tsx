@@ -814,10 +814,10 @@ export const CinemaPlayer = memo(function CinemaPlayer({
             </div>
           </div>
         </div>
-        </div>
       )}
-    </div>
+      {/* Close containerRef div (inner player) */}
+      </div>
+      {/* Close theater shell div */}
     </div>
   );
 });
-
