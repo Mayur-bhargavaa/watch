@@ -7,8 +7,21 @@ import { DatabaseService } from './db/database.js';
 import { RoomSyncManager } from './sync/RoomSyncManager.js';
 import { GameRoomManager } from './games/GameRoomManager.js';
 import { PresenceManager } from './services/PresenceManager.js';
-import { detectProviderFromUrl, User } from '@synccinema/common';
+import { detectProviderFromUrl, User, GameType } from '@synccinema/common';
 import { mongoLogger } from './services/mongoLogger.js';
+
+function resolveGameType(raw?: string): GameType {
+  const lower = (raw || '').toLowerCase();
+  if (lower.includes('tic')) return 'tic-tac-toe';
+  if (lower.includes('four') || lower.includes('connect')) return 'four-in-a-row';
+  return 'ludo';
+}
+
+function getGameBasePath(gameType: string): string {
+  if (gameType === 'tic-tac-toe') return '/games/tic-tac-toe';
+  if (gameType === 'four-in-a-row') return '/games/four-in-a-row';
+  return '/games/ludo';
+}
 
 const JWT_SECRET = process.env.JWT_SECRET || 'synccinema-development-super-secret-key-32chars!';
 const PORT = Number(process.env.PORT) || 4000;
@@ -667,9 +680,7 @@ export async function createServer(dbPath = './synccinema.db') {
       friendUserId?: string;
       partnerCode?: string;
     };
-    const rawGameType = body.gameType || 'ludo';
-    const gameType: 'ludo' | 'four-in-a-row' =
-      rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
+    const gameType: GameType = resolveGameType(body.gameType);
 
     let targetUser: any = null;
     const targetId = body.targetUserId || body.friendUserId;
@@ -697,7 +708,7 @@ export async function createServer(dbPath = './synccinema.db') {
       partnerUserId = partner.partnerUserId;
     }
 
-    const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+    const gameBasePath = getGameBasePath(gameType);
 
     // 1. Check if partner is ALREADY waiting in an open game room
     const partnerWaitingRoom = db.findUserWaitingGameRoom(partnerUserId);
@@ -774,11 +785,9 @@ export async function createServer(dbPath = './synccinema.db') {
   app.post('/api/games/matchmake', async (request, reply) => {
     const user = await getRequestUser(request);
     const body = (request.body || {}) as { gameType?: string; maxPlayers?: number };
-    const rawGameType = body.gameType || 'ludo';
-    const gameType: 'ludo' | 'four-in-a-row' =
-      rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
-    const maxPlayers = gameType === 'four-in-a-row' ? 2 : ((Number(body.maxPlayers) || 2) as 2 | 3 | 4);
-    const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+    const gameType: GameType = resolveGameType(body.gameType);
+    const maxPlayers = gameType === 'ludo' ? ((Number(body.maxPlayers) || 2) as 2 | 3 | 4) : 2;
+    const gameBasePath = getGameBasePath(gameType);
 
     try {
       // If user has a partner who is waiting in a matching room, pair them together!
@@ -822,11 +831,9 @@ export async function createServer(dbPath = './synccinema.db') {
       isPrivate?: boolean;
       customCode?: string;
     };
-    const rawGameType = body.gameType || 'ludo';
-    const gameType: 'ludo' | 'four-in-a-row' =
-      rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
-    const maxPlayers = gameType === 'four-in-a-row' ? 2 : ((Number(body.maxPlayers) || 2) as 2 | 3 | 4);
-    const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+    const gameType: GameType = resolveGameType(body.gameType);
+    const maxPlayers = gameType === 'ludo' ? ((Number(body.maxPlayers) || 2) as 2 | 3 | 4) : 2;
+    const gameBasePath = getGameBasePath(gameType);
 
     try {
       const room = gameRoomManager.createGameRoom({
@@ -869,7 +876,7 @@ export async function createServer(dbPath = './synccinema.db') {
       return {
         success: true,
         room,
-        inviteUrl: `/games/ludo?room=${room.roomCode}`
+        inviteUrl: `${getGameBasePath(room.gameType)}?room=${room.roomCode}`
       };
     } catch (err: any) {
       return reply.code(400).send({ error: err.message || 'Failed to join game room' });
@@ -888,13 +895,15 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'Room code is required' });
     }
 
+    const gameType = resolveGameType(body.gameType);
+
     const invitePayload = {
       id: `ginvite_${nanoid(8)}`,
       fromUserId: user.id,
       fromDisplayName: user.displayName,
       fromPartnerCode: user.partnerCode,
       roomCode: body.roomCode.toUpperCase(),
-      gameType: body.gameType || 'ludo',
+      gameType,
       timestamp: Date.now()
     };
 

@@ -341,6 +341,16 @@ function TicTacToeContent() {
     registerVoiceListener
   } = useGameRoom(roomParam || null);
 
+  // If the room joined belongs to a different game type (e.g. Ludo or Four-In-A-Row), redirect to the appropriate game page
+  useEffect(() => {
+    if (!room?.gameType || !room?.roomCode) return;
+    if (room.gameType === 'ludo') {
+      router.replace(`/games/ludo?room=${encodeURIComponent(room.roomCode)}`);
+    } else if (room.gameType === 'four-in-a-row') {
+      router.replace(`/games/four-in-a-row?room=${encodeURIComponent(room.roomCode)}`);
+    }
+  }, [room?.gameType, room?.roomCode, router]);
+
   const effectiveUserId = myUserId || session?.user?.id || '';
 
   // Active players
@@ -684,10 +694,11 @@ function TicTacToeContent() {
       return;
     }
 
-    if (gameState.moveCount > prevMoveCountRef.current) {
+    const moveCount = typeof gameState.moveCount === 'number' ? gameState.moveCount : 0;
+    if (moveCount > prevMoveCountRef.current) {
       const lastMark = lastTicTacToeMove?.mark || (gameState.currentTurnMark === 'X' ? 'O' : 'X');
       playMarkSound(lastMark);
-      prevMoveCountRef.current = gameState.moveCount;
+      prevMoveCountRef.current = moveCount;
     }
 
     if (gameState.winner) {
@@ -886,7 +897,7 @@ function TicTacToeContent() {
 
   // Board winning line positions (SVG line coordinates for 3x3)
   const winningLineCoords = useMemo(() => {
-    if (!gameState?.winningLine) return null;
+    if (!gameState?.winningLine || !Array.isArray(gameState.winningLine) || gameState.winningLine.length < 3) return null;
     const [a, b, c] = gameState.winningLine;
 
     const getPos = (idx: number) => {
@@ -2474,9 +2485,10 @@ function TicTacToeContent() {
                 <div className="relative w-full max-w-[340px] sm:max-w-[400px] aspect-square rounded-[32px] p-4 sm:p-6 bg-[#10121c]/90 border border-white/15 shadow-2xl backdrop-blur-2xl flex items-center justify-center">
                   <div className="w-full h-full grid grid-cols-3 grid-rows-3 gap-3 relative">
                     {Array.from({ length: 9 }).map((_, idx) => {
-                      const mark = gameState?.board[idx] || null;
+                      const isBoardArray = Array.isArray(gameState?.board);
+                      const mark = isBoardArray ? (gameState.board[idx] || null) : null;
                       const isHovered = hoveredCell === idx && !mark && isMyTurn && !gameState?.winner && !gameState?.isDraw;
-                      const isWinningCell = gameState?.winningLine?.includes(idx);
+                      const isWinningCell = Array.isArray(gameState?.winningLine) && gameState.winningLine.includes(idx);
 
                       return (
                         <button
