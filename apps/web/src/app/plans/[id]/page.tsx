@@ -64,28 +64,28 @@ export default function PlanDetailPage() {
   const [newStepTitle, setNewStepTitle] = useState('');
   const [newStepTime, setNewStepTime] = useState('11:00 PM');
 
+  const [activeTab, setActiveTab] = useState<'schedule' | 'about' | 'attendees' | 'chat'>('schedule');
+
   const currentUserId = session?.user?.id || 'u1';
   const currentUserName = session?.user?.displayName || 'Mayur Bhargava';
   const currentUserAvatar = session?.user?.avatarUrl;
 
-  const loadCurrentPlan = () => {
+  const loadCurrentPlan = async () => {
     if (!planId) return;
     const found = getPlanById(planId);
     if (found) {
       setPlan(found);
       setLoading(false);
     }
-    // Also fetch from real server API
-    getApiPlanById(planId)
-      .then((res) => {
-        if (res?.plan) {
-          setPlan(res.plan);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!found) setLoading(false);
-      });
+    try {
+      const res = await getApiPlanById(planId);
+      if (res?.plan) {
+        setPlan(res.plan);
+        setLoading(false);
+      }
+    } catch {
+      if (!found) setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -94,6 +94,21 @@ export default function PlanDetailPage() {
       setSession(s);
     }
     loadCurrentPlan();
+
+    // Auto poll real event data every 5s so friends' live RSVPs and chat messages appear in real-time
+    const interval = setInterval(() => {
+      if (planId) {
+        getApiPlanById(planId)
+          .then((res) => {
+            if (res?.plan) {
+              setPlan(res.plan);
+            }
+          })
+          .catch(() => {});
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [planId]);
 
   if (loading) {
@@ -127,17 +142,17 @@ export default function PlanDetailPage() {
   const myParticipant = plan.participants.find((p) => p.userId === currentUserId);
   const myStatus = myParticipant?.status || 'GOING';
 
-  const handleRSVP = (status: RSVPStatus) => {
+  const handleRSVP = async (status: RSVPStatus) => {
     updateRSVP(plan.id, currentUserId, status, currentUserName, currentUserAvatar);
     loadCurrentPlan();
   };
 
-  const handleVote = (optionId: string) => {
+  const handleVote = async (optionId: string) => {
     voteOption(plan.id, optionId, currentUserId);
     loadCurrentPlan();
   };
 
-  const handleConfirmSelection = (optionId: string) => {
+  const handleConfirmSelection = async (optionId: string) => {
     if (!plan.voting) return;
     const option = plan.voting.options.find((o) => o.id === optionId);
     if (!option) return;
@@ -152,7 +167,7 @@ export default function PlanDetailPage() {
     loadCurrentPlan();
   };
 
-  const handleAddVotingOption = (title: string) => {
+  const handleAddVotingOption = async (title: string) => {
     if (!plan.voting) return;
     const newOpt = {
       id: `opt-${Date.now()}`,
@@ -168,7 +183,7 @@ export default function PlanDetailPage() {
     loadCurrentPlan();
   };
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = async (text: string) => {
     addPlanChatMessage(plan.id, {
       userId: currentUserId,
       displayName: currentUserName,
@@ -407,25 +422,45 @@ export default function PlanDetailPage() {
           <div className="flex items-center gap-8 border-b border-slate-200/80 dark:border-white/10 px-2">
             <button
               type="button"
-              className="pb-3 border-b-2 border-[#ff2a5f] text-xs font-black text-[#ff2a5f] cursor-pointer"
+              onClick={() => setActiveTab('schedule')}
+              className={`pb-3 text-xs font-black transition cursor-pointer border-b-2 ${
+                activeTab === 'schedule'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
+              }`}
             >
               Schedule
             </button>
             <button
               type="button"
-              className="pb-3 text-xs font-bold text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+              onClick={() => setActiveTab('about')}
+              className={`pb-3 text-xs font-bold transition cursor-pointer border-b-2 ${
+                activeTab === 'about'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
+              }`}
             >
               About
             </button>
             <button
               type="button"
-              className="pb-3 text-xs font-bold text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+              onClick={() => setActiveTab('attendees')}
+              className={`pb-3 text-xs font-bold transition cursor-pointer border-b-2 ${
+                activeTab === 'attendees'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
+              }`}
             >
               Attendees
             </button>
             <button
               type="button"
-              className="pb-3 text-xs font-bold text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition cursor-pointer"
+              onClick={() => setActiveTab('chat')}
+              className={`pb-3 text-xs font-bold transition cursor-pointer border-b-2 ${
+                activeTab === 'chat'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
+              }`}
             >
               Chat
             </button>

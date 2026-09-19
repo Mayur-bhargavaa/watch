@@ -82,7 +82,18 @@ export const EventChat: React.FC<EventChatProps> = ({
           </div>
         ) : (
           messages.map((msg) => {
-            const timeStr = '2m ago';
+            const timeDiff = Math.max(0, Date.now() - (msg.createdAt || Date.now()));
+            const mins = Math.floor(timeDiff / 60000);
+            const hours = Math.floor(mins / 60);
+            const days = Math.floor(hours / 24);
+            const timeStr =
+              days > 0
+                ? `${days}d ago`
+                : hours > 0
+                ? `${hours}h ago`
+                : mins > 0
+                ? `${mins}m ago`
+                : 'just now';
             return (
               <div key={msg.id} className="flex items-start gap-3">
                 <img

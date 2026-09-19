@@ -65,6 +65,7 @@ export interface PlanChatMessage {
 
 export interface Plan {
   id: string;
+  hostId?: string;
   title: string;
   emoji: string;
   type: PlanType;
