@@ -266,26 +266,26 @@ export function PixelPerfectTheater({
   const screenStyle = useMemo(() => {
     if (isImax) {
       return {
-        top: '1.8%',
-        left: '3%',
-        width: '94%',
-        height: '67.5%',
+        top: '6.0%',
+        left: '4%',
+        width: '92%',
+        height: '61%',
       };
     }
     if (isLarge) {
       return {
-        top: '2.5%',
+        top: '6.8%',
         left: '10.5%',
         width: '79%',
-        height: '64.5%',
+        height: '59.5%',
       };
     }
-    // standard (original 60%)
+    // standard
     return {
-      top: '4.55%',
-      left: '19.98%',
-      width: '59.95%',
-      height: '56.64%',
+      top: '7.8%',
+      left: '18%',
+      width: '64%',
+      height: '54%',
     };
   }, [isImax, isLarge]);
 
@@ -496,13 +496,13 @@ export function PixelPerfectTheater({
                 onToggleCamera={onToggleCamera}
                 userAvatarUrl={userAvatarUrl}
               />
-            ) : (
+            ) : participants.length === 0 ? (
               <TheaterEmptyInviteSlot
                 onCopyInvite={onCopyInvite}
                 copiedInvite={copiedInvite}
                 seatNumber={1}
               />
-            )}
+            ) : null}
 
             {/* Left Slot 2 (Seat 2) */}
             {seats[1] ? (
@@ -512,13 +512,13 @@ export function PixelPerfectTheater({
                 onToggleCamera={onToggleCamera}
                 userAvatarUrl={userAvatarUrl}
               />
-            ) : (
+            ) : participants.length === 1 ? (
               <TheaterEmptyInviteSlot
                 onCopyInvite={onCopyInvite}
                 copiedInvite={copiedInvite}
                 seatNumber={2}
               />
-            )}
+            ) : null}
           </div>
         )}
 
@@ -539,13 +539,13 @@ export function PixelPerfectTheater({
                 onToggleCamera={onToggleCamera}
                 userAvatarUrl={userAvatarUrl}
               />
-            ) : (
+            ) : participants.length === 2 ? (
               <TheaterEmptyInviteSlot
                 onCopyInvite={onCopyInvite}
                 copiedInvite={copiedInvite}
                 seatNumber={3}
               />
-            )}
+            ) : null}
 
             {/* Right Slot 4 (Seat 4) */}
             {seats[3] ? (
@@ -555,13 +555,13 @@ export function PixelPerfectTheater({
                 onToggleCamera={onToggleCamera}
                 userAvatarUrl={userAvatarUrl}
               />
-            ) : (
+            ) : participants.length === 3 ? (
               <TheaterEmptyInviteSlot
                 onCopyInvite={onCopyInvite}
                 copiedInvite={copiedInvite}
                 seatNumber={4}
               />
-            )}
+            ) : null}
           </div>
         )}
 
@@ -569,40 +569,44 @@ export function PixelPerfectTheater({
         {showCamPanel && !isImax && (
           <div className="absolute left-1/2 -translate-x-1/2 bottom-[68px] sm:bottom-[74px] flex items-center gap-3 sm:gap-5 z-30 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
             {/* Bottom Slot 5 (Seat 5) */}
-            <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
-              {seats[4] ? (
-                <TheaterCamTile
-                  participant={seats[4]}
-                  index={4}
-                  onToggleCamera={onToggleCamera}
-                  userAvatarUrl={userAvatarUrl}
-                />
-              ) : (
-                <TheaterEmptyInviteSlot
-                  onCopyInvite={onCopyInvite}
-                  copiedInvite={copiedInvite}
-                  seatNumber={5}
-                />
-              )}
-            </div>
+            {(seats[4] || participants.length === 4) && (
+              <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
+                {seats[4] ? (
+                  <TheaterCamTile
+                    participant={seats[4]}
+                    index={4}
+                    onToggleCamera={onToggleCamera}
+                    userAvatarUrl={userAvatarUrl}
+                  />
+                ) : (
+                  <TheaterEmptyInviteSlot
+                    onCopyInvite={onCopyInvite}
+                    copiedInvite={copiedInvite}
+                    seatNumber={5}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Bottom Slot 6 (Seat 6) */}
-            <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
-              {seats[5] ? (
-                <TheaterCamTile
-                  participant={seats[5]}
-                  index={5}
-                  onToggleCamera={onToggleCamera}
-                  userAvatarUrl={userAvatarUrl}
-                />
-              ) : (
-                <TheaterEmptyInviteSlot
-                  onCopyInvite={onCopyInvite}
-                  copiedInvite={copiedInvite}
-                  seatNumber={6}
-                />
-              )}
-            </div>
+            {(seats[5] || participants.length === 5) && (
+              <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
+                {seats[5] ? (
+                  <TheaterCamTile
+                    participant={seats[5]}
+                    index={5}
+                    onToggleCamera={onToggleCamera}
+                    userAvatarUrl={userAvatarUrl}
+                  />
+                ) : (
+                  <TheaterEmptyInviteSlot
+                    onCopyInvite={onCopyInvite}
+                    copiedInvite={copiedInvite}
+                    seatNumber={6}
+                  />
+                )}
+              </div>
+            )}
           </div>
         )}
 
