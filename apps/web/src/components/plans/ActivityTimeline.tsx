@@ -68,14 +68,11 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <span>Activity Schedule</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300 font-bold">
-              {activities.length} {activities.length === 1 ? 'part' : 'parts'}
-            </span>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+            Activity Schedule
           </h3>
           <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
             Follow the flow from watching to playing seamlessly together.
@@ -86,7 +83,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
           <button
             type="button"
             onClick={onAddActivity}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/10 text-xs font-bold text-slate-800 dark:text-white hover:bg-[#ee1d49] hover:text-white dark:hover:bg-[#ee1d49] transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-50 dark:bg-white/5 border border-rose-100 dark:border-white/10 text-xs font-black text-[#ff2a5f] hover:bg-[#ff2a5f] hover:text-white transition cursor-pointer shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Step</span>
@@ -95,97 +92,82 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
       </div>
 
       {/* Connected Timeline */}
-      <div className="relative pl-6 md:pl-8 space-y-6 before:absolute before:left-3 md:before:left-4 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-[#ee1d49] before:via-violet-500 before:to-emerald-500 before:opacity-30 dark:before:opacity-40">
+      <div className="relative pl-24 md:pl-28 space-y-5 before:absolute before:left-14 md:before:left-16 before:top-6 before:bottom-6 before:w-0.5 before:bg-slate-200 dark:before:bg-white/10">
         {activities.map((act, index) => (
           <div key={act.id} className="relative group">
-            {/* Timeline Dot */}
-            <div className="absolute -left-6 md:-left-8 top-5 w-6 h-6 rounded-full bg-white dark:bg-[#130e1b] border-2 border-slate-300 dark:border-white/20 flex items-center justify-center shadow-md group-hover:border-[#ee1d49] group-hover:scale-110 transition-all duration-200 z-10">
+            {/* Timestamp on left */}
+            <div className="absolute -left-24 md:-left-28 top-7 w-12 text-right text-xs font-black text-slate-800 dark:text-zinc-200">
+              {act.time}
+            </div>
+
+            {/* Timeline Ring Dot */}
+            <div className="absolute -left-12 md:-left-14 top-6 w-6 h-6 rounded-full bg-white dark:bg-[#130e1b] border-2 border-slate-200 dark:border-white/20 flex items-center justify-center z-10">
               <div
-                className={`w-2 h-2 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full ${
                   act.type === 'movie'
-                    ? 'bg-[#ee1d49]'
+                    ? 'bg-[#ff2a5f]'
                     : act.type === 'game'
-                    ? 'bg-violet-500'
-                    : 'bg-emerald-500'
+                    ? 'bg-emerald-500'
+                    : 'bg-slate-400'
                 }`}
               />
             </div>
 
             {/* Card Content */}
-            <div
-              className={`rounded-3xl p-5 md:p-6 bg-gradient-to-br ${getActivityGradient(
-                act.type
-              )} bg-white/80 dark:bg-[#151022]/80 backdrop-blur-md border transition-all duration-300 shadow-sm hover:shadow-xl`}
-            >
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-start gap-4">
+            <div className="rounded-3xl p-4 md:p-5 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs hover:border-slate-300 dark:hover:border-white/20 transition-all">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
                   {/* Icon / Poster */}
                   {act.movieDetails?.posterUrl ? (
                     <img
                       src={act.movieDetails.posterUrl}
                       alt={act.title}
-                      className="w-16 h-20 rounded-2xl object-cover shadow-md shrink-0 border border-white/20"
+                      className="w-20 h-16 rounded-2xl object-cover shadow-sm shrink-0 border border-slate-100 dark:border-white/10"
                     />
+                  ) : act.type === 'game' ? (
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shrink-0 shadow-sm text-2xl">
+                      🎲
+                    </div>
                   ) : (
-                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-white/[0.08] shadow-sm flex items-center justify-center shrink-0 border border-slate-200 dark:border-white/10">
-                      {getActivityIcon(act.type)}
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-indigo-900/30 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-300 text-2xl">
+                      💬
                     </div>
                   )}
 
                   <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-black text-[#ee1d49] px-2 py-0.5 rounded-lg bg-[#ee1d49]/10">
-                        {act.time}
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
-                        Part {index + 1} · {act.type.toUpperCase()}
-                      </span>
-                    </div>
+                    <span className="inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-50 text-[#ff2a5f] dark:bg-[#ff2a5f]/15 border border-rose-100 dark:border-[#ff2a5f]/20">
+                      Part {index + 1} · {act.type.toUpperCase()}
+                    </span>
 
-                    <h4 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <h4 className="text-base md:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                       {act.title}
                     </h4>
 
                     {act.subtitle && (
-                      <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
                         {act.subtitle}
                       </p>
-                    )}
-
-                    {act.gameDetails && (
-                      <div className="flex items-center gap-2 pt-1 text-xs text-slate-600 dark:text-zinc-300">
-                        <span>{act.gameDetails.icon}</span>
-                        <span className="font-semibold">Lobby Ready: {act.gameDetails.players}</span>
-                      </div>
                     )}
                   </div>
                 </div>
 
-                {/* Big Glowing Action Button */}
+                {/* Big Action Button matching screenshot */}
                 <div className="flex items-center justify-end">
-                  {act.actionUrl ? (
-                    <Link
-                      href={act.actionUrl}
-                      className={`inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-xs md:text-sm font-black transition-transform active:scale-95 ${getActionBadgeColor(
-                        act.type
-                      )}`}
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>{act.actionLabel}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => alert(`Starting ${act.title}...`)}
-                      className={`inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-xs md:text-sm font-black transition-transform active:scale-95 ${getActionBadgeColor(
-                        act.type
-                      )}`}
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>{act.actionLabel}</span>
-                    </button>
-                  )}
+                  <Link
+                    href={act.actionUrl || '/rooms'}
+                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shadow-xs ${
+                      act.type === 'movie'
+                        ? 'bg-[#ff2a5f] hover:bg-[#ee1d49] text-white shadow-md shadow-[#ff2a5f]/25'
+                        : act.type === 'game'
+                        ? 'bg-rose-50 dark:bg-white/5 border border-rose-100 dark:border-white/10 text-[#ff2a5f] hover:bg-[#ff2a5f] hover:text-white'
+                        : 'bg-rose-50 dark:bg-white/5 border border-rose-100 dark:border-white/10 text-[#ff2a5f] hover:bg-[#ff2a5f] hover:text-white'
+                    }`}
+                  >
+                    {act.type === 'movie' && <Play className="w-3.5 h-3.5 fill-white" />}
+                    {act.type === 'game' && <Gamepad2 className="w-3.5 h-3.5" />}
+                    {act.type === 'hangout' && <MessageCircle className="w-3.5 h-3.5" />}
+                    <span>{act.actionLabel}</span>
+                  </Link>
                 </div>
               </div>
             </div>
