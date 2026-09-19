@@ -25,7 +25,9 @@ import {
   MessageSquare,
   User,
   Palette,
-  Sparkles
+  Sparkles,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { MediaItem, RoomPlaybackState, Reaction } from '@synccinema/common';
 import { YouTubeEmbed } from './YouTubeEmbed';
@@ -164,12 +166,14 @@ function TheaterCamTile({
   participant,
   index,
   onToggleCamera,
-  userAvatarUrl
+  userAvatarUrl,
+  className = '',
 }: {
   participant: TheaterParticipant;
   index: number;
   onToggleCamera?: () => void;
   userAvatarUrl?: string;
+  className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hasVideo = Boolean(
@@ -197,11 +201,11 @@ function TheaterCamTile({
 
   return (
     <div
-      className={`relative aspect-[16/10] w-full rounded-xl overflow-hidden bg-[#11141c] border transition-all duration-300 shadow-lg group select-none ${
+      className={`relative aspect-[16/10] w-full rounded-xl overflow-hidden bg-[#11141c] border transition-all duration-300 shadow-xl group select-none ${
         participant.isSpeaking
           ? 'border-[#8ab4f8] ring-2 ring-[#8ab4f8]/60 shadow-[0_0_15px_rgba(138,180,248,0.4)]'
-          : 'border-white/10 hover:border-white/25'
-      }`}
+          : 'border-white/15 hover:border-white/30'
+      } ${className}`}
     >
       {hasVideo ? (
         <>
@@ -222,13 +226,13 @@ function TheaterCamTile({
         </>
       ) : (
         /* Camera Off - Sleek Avatar View */
-        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#181c28] to-[#0c0e16] relative">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#181c28] to-[#0c0e16] relative p-1">
           <div
-            className="w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-lg border border-white/10 overflow-hidden"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-lg border border-white/10 overflow-hidden"
             style={{ backgroundColor: avatarBg }}
           >
             {effectiveAvatar.includes('dicebear') || !effectiveAvatar.startsWith('http') ? (
-              <span className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+              <span className="text-[11px] sm:text-xs font-black text-white uppercase tracking-wider">
                 {initial}
               </span>
             ) : (
@@ -238,7 +242,7 @@ function TheaterCamTile({
           {participant.isSelf && onToggleCamera && (
             <button
               onClick={onToggleCamera}
-              className="mt-0.5 sm:mt-1 text-[8px] sm:text-[9px] font-semibold text-zinc-300 hover:text-white bg-white/10 hover:bg-white/20 px-1.5 sm:px-2 py-0.5 rounded-full border border-white/15 transition flex items-center gap-1"
+              className="mt-1 text-[7.5px] sm:text-[8.5px] font-semibold text-zinc-300 hover:text-white bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded-full border border-white/15 transition flex items-center gap-1 cursor-pointer"
             >
               <Camera className="w-2 sm:w-2.5 h-2 sm:h-2.5" />
               <span>Cam on</span>
@@ -249,20 +253,20 @@ function TheaterCamTile({
 
       {/* Host Crown Badge */}
       {participant.isHost && (
-        <div className="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 bg-[#E50914] text-white text-[7px] sm:text-[8px] font-black px-1 sm:px-1.5 py-0.5 rounded shadow flex items-center gap-0.5 z-10 uppercase tracking-wider">
-          <Crown className="w-2 sm:w-2.5 h-2 sm:h-2.5 fill-current" />
+        <div className="absolute top-1 left-1 bg-[#E50914] text-white text-[7px] font-black px-1 py-0.5 rounded shadow flex items-center gap-0.5 z-10 uppercase tracking-wider">
+          <Crown className="w-2 h-2 fill-current" />
           <span>Host</span>
         </div>
       )}
 
       {/* Bottom Name & Mic status badge */}
-      <div className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 bg-black/80 backdrop-blur-md text-white text-[8.5px] sm:text-[9.5px] font-medium px-1.5 sm:px-2 py-0.5 rounded flex items-center gap-1 sm:gap-1.5 border border-white/10 max-w-[92%] z-10">
+      <div className="absolute bottom-1 left-1 right-1 bg-black/85 backdrop-blur-md text-white text-[8px] sm:text-[8.5px] font-medium px-1.5 py-0.5 rounded flex items-center gap-1 border border-white/10 z-10 truncate">
         {participant.isMuted ? (
-          <MicOff className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-rose-400 shrink-0" />
+          <MicOff className="w-2.5 h-2.5 text-rose-400 shrink-0" />
         ) : (
-          <Mic className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-emerald-400 shrink-0" />
+          <Mic className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
         )}
-        <span className="truncate">
+        <span className="truncate font-semibold">
           {participant.displayName} {participant.isSelf ? '(You)' : ''}
         </span>
       </div>
@@ -274,29 +278,31 @@ function TheaterCamTile({
 function TheaterEmptyInviteSlot({
   onCopyInvite,
   copiedInvite,
-  seatNumber
+  seatNumber,
+  className = '',
 }: {
   onCopyInvite?: () => void;
   copiedInvite?: boolean;
   seatNumber: number;
+  className?: string;
 }) {
   return (
     <div
       onClick={onCopyInvite}
-      className="relative aspect-[16/10] w-full rounded-xl border border-dashed border-white/20 hover:border-white/40 bg-white/[0.03] hover:bg-white/[0.08] transition-all cursor-pointer flex flex-col items-center justify-center text-zinc-400 hover:text-white group select-none shadow-sm p-1"
+      className={`relative aspect-[16/10] w-full rounded-xl border border-dashed border-white/20 hover:border-white/40 bg-white/[0.03] hover:bg-white/[0.08] transition-all cursor-pointer flex flex-col items-center justify-center text-zinc-400 hover:text-white group select-none shadow-md p-1 ${className}`}
       title="Invite a friend to take this cinema seat"
     >
-      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/5 group-hover:bg-white/10 border border-white/10 flex items-center justify-center mb-0.5 transition">
+      <div className="w-5 h-5 rounded-full bg-white/5 group-hover:bg-white/10 border border-white/10 flex items-center justify-center mb-0.5 transition">
         {copiedInvite ? (
           <Check className="w-3 h-3 text-emerald-400" />
         ) : (
-          <span className="text-xs sm:text-sm font-light text-rose-400 group-hover:scale-110 transition-transform">+</span>
+          <span className="text-xs font-light text-rose-400 group-hover:scale-110 transition-transform">+</span>
         )}
       </div>
-      <span className="text-[8.5px] sm:text-[9.5px] font-bold tracking-wide text-zinc-300 group-hover:text-white truncate max-w-full">
-        {copiedInvite ? '✓ Copied' : 'Invite Friend'}
+      <span className="text-[8px] sm:text-[8.5px] font-bold tracking-wide text-zinc-300 group-hover:text-white truncate max-w-full">
+        {copiedInvite ? '✓ Copied' : 'Invite'}
       </span>
-      <span className="text-[7px] sm:text-[8px] text-zinc-500">Seat {seatNumber}/6</span>
+      <span className="text-[7px] text-zinc-500">Seat {seatNumber}/6</span>
     </div>
   );
 }
@@ -384,32 +390,32 @@ export function PixelPerfectTheater({
     });
   };
 
-  const isImax = screenSize === 'imax' || !showCamPanel;
-  const isLarge = screenSize === 'large' && showCamPanel;
+  const isImax = screenSize === 'imax';
+  const isLarge = screenSize === 'large';
 
   const screenStyle = useMemo(() => {
     if (isImax) {
       return {
-        top: '6.0%',
-        left: '4%',
-        width: '92%',
-        height: '61%',
+        top: '5.8%',
+        left: '3.5%',
+        width: '93%',
+        height: '62%',
       };
     }
     if (isLarge) {
       return {
         top: '6.8%',
-        left: '10.5%',
-        width: '79%',
+        left: '7.5%',
+        width: '85%',
         height: '59.5%',
       };
     }
     // standard
     return {
-      top: '7.8%',
-      left: '18%',
-      width: '64%',
-      height: '54%',
+      top: '7.5%',
+      left: '13%',
+      width: '74%',
+      height: '56.5%',
     };
   }, [isImax, isLarge]);
 
@@ -530,96 +536,12 @@ export function PixelPerfectTheater({
             </div>
           </div>
 
-          {/* Right: Quick Controls & Leave Button */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Mic Toggle */}
-            <button
-              onClick={onToggleMic}
-              className={`w-9 h-9 rounded-full flex items-center justify-center border transition shadow-md ${
-                isMicMuted
-                  ? 'bg-red-950/80 border-red-500/50 text-rose-400 hover:bg-red-900'
-                  : 'bg-white/10 border-white/15 text-white hover:bg-white/20'
-              }`}
-              title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
-            >
-              {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-emerald-400" />}
-            </button>
-
-            {/* Camera Toggle */}
-            <button
-              onClick={onToggleCamera}
-              className={`w-9 h-9 rounded-full flex items-center justify-center border transition shadow-md ${
-                !isCameraOn
-                  ? 'bg-red-950/80 border-red-500/50 text-rose-400 hover:bg-red-900'
-                  : 'bg-white/10 border-white/15 text-white hover:bg-white/20'
-              }`}
-              title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
-            >
-              {!isCameraOn ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4 text-emerald-400" />}
-            </button>
-
-            {/* Chat Toggle Button */}
-            {onToggleChat && (
-              <button
-                onClick={onToggleChat}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition border relative active:scale-95 ${
-                  isChatOpen
-                    ? 'bg-rose-600/30 text-rose-300 border-rose-500 ring-2 ring-rose-500/50 shadow-md shadow-rose-600/30'
-                    : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
-                }`}
-                title={isChatOpen ? 'Close Chat' : 'Open Chat & Party Games'}
-              >
-                <MessageSquare className="w-4 h-4" />
-                {unreadCount > 0 && !isChatOpen && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-black bg-amber-400 text-black flex items-center justify-center animate-pulse">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* Background Theme Selector */}
-            <button
-              onClick={() => setShowThemeModal(true)}
-              className="px-2.5 sm:px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow cursor-pointer"
-              title="Change Theater Background Theme"
-            >
-              <Palette className="w-3.5 h-3.5 text-pink-400" />
-              <span className="hidden sm:inline text-zinc-300">Theme:</span>
-              <span className="text-pink-300 font-bold text-[10.5px] truncate max-w-[85px] sm:max-w-[120px]">
-                {currentTheaterTheme.name}
-              </span>
-            </button>
-
-            {/* Screen Size Mode Selector */}
-            <button
-              onClick={() => {
-                setScreenSize(current => {
-                  if (current === 'large') return 'imax';
-                  if (current === 'imax') return 'standard';
-                  return 'large';
-                });
-              }}
-              className="px-2.5 sm:px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow"
-              title="Click to toggle screen size: Large (79%) • IMAX (94%) • Standard (60%)"
-            >
-              <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline text-zinc-300">Screen:</span>
-              <span className="text-amber-300 font-bold uppercase text-[10.5px]">
-                {screenSize === 'large' ? 'Large (79%)' : screenSize === 'imax' ? 'IMAX (94%)' : 'Standard'}
-              </span>
-            </button>
-
-            {/* Members Count Badge */}
-            <div className="px-2.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 shadow">
-              <User className="w-3.5 h-3.5 text-zinc-300" />
-              <span>{participants.length}/6</span>
-            </div>
-
+          {/* Right: Clean Leave Button */}
+          <div className="flex items-center gap-2">
             {/* Red Leave Room Button */}
             <button
               onClick={onLeaveRoom}
-              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold shadow-[0_0_15px_rgba(225,29,72,0.5)] flex items-center gap-1.5 transition active:scale-95"
+              className="px-4 py-1.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold shadow-[0_0_15px_rgba(225,29,72,0.5)] flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
               title="Leave Room Session"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -627,137 +549,6 @@ export function PixelPerfectTheater({
             </button>
           </div>
         </div>
-
-        {/* ══ CAM PREVIEWS: 2 LEFT ══ */}
-        {showCamPanel && !isImax && (
-          <div
-            className={`absolute z-30 pointer-events-auto animate-in fade-in slide-in-from-left-4 duration-300 flex flex-col ${
-              isLarge
-                ? 'left-[0.8%] top-[6.5%] w-[9.2%] min-w-[92px] max-w-[130px] gap-2'
-                : 'left-[1%] sm:left-[1.5%] top-[10%] w-[18%] sm:w-[17.5%] max-w-[210px] gap-2.5 sm:gap-3'
-            }`}
-          >
-            {/* Left Slot 1 (Seat 1) */}
-            {seats[0] ? (
-              <TheaterCamTile
-                participant={seats[0]}
-                index={0}
-                onToggleCamera={onToggleCamera}
-                userAvatarUrl={userAvatarUrl}
-              />
-            ) : participants.length === 0 ? (
-              <TheaterEmptyInviteSlot
-                onCopyInvite={onCopyInvite}
-                copiedInvite={copiedInvite}
-                seatNumber={1}
-              />
-            ) : null}
-
-            {/* Left Slot 2 (Seat 2) */}
-            {seats[1] ? (
-              <TheaterCamTile
-                participant={seats[1]}
-                index={1}
-                onToggleCamera={onToggleCamera}
-                userAvatarUrl={userAvatarUrl}
-              />
-            ) : participants.length === 1 ? (
-              <TheaterEmptyInviteSlot
-                onCopyInvite={onCopyInvite}
-                copiedInvite={copiedInvite}
-                seatNumber={2}
-              />
-            ) : null}
-          </div>
-        )}
-
-        {/* ══ CAM PREVIEWS: 2 RIGHT ══ */}
-        {showCamPanel && !isImax && (
-          <div
-            className={`absolute z-30 pointer-events-auto animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col ${
-              isLarge
-                ? 'right-[0.8%] top-[6.5%] w-[9.2%] min-w-[92px] max-w-[130px] gap-2'
-                : 'right-[1%] sm:right-[1.5%] top-[10%] w-[18%] sm:w-[17.5%] max-w-[210px] gap-2.5 sm:gap-3'
-            }`}
-          >
-            {/* Right Slot 3 (Seat 3) */}
-            {seats[2] ? (
-              <TheaterCamTile
-                participant={seats[2]}
-                index={2}
-                onToggleCamera={onToggleCamera}
-                userAvatarUrl={userAvatarUrl}
-              />
-            ) : participants.length === 2 ? (
-              <TheaterEmptyInviteSlot
-                onCopyInvite={onCopyInvite}
-                copiedInvite={copiedInvite}
-                seatNumber={3}
-              />
-            ) : null}
-
-            {/* Right Slot 4 (Seat 4) */}
-            {seats[3] ? (
-              <TheaterCamTile
-                participant={seats[3]}
-                index={3}
-                onToggleCamera={onToggleCamera}
-                userAvatarUrl={userAvatarUrl}
-              />
-            ) : participants.length === 3 ? (
-              <TheaterEmptyInviteSlot
-                onCopyInvite={onCopyInvite}
-                copiedInvite={copiedInvite}
-                seatNumber={4}
-              />
-            ) : null}
-          </div>
-        )}
-
-        {/* ══ CAM PREVIEWS: 2 BOTTOM ══ */}
-        {showCamPanel && !isImax && (
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-[68px] sm:bottom-[74px] flex items-center gap-3 sm:gap-5 z-30 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
-            {/* Bottom Slot 5 (Seat 5) */}
-            {(seats[4] || participants.length === 4) && (
-              <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
-                {seats[4] ? (
-                  <TheaterCamTile
-                    participant={seats[4]}
-                    index={4}
-                    onToggleCamera={onToggleCamera}
-                    userAvatarUrl={userAvatarUrl}
-                  />
-                ) : (
-                  <TheaterEmptyInviteSlot
-                    onCopyInvite={onCopyInvite}
-                    copiedInvite={copiedInvite}
-                    seatNumber={5}
-                  />
-                )}
-              </div>
-            )}
-
-            {/* Bottom Slot 6 (Seat 6) */}
-            {(seats[5] || participants.length === 5) && (
-              <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
-                {seats[5] ? (
-                  <TheaterCamTile
-                    participant={seats[5]}
-                    index={5}
-                    onToggleCamera={onToggleCamera}
-                    userAvatarUrl={userAvatarUrl}
-                  />
-                ) : (
-                  <TheaterEmptyInviteSlot
-                    onCopyInvite={onCopyInvite}
-                    copiedInvite={copiedInvite}
-                    seatNumber={6}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ══ THE MAIN CINEMA SCREEN (DYNAMIC EXPANSIVE FRAME) ══ */}
         <div
@@ -936,11 +727,11 @@ export function PixelPerfectTheater({
             </div>
           </div>
 
-          {/* Bottom Center: Floating Capsule Control Dock */}
+          {/* Bottom Center: Floating Capsule Control Dock & Overlapping Cam Deck */}
           <div className="relative flex flex-col items-center">
-            {/* Quick Reactions Bar matching media_1789753527787.png */}
+            {/* Quick Reactions Bar */}
             {showReactionsBar && (
-              <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-2xl bg-[#141722]/90 backdrop-blur-xl border border-white/15 shadow-[0_8px_30px_rgba(0,0,0,0.85)] mb-2.5 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-2xl bg-[#141722]/90 backdrop-blur-xl border border-white/15 shadow-[0_8px_30px_rgba(0,0,0,0.85)] mb-2 animate-in fade-in slide-in-from-bottom-2">
                 {LIVE_REACTIONS.map(emoji => (
                   <button
                     key={emoji}
@@ -954,11 +745,48 @@ export function PixelPerfectTheater({
               </div>
             )}
 
+            {/* ══ OVERLAPPING CAM PREVIEW DECK (ON BOTTOM BAR) ══ */}
+            {showCamPanel && (
+              <div className="flex items-center justify-center mb-2 animate-in fade-in slide-in-from-bottom-3 duration-200">
+                <div className="flex items-center -space-x-3 sm:-space-x-4 hover:space-x-1.5 transition-all duration-300 p-1.5 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl">
+                  {/* Render all occupied participant tiles with overlap */}
+                  {participants.map((p, idx) => (
+                    <div
+                      key={p.userId || `seat_${idx}`}
+                      className="w-20 sm:w-28 md:w-32 transition-all duration-200 hover:scale-110 hover:z-30 hover:-translate-y-1"
+                      style={{ zIndex: idx + 1 }}
+                    >
+                      <TheaterCamTile
+                        participant={p}
+                        index={idx}
+                        onToggleCamera={onToggleCamera}
+                        userAvatarUrl={userAvatarUrl}
+                      />
+                    </div>
+                  ))}
+
+                  {/* Show ONE invite slot for next person if room is not full */}
+                  {participants.length < MAX_SEATS && (
+                    <div
+                      className="w-16 sm:w-22 md:w-26 transition-all duration-200 hover:scale-105 hover:z-30"
+                      style={{ zIndex: participants.length + 1 }}
+                    >
+                      <TheaterEmptyInviteSlot
+                        onCopyInvite={onCopyInvite}
+                        copiedInvite={copiedInvite}
+                        seatNumber={participants.length + 1}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Pill Dock */}
             <div
-              className="px-4 py-2 rounded-full flex items-center gap-3 shadow-[0_10px_30px_rgba(0,0,0,0.8)]"
+              className="px-4 py-2 rounded-full flex items-center gap-2 sm:gap-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.85)]"
               style={{
-                backgroundColor: 'rgba(18, 20, 26, 0.92)',
+                backgroundColor: 'rgba(18, 20, 26, 0.94)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.12)',
               }}
@@ -966,10 +794,10 @@ export function PixelPerfectTheater({
               {/* Mic Button */}
               <button
                 onClick={onToggleMic}
-                className={`p-2 rounded-full transition ${
-                  isMicMuted ? 'text-rose-500 bg-red-950/50' : 'text-zinc-200 hover:text-white bg-white/5'
+                className={`p-2 rounded-full transition cursor-pointer ${
+                  isMicMuted ? 'text-rose-500 bg-red-950/60 ring-1 ring-red-500/40' : 'text-zinc-200 hover:text-white bg-white/5'
                 }`}
-                title={isMicMuted ? 'Unmute' : 'Mute'}
+                title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
               >
                 {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4 text-emerald-400" />}
               </button>
@@ -977,30 +805,34 @@ export function PixelPerfectTheater({
               {/* Camera Button */}
               <button
                 onClick={onToggleCamera}
-                className={`p-2 rounded-full transition ${
-                  !isCameraOn ? 'text-rose-500 bg-red-950/50' : 'text-zinc-200 hover:text-white bg-white/5'
+                className={`p-2 rounded-full transition cursor-pointer ${
+                  !isCameraOn ? 'text-rose-500 bg-red-950/60 ring-1 ring-red-500/40' : 'text-zinc-200 hover:text-white bg-white/5'
                 }`}
                 title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
               >
                 {!isCameraOn ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4 text-emerald-400" />}
               </button>
 
-              {/* Cam Preview Toggle Button */}
+              {/* Cam Preview Deck Toggle (Overlapping bottom deck) */}
               <button
                 onClick={() => setShowCamPanel(p => !p)}
-                className={`p-2 rounded-full transition ${
-                  showCamPanel ? 'text-indigo-400 bg-indigo-950/60 ring-1 ring-indigo-500/40' : 'text-zinc-400 hover:text-white bg-white/5'
+                className={`px-2.5 py-1.5 rounded-full transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  showCamPanel
+                    ? 'text-indigo-300 bg-indigo-950/70 border border-indigo-500/50 shadow-[0_0_10px_rgba(99,102,241,0.25)]'
+                    : 'text-zinc-400 hover:text-white bg-white/5 border border-white/10'
                 }`}
-                title={showCamPanel ? 'Hide Camera Preview Dock' : 'Show Camera Preview Dock'}
+                title={showCamPanel ? 'Hide Camera Previews' : 'Show Camera Previews'}
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[10.5px]">Cam ({participants.length})</span>
+                {showCamPanel ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
               </button>
 
               {/* Reaction Trigger Button */}
               <button
                 onClick={() => setShowReactionsBar(b => !b)}
-                className={`p-2 rounded-full transition ${
-                  showReactionsBar ? 'text-amber-400 bg-amber-950/50' : 'text-zinc-200 hover:text-white bg-white/5'
+                className={`p-2 rounded-full transition cursor-pointer ${
+                  showReactionsBar ? 'text-amber-400 bg-amber-950/60 ring-1 ring-amber-500/40' : 'text-zinc-200 hover:text-white bg-white/5'
                 }`}
                 title="Live Reactions"
               >
@@ -1011,7 +843,7 @@ export function PixelPerfectTheater({
               {onToggleChat && (
                 <button
                   onClick={onToggleChat}
-                  className={`p-2 rounded-full transition relative ${
+                  className={`p-2 rounded-full transition relative cursor-pointer ${
                     isChatOpen
                       ? 'text-rose-400 bg-rose-950/60 ring-1 ring-rose-500/40'
                       : 'text-zinc-200 hover:text-white bg-white/5'
@@ -1030,7 +862,7 @@ export function PixelPerfectTheater({
               {/* Screen Share Button */}
               <button
                 onClick={isScreenSharing ? onStopScreenShare : onStartScreenShare}
-                className={`p-2 rounded-full transition ${
+                className={`p-2 rounded-full transition cursor-pointer ${
                   isScreenSharing ? 'text-emerald-400 bg-emerald-950/50' : 'text-zinc-200 hover:text-white bg-white/5'
                 }`}
                 title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
@@ -1041,12 +873,13 @@ export function PixelPerfectTheater({
               {/* Theater Background Theme Switcher */}
               <button
                 onClick={() => setShowThemeModal(true)}
-                className={`p-2 rounded-full transition ${
-                  showThemeModal ? 'text-pink-400 bg-pink-950/60 ring-1 ring-pink-500/40' : 'text-zinc-200 hover:text-pink-300 bg-white/5'
+                className={`px-2.5 py-1.5 rounded-full transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  showThemeModal ? 'text-pink-300 bg-pink-950/70 border border-pink-500/50' : 'text-zinc-300 hover:text-pink-300 bg-white/5 border border-white/10'
                 }`}
                 title="Change Theater Background Theme"
               >
-                <Palette className="w-4 h-4" />
+                <Palette className="w-3.5 h-3.5 text-pink-400" />
+                <span className="hidden sm:inline text-[10.5px]">Theme</span>
               </button>
 
               {/* Theater Screen Size Toggle (Standard -> Large -> IMAX) */}
@@ -1058,14 +891,14 @@ export function PixelPerfectTheater({
                     return 'large';
                   });
                 }}
-                className={`px-2.5 py-1.5 rounded-full transition flex items-center gap-1.5 text-xs font-semibold ${
+                className={`px-2.5 py-1.5 rounded-full transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
                   screenSize === 'imax'
                     ? 'text-amber-300 bg-amber-950/60 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
                     : screenSize === 'large'
                     ? 'text-yellow-300 bg-yellow-950/40 border border-yellow-500/30'
                     : 'text-zinc-300 hover:text-white bg-white/5 border border-white/10'
                 }`}
-                title="Switch Screen Size: Large (79%) • IMAX (94%) • Standard"
+                title="Switch Screen Size: Large (85%) • IMAX (93%) • Standard (74%)"
               >
                 <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
                 <span className="font-bold text-[11px]">{screenSize.toUpperCase()}</span>
@@ -1074,7 +907,7 @@ export function PixelPerfectTheater({
               {/* Exit 3D Theater button -> Normal Mode */}
               <button
                 onClick={onExitTheater}
-                className="px-2.5 py-1.5 rounded-full text-zinc-300 hover:text-amber-300 bg-white/10 hover:bg-white/20 border border-white/10 transition flex items-center gap-1.5 text-xs font-semibold"
+                className="px-2.5 py-1.5 rounded-full text-zinc-300 hover:text-amber-300 bg-white/10 hover:bg-white/20 border border-white/10 transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
                 title="Exit 3D Theater (Back to Normal Mode)"
               >
                 <Minimize2 className="w-3.5 h-3.5 text-amber-400" />
