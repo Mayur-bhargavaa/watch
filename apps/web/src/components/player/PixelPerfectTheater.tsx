@@ -503,6 +503,9 @@ export function PixelPerfectTheater({
     }, 2600);
   };
 
+  // Track whether the live screen stream element is playing or paused
+  const [isScreenStreamPlaying, setIsScreenStreamPlaying] = useState<boolean>(true);
+
   // Screen Stream attach
   useEffect(() => {
     if (screenVideoRef.current && screenStream) {
@@ -514,6 +517,28 @@ export function PixelPerfectTheater({
       screenVideoRef.current.play().catch(() => {});
     }
   }, [screenStream, isScreenSharing, volume, isMuted]);
+
+  // Determine if video/stream is actively playing (not paused and not idle)
+  const isPlayingActive = useMemo(() => {
+    // 1. If screen stream is active, check if it's currently playing and has active video tracks
+    if (screenStream) {
+      const hasLiveTrack = screenStream.getVideoTracks().some(t => t.readyState === 'live' && t.enabled);
+      return hasLiveTrack && isScreenStreamPlaying;
+    }
+
+    // 2. If YouTube or direct HTML5 video is active, check room playbackState
+    const hasMedia = Boolean(
+      (media?.sourceUrl && (media.provider as string) !== 'screen') ||
+      (media?.provider === 'youtube' && media?.providerMediaId)
+    );
+
+    if (hasMedia) {
+      return playbackState?.state === 'PLAYING';
+    }
+
+    // Idle: no stream and no media
+    return false;
+  }, [screenStream, isScreenStreamPlaying, media, playbackState?.state]);
 
   const hasMediaActive = Boolean(
     screenStream ||
@@ -527,7 +552,7 @@ export function PixelPerfectTheater({
       <div
         className="relative w-full h-full max-w-[1850px] aspect-[1376/768] flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-700 ease-out bg-black"
       >
-        {/* Base Layer: Bright / Lights-On Background */}
+        {/* Base Layer: Bright / Lights-On Background (shown when idle OR when video/stream is paused) */}
         <div
           className="absolute inset-0 pointer-events-none z-0 transition-opacity duration-1000 ease-in-out"
           style={{
@@ -535,11 +560,11 @@ export function PixelPerfectTheater({
             backgroundSize: '100% 100%',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            opacity: hasMediaActive && currentTheaterTheme.dimmedBgUrl ? 0 : 1,
+            opacity: isPlayingActive && currentTheaterTheme.dimmedBgUrl ? 0 : 1,
           }}
         />
 
-        {/* Dimmed Layer: Lights-Off Background (Smoothly fades in when movie/stream starts) */}
+        {/* Dimmed Layer: Lights-Off Background (Smoothly fades in when movie or stream is actively PLAYING) */}
         {currentTheaterTheme.dimmedBgUrl && (
           <div
             className="absolute inset-0 pointer-events-none z-0 transition-opacity duration-1000 ease-in-out"
@@ -548,19 +573,19 @@ export function PixelPerfectTheater({
               backgroundSize: '100% 100%',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              opacity: hasMediaActive ? 1 : 0,
+              opacity: isPlayingActive ? 1 : 0,
             }}
           />
         )}
 
-        {/* Cinematic Ambient Screen Bloom & Room Shadowing when stream is active */}
+        {/* Cinematic Ambient Screen Bloom & Room Shadowing when actively playing */}
         <div
           className="absolute inset-0 pointer-events-none z-10 transition-opacity duration-1000 ease-in-out"
           style={{
-            background: hasMediaActive
+            background: isPlayingActive
               ? 'radial-gradient(ellipse 65% 45% at 50% 38%, rgba(229, 9, 20, 0.04) 0%, rgba(0, 0, 0, 0.45) 85%)'
               : 'transparent',
-            opacity: hasMediaActive ? 1 : 0,
+            opacity: isPlayingActive ? 1 : 0,
           }}
         />
 
@@ -648,6 +673,9 @@ export function PixelPerfectTheater({
                 playsInline
                 controls={false}
                 muted={Boolean(isScreenSharing)}
+                onPlay={() => setIsScreenStreamPlaying(true)}
+                onPause={() => setIsScreenStreamPlaying(false)}
+                onEnded={() => setIsScreenStreamPlaying(false)}
                 className="w-full h-full object-contain"
               />
               <div className="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow pointer-events-none">
