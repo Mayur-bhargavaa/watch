@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Mic,
   MicOff,
@@ -137,11 +137,11 @@ function TheaterCamTile({
         /* Camera Off - Sleek Avatar View */
         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#181c28] to-[#0c0e16] relative">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg border border-white/10 overflow-hidden"
+            className="w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-lg border border-white/10 overflow-hidden"
             style={{ backgroundColor: avatarBg }}
           >
             {effectiveAvatar.includes('dicebear') || !effectiveAvatar.startsWith('http') ? (
-              <span className="text-sm font-black text-white uppercase tracking-wider">
+              <span className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
                 {initial}
               </span>
             ) : (
@@ -151,10 +151,10 @@ function TheaterCamTile({
           {participant.isSelf && onToggleCamera && (
             <button
               onClick={onToggleCamera}
-              className="mt-1 text-[9px] font-semibold text-zinc-300 hover:text-white bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded-full border border-white/15 transition flex items-center gap-1"
+              className="mt-0.5 sm:mt-1 text-[8px] sm:text-[9px] font-semibold text-zinc-300 hover:text-white bg-white/10 hover:bg-white/20 px-1.5 sm:px-2 py-0.5 rounded-full border border-white/15 transition flex items-center gap-1"
             >
-              <Camera className="w-2.5 h-2.5" />
-              <span>Turn on cam</span>
+              <Camera className="w-2 sm:w-2.5 h-2 sm:h-2.5" />
+              <span>Cam on</span>
             </button>
           )}
         </div>
@@ -162,18 +162,18 @@ function TheaterCamTile({
 
       {/* Host Crown Badge */}
       {participant.isHost && (
-        <div className="absolute top-1.5 left-1.5 bg-[#E50914] text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow flex items-center gap-0.5 z-10 uppercase tracking-wider">
-          <Crown className="w-2.5 h-2.5 fill-current" />
+        <div className="absolute top-1 left-1 sm:top-1.5 sm:left-1.5 bg-[#E50914] text-white text-[7px] sm:text-[8px] font-black px-1 sm:px-1.5 py-0.5 rounded shadow flex items-center gap-0.5 z-10 uppercase tracking-wider">
+          <Crown className="w-2 sm:w-2.5 h-2 sm:h-2.5 fill-current" />
           <span>Host</span>
         </div>
       )}
 
       {/* Bottom Name & Mic status badge */}
-      <div className="absolute bottom-1.5 left-1.5 bg-black/80 backdrop-blur-md text-white text-[9.5px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1.5 border border-white/10 max-w-[90%] z-10">
+      <div className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 bg-black/80 backdrop-blur-md text-white text-[8.5px] sm:text-[9.5px] font-medium px-1.5 sm:px-2 py-0.5 rounded flex items-center gap-1 sm:gap-1.5 border border-white/10 max-w-[92%] z-10">
         {participant.isMuted ? (
-          <MicOff className="w-3 h-3 text-rose-400 shrink-0" />
+          <MicOff className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-rose-400 shrink-0" />
         ) : (
-          <Mic className="w-3 h-3 text-emerald-400 shrink-0" />
+          <Mic className="w-2.5 sm:w-3 h-2.5 sm:h-3 text-emerald-400 shrink-0" />
         )}
         <span className="truncate">
           {participant.displayName} {participant.isSelf ? '(You)' : ''}
@@ -196,20 +196,20 @@ function TheaterEmptyInviteSlot({
   return (
     <div
       onClick={onCopyInvite}
-      className="relative aspect-[16/10] w-full rounded-xl border border-dashed border-white/20 hover:border-white/40 bg-white/[0.03] hover:bg-white/[0.08] transition-all cursor-pointer flex flex-col items-center justify-center text-zinc-400 hover:text-white group select-none shadow-sm"
+      className="relative aspect-[16/10] w-full rounded-xl border border-dashed border-white/20 hover:border-white/40 bg-white/[0.03] hover:bg-white/[0.08] transition-all cursor-pointer flex flex-col items-center justify-center text-zinc-400 hover:text-white group select-none shadow-sm p-1"
       title="Invite a friend to take this cinema seat"
     >
-      <div className="w-7 h-7 rounded-full bg-white/5 group-hover:bg-white/10 border border-white/10 flex items-center justify-center mb-0.5 transition">
+      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white/5 group-hover:bg-white/10 border border-white/10 flex items-center justify-center mb-0.5 transition">
         {copiedInvite ? (
-          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <Check className="w-3 h-3 text-emerald-400" />
         ) : (
-          <span className="text-sm font-light text-rose-400 group-hover:scale-110 transition-transform">+</span>
+          <span className="text-xs sm:text-sm font-light text-rose-400 group-hover:scale-110 transition-transform">+</span>
         )}
       </div>
-      <span className="text-[10px] font-bold tracking-wide text-zinc-300 group-hover:text-white">
-        {copiedInvite ? '✓ Link Copied' : 'Invite Friend'}
+      <span className="text-[8.5px] sm:text-[9.5px] font-bold tracking-wide text-zinc-300 group-hover:text-white truncate max-w-full">
+        {copiedInvite ? '✓ Copied' : 'Invite Friend'}
       </span>
-      <span className="text-[8px] text-zinc-500">Seat {seatNumber}/6</span>
+      <span className="text-[7px] sm:text-[8px] text-zinc-500">Seat {seatNumber}/6</span>
     </div>
   );
 }
@@ -257,6 +257,37 @@ export function PixelPerfectTheater({
   const [floatingParticles, setFloatingParticles] = useState<Array<{ id: string; emoji: string; left: number }>>([]);
   const [showSeatCams, setShowSeatCams] = useState<boolean>(true);
   const [showCamPanel, setShowCamPanel] = useState<boolean>(true);
+  type TheaterScreenSize = 'standard' | 'large' | 'imax';
+  const [screenSize, setScreenSize] = useState<TheaterScreenSize>('large');
+
+  const isImax = screenSize === 'imax' || !showCamPanel;
+  const isLarge = screenSize === 'large' && showCamPanel;
+
+  const screenStyle = useMemo(() => {
+    if (isImax) {
+      return {
+        top: '1.8%',
+        left: '3%',
+        width: '94%',
+        height: '67.5%',
+      };
+    }
+    if (isLarge) {
+      return {
+        top: '2.5%',
+        left: '10.5%',
+        width: '79%',
+        height: '64.5%',
+      };
+    }
+    // standard (original 60%)
+    return {
+      top: '4.55%',
+      left: '19.98%',
+      width: '59.95%',
+      height: '56.64%',
+    };
+  }, [isImax, isLarge]);
 
   const lastProcessedReactionRef = useRef<string | null>(latestReactions?.[0]?.id || null);
   const theaterMountTimeRef = useRef<number>(Date.now());
@@ -333,9 +364,9 @@ export function PixelPerfectTheater({
 
   return (
     <div className="fixed inset-0 z-50 w-screen h-screen bg-[#050508] flex items-center justify-center select-none overflow-hidden font-sans">
-      {/* ── 1024x666 Pixel-Perfect Theater Canvas ── */}
+      {/* ── 1376x768 (16:9) Pixel-Perfect Theater Canvas ── */}
       <div
-        className="relative w-full h-full max-w-[1550px] aspect-[1024/666] flex flex-col justify-between overflow-hidden shadow-2xl"
+        className="relative w-full h-full max-w-[1850px] aspect-[1376/768] flex flex-col justify-between overflow-hidden shadow-2xl"
         style={{
           backgroundImage: `url('/theater/theater_clean_backdrop.png')`,
           backgroundSize: '100% 100%',
@@ -411,6 +442,25 @@ export function PixelPerfectTheater({
               </button>
             )}
 
+            {/* Screen Size Mode Selector */}
+            <button
+              onClick={() => {
+                setScreenSize(current => {
+                  if (current === 'large') return 'imax';
+                  if (current === 'imax') return 'standard';
+                  return 'large';
+                });
+              }}
+              className="px-2.5 sm:px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow"
+              title="Click to toggle screen size: Large (79%) • IMAX (94%) • Standard (60%)"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline text-zinc-300">Screen:</span>
+              <span className="text-amber-300 font-bold uppercase text-[10.5px]">
+                {screenSize === 'large' ? 'Large (79%)' : screenSize === 'imax' ? 'IMAX (94%)' : 'Standard'}
+              </span>
+            </button>
+
             {/* Members Count Badge */}
             <div className="px-2.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5 shadow">
               <User className="w-3.5 h-3.5 text-zinc-300" />
@@ -430,8 +480,14 @@ export function PixelPerfectTheater({
         </div>
 
         {/* ══ CAM PREVIEWS: 2 LEFT ══ */}
-        {showCamPanel && (
-          <div className="absolute left-[1%] sm:left-[1.5%] top-[10%] w-[18%] sm:w-[17.5%] max-w-[210px] flex flex-col gap-2.5 sm:gap-3 z-30 pointer-events-auto animate-in fade-in slide-in-from-left-4 duration-300">
+        {showCamPanel && !isImax && (
+          <div
+            className={`absolute z-30 pointer-events-auto animate-in fade-in slide-in-from-left-4 duration-300 flex flex-col ${
+              isLarge
+                ? 'left-[0.8%] top-[6.5%] w-[9.2%] min-w-[92px] max-w-[130px] gap-2'
+                : 'left-[1%] sm:left-[1.5%] top-[10%] w-[18%] sm:w-[17.5%] max-w-[210px] gap-2.5 sm:gap-3'
+            }`}
+          >
             {/* Left Slot 1 (Seat 1) */}
             {seats[0] ? (
               <TheaterCamTile
@@ -467,8 +523,14 @@ export function PixelPerfectTheater({
         )}
 
         {/* ══ CAM PREVIEWS: 2 RIGHT ══ */}
-        {showCamPanel && (
-          <div className="absolute right-[1%] sm:right-[1.5%] top-[10%] w-[18%] sm:w-[17.5%] max-w-[210px] flex flex-col gap-2.5 sm:gap-3 z-30 pointer-events-auto animate-in fade-in slide-in-from-right-4 duration-300">
+        {showCamPanel && !isImax && (
+          <div
+            className={`absolute z-30 pointer-events-auto animate-in fade-in slide-in-from-right-4 duration-300 flex flex-col ${
+              isLarge
+                ? 'right-[0.8%] top-[6.5%] w-[9.2%] min-w-[92px] max-w-[130px] gap-2'
+                : 'right-[1%] sm:right-[1.5%] top-[10%] w-[18%] sm:w-[17.5%] max-w-[210px] gap-2.5 sm:gap-3'
+            }`}
+          >
             {/* Right Slot 3 (Seat 3) */}
             {seats[2] ? (
               <TheaterCamTile
@@ -504,10 +566,10 @@ export function PixelPerfectTheater({
         )}
 
         {/* ══ CAM PREVIEWS: 2 BOTTOM ══ */}
-        {showCamPanel && (
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-[70px] sm:bottom-[76px] flex items-center gap-3 sm:gap-5 z-30 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+        {showCamPanel && !isImax && (
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-[68px] sm:bottom-[74px] flex items-center gap-3 sm:gap-5 z-30 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
             {/* Bottom Slot 5 (Seat 5) */}
-            <div className="w-[145px] sm:w-[185px] md:w-[205px]">
+            <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
               {seats[4] ? (
                 <TheaterCamTile
                   participant={seats[4]}
@@ -525,7 +587,7 @@ export function PixelPerfectTheater({
             </div>
 
             {/* Bottom Slot 6 (Seat 6) */}
-            <div className="w-[145px] sm:w-[185px] md:w-[205px]">
+            <div className={isLarge ? 'w-[125px] sm:w-[155px] md:w-[175px]' : 'w-[145px] sm:w-[185px] md:w-[205px]'}>
               {seats[5] ? (
                 <TheaterCamTile
                   participant={seats[5]}
@@ -544,14 +606,14 @@ export function PixelPerfectTheater({
           </div>
         )}
 
-        {/* ══ THE MAIN CINEMA SCREEN (EXPANSIVE IMAX FRAME AT 19.98% x 4.55%, 59.95% w, 56.64% h) ══ */}
+        {/* ══ THE MAIN CINEMA SCREEN (DYNAMIC EXPANSIVE FRAME) ══ */}
         <div
-          className="absolute z-20 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.95)] group/screen"
+          className="absolute z-20 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.95)] group/screen transition-all duration-300"
           style={{
-            top: '4.55%',
-            left: '19.98%',
-            width: '59.95%',
-            height: '56.64%',
+            top: screenStyle.top,
+            left: screenStyle.left,
+            width: screenStyle.width,
+            height: screenStyle.height,
             backgroundColor: '#000000',
             border: '2px solid #141720',
             borderRadius: '4px',
@@ -821,6 +883,28 @@ export function PixelPerfectTheater({
                 title={isScreenSharing ? 'Stop Screen Share' : 'Start Screen Share'}
               >
                 <ScreenShare className="w-4 h-4" />
+              </button>
+
+              {/* Theater Screen Size Toggle (Standard -> Large -> IMAX) */}
+              <button
+                onClick={() => {
+                  setScreenSize(current => {
+                    if (current === 'large') return 'imax';
+                    if (current === 'imax') return 'standard';
+                    return 'large';
+                  });
+                }}
+                className={`px-2.5 py-1.5 rounded-full transition flex items-center gap-1.5 text-xs font-semibold ${
+                  screenSize === 'imax'
+                    ? 'text-amber-300 bg-amber-950/60 border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]'
+                    : screenSize === 'large'
+                    ? 'text-yellow-300 bg-yellow-950/40 border border-yellow-500/30'
+                    : 'text-zinc-300 hover:text-white bg-white/5 border border-white/10'
+                }`}
+                title="Switch Screen Size: Large (79%) • IMAX (94%) • Standard"
+              >
+                <Maximize2 className="w-3.5 h-3.5 text-amber-400" />
+                <span className="font-bold text-[11px]">{screenSize.toUpperCase()}</span>
               </button>
 
               {/* Exit 3D Theater button -> Normal Mode */}
