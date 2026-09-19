@@ -346,7 +346,7 @@ export function PixelPerfectTheater({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [newMediaUrl, setNewMediaUrl] = useState<string>('');
-  const [showReactionsBar, setShowReactionsBar] = useState<boolean>(true);
+  const [showReactionsBar, setShowReactionsBar] = useState<boolean>(false);
   const [floatingParticles, setFloatingParticles] = useState<Array<{ id: string; emoji: string; left: number }>>([]);
   const [showSeatCams, setShowSeatCams] = useState<boolean>(true);
   const [showCamPanel, setShowCamPanel] = useState<boolean>(true);
@@ -745,16 +745,15 @@ export function PixelPerfectTheater({
               </div>
             )}
 
-            {/* ══ OVERLAPPING CAM PREVIEW DECK (ON BOTTOM BAR) ══ */}
+            {/* ══ SEPARATE CAM PREVIEW TILES (ON BOTTOM BAR, CLEAN & INDIVIDUAL) ══ */}
             {showCamPanel && (
-              <div className="flex items-center justify-center mb-2 animate-in fade-in slide-in-from-bottom-3 duration-200">
-                <div className="flex items-center -space-x-3 sm:-space-x-4 hover:space-x-1.5 transition-all duration-300 p-1.5 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl">
-                  {/* Render all occupied participant tiles with overlap */}
+              <div className="flex items-center justify-center mb-2.5 animate-in fade-in slide-in-from-bottom-3 duration-200">
+                <div className="flex items-center gap-2 sm:gap-2.5 p-1.5 sm:p-2 bg-[#0d1017]/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl">
+                  {/* Render all occupied participant tiles cleanly separated */}
                   {participants.map((p, idx) => (
                     <div
                       key={p.userId || `seat_${idx}`}
-                      className="w-20 sm:w-28 md:w-32 transition-all duration-200 hover:scale-110 hover:z-30 hover:-translate-y-1"
-                      style={{ zIndex: idx + 1 }}
+                      className="w-24 sm:w-28 md:w-32 transition-transform duration-200 hover:scale-105"
                     >
                       <TheaterCamTile
                         participant={p}
@@ -768,8 +767,7 @@ export function PixelPerfectTheater({
                   {/* Show ONE invite slot for next person if room is not full */}
                   {participants.length < MAX_SEATS && (
                     <div
-                      className="w-16 sm:w-22 md:w-26 transition-all duration-200 hover:scale-105 hover:z-30"
-                      style={{ zIndex: participants.length + 1 }}
+                      className="w-20 sm:w-24 md:w-26 transition-transform duration-200 hover:scale-105"
                     >
                       <TheaterEmptyInviteSlot
                         onCopyInvite={onCopyInvite}
