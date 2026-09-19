@@ -38,6 +38,7 @@ export interface TheaterTheme {
   name: string;
   category: 'cinema' | 'romantic' | 'cozy';
   bgUrl: string;
+  dimmedBgUrl?: string;
   previewUrl: string;
   accent: string;
   description: string;
@@ -49,9 +50,10 @@ export const THEATER_THEMES: TheaterTheme[] = [
     name: '3D VIP Cinema',
     category: 'cinema',
     bgUrl: '/theater/theater_clean_backdrop.png',
+    dimmedBgUrl: '/theater/cinema_lights_dimmed.png',
     previewUrl: '/theater/theater_clean_backdrop.png',
     accent: '#e50914',
-    description: 'Front row red velvet VIP couch, glowing wooden armrests & cinema wall lights',
+    description: 'Front row red velvet VIP couch with dynamic lights-dimming movie transition',
   },
   {
     id: 'theam1',
@@ -523,14 +525,45 @@ export function PixelPerfectTheater({
     <div className="fixed inset-0 z-50 w-screen h-screen bg-[#050508] flex items-center justify-center select-none overflow-hidden font-sans">
       {/* ── 1376x768 (16:9) Pixel-Perfect Theater Canvas ── */}
       <div
-        className="relative w-full h-full max-w-[1850px] aspect-[1376/768] flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-700 ease-out"
-        style={{
-          backgroundImage: `url('${currentTheaterTheme.bgUrl}')`,
-          backgroundSize: '100% 100%',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat',
-        }}
+        className="relative w-full h-full max-w-[1850px] aspect-[1376/768] flex flex-col justify-between overflow-hidden shadow-2xl transition-all duration-700 ease-out bg-black"
       >
+        {/* Base Layer: Bright / Lights-On Background */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0 transition-opacity duration-1000 ease-in-out"
+          style={{
+            backgroundImage: `url('${currentTheaterTheme.bgUrl}')`,
+            backgroundSize: '100% 100%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            opacity: hasMediaActive && currentTheaterTheme.dimmedBgUrl ? 0 : 1,
+          }}
+        />
+
+        {/* Dimmed Layer: Lights-Off Background (Smoothly fades in when movie/stream starts) */}
+        {currentTheaterTheme.dimmedBgUrl && (
+          <div
+            className="absolute inset-0 pointer-events-none z-0 transition-opacity duration-1000 ease-in-out"
+            style={{
+              backgroundImage: `url('${currentTheaterTheme.dimmedBgUrl}')`,
+              backgroundSize: '100% 100%',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              opacity: hasMediaActive ? 1 : 0,
+            }}
+          />
+        )}
+
+        {/* Cinematic Ambient Screen Bloom & Room Shadowing when stream is active */}
+        <div
+          className="absolute inset-0 pointer-events-none z-10 transition-opacity duration-1000 ease-in-out"
+          style={{
+            background: hasMediaActive
+              ? 'radial-gradient(ellipse 65% 45% at 50% 38%, rgba(229, 9, 20, 0.04) 0%, rgba(0, 0, 0, 0.45) 85%)'
+              : 'transparent',
+            opacity: hasMediaActive ? 1 : 0,
+          }}
+        />
+
         {/* Optional Front VIP Seats Overlay for custom themes */}
         {currentTheaterTheme.id !== 'cinema-vip' && showFrontSeatsOverlay && (
           <div
