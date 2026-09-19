@@ -27,7 +27,9 @@ import {
   Palette,
   Sparkles,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Armchair,
+  Info
 } from 'lucide-react';
 import { MediaItem, RoomPlaybackState, Reaction } from '@synccinema/common';
 import { YouTubeEmbed } from './YouTubeEmbed';
@@ -371,6 +373,11 @@ export function PixelPerfectTheater({
     return false;
   });
 
+  // Virtual Cinema Seats State
+  const [showVirtualSeats, setShowVirtualSeats] = useState<boolean>(true);
+  const [selectedSeatIndex, setSelectedSeatIndex] = useState<number | null>(null);
+  const [glowingSeats, setGlowingSeats] = useState<Record<number, { emoji: string; until: number }>>({});
+
   const currentTheaterTheme = useMemo(() => {
     return THEATER_THEMES.find(t => t.id === theaterThemeId) || THEATER_THEMES[0];
   }, [theaterThemeId]);
@@ -475,6 +482,14 @@ export function PixelPerfectTheater({
     const isSelf = pIdx >= 0 && participants[pIdx]?.isSelf;
     if (isSelf) return;
 
+    // Trigger subtle seat glow on the participant's seat
+    if (pIdx >= 0) {
+      setGlowingSeats(prev => ({
+        ...prev,
+        [pIdx]: { emoji: newest.emoji, until: Date.now() + 2200 }
+      }));
+    }
+
     const particleId = `${newest.id}_${Date.now()}`;
     const leftPct = pIdx >= 0 ? 25 + (pIdx / MAX_SEATS) * 50 + (Math.random() * 6 - 3) : 30 + Math.random() * 40;
 
@@ -495,6 +510,13 @@ export function PixelPerfectTheater({
     const particleId = `local_${Date.now()}_${Math.random()}`;
     const selfIdx = participants.findIndex(p => p.isSelf);
     const leftPct = selfIdx >= 0 ? 25 + (selfIdx / MAX_SEATS) * 50 + (Math.random() * 6 - 3) : 50;
+
+    if (selfIdx >= 0) {
+      setGlowingSeats(prev => ({
+        ...prev,
+        [selfIdx]: { emoji, until: Date.now() + 2200 }
+      }));
+    }
 
     const p = { id: particleId, emoji, left: leftPct };
     setFloatingParticles(prev => [...prev.slice(-20), p]);
@@ -600,6 +622,242 @@ export function PixelPerfectTheater({
               backgroundRepeat: 'no-repeat',
             }}
           />
+        )}
+
+        {/* ══ INTERACTIVE VIRTUAL CINEMA SEATS (THEATER SEAT MAP) ══ */}
+        {showVirtualSeats && (
+          <div className="absolute inset-0 pointer-events-none z-25 overflow-hidden select-none">
+            {/* 6 VIP Seats mapped onto the theater hall chairs */}
+            {[
+              // Back / Middle Row (Seats 0 to 3)
+              { idx: 0, label: 'Seat A1', left: '26%', bottom: '26.5%', scale: 'scale-90', row: 'Mid Row Left' },
+              { idx: 1, label: 'Seat A2', left: '39%', bottom: '26.5%', scale: 'scale-90', row: 'Mid Row Center-Left' },
+              { idx: 2, label: 'Seat A3', left: '61%', bottom: '26.5%', scale: 'scale-90', row: 'Mid Row Center-Right' },
+              { idx: 3, label: 'Seat A4', left: '74%', bottom: '26.5%', scale: 'scale-90', row: 'Mid Row Right' },
+              // Front Row VIP Couches (Seats 4 & 5)
+              { idx: 4, label: 'VIP Front Left', left: '33%', bottom: '13%', scale: 'scale-105', row: 'Front VIP' },
+              { idx: 5, label: 'VIP Front Right', left: '67%', bottom: '13%', scale: 'scale-105', row: 'Front VIP' },
+            ].map((seat) => {
+              const participant = participants[seat.idx] || null;
+              const isOccupied = Boolean(participant);
+              const isSelf = Boolean(participant?.isSelf);
+              const isSelected = selectedSeatIndex === seat.idx;
+              const glow = glowingSeats[seat.idx];
+              const isGlowing = Boolean(glow && glow.until > Date.now());
+
+              const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
+                participant?.displayName || `Seat${seat.idx + 1}`
+              )}`;
+              const effectiveAvatar =
+                participant?.avatarUrl || (isSelf ? userAvatarUrl : null) || fallbackAvatar;
+              const initial = participant?.displayName
+                ? participant.displayName.trim().charAt(0).toUpperCase()
+                : 'U';
+              const avatarColors = ['#1a73e8', '#9334e6', '#00897b', '#e52592', '#f4511e', '#188038'];
+              const avatarBg = avatarColors[seat.idx % avatarColors.length];
+
+              return (
+                <div
+                  key={`virtual_seat_${seat.idx}`}
+                  style={{ left: seat.left, bottom: seat.bottom }}
+                  className={`absolute -translate-x-1/2 pointer-events-auto transition-all duration-300 ${seat.scale}`}
+                >
+                  {/* Reaction Popup Emoji directly above the seat during reaction */}
+                  {isGlowing && (
+                    <div className="absolute -top-9 left-1/2 -translate-x-1/2 text-2xl animate-bounce pointer-events-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] z-40">
+                      {glow?.emoji}
+                    </div>
+                  )}
+
+                  {/* Seat Capsule Button */}
+                  <button
+                    onClick={() => setSelectedSeatIndex(isSelected ? null : seat.idx)}
+                    className={`group relative flex flex-col items-center justify-center transition-all duration-300 cursor-pointer ${
+                      isGlowing
+                        ? 'scale-125 ring-4 ring-amber-400/90 shadow-[0_0_35px_rgba(251,191,36,0.95)]'
+                        : isSelected
+                        ? 'scale-115 ring-2 ring-red-500 shadow-[0_0_25px_rgba(229,9,20,0.85)]'
+                        : 'hover:scale-110'
+                    }`}
+                    title={
+                      isOccupied
+                        ? `${participant?.displayName} (${seat.label}) - Click to view`
+                        : `${seat.label} - Empty seat (Click to invite)`
+                    }
+                  >
+                    {/* Head / Avatar Badge */}
+                    <div
+                      className={`relative rounded-full overflow-hidden flex items-center justify-center transition-all duration-300 ${
+                        isOccupied ? 'w-8 h-8 sm:w-9 sm:h-9' : 'w-7 h-7 sm:w-8 sm:h-8'
+                      } ${
+                        isGlowing
+                          ? 'border-2 border-amber-300 shadow-[0_0_20px_rgba(251,191,36,0.8)]'
+                          : isSelected
+                          ? 'border-2 border-rose-500'
+                          : isOccupied
+                          ? 'border border-white/40 shadow-lg'
+                          : 'border border-white/20 bg-black/60 hover:border-white/50'
+                      }`}
+                      style={{
+                        backgroundColor: isOccupied ? avatarBg : 'rgba(0,0,0,0.65)',
+                        backdropFilter: 'blur(10px)',
+                      }}
+                    >
+                      {isOccupied ? (
+                        effectiveAvatar.includes('dicebear') || !effectiveAvatar.startsWith('http') ? (
+                          <span className="text-[11px] font-black text-white uppercase tracking-wider">
+                            {initial}
+                          </span>
+                        ) : (
+                          <img
+                            src={effectiveAvatar}
+                            alt={participant?.displayName || 'User'}
+                            className="w-full h-full object-cover"
+                          />
+                        )
+                      ) : (
+                        <Armchair className="w-3.5 h-3.5 text-zinc-400 group-hover:text-rose-400 transition-colors" />
+                      )}
+
+                      {/* Speaking Pulse */}
+                      {participant?.isSpeaking && (
+                        <span className="absolute inset-0 rounded-full border-2 border-emerald-400 animate-ping opacity-75" />
+                      )}
+
+                      {/* Mic Muted indicator on avatar */}
+                      {isOccupied && participant?.isMuted && (
+                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-rose-600 flex items-center justify-center">
+                          <MicOff className="w-1.5 h-1.5 text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Small Seat Label Pill */}
+                    <div
+                      className={`mt-1 px-2 py-0.5 rounded-full text-[8.5px] font-bold tracking-tight whitespace-nowrap flex items-center gap-1 border transition-all duration-200 ${
+                        isGlowing
+                          ? 'bg-amber-500 text-black border-amber-300 shadow-lg'
+                          : isSelected
+                          ? 'bg-rose-600 text-white border-rose-400'
+                          : isOccupied
+                          ? 'bg-black/80 text-zinc-200 border-white/20 backdrop-blur-md'
+                          : 'bg-black/60 text-zinc-400 border-white/10 opacity-70 group-hover:opacity-100 group-hover:border-white/30'
+                      }`}
+                    >
+                      {isOccupied ? (
+                        <>
+                          <span className="truncate max-w-[65px] sm:max-w-[80px]">
+                            {participant?.displayName} {isSelf ? '(You)' : ''}
+                          </span>
+                          {participant?.isHost && (
+                            <Crown className="w-2 h-2 text-amber-400 fill-amber-400 shrink-0" />
+                          )}
+                        </>
+                      ) : (
+                        <span>{seat.label}</span>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Seat Details Popover Modal when Clicked */}
+                  {isSelected && (
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 bottom-full mb-3 w-48 sm:w-56 bg-[#11141e]/95 backdrop-blur-xl border border-white/20 rounded-2xl p-3 shadow-[0_20px_50px_rgba(0,0,0,0.9)] z-50 animate-in fade-in zoom-in-95 duration-150 text-left"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-white/10">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white border border-white/20 shrink-0 overflow-hidden"
+                            style={{ backgroundColor: avatarBg }}
+                          >
+                            {isOccupied ? (
+                              effectiveAvatar.includes('dicebear') || !effectiveAvatar.startsWith('http') ? (
+                                initial
+                              ) : (
+                                <img
+                                  src={effectiveAvatar}
+                                  alt={participant?.displayName}
+                                  className="w-full h-full object-cover"
+                                />
+                              )
+                            ) : (
+                              <Armchair className="w-4 h-4 text-zinc-400" />
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs font-bold text-white truncate">
+                              {isOccupied ? participant?.displayName : 'Empty Seat'}
+                            </span>
+                            <span className="text-[9.5px] text-zinc-400">
+                              {seat.label} • {seat.row}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSeatIndex(null);
+                          }}
+                          className="p-1 text-zinc-400 hover:text-white rounded-full bg-white/5 hover:bg-white/10 transition"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {isOccupied ? (
+                        <div className="space-y-1.5 text-[10.5px]">
+                          <div className="flex items-center justify-between text-zinc-300">
+                            <span className="text-zinc-400">Status:</span>
+                            <span className="flex items-center gap-1 font-semibold text-emerald-400">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Watching
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-zinc-300">
+                            <span className="text-zinc-400">Microphone:</span>
+                            <span className={participant?.isMuted ? 'text-rose-400' : 'text-emerald-400'}>
+                              {participant?.isMuted ? 'Muted' : 'Unmuted'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-zinc-300">
+                            <span className="text-zinc-400">Camera:</span>
+                            <span className={participant?.isCameraOn ? 'text-emerald-400' : 'text-zinc-400'}>
+                              {participant?.isCameraOn ? 'Active' : 'Off'}
+                            </span>
+                          </div>
+                          {participant?.isHost && (
+                            <div className="mt-1 pt-1 border-t border-white/10 flex items-center gap-1 text-amber-400 text-[9.5px] font-bold">
+                              <Crown className="w-3 h-3 fill-current" />
+                              <span>Room Host &amp; Director</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-[10.5px] text-zinc-300">
+                            This seat is currently available. Invite a friend to sit here!
+                          </p>
+                          {onCopyInvite && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCopyInvite();
+                              }}
+                              className="w-full py-1.5 px-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl font-bold text-[10.5px] shadow flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                            >
+                              <UserPlus className="w-3 h-3" />
+                              <span>{copiedInvite ? 'Link Copied!' : 'Copy Room Invite'}</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
         {/* ══ TOP BAR ══ */}
         <div className="relative z-30 w-full px-6 pt-4 flex items-center justify-between pointer-events-auto">
@@ -912,6 +1170,20 @@ export function PixelPerfectTheater({
                 <Users className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline text-[10.5px]">Cam ({participants.length})</span>
                 {showCamPanel ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+              </button>
+
+              {/* Virtual Cinema Seats Toggle */}
+              <button
+                onClick={() => setShowVirtualSeats(s => !s)}
+                className={`px-2.5 py-1.5 rounded-full transition flex items-center gap-1.5 text-xs font-semibold cursor-pointer ${
+                  showVirtualSeats
+                    ? 'text-rose-300 bg-rose-950/70 border border-rose-500/50 shadow-[0_0_10px_rgba(244,63,94,0.25)]'
+                    : 'text-zinc-400 hover:text-white bg-white/5 border border-white/10'
+                }`}
+                title={showVirtualSeats ? 'Hide Virtual Cinema Seats' : 'Show Virtual Cinema Seats'}
+              >
+                <Armchair className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline text-[10.5px]">Seats</span>
               </button>
 
               {/* Reaction Trigger Button */}
