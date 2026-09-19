@@ -41,10 +41,15 @@ watch_party/
 
 ## 🌟 3. Core Features & Capabilities
 
-### 🎬 A. Immersive 3D VIP Virtual Theater Mode
+### 🎬 A. Immersive 3D VIP Virtual Theater Mode & Virtual Seats
 * **Ultra-Realistic Cinema Hall**:
   - Features front-row plush red velvet VIP armchairs, glowing gold-lit architectural moldings, and sconce lighting.
   - Video and screen streams fit pixel-for-pixel directly on the theater screen.
+* **🪑 Interactive Virtual Cinema Seats**:
+  - Every participant is assigned a dedicated seat in the cinema hall (`Seat A1`, `Seat A2`, `Seat A3`, `Seat A4` in the middle row, and `VIP Front Left`, `VIP Front Right` in the front row).
+  - **Click a Seat → Profile & Status Popover**: Clicking any seat reveals the user's avatar, displayName, mic & camera states, and host status (or a 1-click room invite link if the seat is empty).
+  - **Subtle Reaction Glow**: When any person sends an emoji reaction (or when you react), their seat pulses with a golden amber glow and displays their bouncing emoji right above their chair!
+  - **Toggleable**: You can show or hide the virtual seat avatars anytime via the **Seats** button on the bottom pill dock.
 * **Realistic Dynamic Lights-Off Transition**:
   - **Lights On (Ambient Glow)**: When idle or **whenever video or screen stream is PAUSED**, the theater cross-fades into warm wall sconce lighting (recreating theater lights during intermission).
   - **Lights Off (Dimmed Hall)**: When video or screen share is **actively PLAYING**, lights smoothly dim down over a 1-second cross-fade with ambient screen bloom.
