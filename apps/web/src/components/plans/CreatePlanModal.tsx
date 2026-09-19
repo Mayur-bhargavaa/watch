@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   X,
   Plus,
@@ -23,7 +24,7 @@ import {
 } from 'lucide-react';
 import { PlanType, ActivityType, PlanActivity, Plan } from '../../types/plans';
 import { addPlan } from '../../lib/plansStore';
-import { getFriendsWithStreaks, getStoredSession } from '../../lib/api';
+import { getFriendsWithStreaks, getUserPartner, getStoredSession } from '../../lib/api';
 
 interface CreatePlanModalProps {
   isOpen: boolean;
@@ -95,28 +96,6 @@ const GAME_CATALOG = [
   }
 ];
 
-// Fallback friends if brand new user without friends
-const FALLBACK_FRIENDS = [
-  {
-    userId: 'u2',
-    displayName: 'Priya Sharma',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=priya&skinColor=edb98a&top=longStraight',
-    partnerCode: 'PRIYA-789'
-  },
-  {
-    userId: 'u3',
-    displayName: 'Arjun Verma',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=arjun&skinColor=edb98a&top=shortFlat',
-    partnerCode: 'ARJUN-456'
-  },
-  {
-    userId: 'u4',
-    displayName: 'Neha Patel',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=neha&skinColor=edb98a&top=bob',
-    partnerCode: 'NEHA-123'
-  }
-];
-
 export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
   isOpen,
   onClose,
@@ -158,37 +137,72 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
   const [customMovieTitle, setCustomMovieTitle] = useState('');
   const [customMovieUrl, setCustomMovieUrl] = useState('');
 
-  // Friends list loaded from real server
-  const [friendsList, setFriendsList] = useState<any[]>(FALLBACK_FRIENDS);
+  // Friends list loaded from real server (only connected friends & partner)
+  const [friendsList, setFriendsList] = useState<any[]>([]);
   const [invitedFriends, setInvitedFriends] = useState<string[]>([]);
 
-  // Load real friends from API
+  // Load real connected friends and partner from API
   useEffect(() => {
+    if (!isOpen) return;
     const session = getStoredSession();
     if (session?.token) {
-      getFriendsWithStreaks(session.token)
-        .then((res) => {
-          if (res?.friends && Array.isArray(res.friends) && res.friends.length > 0) {
-            const mapped = res.friends.map((f: any) => ({
-              userId: f.friendUser.id,
-              displayName: f.friendUser.displayName,
-              avatarUrl: f.friendUser.avatarUrl,
-              partnerCode: f.friendUser.partnerCode,
-              isOnline: f.friendUser.isOnline
-            }));
-            setFriendsList(mapped);
-            setInvitedFriends(mapped.slice(0, 2).map((m: any) => m.userId));
+      Promise.all([
+        getFriendsWithStreaks(session.token).catch(() => ({ friends: [] })),
+        getUserPartner(session.token).catch(() => ({ partner: null }))
+      ])
+        .then(([friendsRes, partnerRes]) => {
+          const connected: any[] = [];
+          const seen = new Set<string>();
+
+          // Connected partner
+          if (partnerRes?.partner && partnerRes.partner.id) {
+            seen.add(partnerRes.partner.id);
+            connected.push({
+              userId: partnerRes.partner.id,
+              displayName: `${partnerRes.partner.displayName} (Partner)`,
+              avatarUrl: partnerRes.partner.avatarUrl,
+              partnerCode: partnerRes.partner.partnerCode,
+              isOnline: partnerRes.partner.online
+            });
+          }
+
+          // Accepted friends
+          if (friendsRes?.friends && Array.isArray(friendsRes.friends)) {
+            friendsRes.friends.forEach((f: any) => {
+              if (f.friendUser?.id && !seen.has(f.friendUser.id)) {
+                seen.add(f.friendUser.id);
+                connected.push({
+                  userId: f.friendUser.id,
+                  displayName: f.friendUser.displayName,
+                  avatarUrl: f.friendUser.avatarUrl,
+                  partnerCode: f.friendUser.partnerCode,
+                  isOnline: f.friendUser.isOnline
+                });
+              }
+            });
+          }
+
+          setFriendsList(connected);
+
+          // If initialData specified invitedFriends, keep those that are connected
+          if (initialData?.invitedFriends && initialData.invitedFriends.length > 0) {
+            const valid = initialData.invitedFriends.filter((id) =>
+              connected.some((c) => c.userId === id)
+            );
+            setInvitedFriends(valid);
           } else {
-            setInvitedFriends(['u2', 'u3']);
+            setInvitedFriends([]);
           }
         })
         .catch(() => {
-          setInvitedFriends(['u2', 'u3']);
+          setFriendsList([]);
+          setInvitedFriends([]);
         });
     } else {
-      setInvitedFriends(['u2', 'u3']);
+      setFriendsList([]);
+      setInvitedFriends([]);
     }
-  }, []);
+  }, [isOpen, initialData]);
 
   // Multi-Activity Sequence
   const [activities, setActivities] = useState<PlanActivity[]>([
@@ -777,65 +791,90 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                 <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <span>Invite Friends</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300 font-bold">
-                    {friendsList.length} Available
+                    {friendsList.length} Connected
                   </span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Select friends from your Watch friend network to notify and invite.
+                  Select friends from your connected network to notify and invite.
                 </p>
               </div>
 
               {/* Friends list */}
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {friendsList.map((friend) => {
-                  const isSelected = invitedFriends.includes(friend.userId);
-                  return (
-                    <button
-                      key={friend.userId}
-                      type="button"
-                      onClick={() => toggleInviteFriend(friend.userId)}
-                      className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-[#ee1d49] bg-[#ee1d49]/5 dark:bg-[#ee1d49]/10'
-                          : 'border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:bg-white/[0.02]'
-                      }`}
+              {friendsList.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-500">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                      No Connected Friends Yet
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                      Only friends who are connected with you on Watch will appear here. Add friends using their Partner Code on the Friends page to invite them to plans.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex items-center justify-center gap-2">
+                    <Link
+                      href="/friends"
+                      onClick={onClose}
+                      className="px-4 py-2 rounded-full bg-[#ff3b68] hover:bg-[#ee1d49] text-white text-xs font-bold shadow-md shadow-[#ff3b68]/20 transition cursor-pointer"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <img
-                            src={friend.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.displayName}`}
-                            alt={friend.displayName}
-                            className="w-9 h-9 rounded-full object-cover bg-slate-200 dark:bg-zinc-800"
-                          />
-                          {friend.isOnline && (
-                            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#151022]" />
-                          )}
-                        </div>
-                        <div className="text-left">
-                          <div className="text-xs font-bold text-slate-900 dark:text-white">
-                            {friend.displayName}
-                          </div>
-                          {friend.partnerCode && (
-                            <div className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">
-                              #{friend.partnerCode}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div
-                        className={`w-6 h-6 rounded-xl flex items-center justify-center text-xs transition ${
+                      Go to Friends Page →
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {friendsList.map((friend) => {
+                    const isSelected = invitedFriends.includes(friend.userId);
+                    return (
+                      <button
+                        key={friend.userId}
+                        type="button"
+                        onClick={() => toggleInviteFriend(friend.userId)}
+                        className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-[#ee1d49] text-white shadow-xs'
-                            : 'border border-slate-300 dark:border-white/20 text-transparent'
+                            ? 'border-[#ee1d49] bg-[#ee1d49]/5 dark:bg-[#ee1d49]/10'
+                            : 'border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:bg-white/[0.02]'
                         }`}
                       >
-                        <Check className="w-3.5 h-3.5" />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <img
+                              src={friend.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.displayName}`}
+                              alt={friend.displayName}
+                              className="w-9 h-9 rounded-full object-cover bg-slate-200 dark:bg-zinc-800"
+                            />
+                            {friend.isOnline && (
+                              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#151022]" />
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <div className="text-xs font-bold text-slate-900 dark:text-white">
+                              {friend.displayName}
+                            </div>
+                            {friend.partnerCode && (
+                              <div className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">
+                                #{friend.partnerCode}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div
+                          className={`w-6 h-6 rounded-xl flex items-center justify-center text-xs transition ${
+                            isSelected
+                              ? 'bg-[#ee1d49] text-white shadow-xs'
+                              : 'border border-slate-300 dark:border-white/20 text-transparent'
+                          }`}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Push notification banner preview */}
               <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-3 text-xs text-indigo-700 dark:text-indigo-300">
