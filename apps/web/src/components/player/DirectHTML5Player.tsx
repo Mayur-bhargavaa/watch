@@ -40,12 +40,10 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
       }
     }
 
-    // On seek / state command from host, align position immediately if drift > 1.5s
-    if (!isHost) {
-      const authPos = getAuthoritativePosition();
-      if (Math.abs(video.currentTime - authPos) > 1.5) {
-        video.currentTime = authPos;
-      }
+    // Align position on mount or drift immediately
+    const authPos = getAuthoritativePosition();
+    if (authPos > 0 && Math.abs(video.currentTime - authPos) > 1.0) {
+      video.currentTime = authPos;
     }
 
     setTimeout(() => {
@@ -111,6 +109,19 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
         className="w-full h-full object-contain"
         controls={isHost}
         playsInline
+        onLoadedMetadata={(e) => {
+          const authPos = getAuthoritativePosition();
+          if (authPos > 0) {
+            isInternalUpdateRef.current = true;
+            e.currentTarget.currentTime = authPos;
+            setTimeout(() => {
+              isInternalUpdateRef.current = false;
+            }, 300);
+          }
+          if (playbackState.state === 'PLAYING') {
+            e.currentTarget.play().catch(() => {});
+          }
+        }}
         onPlay={() => {
           if (isHost && !isInternalUpdateRef.current) {
             onHostCommand('PLAY', videoRef.current?.currentTime || 0);

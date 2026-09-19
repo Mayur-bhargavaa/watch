@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Reaction } from '@synccinema/common';
 
 interface FloatingParticle {
@@ -15,11 +15,22 @@ interface FloatingReactionsCanvasProps {
 
 export const FloatingReactionsCanvas = React.memo(function FloatingReactionsCanvas({ latestReactions }: FloatingReactionsCanvasProps) {
   const [particles, setParticles] = useState<FloatingParticle[]>([]);
+  const lastReactionIdRef = useRef<string | null>(latestReactions?.[0]?.id || null);
+  const mountTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
     if (latestReactions.length === 0) return;
     const newest = latestReactions[0];
     if (!newest) return;
+
+    if (newest.id === lastReactionIdRef.current) return;
+    lastReactionIdRef.current = newest.id;
+
+    // Filter out historical reactions loaded on room join
+    const rxTime = newest.serverTimestamp || new Date(newest.createdAt).getTime();
+    if (rxTime && (Date.now() - rxTime > 4000 || rxTime < mountTimeRef.current - 1000)) {
+      return;
+    }
 
     const particle: FloatingParticle = {
       id: `${newest.id}_${Math.random()}`,

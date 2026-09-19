@@ -399,11 +399,18 @@ export async function createServer(dbPath = './synccinema.db') {
         const user = await getRequestUser(request);
         presenceManager.recordHeartbeat(user.id);
         const body = (request.body || {});
-        if (!body.partnerCode) {
-            return reply.code(400).send({ error: 'Partner Code is required' });
+        let code = body.partnerCode;
+        if (!code && (body.friendUserId || body.userId)) {
+            const targetUser = db.getUserById(body.friendUserId || body.userId);
+            if (targetUser?.partnerCode) {
+                code = targetUser.partnerCode;
+            }
+        }
+        if (!code) {
+            return reply.code(400).send({ error: 'Partner Code or Friend ID is required' });
         }
         try {
-            const partner = db.connectPartner(user.id, body.partnerCode);
+            const partner = db.connectPartner(user.id, code);
             const isOnline = isUserOnline(partner.partnerUserId);
             return {
                 success: true,
@@ -427,21 +434,169 @@ export async function createServer(dbPath = './synccinema.db') {
         return { success: true, message: 'Partner disconnected' };
     });
     // =====================================================================
+    // Friends & Snapchat-Style Streaks Endpoints
+    // =====================================================================
+    app.get('/api/friends', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const friends = db.getFriendsWithStreaks(user.id, (id) => isUserOnline(id));
+        const requests = db.getFriendRequests(user.id);
+        return {
+            friends,
+            requests,
+            pendingRequestsCount: requests.incoming.length,
+            myFriendCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email)
+        };
+    });
+    app.get('/api/friends/requests', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const requests = db.getFriendRequests(user.id);
+        return {
+            success: true,
+            ...requests
+        };
+    });
+    app.get('/api/friends/discover', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const { search } = request.query;
+        const users = db.getDiscoverableUsers(user.id, search);
+        return {
+            success: true,
+            users
+        };
+    });
+    app.post('/api/friends/add', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const body = (request.body || {});
+        if (!body.friendCode) {
+            return reply.code(400).send({ error: 'Friend Code is required' });
+        }
+        try {
+            const result = db.sendFriendRequest(user.id, body.friendCode);
+            if (result.friend) {
+                result.friend.friendUser.isOnline = isUserOnline(result.friend.friendUser.id);
+            }
+            return {
+                success: true,
+                status: result.status,
+                friend: result.friend,
+                message: result.message
+            };
+        }
+        catch (err) {
+            return reply.code(400).send({ error: err.message || 'Failed to send friend request' });
+        }
+    });
+    app.post('/api/friends/requests/accept', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const body = (request.body || {});
+        if (!body.senderUserId) {
+            return reply.code(400).send({ error: 'senderUserId is required' });
+        }
+        try {
+            const friend = db.acceptFriendRequest(user.id, body.senderUserId);
+            friend.friendUser.isOnline = isUserOnline(friend.friendUser.id);
+            return {
+                success: true,
+                friend,
+                message: `Accepted request from ${friend.friendUser.displayName}`
+            };
+        }
+        catch (err) {
+            return reply.code(400).send({ error: err.message || 'Failed to accept friend request' });
+        }
+    });
+    app.post('/api/friends/requests/decline', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const body = (request.body || {});
+        if (!body.senderUserId) {
+            return reply.code(400).send({ error: 'senderUserId is required' });
+        }
+        db.declineFriendRequest(user.id, body.senderUserId);
+        return {
+            success: true,
+            message: 'Friend request declined'
+        };
+    });
+    app.post('/api/friends/requests/cancel', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const body = (request.body || {});
+        if (!body.targetUserId) {
+            return reply.code(400).send({ error: 'targetUserId is required' });
+        }
+        db.cancelFriendRequest(user.id, body.targetUserId);
+        return {
+            success: true,
+            message: 'Friend request cancelled'
+        };
+    });
+    app.delete('/api/friends/:friendUserId', async (request, reply) => {
+        const user = await getRequestUser(request);
+        const { friendUserId } = request.params;
+        if (!friendUserId) {
+            return reply.code(400).send({ error: 'friendUserId is required' });
+        }
+        db.removeFriend(user.id, friendUserId);
+        return { success: true, message: 'Friend removed' };
+    });
+    app.post('/api/streaks/record', async (request, reply) => {
+        const user = await getRequestUser(request);
+        presenceManager.recordHeartbeat(user.id);
+        const body = (request.body || {});
+        if (!body.friendUserId) {
+            return reply.code(400).send({ error: 'friendUserId is required' });
+        }
+        const result = db.recordSessionBetweenUsers(user.id, body.friendUserId, body.minutes || 1);
+        return {
+            success: true,
+            status: result.status,
+            streak: result.streak
+        };
+    });
+    // =====================================================================
     // Human-Only Game Rooms & Matchmaking Endpoints
     // =====================================================================
-    // Play with Partner (Deterministic Smart Pairing)
+    // Play with Partner / Friend (Deterministic Smart Pairing)
     app.post('/api/games/partner/play', async (request, reply) => {
         const user = await getRequestUser(request);
         const body = (request.body || {});
         const rawGameType = body.gameType || 'ludo';
         const gameType = rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
-        const partner = db.getPartner(user.id);
-        if (!partner) {
-            return reply.code(400).send({ error: 'No partner connected. Please connect a partner first.' });
+        let targetUser = null;
+        const targetId = body.targetUserId || body.friendUserId;
+        if (targetId) {
+            targetUser = db.getUserById(targetId);
+        }
+        else if (body.partnerCode) {
+            targetUser = db.getUserByPartnerCode(body.partnerCode);
+        }
+        let partnerUserId;
+        if (targetUser && targetUser.id !== user.id) {
+            partnerUserId = targetUser.id;
+            // Also ensure connected in partner_connections so updated_at makes them primary
+            try {
+                if (targetUser.partnerCode) {
+                    db.connectPartner(user.id, targetUser.partnerCode);
+                }
+            }
+            catch { }
+        }
+        else {
+            const partner = db.getPartner(user.id);
+            if (!partner) {
+                return reply.code(400).send({ error: 'No partner or friend selected. Please choose a friend to play with.' });
+            }
+            partnerUserId = partner.partnerUserId;
         }
         const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
         // 1. Check if partner is ALREADY waiting in an open game room
-        const partnerWaitingRoom = db.findUserWaitingGameRoom(partner.partnerUserId);
+        const partnerWaitingRoom = db.findUserWaitingGameRoom(partnerUserId);
         if (partnerWaitingRoom &&
             partnerWaitingRoom.gameType === gameType &&
             partnerWaitingRoom.status === 'WAITING' &&
@@ -466,7 +621,7 @@ export async function createServer(dbPath = './synccinema.db') {
                 gameType: myWaitingRoom.gameType,
                 timestamp: Date.now()
             };
-            presenceManager.sendToUser(partner.partnerUserId, {
+            presenceManager.sendToUser(partnerUserId, {
                 type: 'partner:game_invite',
                 payload: invitePayload
             });
@@ -493,7 +648,7 @@ export async function createServer(dbPath = './synccinema.db') {
             gameType,
             timestamp: Date.now()
         };
-        presenceManager.sendToUser(partner.partnerUserId, {
+        presenceManager.sendToUser(partnerUserId, {
             type: 'partner:game_invite',
             payload: invitePayload
         });
@@ -617,15 +772,24 @@ export async function createServer(dbPath = './synccinema.db') {
             gameType: body.gameType || 'ludo',
             timestamp: Date.now()
         };
-        const sentInPresence = presenceManager.sendToUser(partner.partnerUserId, {
+        // Also support targetPartnerCode from body if specified
+        const targetCode = request.body?.targetPartnerCode;
+        let targetUserId = partner.partnerUserId;
+        if (targetCode) {
+            const explicitUser = db.getUserByPartnerCode(targetCode);
+            if (explicitUser) {
+                targetUserId = explicitUser.id;
+            }
+        }
+        const sentInPresence = presenceManager.sendToUser(targetUserId, {
             type: 'partner:game_invite',
             payload: invitePayload
         });
-        const sentInGame = gameRoomManager.sendToUser(partner.partnerUserId, {
+        const sentInGame = gameRoomManager.sendToUser(targetUserId, {
             type: 'partner:game_invite',
             payload: invitePayload
         });
-        const sentInParty = syncManager.sendToUser(partner.partnerUserId, {
+        const sentInParty = syncManager.sendToUser(targetUserId, {
             type: 'partner:game_invite',
             payload: invitePayload
         });
@@ -633,6 +797,85 @@ export async function createServer(dbPath = './synccinema.db') {
             success: true,
             deliveredLive: sentInPresence || sentInGame || sentInParty,
             invite: invitePayload
+        };
+    });
+    // Partner Ping Endpoint (Used across games and lobby)
+    app.post('/api/games/partner/ping', async (request, reply) => {
+        const body = (request.body || {});
+        if (!body.targetCode) {
+            return reply.code(400).send({ error: 'Target partner code is required' });
+        }
+        const targetUser = db.getUserByPartnerCode(body.targetCode.toUpperCase());
+        if (!targetUser) {
+            return reply.code(404).send({ error: 'Partner code not found' });
+        }
+        const pingPayload = {
+            id: `ping_${nanoid(8)}`,
+            fromCode: body.fromCode || 'ANON',
+            fromName: body.fromName || 'Your Partner',
+            targetCode: body.targetCode.toUpperCase(),
+            roomCode: body.roomCode ? body.roomCode.toUpperCase() : undefined,
+            gameType: body.gameType || 'ludo',
+            customMessage: body.customMessage,
+            createdAt: Date.now(),
+            read: false
+        };
+        const sentInPresence = presenceManager.sendToUser(targetUser.id, {
+            type: 'partner:ping',
+            payload: pingPayload
+        });
+        const sentInGame = gameRoomManager.sendToUser(targetUser.id, {
+            type: 'partner:ping',
+            payload: pingPayload
+        });
+        const sentInParty = syncManager.sendToUser(targetUser.id, {
+            type: 'partner:ping',
+            payload: pingPayload
+        });
+        return {
+            success: true,
+            deliveredLive: sentInPresence || sentInGame || sentInParty,
+            ping: pingPayload
+        };
+    });
+    // Dedicated Live Nudge & Roast Endpoint
+    app.post('/api/notifications/nudge', async (request, reply) => {
+        const user = await getRequestUser(request);
+        const body = (request.body || {});
+        if (!body.targetPartnerCode) {
+            return reply.code(400).send({ error: 'Target partner code is required' });
+        }
+        const targetUser = db.getUserByPartnerCode(body.targetPartnerCode.toUpperCase());
+        if (!targetUser) {
+            return reply.code(404).send({ error: 'Target partner not found' });
+        }
+        const nudgePayload = {
+            id: `nudge_${nanoid(8)}`,
+            fromUserId: user.id,
+            fromName: user.displayName,
+            fromPartnerCode: user.partnerCode,
+            fromAvatar: user.avatarUrl,
+            message: body.message,
+            category: body.category || 'nudge',
+            link: body.link || '/friends',
+            timestamp: Date.now()
+        };
+        const sentInPresence = presenceManager.sendToUser(targetUser.id, {
+            type: 'partner:nudge',
+            payload: nudgePayload
+        });
+        const sentInGame = gameRoomManager.sendToUser(targetUser.id, {
+            type: 'partner:nudge',
+            payload: nudgePayload
+        });
+        const sentInParty = syncManager.sendToUser(targetUser.id, {
+            type: 'partner:nudge',
+            payload: nudgePayload
+        });
+        return {
+            success: true,
+            deliveredLive: sentInPresence || sentInGame || sentInParty,
+            nudge: nudgePayload
         };
     });
     // Legacy Partner Lookup compatibility

@@ -313,6 +313,7 @@ export default function RoomPage() {
   });
 
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
   const [showHostTransferModal, setShowHostTransferModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
@@ -895,38 +896,69 @@ export default function RoomPage() {
           </div>
 
           {/* 2. Cinema Theater Player Stage with embedded call controls dock */}
-          <div className="flex-1 min-h-0 relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black flex flex-col transition-all duration-300">
-            <CinemaPlayer
-              media={room.currentMedia}
-              playbackState={room.playbackState}
-              isHost={isHost}
-              rttMs={rttMs}
-              clockOffsetMs={clockOffsetMs}
-              getAuthoritativePosition={getAuthoritativePosition}
-              onHostCommand={sendPlaybackCommand}
-              screenStream={screenStream}
-              isScreenSharing={isScreenSharing}
-              screenPresenter={screenPresenter}
-              onStartScreenShare={startScreenShare}
-              onStopScreenShare={stopScreenShare}
-              isMicMuted={isMicMuted}
-              isCameraOn={isCameraOn}
-              onToggleMic={toggleMic}
-              onToggleCamera={toggleCamera}
-              onLeaveRoom={handleLeaveRoom}
-              roomTitle={room.title || 'Watch Party'}
-              onNavigateUrl={(url) => setBrowserUrl(url)}
-              countdownActive={countdownActive}
-              onCountdownFinished={() => setCountdownActive(false)}
-              onStartParty={handleStartParty}
-            />
-            <FloatingReactionsCanvas latestReactions={latestReactions} />
+          <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
+            <div className="w-full max-w-4xl h-full relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black flex flex-col transition-all duration-300">
+              <CinemaPlayer
+                media={room.currentMedia}
+                playbackState={room.playbackState}
+                isHost={isHost}
+                rttMs={rttMs}
+                clockOffsetMs={clockOffsetMs}
+                getAuthoritativePosition={getAuthoritativePosition}
+                onHostCommand={sendPlaybackCommand}
+                screenStream={screenStream}
+                isScreenSharing={isScreenSharing}
+                screenPresenter={screenPresenter}
+                onStartScreenShare={startScreenShare}
+                onStopScreenShare={stopScreenShare}
+                isMicMuted={isMicMuted}
+                isCameraOn={isCameraOn}
+                onToggleMic={toggleMic}
+                onToggleCamera={toggleCamera}
+                onLeaveRoom={handleLeaveRoom}
+                roomTitle={room.title || 'Watch Party'}
+                onNavigateUrl={(url) => setBrowserUrl(url)}
+                countdownActive={countdownActive}
+                onCountdownFinished={() => setCountdownActive(false)}
+                onStartParty={handleStartParty}
+                userAvatarUrl={selfMember?.avatarUrl || getStoredSession()?.user?.avatarUrl || undefined}
+                userName={selfDisplayName}
+                participants={gridParticipants}
+                latestReactions={latestReactions}
+                onSendReaction={(emoji: string, timestamp?: number) => {
+                  const code =
+                    emoji === '❤️' ? 'heart' :
+                    emoji === '😂' ? 'joy' :
+                    emoji === '🔥' ? 'fire' :
+                    emoji === '👏' ? 'clap' :
+                    emoji === '🎉' ? 'party' :
+                    emoji === '🎲' ? 'dice' :
+                    emoji === '🥳' ? 'celebrate' :
+                    emoji === '🥺' ? 'pleading' : 'emoji';
+                  sendReaction(code, emoji, timestamp ?? getAuthoritativePosition());
+                }}
+                onCopyInvite={handleCopyInvite}
+                copiedInvite={copiedInvite}
+                isTheaterMode={isTheaterMode}
+                onTheaterModeChange={setIsTheaterMode}
+                isChatOpen={isChatOpen}
+                onToggleChat={() => setIsChatOpen((prev) => !prev)}
+                unreadCount={unreadCount}
+              />
+              <FloatingReactionsCanvas latestReactions={latestReactions} />
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Game Chat & Controls Window matching media_1788953825116.png (Translucent Glassmorphism) */}
+        {/* Right Column: Game Chat & Controls Window (adjusts into sleek floating drawer in 3D Theater Mode) */}
         {isChatOpen && (
-          <div className="w-full lg:w-80 xl:w-96 shrink-0 bg-[#1c0c16]/60 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.65)] flex flex-col h-full backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 min-h-0">
+          <div
+            className={
+              isTheaterMode
+                ? 'fixed right-3 top-3 bottom-3 z-[60] w-80 sm:w-96 bg-[#1c0c16]/95 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 min-h-0'
+                : 'w-full lg:w-80 xl:w-96 shrink-0 bg-[#1c0c16]/60 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.65)] flex flex-col h-full backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 min-h-0'
+            }
+          >
             {/* Header */}
             <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-1.5">
@@ -1253,7 +1285,7 @@ export default function RoomPage() {
                 bottom: '20px'
               }
         }
-        className={`fixed z-40 flex items-center gap-2 pointer-events-auto touch-none select-none ${
+        className={`fixed ${isTheaterMode ? 'z-[60]' : 'z-40'} flex items-center gap-2 pointer-events-auto touch-none select-none ${
           fabPosition && fabPosition.x < 260 ? 'flex-row-reverse' : 'flex-row'
         } ${isDraggingFab ? 'cursor-grabbing' : 'cursor-grab'}`}
       >

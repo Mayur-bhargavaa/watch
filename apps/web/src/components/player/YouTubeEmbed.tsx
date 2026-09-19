@@ -54,8 +54,19 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
           rel: 0
         },
         events: {
-          onReady: () => {
+          onReady: (event: any) => {
             setIsReady(true);
+            const authPos = getAuthoritativePosition();
+            if (authPos > 0 && typeof event?.target?.seekTo === 'function') {
+              isInternalUpdateRef.current = true;
+              event.target.seekTo(authPos, true);
+              setTimeout(() => {
+                isInternalUpdateRef.current = false;
+              }, 400);
+            }
+            if (playbackState.state === 'PLAYING' && typeof event?.target?.playVideo === 'function') {
+              event.target.playVideo();
+            }
           },
           onStateChange: (event: any) => {
             if (!isHost || isInternalUpdateRef.current) return;
@@ -121,11 +132,12 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
         }
       }
 
-      // On seek / state command from host, align position immediately if drift > 2.0s
-      if (!isHost && typeof playerRef.current.getCurrentTime === 'function') {
+      // On seek / state command or initial mount, align position immediately if drift > 2.0s
+      if (typeof playerRef.current.getCurrentTime === 'function') {
         const localTime = playerRef.current.getCurrentTime();
         const authoritativeTime = getAuthoritativePosition();
-        if (Math.abs(localTime - authoritativeTime) > 2.0) {
+        if (authoritativeTime > 0 && Math.abs(localTime - authoritativeTime) > 2.0) {
+          isInternalUpdateRef.current = true;
           playerRef.current.seekTo(authoritativeTime, true);
         }
       }

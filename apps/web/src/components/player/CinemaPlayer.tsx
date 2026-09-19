@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, memo } from 'react';
 import {
   MediaItem,
   RoomPlaybackState,
+  Reaction,
   formatSecondsToTimestamp
 } from '@synccinema/common';
 import { YouTubeEmbed } from './YouTubeEmbed';
@@ -25,8 +26,15 @@ import {
   ScreenShare,
   X,
   Radio,
-  Clapperboard
+  Clapperboard,
+  Crown,
+  Camera,
+  UserPlus,
+  Check,
+  Share2
 } from 'lucide-react';
+import { TheaterOverlay } from './TheaterOverlay';
+import { PixelPerfectTheater } from './PixelPerfectTheater';
 
 function playCountdownTone(freq: number, duration = 0.2) {
   if (typeof window === 'undefined') return;
@@ -71,6 +79,29 @@ interface CinemaPlayerProps {
   countdownActive?: boolean;
   onCountdownFinished?: () => void;
   onStartParty?: () => void;
+  // Theater
+  userAvatarUrl?: string;
+  userName?: string;
+  participants?: Array<{
+    userId: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    stream: MediaStream | null;
+    isCameraOn?: boolean;
+    isMuted?: boolean;
+    isSpeaking?: boolean;
+    isSelf?: boolean;
+    isHost?: boolean;
+  }>;
+  latestReactions?: Reaction[];
+  onSendReaction?: (emoji: string, timestamp?: number) => void;
+  onCopyInvite?: () => void;
+  copiedInvite?: boolean;
+  isTheaterMode?: boolean;
+  onTheaterModeChange?: (active: boolean) => void;
+  isChatOpen?: boolean;
+  onToggleChat?: () => void;
+  unreadCount?: number;
 }
 
 export const CinemaPlayer = memo(function CinemaPlayer({
@@ -93,11 +124,23 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   onNavigateUrl,
   countdownActive = false,
   onCountdownFinished,
-  onStartParty
+  onStartParty,
+  userAvatarUrl,
+  userName = 'You',
+  participants = [],
+  latestReactions = [],
+  onSendReaction,
+  onCopyInvite,
+  copiedInvite = false,
+  isTheaterMode: propIsTheaterMode,
+  onTheaterModeChange,
+  isChatOpen = false,
+  onToggleChat,
+  unreadCount = 0,
 }: CinemaPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const screenVideoRef = useRef<HTMLVideoElement>(null);
-  const mainVideoRef = useRef<HTMLVideoElement>(null);
+  const screenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const mainVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(playbackState.state === 'PLAYING');
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -108,7 +151,14 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [newMediaUrl, setNewMediaUrl] = useState<string>('');
   const [countdownStep, setCountdownStep] = useState<number | 'START' | null>(null);
-  const [isTheaterMode, setIsTheaterMode] = useState<boolean>(false);
+
+  const [internalTheaterMode, setInternalTheaterMode] = useState<boolean>(false);
+  const isTheaterMode = propIsTheaterMode !== undefined ? propIsTheaterMode : internalTheaterMode;
+  const setIsTheaterMode = (valOrFn: boolean | ((prev: boolean) => boolean)) => {
+    const nextVal = typeof valOrFn === 'function' ? valOrFn(isTheaterMode) : valOrFn;
+    setInternalTheaterMode(nextVal);
+    onTheaterModeChange?.(nextVal);
+  };
 
   // Synchronized 3-2-1 Countdown Timer & Sounds
   useEffect(() => {
@@ -150,9 +200,9 @@ export const CinemaPlayer = memo(function CinemaPlayer({
 
   const hasRealCustomVideo = Boolean(
     media?.sourceUrl &&
-    !media.sourceUrl.includes('TearsOfSteel') &&
     !media.sourceUrl.includes('dQw4w9WgXcQ') &&
-    (media.provider as string) !== 'screen'
+    (media.provider as string) !== 'screen' &&
+    media.provider !== 'youtube'
   );
   const activeVideoUrl = hasRealCustomVideo ? media!.sourceUrl : '';
 
@@ -161,27 +211,33 @@ export const CinemaPlayer = memo(function CinemaPlayer({
     const isPlaybackPlaying = playbackState.state === 'PLAYING';
     setIsPlaying(isPlaybackPlaying);
     if (mainVideoRef.current) {
+      const authPos = getAuthoritativePosition();
+      if (authPos > 0 && Math.abs(mainVideoRef.current.currentTime - authPos) > 1.5) {
+        mainVideoRef.current.currentTime = authPos;
+      }
       if (isPlaybackPlaying) {
         mainVideoRef.current.play().catch(() => {});
       } else {
         mainVideoRef.current.pause();
       }
     }
-  }, [playbackState.state, playbackState.version]);
+  }, [playbackState.state, playbackState.version, isTheaterMode, getAuthoritativePosition]);
 
   // Position drift synchronization for participants (3.5s tolerance to prevent playback micro-stutters)
   useEffect(() => {
-    if (!mainVideoRef.current || isHost) return;
+    if (!mainVideoRef.current) return;
     const authPos = getAuthoritativePosition();
-    if (Math.abs(mainVideoRef.current.currentTime - authPos) > 3.5) {
+    if (authPos > 0 && Math.abs(mainVideoRef.current.currentTime - authPos) > (isHost ? 1.5 : 3.5)) {
       mainVideoRef.current.currentTime = authPos;
     }
-  }, [getAuthoritativePosition, isHost]);
+  }, [getAuthoritativePosition, isHost, isTheaterMode]);
 
   // Handle Screen Stream attachment
   useEffect(() => {
-    if (screenVideoRef.current && screenStream) {
-      screenVideoRef.current.srcObject = screenStream;
+    if (!isTheaterMode && screenVideoRef.current && screenStream) {
+      if (screenVideoRef.current.srcObject !== screenStream) {
+        screenVideoRef.current.srcObject = screenStream;
+      }
       screenVideoRef.current.muted = Boolean(isScreenSharing);
       screenVideoRef.current
         .play()
@@ -195,7 +251,23 @@ export const CinemaPlayer = memo(function CinemaPlayer({
           }
         });
     }
-  }, [screenStream, isScreenSharing]);
+  }, [screenStream, isScreenSharing, isTheaterMode]);
+
+  // Sync stream & video volume
+  useEffect(() => {
+    if (screenVideoRef.current) {
+      screenVideoRef.current.volume = isMuted ? 0 : volume;
+      if (isScreenSharing) {
+        screenVideoRef.current.muted = true;
+      } else {
+        screenVideoRef.current.muted = isMuted;
+      }
+    }
+    if (mainVideoRef.current) {
+      mainVideoRef.current.volume = isMuted ? 0 : volume;
+      mainVideoRef.current.muted = isMuted;
+    }
+  }, [volume, isMuted, isScreenSharing, isTheaterMode]);
 
   // Periodic position update for scrub bar
   useEffect(() => {
@@ -311,95 +383,46 @@ export const CinemaPlayer = memo(function CinemaPlayer({
 
   const movieTitle = media?.title || roomTitle || 'Watch Party';
 
+  if (isTheaterMode) {
+    return (
+      <PixelPerfectTheater
+        media={media}
+        playbackState={playbackState}
+        isHost={isHost}
+        getAuthoritativePosition={getAuthoritativePosition}
+        onHostCommand={onHostCommand}
+        screenStream={screenStream}
+        isScreenSharing={isScreenSharing}
+        screenPresenter={screenPresenter}
+        onStartScreenShare={onStartScreenShare}
+        onStopScreenShare={onStopScreenShare}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={onToggleMic}
+        onToggleCamera={onToggleCamera}
+        onLeaveRoom={onLeaveRoom}
+        roomTitle={roomTitle}
+        onNavigateUrl={onNavigateUrl}
+        onExitTheater={() => setIsTheaterMode(false)}
+        participants={participants}
+        latestReactions={latestReactions}
+        onSendReaction={onSendReaction}
+        onCopyInvite={onCopyInvite}
+        copiedInvite={copiedInvite}
+        userAvatarUrl={userAvatarUrl}
+        userName={userName}
+        isChatOpen={isChatOpen}
+        onToggleChat={onToggleChat}
+        unreadCount={unreadCount}
+      />
+    );
+  }
+
   return (
-    <div className={`relative w-full h-full ${isTheaterMode ? 'theater-shell' : ''}`}
-      style={isTheaterMode ? {
-        background: 'radial-gradient(ellipse at center bottom, #1a0a00 0%, #0d0500 40%, #000000 100%)',
-        perspective: '900px',
-        perspectiveOrigin: '50% 30%',
-        padding: '0',
-        overflow: 'hidden',
-      } : {}}>
-
-      {/* ── 3D Theater Environment (only when theater mode is ON) ── */}
-      {isTheaterMode && (
-        <>
-          {/* Ceiling with ornate border */}
-          <div className="absolute top-0 inset-x-0 h-8 z-0 pointer-events-none"
-            style={{ background: 'linear-gradient(to bottom, #1a0800 0%, transparent 100%)' }} />
-
-          {/* Left wall */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 z-0 pointer-events-none"
-            style={{ background: 'linear-gradient(to right, #0a0300 0%, transparent 100%)' }} />
-
-          {/* Right wall */}
-          <div className="absolute right-0 top-0 bottom-0 w-8 z-0 pointer-events-none"
-            style={{ background: 'linear-gradient(to left, #0a0300 0%, transparent 100%)' }} />
-
-          {/* Ambient screen glow */}
-          <div className="absolute inset-0 z-0 pointer-events-none"
-            style={{
-              background: 'radial-gradient(ellipse 70% 45% at 50% 38%, rgba(229,9,20,0.12) 0%, transparent 70%)',
-            }} />
-
-          {/* Floor / Stage gradient */}
-          <div className="absolute bottom-0 inset-x-0 h-24 z-0 pointer-events-none"
-            style={{ background: 'linear-gradient(to top, #0d0400 0%, transparent 100%)' }} />
-
-          {/* Seat row silhouettes */}
-          <div className="absolute bottom-0 inset-x-0 z-10 pointer-events-none flex items-end justify-center overflow-hidden" style={{ height: 56 }}>
-            <svg width="100%" height="56" viewBox="0 0 800 56" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-              {/* Back row */}
-              {Array.from({ length: 20 }).map((_, i) => (
-                <g key={`b${i}`} transform={`translate(${i * 40 + 4}, 4)`}>
-                  <rect x="0" y="16" width="32" height="20" rx="4" fill="#1a0a00" />
-                  <ellipse cx="16" cy="14" rx="10" ry="12" fill="#1a0a00" />
-                </g>
-              ))}
-              {/* Front row — slightly larger, overlapping */}
-              {Array.from({ length: 18 }).map((_, i) => (
-                <g key={`f${i}`} transform={`translate(${i * 44 + 8}, 18)`}>
-                  <rect x="0" y="14" width="36" height="24" rx="5" fill="#120700" />
-                  <ellipse cx="18" cy="12" rx="12" ry="14" fill="#120700" />
-                </g>
-              ))}
-            </svg>
-          </div>
-
-          {/* Curtain left */}
-          <div className="absolute left-0 top-0 bottom-0 w-5 z-10 pointer-events-none"
-            style={{
-              background: 'linear-gradient(to right, #5c0a00 0%, #2a0400 60%, transparent 100%)',
-              opacity: 0.7
-            }} />
-          {/* Curtain right */}
-          <div className="absolute right-0 top-0 bottom-0 w-5 z-10 pointer-events-none"
-            style={{
-              background: 'linear-gradient(to left, #5c0a00 0%, #2a0400 60%, transparent 100%)',
-              opacity: 0.7
-            }} />
-
-          {/* Theater mode badge */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex items-center gap-1.5 bg-black/60 border border-[#E50914]/40 text-[#E50914] text-[10px] font-black px-3 py-1 rounded-full tracking-widest uppercase backdrop-blur-sm">
-            <Clapperboard className="w-3 h-3" />
-            3D Theater
-          </div>
-        </>
-      )}
-
-      {/* ── Actual player box — 3D perspective tilt in theater mode ── */}
-      <div
-        ref={containerRef}
-        className="relative w-full h-full min-h-0 bg-black rounded-xl overflow-hidden shadow-2xl group select-none flex flex-col justify-between"
-        style={isTheaterMode ? {
-          transform: 'rotateX(4deg) scaleX(0.92)',
-          transformOrigin: '50% 0%',
-          boxShadow: '0 0 60px 20px rgba(229,9,20,0.25), 0 0 120px 40px rgba(229,9,20,0.1)',
-          borderRadius: '8px',
-          zIndex: 20,
-          position: 'relative',
-        } : {}}
-      >
+    <div
+      ref={containerRef}
+      className="relative w-full h-full min-h-0 bg-black rounded-xl overflow-hidden shadow-2xl group select-none flex flex-col justify-between"
+    >
       {/* 1. Video Canvas / Media Stage (100% Real Video & Screen Stream) */}
       <div className="relative w-full flex-1 min-h-0 bg-black overflow-hidden flex items-center justify-center">
         {/* Subtle Brand Watermark */}
@@ -412,7 +435,19 @@ export const CinemaPlayer = memo(function CinemaPlayer({
           /* Live Screen Sharing Viewport */
           <div className="relative w-full h-full bg-black flex items-center justify-center">
             <video
-              ref={screenVideoRef}
+              ref={(el) => {
+                screenVideoRef.current = el;
+                if (el && screenStream) {
+                  if (el.srcObject !== screenStream) {
+                    el.srcObject = screenStream;
+                  }
+                  el.muted = Boolean(isScreenSharing);
+                  el.volume = isMuted ? 0 : volume;
+                  el.play().catch((err) => {
+                    console.warn('Autoplay error:', err);
+                  });
+                }
+              }}
               autoPlay
               playsInline
               controls={false}
@@ -455,7 +490,20 @@ export const CinemaPlayer = memo(function CinemaPlayer({
           /* Real Playable HTML5 Cinema Video */
           <div className="relative w-full h-full bg-black flex items-center justify-center">
             <video
-              ref={mainVideoRef}
+              ref={(el) => {
+                mainVideoRef.current = el;
+                if (el) {
+                  const authPos = getAuthoritativePosition();
+                  if (authPos > 0 && Math.abs(el.currentTime - authPos) > 1.0) {
+                    el.currentTime = authPos;
+                  }
+                  el.volume = isMuted ? 0 : volume;
+                  el.muted = isMuted;
+                  if (playbackState.state === 'PLAYING') {
+                    el.play().catch(() => {});
+                  }
+                }
+              }}
               src={activeVideoUrl}
               playsInline
               crossOrigin="anonymous"
@@ -463,6 +511,13 @@ export const CinemaPlayer = memo(function CinemaPlayer({
               onLoadedMetadata={(e) => {
                 const d = e.currentTarget.duration;
                 if (d && !isNaN(d)) setDuration(d);
+                const authPos = getAuthoritativePosition();
+                if (authPos > 0) {
+                  e.currentTarget.currentTime = authPos;
+                }
+                if (playbackState.state === 'PLAYING') {
+                  e.currentTarget.play().catch(() => {});
+                }
               }}
               onTimeUpdate={(e) => {
                 setCurrentTime(e.currentTarget.currentTime);
@@ -815,9 +870,8 @@ export const CinemaPlayer = memo(function CinemaPlayer({
           </div>
         </div>
       )}
-      {/* Close containerRef div (inner player) */}
-      </div>
-      {/* Close theater shell div */}
+      {/* Close containerRef div */}
     </div>
   );
 });
+
