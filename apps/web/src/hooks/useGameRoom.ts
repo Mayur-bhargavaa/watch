@@ -49,6 +49,17 @@ export interface DiscDropEvent {
   winningLine: [number, number][] | null;
 }
 
+export interface TicTacToeCellMarkEvent {
+  seat: number;
+  color: string;
+  displayName: string;
+  cellIndex: number;
+  mark: 'X' | 'O';
+  isWinner: boolean;
+  isDraw: boolean;
+  winningLine: [number, number, number] | null;
+}
+
 // Synthetic Web Audio API bell chime for Nudge notifications (reliable on all browsers)
 function playNudgeChime() {
   try {
@@ -107,6 +118,7 @@ export function useGameRoom(roomCode: string | null) {
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   const [lastDiceRoll, setLastDiceRoll] = useState<DiceRollEvent | null>(null);
   const [lastDiscDrop, setLastDiscDrop] = useState<DiscDropEvent | null>(null);
+  const [lastTicTacToeMove, setLastTicTacToeMove] = useState<TicTacToeCellMarkEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<{
     userId: string;
@@ -527,6 +539,22 @@ export function useGameRoom(roomCode: string | null) {
         break;
       }
 
+      case 'game:cell_marked': {
+        const { gameState: nextState, seat, color, displayName, cellIndex, mark, isWinner, isDraw, winningLine } = msg.payload;
+        setGameState(nextState);
+        setLastTicTacToeMove({
+          seat,
+          color,
+          displayName,
+          cellIndex,
+          mark,
+          isWinner,
+          isDraw,
+          winningLine
+        });
+        break;
+      }
+
       case 'game:chat_message': {
         const chat = msg.payload;
         if (!chat) break;
@@ -775,6 +803,16 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const makeTicTacToeMove = useCallback((cellIndex: number) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'game:tictactoe_move',
+        payload: { cellIndex }
+      })
+    );
+  }, []);
+
   const sendChangeTheme = useCallback((theme: string) => {
     setRoomTheme(theme);
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
@@ -828,6 +866,7 @@ export function useGameRoom(roomCode: string | null) {
     legalMoves,
     lastDiceRoll,
     lastDiscDrop,
+    lastTicTacToeMove,
     chatMessages,
     typingUsers,
     floatingReactions,
@@ -841,6 +880,7 @@ export function useGameRoom(roomCode: string | null) {
     rollDice,
     moveToken,
     dropDisc,
+    makeTicTacToeMove,
     sendChat,
     sendReaction,
     sendNudge,

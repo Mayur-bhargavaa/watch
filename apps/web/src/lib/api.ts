@@ -1,4 +1,4 @@
-import type { GameRoom, User } from '@synccinema/common';
+import type { GameRoom, User, GameType } from '@synccinema/common';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 export const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000';
@@ -433,7 +433,7 @@ export async function matchmakeGame(
 
 export async function createGameRoom(
   token: string,
-  gameType: 'ludo' | 'four-in-a-row' = 'ludo',
+  gameType: GameType = 'ludo',
   maxPlayers: number = 2,
   isPrivate = false,
   customCode?: string
@@ -517,7 +517,7 @@ export async function sendHeartbeat(token: string): Promise<{
 
 export async function playWithPartner(
   token: string,
-  gameType: 'ludo' | 'four-in-a-row' = 'ludo',
+  gameType: GameType = 'ludo',
   friendUserId?: string
 ): Promise<{
   success: boolean;

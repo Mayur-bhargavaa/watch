@@ -214,7 +214,7 @@ export interface LudoGameState {
   consecutiveSixes: number;
 }
 
-export type GameType = 'ludo' | 'four-in-a-row';
+export type GameType = 'ludo' | 'four-in-a-row' | 'tic-tac-toe';
 
 export type FourInARowDisc = 'R' | 'Y' | null;
 
@@ -226,6 +226,20 @@ export interface FourInARowGameState {
   winnerColor: 'red' | 'yellow' | null;
   winnerUserId: string | null;
   winningLine: [number, number][] | null;
+  isDraw: boolean;
+  statusMessage: string;
+  moveCount: number;
+}
+
+export type TicTacToeMark = 'X' | 'O' | null;
+
+export interface TicTacToeGameState {
+  board: TicTacToeMark[]; // 9 cells (indices 0..8)
+  currentTurnSeat: number; // 0 for X, 1 for O
+  currentTurnMark: 'X' | 'O';
+  winner: 'X' | 'O' | null;
+  winnerUserId: string | null;
+  winningLine: [number, number, number] | null;
   isDraw: boolean;
   statusMessage: string;
   moveCount: number;

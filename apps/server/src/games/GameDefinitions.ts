@@ -40,5 +40,17 @@ export const GAME_DEFINITIONS: Record<string, GameDefinition> = {
     colorAssignments: {
       2: ['red', 'yellow']
     }
+  },
+  'tic-tac-toe': {
+    id: 'tic-tac-toe',
+    name: 'Tic Tac Toe',
+    minPlayers: 2,
+    maxPlayers: 2,
+    playerOptions: [2],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'blue']
+    }
   }
 };

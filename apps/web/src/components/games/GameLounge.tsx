@@ -43,6 +43,18 @@ export const GAMES_CATALOG: GameItem[] = [
     description: 'Drop red and yellow discs into the 7x6 arcade grid. Connect 4 horizontally, vertically, or diagonally before your rival.'
   },
   {
+    id: 'tic-tac-toe',
+    title: 'TIC TAC TOE',
+    subtext: 'Neon 3-in-a-Row Duel',
+    badge: '🔥 Live 2-Player',
+    badgeColor: 'bg-rose-600 text-white shadow-rose-600/30',
+    category: 'Strategy Arcade',
+    players: '2 Players',
+    icon: '❌',
+    artwork: 'https://images.unsplash.com/photo-1668901382969-8c73e450a1f5?w=600&h=400&fit=crop&q=80',
+    description: 'Fast-paced 3x3 tactical duel. Place Xs and Os, block opponent lines, and claim victory with live audio/video reactions.'
+  },
+  {
     id: 'moduko',
     title: 'MODUKO',
     subtext: 'Logic & Sudoku Puzzles',
@@ -202,6 +214,10 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
     }
     if (game.id === 'connect4' || game.id === 'four-in-a-row') {
       router.push('/games/four-in-a-row');
+      return;
+    }
+    if (game.id === 'tic-tac-toe' || game.id === 'tictactoe') {
+      router.push('/games/tic-tac-toe');
       return;
     }
 

@@ -12,6 +12,7 @@ import { DatabaseService } from '../db/database.js';
 import { GAME_DEFINITIONS } from './GameDefinitions.js';
 import { LudoEngine } from './LudoEngine.js';
 import { FourInARowEngine } from './FourInARowEngine.js';
+import { TicTacToeEngine } from './TicTacToeEngine.js';
 
 interface ConnectedGameClient {
   socket: WebSocket;
@@ -46,10 +47,14 @@ export class GameRoomManager {
    * Generates a crisp, memorable temporary room code (e.g. LUDO-8F72 or FOUR-9B21)
    */
   public generateRoomCode(gameType = 'LUDO'): string {
-    const prefix =
-      gameType.toLowerCase().includes('four') || gameType.toLowerCase().includes('connect')
-        ? 'FOUR'
-        : gameType.toUpperCase();
+    let prefix = 'LUDO';
+    if (gameType.toLowerCase().includes('four') || gameType.toLowerCase().includes('connect')) {
+      prefix = 'FOUR';
+    } else if (gameType.toLowerCase().includes('tic')) {
+      prefix = 'TIC';
+    } else {
+      prefix = gameType.toUpperCase();
+    }
     for (let i = 0; i < 10; i++) {
       const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
       const code = `${prefix}-${suffix}`;
@@ -236,6 +241,8 @@ export class GameRoomManager {
 
     if (room.gameType === 'four-in-a-row') {
       initialState = FourInARowEngine.createInitialState(playerConfigs, 0);
+    } else if (room.gameType === 'tic-tac-toe') {
+      initialState = TicTacToeEngine.createInitialState(playerConfigs, 0);
     } else {
       initialState = LudoEngine.createInitialState(playerConfigs, room.maxPlayers as any);
     }
@@ -433,6 +440,53 @@ export class GameRoomManager {
   }
 
   /**
+   * Handle Tic Tac Toe Move Action
+   */
+  public handleTicTacToeMove(roomId: string, userId: string, cellIndex: number): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) {
+      throw new Error('Game room or state not found');
+    }
+
+    const player = room.players.find(p => p.userId === userId);
+    if (!player) {
+      throw new Error('Player not in this game room');
+    }
+
+    const result = TicTacToeEngine.makeMove(
+      room.gameState,
+      player.seat,
+      cellIndex,
+      { userId: player.userId, displayName: player.displayName },
+      room.players
+    );
+
+    if (result.isWinner) {
+      const now = new Date().toISOString();
+      this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+      this.db.updateGameRoomState(room.id, result.state, result.state.currentTurnSeat, player.seat);
+    } else {
+      this.db.updateGameRoomState(room.id, result.state, result.state.currentTurnSeat);
+    }
+
+    this.broadcast(room.id, {
+      type: 'game:cell_marked',
+      roomId: room.id,
+      payload: {
+        seat: player.seat,
+        color: player.color,
+        displayName: player.displayName,
+        cellIndex: result.cellIndex,
+        mark: result.mark,
+        isWinner: result.isWinner,
+        isDraw: result.isDraw,
+        winningLine: result.state.winningLine,
+        gameState: result.state
+      }
+    });
+  }
+
+  /**
    * Registers a WebSocket connection to a game room
    */
   public registerClient(
@@ -568,6 +622,10 @@ export class GameRoomManager {
 
       case 'game:drop_disc':
         this.handleDropDisc(client.roomId, client.userId, Number(msg.payload?.column ?? msg.payload?.col));
+        break;
+
+      case 'game:tictactoe_move':
+        this.handleTicTacToeMove(client.roomId, client.userId, Number(msg.payload?.cellIndex ?? msg.payload?.cell));
         break;
 
       case 'game:chat': {
@@ -744,6 +802,11 @@ export class GameRoomManager {
           room.gameState.winnerUserId = winner.userId;
           room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
           this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+        } else if (room.gameType === 'tic-tac-toe' && room.gameState) {
+          room.gameState.winner = winner.seat === 0 ? 'X' : 'O';
+          room.gameState.winnerUserId = winner.userId;
+          room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+          this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
         }
       }
     }
@@ -803,6 +866,11 @@ export class GameRoomManager {
           } else if (room.gameType === 'four-in-a-row' && room.gameState) {
             room.gameState.winner = winner.color === 'red' ? 'R' : 'Y';
             room.gameState.winnerColor = winner.color;
+            room.gameState.winnerUserId = winner.userId;
+            room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+            this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+          } else if (room.gameType === 'tic-tac-toe' && room.gameState) {
+            room.gameState.winner = winner.seat === 0 ? 'X' : 'O';
             room.gameState.winnerUserId = winner.userId;
             room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
             this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
