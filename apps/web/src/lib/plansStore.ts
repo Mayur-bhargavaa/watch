@@ -9,7 +9,7 @@ import {
   getStoredSession
 } from './api';
 
-const STORAGE_KEY = 'stitchbyte_watch_plans_v2';
+const STORAGE_KEY = 'stitchbyte_watch_plans_v4';
 
 export const SEED_PLANS: Plan[] = [
   {
@@ -17,12 +17,14 @@ export const SEED_PLANS: Plan[] = [
     title: 'Friday Night',
     emoji: '🍿',
     type: 'movie',
-    date: '2026-09-27',
-    dateFormatted: 'Saturday · 27 September',
-    time: '9:00 PM',
-    endTime: '1:00 AM',
+    tagLabel: 'Movie + Game',
+    posterUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=600&auto=format&fit=crop&q=80',
+    posterOverlayText: 'INTERSTELLAR',
+    date: '2024-09-27',
+    dateFormatted: 'Sat, 27 September',
+    time: '9:00 PM – 1:00 AM (IST)',
     timezone: 'IST',
-    description: 'Weekly cinema meetup! Deep space voyage followed by high-stakes multiplayer Ludo and late-night lounge banter.',
+    description: 'A movie, a game, and great company.',
     activities: [
       {
         id: 'act-1',
@@ -100,12 +102,14 @@ export const SEED_PLANS: Plan[] = [
     title: "Rahul's Birthday",
     emoji: '🎂',
     type: 'birthday',
-    date: '2026-10-04',
-    dateFormatted: 'Sunday · 4 October',
-    time: '7:00 PM',
-    endTime: '11:00 PM',
+    tagLabel: 'Birthday',
+    posterUrl: 'https://images.unsplash.com/photo-1558636508-e0db3814bd1d?w=600&auto=format&fit=crop&q=80',
+    posterOverlayText: 'Good Friends\nBrighter\nBirthdays\n♡',
+    date: '2024-10-04',
+    dateFormatted: 'Sun, 4 October',
+    time: '7:00 PM – 11:00 PM (IST)',
     timezone: 'IST',
-    description: "Celebrating Rahul's birthday with a private screening, surprise trivia quiz, and custom reactions!",
+    description: "Let's make it special! 🎉",
     activities: [
       {
         id: 'act-b1',
@@ -127,7 +131,7 @@ export const SEED_PLANS: Plan[] = [
         id: 'act-b2',
         type: 'game',
         time: '8:30 PM',
-        title: 'Cinema Trivia & Connect 4',
+        title: 'Trivia & Games',
         subtitle: 'Birthday showdown · Everyone invited',
         actionLabel: 'Play Together',
         actionUrl: '/games/four-in-a-row',
@@ -140,9 +144,9 @@ export const SEED_PLANS: Plan[] = [
       },
       {
         id: 'act-b3',
-        type: 'chat',
+        type: 'hangout',
         time: '9:45 PM',
-        title: 'Virtual Cake & Wishes',
+        title: 'Cake & Wishes',
         subtitle: 'Live video party with camera previews',
         actionLabel: 'Join Chat'
       }
@@ -154,8 +158,7 @@ export const SEED_PLANS: Plan[] = [
       { userId: 'user-dhruv', displayName: 'Dhruv', avatarUrl: '/avatars/ironman.png', status: 'GOING' },
       { userId: 'user-kunal', displayName: 'Kunal', avatarUrl: '/avatars/spiderman.png', status: 'GOING' },
       { userId: 'user-priya', displayName: 'Priya', avatarUrl: null, status: 'MAYBE' },
-      { userId: 'user-sam', displayName: 'Sam', avatarUrl: null, status: 'MAYBE' },
-      { userId: 'user-tanvi', displayName: 'Tanvi', avatarUrl: null, status: 'CANT_GO' }
+      { userId: 'user-sam', displayName: 'Sam', avatarUrl: null, status: 'MAYBE' }
     ],
     reminder: '1d',
     recurring: 'none',
@@ -171,12 +174,14 @@ export const SEED_PLANS: Plan[] = [
     title: 'Ludo Night',
     emoji: '🎮',
     type: 'game',
-    date: '2026-10-09',
-    dateFormatted: 'Friday · 9 October',
-    time: '9:00 PM',
-    endTime: '11:00 PM',
+    tagLabel: 'Game',
+    posterUrl: 'https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?w=600&auto=format&fit=crop&q=80',
+    posterOverlayText: 'Game Friends\nAre The\nBest Friends',
+    date: '2024-10-09',
+    dateFormatted: 'Fri, 9 October',
+    time: '9:00 PM – 11:00 PM (IST)',
     timezone: 'IST',
-    description: 'Casual board game tournament with voice chat and live reactions. Winner gets the Golden Crown emoji for the week!',
+    description: 'Roll. Play. Repeat. 🎲',
     activities: [
       {
         id: 'act-l1',

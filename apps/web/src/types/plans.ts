@@ -68,9 +68,12 @@ export interface Plan {
   title: string;
   emoji: string;
   type: PlanType;
+  tagLabel?: string;
+  posterUrl?: string;
+  posterOverlayText?: string;
   date: string; // e.g. "2026-09-27"
-  dateFormatted: string; // e.g. "Saturday · 27 September"
-  time: string; // e.g. "9:00 PM"
+  dateFormatted: string; // e.g. "Sat, 27 September"
+  time: string; // e.g. "9:00 PM – 1:00 AM (IST)"
   endTime?: string;
   timezone: string;
   description?: string;
