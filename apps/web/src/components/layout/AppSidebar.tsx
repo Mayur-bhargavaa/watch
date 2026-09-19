@@ -9,6 +9,7 @@ import {
   Flame,
   Users,
   Gamepad2,
+  Calendar,
   Sun,
   Moon,
   LogOut,
@@ -38,6 +39,7 @@ export type SidebarNavItem =
   | 'dashboard'
   | 'watchlist'
   | 'friends'
+  | 'plans'
   | 'rooms'
   | 'games'
   | 'profile';
@@ -97,6 +99,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       ? 'watchlist'
       : pathname === '/friends'
       ? 'friends'
+      : pathname.startsWith('/plans')
+      ? 'plans'
       : pathname === '/rooms'
       ? 'rooms'
       : pathname.startsWith('/games')
@@ -226,6 +230,31 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               ) : (
                 <span className="text-sm shrink-0 leading-none pl-2">🔥</span>
               )}
+            </Link>
+
+            {/* Plans */}
+            <Link
+              href="/plans"
+              onClick={onMobileClose}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+                currentActive === 'plans'
+                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+              }`}
+            >
+              <div className="flex items-center space-x-3 min-w-0">
+                <Calendar
+                  className={`w-4 h-4 shrink-0 ${
+                    currentActive === 'plans'
+                      ? 'text-[#ee1d49]'
+                      : 'text-slate-400 dark:text-zinc-400'
+                  }`}
+                />
+                <span className="truncate whitespace-nowrap">Plans</span>
+              </div>
+              <span className="text-[9px] bg-rose-500/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
+                NEW
+              </span>
             </Link>
 
             {/* My Rooms */}
