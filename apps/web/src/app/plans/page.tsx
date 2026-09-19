@@ -9,7 +9,8 @@ import {
   ChevronDown,
   Menu,
   Sun,
-  Moon
+  Moon,
+  Calendar
 } from 'lucide-react';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 import { useTheme } from '../../context/ThemeContext';
@@ -40,6 +41,7 @@ export default function PlansPage() {
   // Tabs: Upcoming | Calendar | Past
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'CALENDAR' | 'PAST'>('UPCOMING');
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -163,6 +165,7 @@ export default function PlansPage() {
   const pastPlans = plans.filter((p) => p.isPast);
 
   const filteredPlans = upcomingPlans.filter((p) => {
+    if (selectedDate && p.date !== selectedDate) return false;
     if (activeFilter === 'ALL') return true;
     if (activeFilter === 'movie') return p.type === 'movie' || p.tagLabel?.toLowerCase().includes('movie');
     if (activeFilter === 'game') return p.type === 'game' || p.tagLabel?.toLowerCase().includes('game');
@@ -183,7 +186,7 @@ export default function PlansPage() {
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
 
   return (
-    <div className="min-h-screen bg-[#fcfaf9] dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-x-hidden font-sans">
+    <div className="h-screen bg-[#fcfaf9] dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-hidden font-sans">
       {/* Centralized App Sidebar */}
       <AppSidebar
         activeNav="plans"
@@ -192,7 +195,7 @@ export default function PlansPage() {
       />
 
       {/* Main Content Area - 100% Full Width */}
-      <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto relative">
+      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto relative">
         {/* Subtle Sunset Hill Art Background (Top Right) matching screenshot */}
         <div className="absolute top-0 right-0 w-[550px] h-[340px] pointer-events-none opacity-40 dark:opacity-20 overflow-hidden z-0 select-none">
           <svg
@@ -370,6 +373,22 @@ export default function PlansPage() {
             <div className="flex-1 min-w-0 w-full space-y-6">
               {activeTab === 'UPCOMING' && (
                 <>
+                  {selectedDate && (
+                    <div className="flex items-center justify-between p-3.5 px-5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200/80 dark:border-rose-500/20 text-xs">
+                      <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-bold">
+                        <Calendar className="w-4 h-4 text-rose-500" />
+                        <span>Showing plans scheduled on {selectedDate}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(null)}
+                        className="text-xs font-bold text-rose-600 hover:text-rose-800 dark:hover:text-rose-200 underline cursor-pointer"
+                      >
+                        Clear Date Filter
+                      </button>
+                    </div>
+                  )}
+
                   {upcomingPlans.length === 0 ? (
                     <RealDataPlanningHub
                       onSelectMovie={handleSelectMovieToPlan}
@@ -382,11 +401,14 @@ export default function PlansPage() {
                   ) : filteredPlans.length === 0 ? (
                     <div className="p-12 text-center rounded-[28px] bg-white dark:bg-[#151022] border border-dashed border-slate-200 dark:border-white/10 space-y-3">
                       <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">
-                        No {activeFilter !== 'ALL' ? activeFilter.toLowerCase() : ''} plans found matching this filter.
+                        No {activeFilter !== 'ALL' ? activeFilter.toLowerCase() : ''} plans found {selectedDate ? `for ${selectedDate}` : 'matching this filter'}.
                       </p>
                       <button
                         type="button"
-                        onClick={() => setActiveFilter('ALL')}
+                        onClick={() => {
+                          setActiveFilter('ALL');
+                          setSelectedDate(null);
+                        }}
                         className="text-xs font-bold text-[#ff3b68] underline cursor-pointer"
                       >
                         Show All {upcomingPlans.length} Plans
@@ -417,6 +439,9 @@ export default function PlansPage() {
                     activeFilter={activeFilter}
                     onSelectFilter={setActiveFilter}
                     counts={counts}
+                    plans={plans}
+                    selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate}
                   />
                 </div>
               )}
@@ -446,14 +471,17 @@ export default function PlansPage() {
               )}
             </div>
 
-            {/* Right Column: 3 Widgets (Calendar + Quick Filters + Cinema Card) */}
-            <div className="w-full lg:w-[320px] xl:w-[350px] shrink-0">
+            {/* Right Column: 3 Widgets (Calendar + Quick Filters + Cinema Card) - Fixed / Sticky */}
+            <aside className="w-full lg:w-[320px] xl:w-[350px] shrink-0 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto no-scrollbar space-y-6">
               <PlansSidebarWidgets
                 activeFilter={activeFilter}
                 onSelectFilter={setActiveFilter}
                 counts={counts}
+                plans={plans}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
               />
-            </div>
+            </aside>
           </div>
         </div>
       </main>

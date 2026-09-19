@@ -10,8 +10,10 @@ import {
   Gamepad2,
   PartyPopper,
   Sparkles,
-  Heart
+  Heart,
+  X
 } from 'lucide-react';
+import { Plan } from '../../types/plans';
 
 interface PlansSidebarWidgetsProps {
   activeFilter?: string;
@@ -22,84 +24,143 @@ interface PlansSidebarWidgetsProps {
     games: number;
     birthdays: number;
   };
+  plans?: Plan[];
+  selectedDate?: string | null;
+  onSelectDate?: (dateStr: string | null) => void;
+}
+
+interface CalendarDayItem {
+  day: number;
+  isCurrentMonth: boolean;
+  dateStr: string | null;
+  isToday: boolean;
+  hasDot: boolean;
 }
 
 export const PlansSidebarWidgets: React.FC<PlansSidebarWidgetsProps> = ({
   activeFilter = 'ALL',
   onSelectFilter,
-  counts = { all: 3, movies: 1, games: 1, birthdays: 1 }
+  counts = { all: 0, movies: 0, games: 0, birthdays: 0 },
+  plans = [],
+  selectedDate = null,
+  onSelectDate
 }) => {
-  const [selectedDay, setSelectedDay] = useState(27);
+  const [currentMonthDate, setCurrentMonthDate] = useState(() => new Date());
 
-  // Month days setup for September (Mon - Sun)
+  const today = new Date();
+  const year = currentMonthDate.getFullYear();
+  const month = currentMonthDate.getMonth();
+
+  const handlePrevMonth = () => {
+    setCurrentMonthDate(new Date(year, month - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonthDate(new Date(year, month + 1, 1));
+  };
+
+  const monthYearDisplay = currentMonthDate.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric'
+  });
+
+  // Weekday labels (Mon - Sun)
   const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // September 2024 calendar grid matching screenshot
-  // 1 is Sun (prev Aug 26-31), Mon 2 to 30
-  const calendarDays = [
-    { day: 26, isCurrentMonth: false },
-    { day: 27, isCurrentMonth: false },
-    { day: 28, isCurrentMonth: false },
-    { day: 29, isCurrentMonth: false },
-    { day: 30, isCurrentMonth: false },
-    { day: 31, isCurrentMonth: false },
-    { day: 1, isCurrentMonth: true },
-    { day: 2, isCurrentMonth: true },
-    { day: 3, isCurrentMonth: true },
-    { day: 4, isCurrentMonth: true, hasDot: true },
-    { day: 5, isCurrentMonth: true },
-    { day: 6, isCurrentMonth: true, hasDot: true },
-    { day: 7, isCurrentMonth: true },
-    { day: 8, isCurrentMonth: true },
-    { day: 9, isCurrentMonth: true, hasDot: true },
-    { day: 10, isCurrentMonth: true },
-    { day: 11, isCurrentMonth: true },
-    { day: 12, isCurrentMonth: true },
-    { day: 13, isCurrentMonth: true },
-    { day: 14, isCurrentMonth: true },
-    { day: 15, isCurrentMonth: true },
-    { day: 16, isCurrentMonth: true },
-    { day: 17, isCurrentMonth: true },
-    { day: 18, isCurrentMonth: true },
-    { day: 19, isCurrentMonth: true },
-    { day: 20, isCurrentMonth: true },
-    { day: 21, isCurrentMonth: true },
-    { day: 22, isCurrentMonth: true },
-    { day: 23, isCurrentMonth: true },
-    { day: 24, isCurrentMonth: true },
-    { day: 25, isCurrentMonth: true },
-    { day: 26, isCurrentMonth: true },
-    { day: 27, isCurrentMonth: true, isHighlighted: true },
-    { day: 28, isCurrentMonth: true, hasDot: true },
-    { day: 29, isCurrentMonth: true },
-    { day: 30, isCurrentMonth: true },
-    { day: 1, isCurrentMonth: false },
-    { day: 2, isCurrentMonth: false },
-    { day: 3, isCurrentMonth: false },
-    { day: 4, isCurrentMonth: false },
-    { day: 5, isCurrentMonth: false, hasDot: true },
-    { day: 6, isCurrentMonth: false }
-  ];
+  // Real calendar grid calculation
+  const firstDayOfMonth = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Monday is 0, Sunday is 6
+  const firstDayIndex = (firstDayOfMonth.getDay() + 6) % 7;
+
+  const prevMonthDaysCount = new Date(year, month, 0).getDate();
+  const calendarDays: CalendarDayItem[] = [];
+
+  // Trailing days from previous month
+  for (let i = firstDayIndex - 1; i >= 0; i--) {
+    calendarDays.push({
+      day: prevMonthDaysCount - i,
+      isCurrentMonth: false,
+      dateStr: null,
+      isToday: false,
+      hasDot: false
+    });
+  }
+
+  // Days in current month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const isToday =
+      d === today.getDate() &&
+      month === today.getMonth() &&
+      year === today.getFullYear();
+    const hasDot = plans.some((p) => p.date === dateStr);
+
+    calendarDays.push({
+      day: d,
+      isCurrentMonth: true,
+      dateStr,
+      isToday,
+      hasDot
+    });
+  }
+
+  // Leading days from next month to complete the row
+  const remainingCells = (7 - (calendarDays.length % 7)) % 7;
+  for (let n = 1; n <= remainingCells; n++) {
+    calendarDays.push({
+      day: n,
+      isCurrentMonth: false,
+      dateStr: null,
+      isToday: false,
+      hasDot: false
+    });
+  }
+
+  const handleDayClick = (item: typeof calendarDays[0]) => {
+    if (!item.isCurrentMonth || !item.dateStr) return;
+    if (selectedDate === item.dateStr) {
+      onSelectDate?.(null);
+    } else {
+      onSelectDate?.(item.dateStr);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* 1. CALENDAR WIDGET */}
+      {/* 1. REAL CALENDAR WIDGET */}
       <div className="rounded-[28px] p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
         {/* Month Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
-            September 2024
-          </h3>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+              {monthYearDisplay}
+            </h3>
+            {selectedDate && (
+              <button
+                type="button"
+                onClick={() => onSelectDate?.(null)}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-500 hover:text-rose-600 mt-0.5"
+              >
+                <span>Filtered to {selectedDate}</span>
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-1 text-slate-500 dark:text-zinc-400">
             <button
               type="button"
-              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              onClick={handlePrevMonth}
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              title="Previous Month"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               type="button"
-              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              onClick={handleNextMonth}
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              title="Next Month"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -116,22 +177,27 @@ export const PlansSidebarWidgets: React.FC<PlansSidebarWidgetsProps> = ({
         {/* Days Grid */}
         <div className="grid grid-cols-7 gap-y-1.5 gap-x-1 text-center">
           {calendarDays.map((item, idx) => {
-            const isSelected = item.isCurrentMonth && item.day === selectedDay;
+            const isSelected = Boolean(item.dateStr && selectedDate === item.dateStr);
             return (
               <button
                 key={idx}
                 type="button"
-                onClick={() => item.isCurrentMonth && setSelectedDay(item.day)}
-                className={`h-8 w-8 mx-auto rounded-full flex flex-col items-center justify-center text-xs font-semibold relative transition cursor-pointer ${
-                  isSelected || item.isHighlighted
-                    ? 'bg-[#ee1d49] text-white shadow-md shadow-[#ee1d49]/30 font-bold'
+                disabled={!item.isCurrentMonth}
+                onClick={() => handleDayClick(item)}
+                className={`h-8 w-8 mx-auto rounded-full flex flex-col items-center justify-center text-xs font-semibold relative transition ${
+                  item.isCurrentMonth ? 'cursor-pointer' : 'cursor-default'
+                } ${
+                  isSelected
+                    ? 'bg-[#ee1d49] text-white shadow-md shadow-[#ee1d49]/30 font-bold scale-105'
+                    : item.isToday
+                    ? 'ring-2 ring-[#ee1d49]/70 text-[#ee1d49] dark:text-rose-400 font-bold bg-rose-50/50 dark:bg-rose-500/10'
                     : item.isCurrentMonth
                     ? 'text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-white/10'
                     : 'text-slate-300 dark:text-zinc-600'
                 }`}
               >
                 <span>{item.day}</span>
-                {item.hasDot && !isSelected && !item.isHighlighted && (
+                {item.hasDot && !isSelected && (
                   <span className="w-1 h-1 rounded-full bg-[#ee1d49] absolute bottom-1" />
                 )}
               </button>
