@@ -30,6 +30,16 @@ interface CreatePlanModalProps {
   onClose: () => void;
   currentUserId?: string;
   currentUserName?: string;
+  initialData?: {
+    type?: PlanType;
+    emoji?: string;
+    title?: string;
+    description?: string;
+    activities?: PlanActivity[];
+    invitedFriends?: string[];
+    date?: string;
+    time?: string;
+  } | null;
 }
 
 // REAL Curated YouTube & Cinema titles
@@ -111,7 +121,8 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
   isOpen,
   onClose,
   currentUserId = 'u1',
-  currentUserName = 'Mayur Bhargava'
+  currentUserName = 'Mayur Bhargava',
+  initialData = null
 }) => {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -126,6 +137,21 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
   const [timezone, setTimezone] = useState('IST (UTC+5:30)');
   const [description, setDescription] = useState('Watching a movie together and then jumping straight into a Ludo showdown!');
   const [reminder, setReminder] = useState<'30m' | '1h' | '1d' | 'none'>('30m');
+
+  // React to initialData
+  useEffect(() => {
+    if (isOpen && initialData) {
+      if (initialData.type) setPlanType(initialData.type);
+      if (initialData.emoji) setEmoji(initialData.emoji);
+      if (initialData.title) setTitle(initialData.title);
+      if (initialData.description !== undefined) setDescription(initialData.description);
+      if (initialData.activities && initialData.activities.length > 0) setActivities(initialData.activities);
+      if (initialData.invitedFriends && initialData.invitedFriends.length > 0) setInvitedFriends(initialData.invitedFriends);
+      if (initialData.date) setDate(initialData.date);
+      if (initialData.time) setTime(initialData.time);
+      setStep(1);
+    }
+  }, [isOpen, initialData]);
 
   // Custom movie modal
   const [showCustomMovieModal, setShowCustomMovieModal] = useState(false);

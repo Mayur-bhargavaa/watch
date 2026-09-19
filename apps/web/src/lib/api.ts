@@ -840,3 +840,15 @@ export async function sendApiPlanChatMessage(
   if (!res.ok) throw new Error('Failed to send plan chat message');
   return res.json();
 }
+
+export async function deleteApiPlan(planId: string, token?: string): Promise<{ success: boolean; id: string }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans/${planId}`, {
+    method: 'DELETE',
+    headers
+  });
+  if (!res.ok) throw new Error('Failed to delete plan');
+  return res.json();
+}
+

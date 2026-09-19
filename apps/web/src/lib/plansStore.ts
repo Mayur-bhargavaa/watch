@@ -6,10 +6,11 @@ import {
   updateApiPlanRSVP,
   voteApiPlanOption,
   sendApiPlanChatMessage,
+  deleteApiPlan,
   getStoredSession
 } from './api';
 
-const STORAGE_KEY = 'stitchbyte_watch_plans_v4';
+const STORAGE_KEY = 'stitchbyte_watch_plans_v5';
 
 export const SEED_PLANS: Plan[] = [
   {
@@ -263,17 +264,16 @@ export const SEED_PLANS: Plan[] = [
 ];
 
 export function getPlans(): Plan[] {
-  if (typeof window === 'undefined') return SEED_PLANS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_PLANS));
-      return SEED_PLANS;
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : SEED_PLANS;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return SEED_PLANS;
+    return [];
   }
 }
 
@@ -301,6 +301,19 @@ export function addPlan(plan: Plan): void {
     const session = getStoredSession();
     createApiPlan(plan, session?.token).catch((err) => {
       console.warn('Failed to sync plan to server:', err);
+    });
+  } catch {}
+}
+
+export function deletePlan(id: string): void {
+  const plans = getPlans();
+  const updated = plans.filter((p) => p.id !== id);
+  savePlans(updated);
+
+  try {
+    const session = getStoredSession();
+    deleteApiPlan(id, session?.token).catch((err) => {
+      console.warn('Failed to delete plan from server:', err);
     });
   } catch {}
 }
@@ -408,7 +421,7 @@ export async function fetchPlansFromServer(): Promise<Plan[]> {
   try {
     const session = getStoredSession();
     const res = await getApiPlans(session?.token);
-    if (res?.plans && Array.isArray(res.plans) && res.plans.length > 0) {
+    if (res?.plans && Array.isArray(res.plans)) {
       savePlans(res.plans);
       return res.plans;
     }

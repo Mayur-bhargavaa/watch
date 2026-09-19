@@ -1021,6 +1021,15 @@ export async function createServer(dbPath = './synccinema.db') {
         const updated = db.updatePlan(id, { chatMessages });
         return { success: true, message: newMsg, plan: updated };
     });
+    app.delete('/api/plans/:id', async (request, reply) => {
+        const { id } = request.params;
+        const plan = db.getPlanById(id);
+        if (!plan) {
+            return reply.code(404).send({ error: 'Plan not found' });
+        }
+        const deleted = db.deletePlan(id);
+        return { success: deleted, id };
+    });
     // --- Real-Time WebSocket Endpoint ---
     app.get('/ws/rooms/:slug', { websocket: true }, (connection, req) => {
         const ws = connection.socket || connection;

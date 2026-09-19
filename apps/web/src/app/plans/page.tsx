@@ -13,12 +13,18 @@ import {
 } from 'lucide-react';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 import { useTheme } from '../../context/ThemeContext';
-import { getStoredSession, UserSession } from '../../lib/api';
+import { getStoredSession, UserSession, getFriendsWithStreaks } from '../../lib/api';
 import { Plan, PlanType } from '../../types/plans';
-import { getPlans, fetchPlansFromServer } from '../../lib/plansStore';
+import { getPlans, fetchPlansFromServer, deletePlan } from '../../lib/plansStore';
 import { PlanCard } from '../../components/plans/PlanCard';
 import { PlansSidebarWidgets } from '../../components/plans/PlansSidebarWidgets';
 import { CreatePlanModal } from '../../components/plans/CreatePlanModal';
+import {
+  RealDataPlanningHub,
+  RealMovieItem,
+  RealGameItem,
+  RealFriendItem
+} from '../../components/plans/RealDataPlanningHub';
 
 export default function PlansPage() {
   const router = useRouter();
@@ -29,18 +35,36 @@ export default function PlansPage() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [friends, setFriends] = useState<RealFriendItem[]>([]);
 
-  // Tabs: Upcoming (3) | Calendar | Past (1)
+  // Tabs: Upcoming | Calendar | Past
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'CALENDAR' | 'PAST'>('UPCOMING');
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
 
-  // Modal
+  // Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [modalInitialData, setModalInitialData] = useState<any>(null);
 
   useEffect(() => {
     const s = getStoredSession();
     if (s && s.token) {
       setSession(s);
+      getFriendsWithStreaks(s.token)
+        .then((res) => {
+          if (res?.friends && Array.isArray(res.friends)) {
+            setFriends(
+              res.friends.map((f: any) => ({
+                userId: f.friendUser.id,
+                displayName: f.friendUser.displayName,
+                avatarUrl: f.friendUser.avatarUrl,
+                partnerCode: f.friendUser.partnerCode,
+                streakCount: f.streak?.currentStreak || 0,
+                isOnline: f.friendUser.isOnline
+              }))
+            );
+          }
+        })
+        .catch(() => {});
     }
     // Load local seed / cached plans immediately
     setPlans(getPlans());
@@ -48,9 +72,7 @@ export default function PlansPage() {
 
     // Sync real plans from server API
     fetchPlansFromServer().then((synced) => {
-      if (synced && synced.length > 0) {
-        setPlans(synced);
-      }
+      setPlans(synced || []);
     });
   }, []);
 
@@ -58,6 +80,82 @@ export default function PlansPage() {
     fetchPlansFromServer().then((synced) => {
       setPlans(synced || getPlans());
     });
+  };
+
+  const handleDeletePlan = (id: string) => {
+    deletePlan(id);
+    refreshPlans();
+  };
+
+  const handleSelectMovieToPlan = (movie: RealMovieItem) => {
+    setModalInitialData({
+      type: 'movie',
+      emoji: '🍿',
+      title: `${movie.title.split(':')[0]} Watch Party`,
+      description: `Synchronized watch party for ${movie.title} with friends.`,
+      activities: [
+        {
+          id: `act-${Date.now()}`,
+          type: 'movie',
+          time: '9:00 PM',
+          title: movie.title,
+          subtitle: `Duration: ${movie.duration}`,
+          actionLabel: 'Enter Cinema',
+          actionUrl: `/rooms?watch=${encodeURIComponent(movie.url)}`,
+          movieDetails: {
+            title: movie.title,
+            duration: movie.duration,
+            provider: 'youtube',
+            posterUrl: movie.poster,
+            sourceUrl: movie.url
+          }
+        }
+      ]
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleSelectGameToPlan = (game: RealGameItem) => {
+    setModalInitialData({
+      type: 'game',
+      emoji: game.icon,
+      title: `${game.title} Night`,
+      description: `Multiplayer showdown playing ${game.title}!`,
+      activities: [
+        {
+          id: `act-${Date.now()}`,
+          type: 'game',
+          time: '9:00 PM',
+          title: game.title,
+          subtitle: `${game.players} · Real-time Match`,
+          actionLabel: 'Play Together',
+          actionUrl: game.url,
+          gameDetails: {
+            gameId: game.gameId,
+            title: game.title,
+            icon: game.icon,
+            players: game.players
+          }
+        }
+      ]
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleSelectFriendToPlan = (friend: RealFriendItem) => {
+    setModalInitialData({
+      type: 'hangout',
+      emoji: '✨',
+      title: `Hangout with ${friend.displayName}`,
+      description: `Watch movies or play games together!`,
+      invitedFriends: [friend.userId]
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleOpenGeneralCreate = () => {
+    setModalInitialData(null);
+    setShowCreateModal(true);
   };
 
   // Filter calculations
@@ -272,17 +370,26 @@ export default function PlansPage() {
             <div className="flex-1 min-w-0 w-full space-y-6">
               {activeTab === 'UPCOMING' && (
                 <>
-                  {filteredPlans.length === 0 ? (
+                  {upcomingPlans.length === 0 ? (
+                    <RealDataPlanningHub
+                      onSelectMovie={handleSelectMovieToPlan}
+                      onSelectGame={handleSelectGameToPlan}
+                      onSelectFriend={handleSelectFriendToPlan}
+                      onOpenGeneralCreate={handleOpenGeneralCreate}
+                      friends={friends}
+                      userFriendCode={session?.user?.partnerCode}
+                    />
+                  ) : filteredPlans.length === 0 ? (
                     <div className="p-12 text-center rounded-[28px] bg-white dark:bg-[#151022] border border-dashed border-slate-200 dark:border-white/10 space-y-3">
                       <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">
-                        No plans found matching this filter.
+                        No {activeFilter !== 'ALL' ? activeFilter.toLowerCase() : ''} plans found matching this filter.
                       </p>
                       <button
                         type="button"
                         onClick={() => setActiveFilter('ALL')}
                         className="text-xs font-bold text-[#ff3b68] underline cursor-pointer"
                       >
-                        Show All Plans
+                        Show All {upcomingPlans.length} Plans
                       </button>
                     </div>
                   ) : (
@@ -291,6 +398,7 @@ export default function PlansPage() {
                         key={plan.id}
                         plan={plan}
                         isPrimary={index === 0}
+                        onDeletePlan={handleDeletePlan}
                       />
                     ))
                   )}
@@ -327,7 +435,11 @@ export default function PlansPage() {
                     </div>
                   ) : (
                     pastPlans.map((plan) => (
-                      <PlanCard key={plan.id} plan={plan} />
+                      <PlanCard
+                        key={plan.id}
+                        plan={plan}
+                        onDeletePlan={handleDeletePlan}
+                      />
                     ))
                   )}
                 </div>
@@ -351,10 +463,12 @@ export default function PlansPage() {
         isOpen={showCreateModal}
         onClose={() => {
           setShowCreateModal(false);
+          setModalInitialData(null);
           refreshPlans();
         }}
         currentUserId={session?.user?.id || 'u1'}
         currentUserName={currentUserName}
+        initialData={modalInitialData}
       />
     </div>
   );

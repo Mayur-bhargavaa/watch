@@ -1883,6 +1883,11 @@ export class DatabaseService {
     return this.getPlanById(id);
   }
 
+  deletePlan(id: string): boolean {
+    const res = this.db.prepare('DELETE FROM plans WHERE id = ?').run(id);
+    return Boolean(res.changes && res.changes > 0);
+  }
+
   private deserializePlan(row: any): any {
     return {
       id: row.id,

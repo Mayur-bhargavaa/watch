@@ -1504,6 +1504,10 @@ export class DatabaseService {
         stmt.run(merged.title, merged.emoji, merged.type, merged.date, merged.dateFormatted, merged.time, merged.endTime || '', merged.timezone, merged.description || '', JSON.stringify(merged.activities || []), JSON.stringify(merged.participants || []), merged.voting ? JSON.stringify(merged.voting) : null, merged.reminder || '30m', merged.recurring || 'none', JSON.stringify(merged.chatMessages || []), merged.isPast ? 1 : 0, id);
         return this.getPlanById(id);
     }
+    deletePlan(id) {
+        const res = this.db.prepare('DELETE FROM plans WHERE id = ?').run(id);
+        return Boolean(res.changes && res.changes > 0);
+    }
     deserializePlan(row) {
         return {
             id: row.id,

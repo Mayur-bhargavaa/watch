@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import {
   Calendar,
@@ -10,13 +10,17 @@ import {
   Film,
   Gamepad2,
   MessageCircle,
-  Sparkles
+  Sparkles,
+  Trash2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Plan } from '../../types/plans';
 
 interface PlanCardProps {
   plan: Plan;
   isPrimary?: boolean;
+  onDeletePlan?: (id: string) => void;
 }
 
 // Curated avatar faces matching the design in screenshot
@@ -27,7 +31,21 @@ const SAMPLE_AVATARS = [
   'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80'
 ];
 
-export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false, onDeletePlan }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = () => {
+    if (typeof window !== 'undefined') {
+      const url = `${window.location.origin}/plans/${plan.id}`;
+      navigator.clipboard?.writeText(url);
+      setCopied(true);
+      setTimeout(() => {
+        setCopied(false);
+        setShowMenu(false);
+      }, 1500);
+    }
+  };
   const goingCount = plan.participants?.filter((p) => p.status === 'GOING').length || 5;
   const maybeCount = plan.participants?.filter((p) => p.status === 'MAYBE').length || 2;
 
@@ -135,12 +153,50 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false }) =
             </span>
           </div>
 
-          <button
-            type="button"
-            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-2xl bg-white dark:bg-[#1c162b] border border-slate-200 dark:border-white/10 shadow-xl shadow-black/10 py-1.5 z-30">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-emerald-600 font-bold">Link Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Copy Invite Link</span>
+                    </>
+                  )}
+                </button>
+                {onDeletePlan && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      onDeletePlan(plan.id);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition border-t border-slate-100 dark:border-white/5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Delete Plan</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Date & Time */}
@@ -151,7 +207,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false }) =
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>{plan.time} {plan.endTime ? `– ${plan.endTime}` : ''} {plan.timezone ? `(${plan.timezone})` : ''}</span>
+            <span>
+              {plan.time.includes(plan.timezone || 'IST')
+                ? plan.time
+                : `${plan.time}${plan.endTime ? ` – ${plan.endTime}` : ''}${plan.timezone ? ` (${plan.timezone})` : ''}`}
+            </span>
           </span>
         </div>
 
@@ -198,7 +258,13 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false }) =
           {/* Avatar Stack + Count */}
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2 overflow-hidden p-0.5">
-              {SAMPLE_AVATARS.map((avatar, idx) => (
+              {(plan.participants && plan.participants.some((p) => p.avatarUrl)
+                ? plan.participants
+                    .filter((p) => p.avatarUrl)
+                    .map((p) => p.avatarUrl!)
+                    .slice(0, 4)
+                : SAMPLE_AVATARS
+              ).map((avatar, idx) => (
                 <img
                   key={idx}
                   src={avatar}
