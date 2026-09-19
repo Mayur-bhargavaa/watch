@@ -29,7 +29,11 @@ import {
   ChevronUp,
   ChevronDown,
   Armchair,
-  Info
+  Info,
+  Lock,
+  Globe,
+  Sliders,
+  Gamepad2
 } from 'lucide-react';
 import { MediaItem, RoomPlaybackState, Reaction } from '@synccinema/common';
 import { YouTubeEmbed } from './YouTubeEmbed';
@@ -377,6 +381,39 @@ export function PixelPerfectTheater({
   const [showVirtualSeats, setShowVirtualSeats] = useState<boolean>(true);
   const [selectedSeatIndex, setSelectedSeatIndex] = useState<number | null>(null);
   const [glowingSeats, setGlowingSeats] = useState<Record<number, { emoji: string; until: number }>>({});
+
+  // 🎨 Watch Party Customization State (Persisted in localStorage for room session)
+  const [customRoomName, setCustomRoomName] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('synccinema_custom_room_name') || (roomTitle || '🍿 Friday Movie Night');
+    }
+    return roomTitle || '🍿 Friday Movie Night';
+  });
+  const [customRoomEmoji, setCustomRoomEmoji] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('synccinema_custom_room_emoji') || '🎬';
+    }
+    return '🎬';
+  });
+  const [customPrivacy, setCustomPrivacy] = useState<'INVITE_ONLY' | 'PUBLIC' | 'PRIVATE'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('synccinema_custom_privacy') as any) || 'INVITE_ONLY';
+    }
+    return 'INVITE_ONLY';
+  });
+  const [maxPlayers, setMaxPlayers] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('synccinema_custom_max_players');
+      return saved ? parseInt(saved, 10) : 6;
+    }
+    return 6;
+  });
+  const [gamePermission, setGamePermission] = useState<'ANYONE' | 'HOST_ONLY'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('synccinema_custom_game_perm') as any) || 'ANYONE';
+    }
+    return 'ANYONE';
+  });
 
   const currentTheaterTheme = useMemo(() => {
     return THEATER_THEMES.find(t => t.id === theaterThemeId) || THEATER_THEMES[0];
@@ -861,21 +898,20 @@ export function PixelPerfectTheater({
         )}
         {/* ══ TOP BAR ══ */}
         <div className="relative z-30 w-full px-6 pt-4 flex items-center justify-between pointer-events-auto">
-          {/* Left: Brand Logo (clean text matching normal mode, no red play button) */}
+          {/* Left: Brand Logo & Customizable Room Title with Emoji */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={onExitTheater} title="Back to Standard View">
               <div className="flex flex-col leading-none">
                 <span className="text-base sm:text-lg font-black tracking-tighter text-[#E50914] select-none">watch.</span>
                 <span className="text-[7.5px] font-semibold tracking-wider text-zinc-400/80 uppercase select-none mt-0.5">watch · stitchbyte</span>
               </div>
-              {roomTitle && (
-                <>
-                  <span className="text-zinc-600 text-sm hidden sm:inline">/</span>
-                  <span className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate max-w-[140px] sm:max-w-[260px]">
-                    {roomTitle}
-                  </span>
-                </>
-              )}
+              <span className="text-zinc-600 text-sm hidden sm:inline">/</span>
+              <div className="flex items-center gap-1.5 truncate max-w-[150px] sm:max-w-[300px]">
+                <span className="text-base sm:text-lg select-none">{customRoomEmoji}</span>
+                <span className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate">
+                  {customRoomName}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -1054,7 +1090,7 @@ export function PixelPerfectTheater({
 
         {/* ══ BOTTOM CONTROL BAR ══ */}
         <div className="relative z-30 w-full px-6 pb-4 flex items-center justify-between pointer-events-auto">
-          {/* Bottom Left: Connected Status Pill */}
+          {/* Bottom Left: Connected Status Pill with Custom Privacy & Max Players */}
           <div
             className="px-3 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-bold text-white shadow-xl"
             style={{
@@ -1065,10 +1101,15 @@ export function PixelPerfectTheater({
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <div className="flex flex-col leading-none">
-              <span className="text-zinc-200">Connected</span>
+              <div className="flex items-center gap-1">
+                <span className="text-zinc-200">Connected</span>
+                <span className="text-[8.5px] px-1.5 py-0.2 rounded-full bg-white/10 text-zinc-300 font-semibold">
+                  {customPrivacy === 'INVITE_ONLY' ? '🔒 Invite Only' : customPrivacy === 'PRIVATE' ? '🛡️ Private' : '🌐 Public'}
+                </span>
+              </div>
               <span className="text-[8px] text-zinc-400 mt-0.5 flex items-center gap-1">
                 <User className="w-2.5 h-2.5 text-zinc-400" />
-                <span>{participants.length}/6 in room</span>
+                <span>{participants.length}/{maxPlayers} in room</span>
               </span>
             </div>
           </div>
@@ -1310,50 +1351,264 @@ export function PixelPerfectTheater({
           </div>
         </div>
 
-        {/* ══ SETTINGS MODAL ══ */}
+        {/* ══ 🎨 WATCH PARTY CUSTOMIZATION & SETTINGS MODAL ══ */}
         {showSettingsModal && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn pointer-events-auto">
-            <div className="bg-[#121622] max-w-sm w-full rounded-2xl border border-white/10 p-5 space-y-4 shadow-2xl">
-              <div className="flex items-center justify-between text-white">
-                <span className="text-sm font-bold">Cinema Stream Settings</span>
+          <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-in fade-in duration-200 pointer-events-auto">
+            <div className="bg-[#11141e]/98 max-w-lg w-full rounded-3xl border border-white/15 p-5 sm:p-6 space-y-5 shadow-[0_25px_70px_rgba(0,0,0,0.95)] max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between text-white border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-red-600 to-rose-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30">
+                    <Sliders className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                      <span>Watch Party Customization</span>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    </h3>
+                    <p className="text-[11px] text-zinc-400">
+                      {isHost ? 'Customize your cinema room branding, privacy & rules' : 'Current watch party settings'}
+                    </p>
+                  </div>
+                </div>
                 <button
                   onClick={() => setShowSettingsModal(false)}
-                  className="p-1 text-zinc-400 hover:text-white rounded-lg transition"
+                  className="p-1.5 text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs text-zinc-300 font-medium">
-                  Change Media / Video URL:
+              {/* 1. Room Name & Room Emoji */}
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <span>Room Identity</span>
                 </label>
-                <input
-                  type="text"
-                  value={newMediaUrl}
-                  onChange={(e) => setNewMediaUrl(e.target.value)}
-                  placeholder="Paste YouTube or direct MP4 URL..."
-                  className="w-full px-3 py-2 bg-[#0A0D14] border border-white/10 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#E50914]"
-                />
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="col-span-1">
+                    <label className="text-[10px] text-zinc-400 mb-1 block">Emoji</label>
+                    <select
+                      value={customRoomEmoji}
+                      disabled={!isHost}
+                      onChange={(e) => {
+                        setCustomRoomEmoji(e.target.value);
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('synccinema_custom_room_emoji', e.target.value);
+                        }
+                      }}
+                      className="w-full py-2 px-2 bg-[#0d1017] border border-white/15 rounded-xl text-center text-lg text-white focus:outline-none focus:border-red-500 cursor-pointer disabled:opacity-50"
+                    >
+                      {['🎬', '🍿', '🎥', '✨', '🔥', '💖', '🚀', '🌌', '🍕', '🎉'].map((em) => (
+                        <option key={em} value={em}>
+                          {em}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-span-3">
+                    <label className="text-[10px] text-zinc-400 mb-1 block">Room Name</label>
+                    <input
+                      type="text"
+                      value={customRoomName}
+                      disabled={!isHost}
+                      onChange={(e) => {
+                        setCustomRoomName(e.target.value);
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('synccinema_custom_room_name', e.target.value);
+                        }
+                      }}
+                      placeholder="🍿 Friday Movie Night"
+                      className="w-full py-2.5 px-3 bg-[#0d1017] border border-white/15 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 disabled:opacity-50"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2">
+              {/* 2. Theme Selection */}
+              <div className="space-y-2 pt-1 border-t border-white/10">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Theater Theme</span>
+                  </label>
+                  <button
+                    onClick={() => {
+                      setShowSettingsModal(false);
+                      setShowThemeModal(true);
+                    }}
+                    className="text-[11px] font-semibold text-pink-400 hover:text-pink-300 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Browse All ({THEATER_THEMES.length})</span>
+                    <Palette className="w-3 h-3" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {THEATER_THEMES.slice(0, 3).map((theme) => {
+                    const isSelected = theaterThemeId === theme.id;
+                    return (
+                      <button
+                        key={theme.id}
+                        onClick={() => handleSelectTheme(theme.id)}
+                        className={`p-2 rounded-xl text-left border transition flex flex-col items-center gap-1.5 cursor-pointer ${
+                          isSelected
+                            ? 'bg-white/15 border-rose-500 ring-1 ring-rose-500'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="w-full aspect-video rounded-lg overflow-hidden bg-black">
+                          <img src={theme.previewUrl} alt={theme.name} className="w-full h-full object-cover" />
+                        </div>
+                        <span className="text-[10px] font-bold text-white truncate max-w-full">
+                          {theme.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Privacy Setting */}
+              <div className="space-y-2 pt-1 border-t border-white/10">
+                <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Room Privacy</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'INVITE_ONLY', label: '🔒 Invite Only', desc: 'Direct link only' },
+                    { id: 'PUBLIC', label: '🌐 Public', desc: 'Visible in lobby' },
+                    { id: 'PRIVATE', label: '🛡️ Private', desc: 'Host approval' },
+                  ].map((p) => {
+                    const isSelected = customPrivacy === p.id;
+                    return (
+                      <button
+                        key={p.id}
+                        disabled={!isHost}
+                        onClick={() => {
+                          setCustomPrivacy(p.id as any);
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('synccinema_custom_privacy', p.id);
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer disabled:opacity-50 ${
+                          isSelected
+                            ? 'bg-rose-500/20 border-rose-500 text-white'
+                            : 'bg-white/5 border-white/10 text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span className="text-xs font-bold block">{p.label}</span>
+                        <span className="text-[9.5px] text-zinc-400 block mt-0.5">{p.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Maximum Players */}
+              <div className="space-y-2 pt-1 border-t border-white/10">
+                <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Maximum Players</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  {[2, 4, 6, 10].map((count) => {
+                    const isSelected = maxPlayers === count;
+                    return (
+                      <button
+                        key={count}
+                        disabled={!isHost}
+                        onClick={() => {
+                          setMaxPlayers(count);
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('synccinema_custom_max_players', String(count));
+                          }
+                        }}
+                        className={`flex-1 py-2 rounded-xl text-xs font-bold border transition cursor-pointer disabled:opacity-50 ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white border-rose-500 shadow-md shadow-red-600/30'
+                            : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        {count} Players
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 5. Game Permissions */}
+              <div className="space-y-2 pt-1 border-t border-white/10">
+                <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Gamepad2 className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Game Permissions</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'ANYONE', label: '☑ Anyone can start games', desc: 'Any player can launch Ludo, Connect 4, etc.' },
+                    { id: 'HOST_ONLY', label: '☐ Host only', desc: 'Only the room host can launch arcade games' },
+                  ].map((perm) => {
+                    const isSelected = gamePermission === perm.id;
+                    return (
+                      <button
+                        key={perm.id}
+                        disabled={!isHost}
+                        onClick={() => {
+                          setGamePermission(perm.id as any);
+                          if (typeof window !== 'undefined') {
+                            localStorage.setItem('synccinema_custom_game_perm', perm.id);
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition cursor-pointer disabled:opacity-50 ${
+                          isSelected
+                            ? 'bg-rose-500/20 border-rose-500 text-white'
+                            : 'bg-white/5 border-white/10 text-zinc-400 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span className="text-xs font-bold block">{perm.label}</span>
+                        <span className="text-[9.5px] text-zinc-400 block mt-0.5">{perm.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 6. Media / Video URL (Existing Capability) */}
+              <div className="space-y-2 pt-1 border-t border-white/10">
+                <label className="text-xs font-bold text-white uppercase tracking-wider">
+                  Change Video Stream URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMediaUrl}
+                    onChange={(e) => setNewMediaUrl(e.target.value)}
+                    placeholder="Paste YouTube or direct MP4 URL..."
+                    className="flex-1 px-3 py-2 bg-[#0d1017] border border-white/15 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
+                  />
+                  <button
+                    onClick={() => {
+                      if (onNavigateUrl && newMediaUrl.trim()) {
+                        onNavigateUrl(newMediaUrl.trim());
+                      }
+                      setShowSettingsModal(false);
+                    }}
+                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold rounded-xl transition shadow active:scale-95 cursor-pointer"
+                  >
+                    Play
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                <span className="text-[11px] text-zinc-400">
+                  Settings automatically apply to your session
+                </span>
                 <button
                   onClick={() => setShowSettingsModal(false)}
-                  className="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 text-xs text-zinc-300 rounded-xl transition"
+                  className="px-5 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs rounded-xl shadow-lg transition active:scale-95 cursor-pointer"
                 >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    if (onNavigateUrl && newMediaUrl.trim()) {
-                      onNavigateUrl(newMediaUrl.trim());
-                    }
-                    setShowSettingsModal(false);
-                  }}
-                  className="px-4 py-1.5 bg-[#E50914] hover:bg-red-600 text-white text-xs font-bold rounded-xl transition shadow"
-                >
-                  Apply Video
+                  Save &amp; Close
                 </button>
               </div>
             </div>
