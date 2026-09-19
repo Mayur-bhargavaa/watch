@@ -394,6 +394,33 @@ export function PixelPerfectTheater({
   const isLarge = screenSize === 'large';
 
   const screenStyle = useMemo(() => {
+    if (currentTheaterTheme.id === 'cinema-vip') {
+      if (isImax) {
+        return {
+          top: '7.5%',
+          left: '6.5%',
+          width: '87%',
+          height: '59%',
+        };
+      }
+      if (isLarge) {
+        return {
+          top: '10.5%',
+          left: '10.5%',
+          width: '79%',
+          height: '54%',
+        };
+      }
+      // standard: fits directly onto the theater screen inside the background
+      return {
+        top: '13.8%',
+        left: '14.8%',
+        width: '70.4%',
+        height: '48.7%',
+      };
+    }
+
+    // Default for other themes
     if (isImax) {
       return {
         top: '5.8%',
@@ -417,7 +444,7 @@ export function PixelPerfectTheater({
       width: '74%',
       height: '56.5%',
     };
-  }, [isImax, isLarge]);
+  }, [isImax, isLarge, currentTheaterTheme.id]);
 
   const lastProcessedReactionRef = useRef<string | null>(latestReactions?.[0]?.id || null);
   const theaterMountTimeRef = useRef<number>(Date.now());
