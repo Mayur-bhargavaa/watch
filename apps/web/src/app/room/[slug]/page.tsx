@@ -24,7 +24,11 @@ import {
   MicOff,
   Copy,
   Sparkles,
-  CornerUpLeft
+  CornerUpLeft,
+  Shield,
+  UserCheck,
+  UserX,
+  Loader2
 } from 'lucide-react';
 import { ChatReplyTo } from '@synccinema/common';
 import { useRoomSocket } from '../../../hooks/useRoomSocket';
@@ -318,6 +322,18 @@ export default function RoomPage() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<string>('default');
+
+  // 🛡️ Knock-to-Join & Waiting Room States
+  const [isAdmitted, setIsAdmitted] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`room_admitted_${slug}`) === 'true';
+    }
+    return false;
+  });
+  const [isRejected, setIsRejected] = useState<boolean>(false);
+  const [pendingJoinRequests, setPendingJoinRequests] = useState<
+    { userId: string; displayName: string; avatarUrl?: string; timestamp: number }[]
+  >([]);
   const [browserUrl, setBrowserUrl] = useState('https://watch.stitchbyte.in');
   const [countdownActive, setCountdownActive] = useState(false);
   const [sideSection, setSideSection] = useState<'chat' | 'games'>('chat');
@@ -608,6 +624,86 @@ export default function RoomPage() {
     }
   }, [activeMembers, myUserId]);
 
+  // 🛡️ Knock-to-Join: Socket listener for join requests and host admission
+  useEffect(() => {
+    const unregister = registerGameListener((senderId, payload) => {
+      if (!payload) return;
+
+      // When guest requests to join
+      if (payload.action === 'KNOCK_JOIN_REQUEST') {
+        if (isHost && payload.userId !== myUserId) {
+          setPendingJoinRequests((prev) => {
+            if (prev.some((r) => r.userId === payload.userId)) return prev;
+            return [
+              ...prev,
+              {
+                userId: payload.userId,
+                displayName: payload.displayName || 'Guest',
+                avatarUrl: payload.avatarUrl,
+                timestamp: Date.now()
+              }
+            ];
+          });
+        }
+      }
+
+      // When host approves guest
+      if (payload.action === 'KNOCK_JOIN_APPROVED') {
+        if (payload.targetUserId === myUserId) {
+          setIsAdmitted(true);
+          setIsRejected(false);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`room_admitted_${slug}`, 'true');
+          }
+        }
+      }
+
+      // When host declines guest
+      if (payload.action === 'KNOCK_JOIN_DECLINED') {
+        if (payload.targetUserId === myUserId) {
+          setIsRejected(true);
+        }
+      }
+    });
+
+    return unregister;
+  }, [registerGameListener, isHost, myUserId, slug]);
+
+  // Non-host sends knock request if room is PRIVATE and not yet admitted
+  useEffect(() => {
+    if (!room || isHost || isAdmitted || isRejected) return;
+    const isPrivate = room.privacy === 'PRIVATE' || (typeof window !== 'undefined' && localStorage.getItem('synccinema_custom_privacy') === 'PRIVATE');
+    if (!isPrivate) return;
+
+    // Send knock request after a slight delay to ensure socket readiness
+    const timer = setTimeout(() => {
+      sendGameAction({
+        action: 'KNOCK_JOIN_REQUEST',
+        userId: myUserId,
+        displayName: selfDisplayName,
+        avatarUrl: selfMember?.avatarUrl || getStoredSession()?.user?.avatarUrl
+      });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [room, isHost, isAdmitted, isRejected, myUserId, selfDisplayName, selfMember?.avatarUrl, sendGameAction]);
+
+  const handleApproveGuest = (targetUserId: string) => {
+    setPendingJoinRequests((prev) => prev.filter((r) => r.userId !== targetUserId));
+    sendGameAction({
+      action: 'KNOCK_JOIN_APPROVED',
+      targetUserId
+    });
+  };
+
+  const handleDeclineGuest = (targetUserId: string) => {
+    setPendingJoinRequests((prev) => prev.filter((r) => r.userId !== targetUserId));
+    sendGameAction({
+      action: 'KNOCK_JOIN_DECLINED',
+      targetUserId
+    });
+  };
+
   const handleCopyInvite = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(window.location.href);
@@ -723,6 +819,109 @@ export default function RoomPage() {
         <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
         <div className="text-xs text-indigo-300 font-semibold tracking-wider">
           Entering Virtual Cinema...
+        </div>
+      </div>
+    );
+  }
+
+  // 🛡️ Knock-to-Join Gate: Check if user is guest in a PRIVATE room and not yet admitted
+  const isRoomPrivate = room.privacy === 'PRIVATE' || (typeof window !== 'undefined' && localStorage.getItem('synccinema_custom_privacy') === 'PRIVATE');
+  const hostMember = members.find((m) => m.userId === room.hostId);
+  const hostDisplayName = hostMember?.displayName || 'The Host';
+
+  if (isRoomPrivate && !isHost && !isAdmitted) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#080a11] text-white relative overflow-hidden select-none">
+        {/* Ambient background glow */}
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/15 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-rose-600/15 rounded-full blur-[140px] pointer-events-none" />
+
+        <div className="max-w-md w-full bg-[#11141f]/90 border border-white/15 rounded-3xl p-6 sm:p-8 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col items-center text-center space-y-6 relative z-10 animate-in fade-in zoom-in-95 duration-300">
+          {/* Animated Radar Shield Icon */}
+          <div className="relative flex items-center justify-center">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600 via-rose-600 to-amber-500 p-0.5 shadow-xl shadow-indigo-600/30">
+              <div className="w-full h-full bg-[#0d1017] rounded-[22px] flex items-center justify-center">
+                {isRejected ? (
+                  <UserX className="w-9 h-9 text-rose-400" />
+                ) : (
+                  <Shield className="w-9 h-9 text-indigo-400 animate-pulse" />
+                )}
+              </div>
+            </div>
+            {!isRejected && (
+              <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border-2 border-[#11141f]" />
+              </span>
+            )}
+          </div>
+
+          {/* Room Title & Status */}
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-amber-300 font-semibold tracking-wide">
+              <span>🍿 Virtual Cinema Gate</span>
+              <span>•</span>
+              <span>Private Room</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              {room.title || '🍿 Friday Movie Night'}
+            </h1>
+            <p className="text-xs text-zinc-400 max-w-xs mx-auto">
+              {isRejected
+                ? 'The host declined admission to this private screening.'
+                : `Waiting for host (${hostDisplayName}) to admit you into the cinema...`}
+            </p>
+          </div>
+
+          {/* User Details card */}
+          <div className="w-full p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3 text-left">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-rose-500 flex items-center justify-center text-sm font-black text-white shadow">
+              {selfDisplayName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-bold text-white block truncate">{selfDisplayName}</span>
+              <span className="text-[10px] text-zinc-400 block truncate">
+                {isRejected ? 'Admission Declined' : 'Request sent to host'}
+              </span>
+            </div>
+            {!isRejected && (
+              <div className="flex items-center gap-1.5 text-xs text-amber-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="text-[10px] font-semibold">Knocked</span>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="w-full flex items-center gap-3 pt-1">
+            {!isRejected ? (
+              <button
+                type="button"
+                onClick={() => {
+                  sendGameAction({
+                    action: 'KNOCK_JOIN_REQUEST',
+                    userId: myUserId,
+                    displayName: selfDisplayName,
+                    avatarUrl: selfMember?.avatarUrl || getStoredSession()?.user?.avatarUrl
+                  });
+                }}
+                className="flex-1 py-2.5 bg-white/10 hover:bg-white/15 text-white font-bold text-xs rounded-xl transition border border-white/10 active:scale-95 cursor-pointer"
+              >
+                Knock Again
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => {
+                leaveRoom();
+                router.push('/');
+              }}
+              className="flex-1 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-red-600/30 active:scale-95 cursor-pointer"
+            >
+              Exit to Home
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -846,6 +1045,44 @@ export default function RoomPage() {
             </button>
           </div>
         </div>
+
+      {/* 🛡️ Knock-to-Join Admission Banner for Host */}
+      {isHost && pendingJoinRequests.length > 0 && (
+        <div className="mb-2.5 p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-amber-500/30 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl animate-in slide-in-from-top-2 duration-200 flex-shrink-0">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/30 border border-amber-500/40 flex items-center justify-center text-amber-300 shrink-0">
+              <Shield className="w-5 h-5 animate-pulse" />
+            </div>
+            <div className="text-left min-w-0">
+              <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>{pendingJoinRequests[0].displayName}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-semibold">
+                  Knock-to-Join
+                </span>
+              </span>
+              <p className="text-[11px] text-zinc-300 truncate">
+                Requests to enter your private cinema ({pendingJoinRequests.length} waiting)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button
+              onClick={() => handleApproveGuest(pendingJoinRequests[0].userId)}
+              className="flex-1 sm:flex-none px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-1 active:scale-95 cursor-pointer"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>Admit</span>
+            </button>
+            <button
+              onClick={() => handleDeclineGuest(pendingJoinRequests[0].userId)}
+              className="flex-1 sm:flex-none px-3 py-1.5 bg-white/10 hover:bg-white/15 text-zinc-300 hover:text-white font-medium text-xs rounded-xl transition flex items-center justify-center gap-1 active:scale-95 cursor-pointer"
+            >
+              <UserX className="w-3.5 h-3.5" />
+              <span>Decline</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Reconnection Alert Banner */}
       {connectionStatus === 'RECONNECTING' && (
