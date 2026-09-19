@@ -1058,6 +1058,136 @@ export async function createServer(dbPath = './synccinema.db') {
     };
   });
 
+  // --- Plans Endpoints ---
+  app.get('/api/plans', async (request, reply) => {
+    const plans = db.getPlans();
+    return { plans };
+  });
+
+  app.post('/api/plans', async (request, reply) => {
+    let user: any = null;
+    try {
+      user = await request.jwtVerify();
+    } catch {}
+
+    const body = (request.body || {}) as any;
+    if (!body.title) {
+      return reply.code(400).send({ error: 'Title is required' });
+    }
+
+    const planId = body.id || `plan-${Date.now()}`;
+    const plan = db.createPlan({
+      ...body,
+      id: planId,
+      hostId: user?.id || body.hostId || 'u1'
+    });
+
+    return { success: true, plan };
+  });
+
+  app.get('/api/plans/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const plan = db.getPlanById(id);
+    if (!plan) {
+      return reply.code(404).send({ error: 'Plan not found' });
+    }
+    return { plan };
+  });
+
+  app.put('/api/plans/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const updates = (request.body || {}) as any;
+    const plan = db.updatePlan(id, updates);
+    if (!plan) {
+      return reply.code(404).send({ error: 'Plan not found' });
+    }
+    return { success: true, plan };
+  });
+
+  app.post('/api/plans/:id/rsvp', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as {
+      userId: string;
+      displayName?: string;
+      avatarUrl?: string;
+      status: string;
+    };
+    const plan = db.getPlanById(id);
+    if (!plan) {
+      return reply.code(404).send({ error: 'Plan not found' });
+    }
+
+    const participants = [...(plan.participants || [])];
+    const idx = participants.findIndex((p: any) => p.userId === body.userId);
+    if (idx >= 0) {
+      participants[idx] = {
+        ...participants[idx],
+        status: body.status,
+        displayName: body.displayName || participants[idx].displayName,
+        avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : participants[idx].avatarUrl
+      };
+    } else {
+      participants.push({
+        userId: body.userId,
+        displayName: body.displayName || 'Friend',
+        avatarUrl: body.avatarUrl,
+        status: body.status,
+        isHost: false
+      });
+    }
+
+    const updated = db.updatePlan(id, { participants });
+    return { success: true, plan: updated };
+  });
+
+  app.post('/api/plans/:id/vote', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { optionId, userId } = (request.body || {}) as { optionId: string; userId: string };
+    const plan = db.getPlanById(id);
+    if (!plan || !plan.voting) {
+      return reply.code(404).send({ error: 'Plan or voting not found' });
+    }
+
+    const options = plan.voting.options.map((opt: any) => {
+      const votes = opt.votes || [];
+      if (opt.id === optionId) {
+        if (!votes.includes(userId)) {
+          return { ...opt, votes: [...votes, userId] };
+        }
+        return opt;
+      } else {
+        return { ...opt, votes: votes.filter((v: string) => v !== userId) };
+      }
+    });
+
+    const updated = db.updatePlan(id, {
+      voting: { ...plan.voting, options }
+    });
+    return { success: true, plan: updated };
+  });
+
+  app.post('/api/plans/:id/chat', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = (request.body || {}) as any;
+    const plan = db.getPlanById(id);
+    if (!plan) {
+      return reply.code(404).send({ error: 'Plan not found' });
+    }
+
+    const newMsg = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      userId: body.userId,
+      displayName: body.displayName || 'Member',
+      avatarUrl: body.avatarUrl,
+      text: body.text,
+      createdAt: Date.now()
+    };
+
+    const chatMessages = [...(plan.chatMessages || []), newMsg];
+    const updated = db.updatePlan(id, { chatMessages });
+    return { success: true, message: newMsg, plan: updated };
+  });
+
   // --- Real-Time WebSocket Endpoint ---
   app.get('/ws/rooms/:slug', { websocket: true }, (connection: any, req) => {
     const ws: any = connection.socket || connection;

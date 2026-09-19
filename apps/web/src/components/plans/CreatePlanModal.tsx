@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   X,
@@ -17,10 +17,13 @@ import {
   Check,
   ChevronRight,
   ChevronLeft,
-  Bell
+  Bell,
+  Link as LinkIcon,
+  Play
 } from 'lucide-react';
 import { PlanType, ActivityType, PlanActivity, Plan } from '../../types/plans';
 import { addPlan } from '../../lib/plansStore';
+import { getFriendsWithStreaks, getStoredSession } from '../../lib/api';
 
 interface CreatePlanModalProps {
   isOpen: boolean;
@@ -29,25 +32,31 @@ interface CreatePlanModalProps {
   currentUserName?: string;
 }
 
-// Preset popular titles for cinema
+// REAL Curated YouTube & Cinema titles
 const POPULAR_MOVIES = [
   {
-    title: 'Interstellar',
+    title: 'Interstellar: 4K IMAX',
     duration: '2h 49m',
-    poster: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+    poster: 'https://img.youtube.com/vi/zSWdZVtXT7E/maxresdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=zSWdZVtXT7E'
   },
   {
-    title: 'Tears of Steel (Sci-Fi 4K)',
+    title: 'Tears of Steel: 4K Cyberpunk',
     duration: '12m',
-    poster: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=300&auto=format&fit=crop&q=80',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4'
+    poster: 'https://img.youtube.com/vi/R6MlUcmOul8/maxresdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=R6MlUcmOul8'
   },
   {
-    title: 'Big Buck Bunny (Animation)',
-    duration: '9m',
-    poster: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=300&auto=format&fit=crop&q=80',
-    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+    title: 'Cyberpunk 2077: Phantom Liberty',
+    duration: '1h 15m',
+    poster: 'https://img.youtube.com/vi/qIcTM8WXFjk/maxresdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=qIcTM8WXFjk'
+  },
+  {
+    title: 'Lofi Girl: Chill Lounge Beats',
+    duration: 'Live Stream',
+    poster: 'https://img.youtube.com/vi/jfKfPfyJRdk/hqdefault.jpg',
+    url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk'
   }
 ];
 
@@ -76,27 +85,25 @@ const GAME_CATALOG = [
   }
 ];
 
-// Friend mock presets for instant invites
-const SAMPLE_FRIENDS = [
+// Fallback friends if brand new user without friends
+const FALLBACK_FRIENDS = [
   {
     userId: 'u2',
     displayName: 'Priya Sharma',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=priya&skinColor=edb98a&top=longStraight'
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=priya&skinColor=edb98a&top=longStraight',
+    partnerCode: 'PRIYA-789'
   },
   {
     userId: 'u3',
     displayName: 'Arjun Verma',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=arjun&skinColor=edb98a&top=shortFlat'
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=arjun&skinColor=edb98a&top=shortFlat',
+    partnerCode: 'ARJUN-456'
   },
   {
     userId: 'u4',
     displayName: 'Neha Patel',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=neha&skinColor=edb98a&top=bob'
-  },
-  {
-    userId: 'u5',
-    displayName: 'Aman Khan',
-    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=aman&skinColor=edb98a&top=shortCurly'
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=neha&skinColor=edb98a&top=bob',
+    partnerCode: 'NEHA-123'
   }
 ];
 
@@ -117,8 +124,45 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
   const [time, setTime] = useState('9:00 PM');
   const [endTime, setEndTime] = useState('12:30 AM');
   const [timezone, setTimezone] = useState('IST (UTC+5:30)');
-  const [description, setDescription] = useState('Watching a movie and then jumping straight into a Ludo showdown!');
+  const [description, setDescription] = useState('Watching a movie together and then jumping straight into a Ludo showdown!');
   const [reminder, setReminder] = useState<'30m' | '1h' | '1d' | 'none'>('30m');
+
+  // Custom movie modal
+  const [showCustomMovieModal, setShowCustomMovieModal] = useState(false);
+  const [customMovieTitle, setCustomMovieTitle] = useState('');
+  const [customMovieUrl, setCustomMovieUrl] = useState('');
+
+  // Friends list loaded from real server
+  const [friendsList, setFriendsList] = useState<any[]>(FALLBACK_FRIENDS);
+  const [invitedFriends, setInvitedFriends] = useState<string[]>([]);
+
+  // Load real friends from API
+  useEffect(() => {
+    const session = getStoredSession();
+    if (session?.token) {
+      getFriendsWithStreaks(session.token)
+        .then((res) => {
+          if (res?.friends && Array.isArray(res.friends) && res.friends.length > 0) {
+            const mapped = res.friends.map((f: any) => ({
+              userId: f.friendUser.id,
+              displayName: f.friendUser.displayName,
+              avatarUrl: f.friendUser.avatarUrl,
+              partnerCode: f.friendUser.partnerCode,
+              isOnline: f.friendUser.isOnline
+            }));
+            setFriendsList(mapped);
+            setInvitedFriends(mapped.slice(0, 2).map((m: any) => m.userId));
+          } else {
+            setInvitedFriends(['u2', 'u3']);
+          }
+        })
+        .catch(() => {
+          setInvitedFriends(['u2', 'u3']);
+        });
+    } else {
+      setInvitedFriends(['u2', 'u3']);
+    }
+  }, []);
 
   // Multi-Activity Sequence
   const [activities, setActivities] = useState<PlanActivity[]>([
@@ -126,15 +170,16 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
       id: 'act-1',
       type: 'movie',
       time: '9:00 PM',
-      title: 'Interstellar',
+      title: 'Interstellar: 4K IMAX',
       subtitle: 'Duration: 2h 49m · Cinema Stream',
       actionLabel: 'Enter Cinema',
-      actionUrl: '/rooms',
+      actionUrl: '/dashboard?autojoin=interstellar',
       movieDetails: {
         title: 'Interstellar',
         duration: '2h 49m',
-        provider: 'catalog',
-        posterUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=300&auto=format&fit=crop&q=80'
+        provider: 'youtube',
+        posterUrl: 'https://img.youtube.com/vi/zSWdZVtXT7E/maxresdefault.jpg',
+        sourceUrl: 'https://www.youtube.com/watch?v=zSWdZVtXT7E'
       }
     },
     {
@@ -154,9 +199,6 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
     }
   ]);
 
-  // Invites State
-  const [invitedFriends, setInvitedFriends] = useState<string[]>(['u2', 'u3']);
-
   if (!isOpen) return null;
 
   // Type change helper
@@ -175,16 +217,52 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
       title: movie.title,
       subtitle: `Duration: ${movie.duration}`,
       actionLabel: 'Enter Cinema',
-      actionUrl: '/rooms',
+      actionUrl: `/rooms?watch=${encodeURIComponent(movie.url)}`,
       movieDetails: {
         title: movie.title,
         duration: movie.duration,
-        provider: 'catalog',
+        provider: 'youtube',
         posterUrl: movie.poster,
         sourceUrl: movie.url
       }
     };
     setActivities([...activities, newAct]);
+  };
+
+  const handleAddCustomMovie = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customMovieTitle.trim()) return;
+
+    const url = customMovieUrl.trim();
+    let poster = 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=300&auto=format&fit=crop&q=80';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      const match = url.match(/(?:youtu\.be\/|v=|\/v\/|embed\/)([\w-]{11})/);
+      if (match && match[1]) {
+        poster = `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`;
+      }
+    }
+
+    const newAct: PlanActivity = {
+      id: `act-${Date.now()}`,
+      type: 'movie',
+      time: time || '9:00 PM',
+      title: customMovieTitle.trim(),
+      subtitle: url ? 'Custom Video Source' : 'Cinema Stream',
+      actionLabel: 'Enter Cinema',
+      actionUrl: url ? `/rooms?watch=${encodeURIComponent(url)}` : '/rooms',
+      movieDetails: {
+        title: customMovieTitle.trim(),
+        duration: 'Custom',
+        provider: url.includes('youtube') ? 'youtube' : 'direct',
+        posterUrl: poster,
+        sourceUrl: url
+      }
+    };
+
+    setActivities([...activities, newAct]);
+    setCustomMovieTitle('');
+    setCustomMovieUrl('');
+    setShowCustomMovieModal(false);
   };
 
   const handleAddGameActivity = (game: typeof GAME_CATALOG[0]) => {
@@ -232,7 +310,6 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
   };
 
   const handleCreateSubmit = () => {
-    // Format date string
     const d = new Date(date + 'T00:00:00');
     const dateFormatted = d.toLocaleDateString('en-US', {
       weekday: 'long',
@@ -240,15 +317,21 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
       month: 'long'
     });
 
+    const session = getStoredSession();
+    const effectiveUserId = session?.user?.id || currentUserId;
+    const effectiveUserName = session?.user?.displayName || currentUserName;
+    const effectiveAvatar = session?.user?.avatarUrl;
+
     const participants = [
       {
-        userId: currentUserId,
-        displayName: currentUserName,
+        userId: effectiveUserId,
+        displayName: effectiveUserName,
+        avatarUrl: effectiveAvatar,
         status: 'GOING' as const,
         isHost: true
       },
       ...invitedFriends.map((fId) => {
-        const friend = SAMPLE_FRIENDS.find((f) => f.userId === fId);
+        const friend = friendsList.find((f) => f.userId === fId);
         return {
           userId: fId,
           displayName: friend?.displayName || 'Friend',
@@ -275,9 +358,10 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
       chatMessages: [
         {
           id: `msg-${Date.now()}`,
-          userId: currentUserId,
-          displayName: currentUserName,
-          text: `Hey everyone! Created this plan for ${title}. Can't wait! 🎉`,
+          userId: effectiveUserId,
+          displayName: effectiveUserName,
+          avatarUrl: effectiveAvatar,
+          text: `Hey everyone! Created this plan for ${title}. Let's make it awesome! 🎉`,
           createdAt: Date.now()
         }
       ],
@@ -327,7 +411,7 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                   What are you planning?
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Pick a vibe or custom occasion to jumpstart your plan.
+                  Pick an occasion to jumpstart your plan.
                 </p>
               </div>
 
@@ -369,7 +453,7 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                   Multi-Activity Timeline
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Chain together movies, games, and hangouts so everyone knows what’s next!
+                  Chain together movies, games, and hangouts seamlessly!
                 </p>
               </div>
 
@@ -405,29 +489,69 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                 ))}
               </div>
 
-              {/* Add Activities Picker */}
+              {/* Popular Curated Videos */}
+              <div className="space-y-2.5">
+                <div className="text-xs font-bold text-slate-700 dark:text-zinc-300 flex items-center justify-between">
+                  <span>Curated 4K Cinema Titles:</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomMovieModal(true)}
+                    className="text-[11px] text-[#ee1d49] hover:underline font-bold flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Custom URL</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {POPULAR_MOVIES.map((movie) => (
+                    <button
+                      key={movie.title}
+                      type="button"
+                      onClick={() => handleAddMovieActivity(movie)}
+                      className="p-2.5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 hover:border-[#ee1d49] transition text-left flex items-center gap-2.5 group"
+                    >
+                      <img
+                        src={movie.poster}
+                        alt={movie.title}
+                        className="w-12 h-12 rounded-xl object-cover shrink-0 shadow-xs"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ee1d49]">
+                          {movie.title}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium">
+                          {movie.duration}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Add Game / Hangout row */}
               <div className="p-4 rounded-2xl bg-slate-100/70 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/5 space-y-3">
                 <div className="text-xs font-bold text-slate-700 dark:text-zinc-300">
-                  + Add Next Activity:
+                  + Add Game or Hangout:
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleAddMovieActivity(POPULAR_MOVIES[0])}
-                    className="p-3 rounded-xl bg-white dark:bg-white/10 text-left border border-slate-200 dark:border-white/10 hover:border-[#ee1d49] transition text-xs font-bold flex items-center gap-2"
-                  >
-                    <Film className="w-4 h-4 text-[#ee1d49]" />
-                    <span>+ Cinema / Movie</span>
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => handleAddGameActivity(GAME_CATALOG[0])}
                     className="p-3 rounded-xl bg-white dark:bg-white/10 text-left border border-slate-200 dark:border-white/10 hover:border-violet-500 transition text-xs font-bold flex items-center gap-2"
                   >
                     <Gamepad2 className="w-4 h-4 text-violet-400" />
-                    <span>+ Ludo / Game</span>
+                    <span>🎲 Ludo Party</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAddGameActivity(GAME_CATALOG[1])}
+                    className="p-3 rounded-xl bg-white dark:bg-white/10 text-left border border-slate-200 dark:border-white/10 hover:border-violet-500 transition text-xs font-bold flex items-center gap-2"
+                  >
+                    <Gamepad2 className="w-4 h-4 text-violet-400" />
+                    <span>🔴 Four in a Row</span>
                   </button>
 
                   <button
@@ -436,10 +560,59 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                     className="p-3 rounded-xl bg-white dark:bg-white/10 text-left border border-slate-200 dark:border-white/10 hover:border-emerald-500 transition text-xs font-bold flex items-center gap-2"
                   >
                     <MessageCircle className="w-4 h-4 text-emerald-400" />
-                    <span>+ Late Hangout</span>
+                    <span>☕ Late Hangout</span>
                   </button>
                 </div>
               </div>
+
+              {/* Custom Movie Modal */}
+              {showCustomMovieModal && (
+                <div className="p-4 rounded-2xl bg-slate-100 dark:bg-white/10 border border-slate-200 dark:border-white/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Add Custom Video / YouTube
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomMovieModal(false)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={customMovieTitle}
+                    onChange={(e) => setCustomMovieTitle(e.target.value)}
+                    placeholder="Video / Movie Title"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white"
+                  />
+                  <input
+                    type="text"
+                    value={customMovieUrl}
+                    onChange={(e) => setCustomMovieUrl(e.target.value)}
+                    placeholder="YouTube URL or MP4 URL (e.g. https://www.youtube.com/watch?v=...)"
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-black/30 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCustomMovieModal(false)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddCustomMovie}
+                      disabled={!customMovieTitle.trim()}
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold bg-[#ee1d49] text-white disabled:opacity-50"
+                    >
+                      Add to Sequence
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -571,21 +744,24 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
             </div>
           )}
 
-          {/* STEP 4: Invite Friends */}
+          {/* STEP 4: Invite Real Friends */}
           {step === 4 && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Invite Friends
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Invite Friends</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300 font-bold">
+                    {friendsList.length} Available
+                  </span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-zinc-400">
-                  Select friends to notify and invite to your plan.
+                  Select friends from your Watch friend network to notify and invite.
                 </p>
               </div>
 
               {/* Friends list */}
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {SAMPLE_FRIENDS.map((friend) => {
+                {friendsList.map((friend) => {
                   const isSelected = invitedFriends.includes(friend.userId);
                   return (
                     <button
@@ -599,14 +775,26 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <img
-                          src={friend.avatarUrl}
-                          alt={friend.displayName}
-                          className="w-9 h-9 rounded-full object-cover bg-slate-200 dark:bg-zinc-800"
-                        />
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">
-                          {friend.displayName}
-                        </span>
+                        <div className="relative">
+                          <img
+                            src={friend.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.displayName}`}
+                            alt={friend.displayName}
+                            className="w-9 h-9 rounded-full object-cover bg-slate-200 dark:bg-zinc-800"
+                          />
+                          {friend.isOnline && (
+                            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-[#151022]" />
+                          )}
+                        </div>
+                        <div className="text-left">
+                          <div className="text-xs font-bold text-slate-900 dark:text-white">
+                            {friend.displayName}
+                          </div>
+                          {friend.partnerCode && (
+                            <div className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">
+                              #{friend.partnerCode}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div
@@ -627,7 +815,7 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-3 text-xs text-indigo-700 dark:text-indigo-300">
                 <Bell className="w-4 h-4 shrink-0" />
                 <span>
-                  Invited friends will instantly receive a Watch notification with direct RSVP buttons.
+                  Invited friends will instantly receive a notification right inside Watch with live RSVP options.
                 </span>
               </div>
             </div>

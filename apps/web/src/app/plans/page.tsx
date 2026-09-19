@@ -22,7 +22,7 @@ import { AppSidebar } from '../../components/layout/AppSidebar';
 import { useTheme } from '../../context/ThemeContext';
 import { getStoredSession, UserSession } from '../../lib/api';
 import { Plan, PlanType } from '../../types/plans';
-import { getPlans } from '../../lib/plansStore';
+import { getPlans, fetchPlansFromServer } from '../../lib/plansStore';
 import { PlanCard } from '../../components/plans/PlanCard';
 import { CalendarView } from '../../components/plans/CalendarView';
 import { CreatePlanModal } from '../../components/plans/CreatePlanModal';
@@ -49,14 +49,22 @@ export default function PlansPage() {
     if (s && s.token) {
       setSession(s);
     }
-    // Load plans from store
-    const storedPlans = getPlans();
-    setPlans(storedPlans);
+    // Load local plans immediately
+    setPlans(getPlans());
     setLoading(false);
+
+    // Sync with real backend server
+    fetchPlansFromServer().then((synced) => {
+      if (synced && synced.length > 0) {
+        setPlans(synced);
+      }
+    });
   }, []);
 
   const refreshPlans = () => {
-    setPlans(getPlans());
+    fetchPlansFromServer().then((synced) => {
+      setPlans(synced || getPlans());
+    });
   };
 
   // Filtered plans

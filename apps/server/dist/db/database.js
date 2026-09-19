@@ -221,7 +221,30 @@ export class DatabaseService {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       );
 
-      CREATE INDEX IF NOT EXISTS idx_game_players_room ON game_room_players(room_id);
+      CREATE TABLE IF NOT EXISTS plans (
+        id TEXT PRIMARY KEY,
+        host_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        emoji TEXT,
+        type TEXT,
+        date TEXT,
+        date_formatted TEXT,
+        time TEXT,
+        end_time TEXT,
+        timezone TEXT,
+        description TEXT,
+        activities TEXT,
+        participants TEXT,
+        voting TEXT,
+        reminder TEXT,
+        recurring TEXT,
+        chat_messages TEXT,
+        created_at INTEGER,
+        is_past INTEGER DEFAULT 0
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_plans_host ON plans(host_id);
+      CREATE INDEX IF NOT EXISTS idx_plans_date ON plans(date);
     `);
         // Migration for existing databases
         try {
@@ -1431,5 +1454,77 @@ export class DatabaseService {
             this.db.prepare('UPDATE game_rooms SET game_state = ?, current_turn_seat = ? WHERE id = ?')
                 .run(json, currentTurnSeat ?? gameState.currentTurnSeat, roomId);
         }
+    }
+    // --- Plans Methods ---
+    createPlan(plan) {
+        const stmt = this.db.prepare(`
+      INSERT INTO plans (
+        id, host_id, title, emoji, type, date, date_formatted, time, end_time,
+        timezone, description, activities, participants, voting, reminder, recurring, chat_messages, created_at, is_past
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+        stmt.run(plan.id, plan.hostId || (plan.participants && plan.participants[0]?.userId) || 'u1', plan.title, plan.emoji || '✨', plan.type || 'custom', plan.date, plan.dateFormatted || plan.date, plan.time, plan.endTime || '', plan.timezone || 'IST', plan.description || '', JSON.stringify(plan.activities || []), JSON.stringify(plan.participants || []), plan.voting ? JSON.stringify(plan.voting) : null, plan.reminder || '30m', plan.recurring || 'none', JSON.stringify(plan.chatMessages || []), plan.createdAt || Date.now(), plan.isPast ? 1 : 0);
+        return this.getPlanById(plan.id);
+    }
+    getPlans() {
+        const rows = this.db.prepare('SELECT * FROM plans ORDER BY created_at DESC').all();
+        return rows.map((r) => this.deserializePlan(r));
+    }
+    getPlanById(id) {
+        const row = this.db.prepare('SELECT * FROM plans WHERE id = ?').get(id);
+        if (!row)
+            return null;
+        return this.deserializePlan(row);
+    }
+    updatePlan(id, updates) {
+        const plan = this.getPlanById(id);
+        if (!plan)
+            return null;
+        const merged = { ...plan, ...updates };
+        const stmt = this.db.prepare(`
+      UPDATE plans SET
+        title = ?,
+        emoji = ?,
+        type = ?,
+        date = ?,
+        date_formatted = ?,
+        time = ?,
+        end_time = ?,
+        timezone = ?,
+        description = ?,
+        activities = ?,
+        participants = ?,
+        voting = ?,
+        reminder = ?,
+        recurring = ?,
+        chat_messages = ?,
+        is_past = ?
+      WHERE id = ?
+    `);
+        stmt.run(merged.title, merged.emoji, merged.type, merged.date, merged.dateFormatted, merged.time, merged.endTime || '', merged.timezone, merged.description || '', JSON.stringify(merged.activities || []), JSON.stringify(merged.participants || []), merged.voting ? JSON.stringify(merged.voting) : null, merged.reminder || '30m', merged.recurring || 'none', JSON.stringify(merged.chatMessages || []), merged.isPast ? 1 : 0, id);
+        return this.getPlanById(id);
+    }
+    deserializePlan(row) {
+        return {
+            id: row.id,
+            hostId: row.host_id,
+            title: row.title,
+            emoji: row.emoji,
+            type: row.type,
+            date: row.date,
+            dateFormatted: row.date_formatted,
+            time: row.time,
+            endTime: row.end_time,
+            timezone: row.timezone,
+            description: row.description,
+            activities: row.activities ? JSON.parse(row.activities) : [],
+            participants: row.participants ? JSON.parse(row.participants) : [],
+            voting: row.voting ? JSON.parse(row.voting) : undefined,
+            reminder: row.reminder,
+            recurring: row.recurring,
+            chatMessages: row.chat_messages ? JSON.parse(row.chat_messages) : [],
+            createdAt: row.created_at,
+            isPast: Boolean(row.is_past)
+        };
     }
 }

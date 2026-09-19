@@ -752,6 +752,91 @@ export async function recordFriendStreak(
   return res.json();
 }
 
+// --- Real Plans API Endpoints ---
+export async function getApiPlans(token?: string): Promise<{ plans: any[] }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans`, { headers });
+  if (!res.ok) throw new Error('Failed to fetch plans');
+  return res.json();
+}
 
+export async function getApiPlanById(id: string, token?: string): Promise<{ plan: any }> {
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans/${id}`, { headers });
+  if (!res.ok) throw new Error('Failed to fetch plan');
+  return res.json();
+}
 
+export async function createApiPlan(plan: any, token?: string): Promise<{ success: boolean; plan: any }> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(plan)
+  });
+  if (!res.ok) throw new Error('Failed to create plan');
+  return res.json();
+}
 
+export async function updateApiPlan(id: string, updates: any, token?: string): Promise<{ success: boolean; plan: any }> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans/${id}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(updates)
+  });
+  if (!res.ok) throw new Error('Failed to update plan');
+  return res.json();
+}
+
+export async function updateApiPlanRSVP(
+  planId: string,
+  payload: { userId: string; displayName?: string; avatarUrl?: string | null; status: string },
+  token?: string
+): Promise<{ success: boolean; plan: any }> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans/${planId}/rsvp`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error('Failed to update RSVP');
+  return res.json();
+}
+
+export async function voteApiPlanOption(
+  planId: string,
+  payload: { optionId: string; userId: string },
+  token?: string
+): Promise<{ success: boolean; plan: any }> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans/${planId}/vote`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error('Failed to vote');
+  return res.json();
+}
+
+export async function sendApiPlanChatMessage(
+  planId: string,
+  payload: { userId: string; displayName: string; avatarUrl?: string | null; text: string },
+  token?: string
+): Promise<{ success: boolean; message: any; plan: any }> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/api/plans/${planId}/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error('Failed to send plan chat message');
+  return res.json();
+}

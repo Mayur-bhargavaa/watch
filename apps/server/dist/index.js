@@ -9,6 +9,21 @@ import { GameRoomManager } from './games/GameRoomManager.js';
 import { PresenceManager } from './services/PresenceManager.js';
 import { detectProviderFromUrl } from '@synccinema/common';
 import { mongoLogger } from './services/mongoLogger.js';
+function resolveGameType(raw) {
+    const lower = (raw || '').toLowerCase();
+    if (lower.includes('tic'))
+        return 'tic-tac-toe';
+    if (lower.includes('four') || lower.includes('connect'))
+        return 'four-in-a-row';
+    return 'ludo';
+}
+function getGameBasePath(gameType) {
+    if (gameType === 'tic-tac-toe')
+        return '/games/tic-tac-toe';
+    if (gameType === 'four-in-a-row')
+        return '/games/four-in-a-row';
+    return '/games/ludo';
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'synccinema-development-super-secret-key-32chars!';
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
@@ -566,8 +581,7 @@ export async function createServer(dbPath = './synccinema.db') {
     app.post('/api/games/partner/play', async (request, reply) => {
         const user = await getRequestUser(request);
         const body = (request.body || {});
-        const rawGameType = body.gameType || 'ludo';
-        const gameType = rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
+        const gameType = resolveGameType(body.gameType);
         let targetUser = null;
         const targetId = body.targetUserId || body.friendUserId;
         if (targetId) {
@@ -594,7 +608,7 @@ export async function createServer(dbPath = './synccinema.db') {
             }
             partnerUserId = partner.partnerUserId;
         }
-        const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+        const gameBasePath = getGameBasePath(gameType);
         // 1. Check if partner is ALREADY waiting in an open game room
         const partnerWaitingRoom = db.findUserWaitingGameRoom(partnerUserId);
         if (partnerWaitingRoom &&
@@ -663,10 +677,9 @@ export async function createServer(dbPath = './synccinema.db') {
     app.post('/api/games/matchmake', async (request, reply) => {
         const user = await getRequestUser(request);
         const body = (request.body || {});
-        const rawGameType = body.gameType || 'ludo';
-        const gameType = rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
-        const maxPlayers = gameType === 'four-in-a-row' ? 2 : (Number(body.maxPlayers) || 2);
-        const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+        const gameType = resolveGameType(body.gameType);
+        const maxPlayers = gameType === 'ludo' ? (Number(body.maxPlayers) || 2) : 2;
+        const gameBasePath = getGameBasePath(gameType);
         try {
             // If user has a partner who is waiting in a matching room, pair them together!
             const partner = db.getPartner(user.id);
@@ -701,10 +714,9 @@ export async function createServer(dbPath = './synccinema.db') {
     app.post('/api/games/rooms', async (request, reply) => {
         const user = await getRequestUser(request);
         const body = (request.body || {});
-        const rawGameType = body.gameType || 'ludo';
-        const gameType = rawGameType === 'four-in-a-row' || rawGameType === 'connect4' ? 'four-in-a-row' : 'ludo';
-        const maxPlayers = gameType === 'four-in-a-row' ? 2 : (Number(body.maxPlayers) || 2);
-        const gameBasePath = gameType === 'four-in-a-row' ? '/games/four-in-a-row' : '/games/ludo';
+        const gameType = resolveGameType(body.gameType);
+        const maxPlayers = gameType === 'ludo' ? (Number(body.maxPlayers) || 2) : 2;
+        const gameBasePath = getGameBasePath(gameType);
         try {
             const room = gameRoomManager.createGameRoom({
                 hostUser: user,
@@ -745,7 +757,7 @@ export async function createServer(dbPath = './synccinema.db') {
             return {
                 success: true,
                 room,
-                inviteUrl: `/games/ludo?room=${room.roomCode}`
+                inviteUrl: `${getGameBasePath(room.gameType)}?room=${room.roomCode}`
             };
         }
         catch (err) {
@@ -763,13 +775,14 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!body.roomCode) {
             return reply.code(400).send({ error: 'Room code is required' });
         }
+        const gameType = resolveGameType(body.gameType);
         const invitePayload = {
             id: `ginvite_${nanoid(8)}`,
             fromUserId: user.id,
             fromDisplayName: user.displayName,
             fromPartnerCode: user.partnerCode,
             roomCode: body.roomCode.toUpperCase(),
-            gameType: body.gameType || 'ludo',
+            gameType,
             timestamp: Date.now()
         };
         // Also support targetPartnerCode from body if specified
@@ -895,6 +908,118 @@ export async function createServer(dbPath = './synccinema.db') {
                 avatarUrl: targetUser.avatarUrl
             }
         };
+    });
+    // --- Plans Endpoints ---
+    app.get('/api/plans', async (request, reply) => {
+        const plans = db.getPlans();
+        return { plans };
+    });
+    app.post('/api/plans', async (request, reply) => {
+        let user = null;
+        try {
+            user = await request.jwtVerify();
+        }
+        catch { }
+        const body = (request.body || {});
+        if (!body.title) {
+            return reply.code(400).send({ error: 'Title is required' });
+        }
+        const planId = body.id || `plan-${Date.now()}`;
+        const plan = db.createPlan({
+            ...body,
+            id: planId,
+            hostId: user?.id || body.hostId || 'u1'
+        });
+        return { success: true, plan };
+    });
+    app.get('/api/plans/:id', async (request, reply) => {
+        const { id } = request.params;
+        const plan = db.getPlanById(id);
+        if (!plan) {
+            return reply.code(404).send({ error: 'Plan not found' });
+        }
+        return { plan };
+    });
+    app.put('/api/plans/:id', async (request, reply) => {
+        const { id } = request.params;
+        const updates = (request.body || {});
+        const plan = db.updatePlan(id, updates);
+        if (!plan) {
+            return reply.code(404).send({ error: 'Plan not found' });
+        }
+        return { success: true, plan };
+    });
+    app.post('/api/plans/:id/rsvp', async (request, reply) => {
+        const { id } = request.params;
+        const body = (request.body || {});
+        const plan = db.getPlanById(id);
+        if (!plan) {
+            return reply.code(404).send({ error: 'Plan not found' });
+        }
+        const participants = [...(plan.participants || [])];
+        const idx = participants.findIndex((p) => p.userId === body.userId);
+        if (idx >= 0) {
+            participants[idx] = {
+                ...participants[idx],
+                status: body.status,
+                displayName: body.displayName || participants[idx].displayName,
+                avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : participants[idx].avatarUrl
+            };
+        }
+        else {
+            participants.push({
+                userId: body.userId,
+                displayName: body.displayName || 'Friend',
+                avatarUrl: body.avatarUrl,
+                status: body.status,
+                isHost: false
+            });
+        }
+        const updated = db.updatePlan(id, { participants });
+        return { success: true, plan: updated };
+    });
+    app.post('/api/plans/:id/vote', async (request, reply) => {
+        const { id } = request.params;
+        const { optionId, userId } = (request.body || {});
+        const plan = db.getPlanById(id);
+        if (!plan || !plan.voting) {
+            return reply.code(404).send({ error: 'Plan or voting not found' });
+        }
+        const options = plan.voting.options.map((opt) => {
+            const votes = opt.votes || [];
+            if (opt.id === optionId) {
+                if (!votes.includes(userId)) {
+                    return { ...opt, votes: [...votes, userId] };
+                }
+                return opt;
+            }
+            else {
+                return { ...opt, votes: votes.filter((v) => v !== userId) };
+            }
+        });
+        const updated = db.updatePlan(id, {
+            voting: { ...plan.voting, options }
+        });
+        return { success: true, plan: updated };
+    });
+    app.post('/api/plans/:id/chat', async (request, reply) => {
+        const { id } = request.params;
+        const body = (request.body || {});
+        const plan = db.getPlanById(id);
+        if (!plan) {
+            return reply.code(404).send({ error: 'Plan not found' });
+        }
+        const newMsg = {
+            id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            userId: body.userId,
+            displayName: body.displayName || 'Member',
+            avatarUrl: body.avatarUrl,
+            text: body.text,
+            createdAt: Date.now()
+        };
+        const chatMessages = [...(plan.chatMessages || []), newMsg];
+        const updated = db.updatePlan(id, { chatMessages });
+        return { success: true, message: newMsg, plan: updated };
     });
     // --- Real-Time WebSocket Endpoint ---
     app.get('/ws/rooms/:slug', { websocket: true }, (connection, req) => {

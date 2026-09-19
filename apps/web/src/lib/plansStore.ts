@@ -1,6 +1,13 @@
-'use client';
-
 import { Plan, RSVPStatus, PlanChatMessage } from '../types/plans';
+import {
+  getApiPlans,
+  createApiPlan,
+  updateApiPlan,
+  updateApiPlanRSVP,
+  voteApiPlanOption,
+  sendApiPlanChatMessage,
+  getStoredSession
+} from './api';
 
 const STORAGE_KEY = 'stitchbyte_watch_plans_v2';
 
@@ -283,6 +290,14 @@ export function addPlan(plan: Plan): void {
   const plans = getPlans();
   const updated = [plan, ...plans];
   savePlans(updated);
+
+  // Sync with real server backend
+  try {
+    const session = getStoredSession();
+    createApiPlan(plan, session?.token).catch((err) => {
+      console.warn('Failed to sync plan to server:', err);
+    });
+  } catch {}
 }
 
 export function updatePlan(id: string, updates: Partial<Plan>): Plan | undefined {
@@ -292,6 +307,12 @@ export function updatePlan(id: string, updates: Partial<Plan>): Plan | undefined
   const updatedPlan = { ...plans[idx], ...updates };
   plans[idx] = updatedPlan;
   savePlans([...plans]);
+
+  try {
+    const session = getStoredSession();
+    updateApiPlan(id, updates, session?.token).catch(() => {});
+  } catch {}
+
   return updatedPlan;
 }
 
@@ -313,6 +334,12 @@ export function updateRSVP(planId: string, userId: string, status: RSVPStatus, d
   }
 
   savePlans([...plans]);
+
+  try {
+    const session = getStoredSession();
+    updateApiPlanRSVP(planId, { userId, displayName, avatarUrl, status }, session?.token).catch(() => {});
+  } catch {}
+
   return plan;
 }
 
@@ -336,6 +363,12 @@ export function voteOption(planId: string, optionId: string, userId: string): Pl
   });
 
   savePlans([...plans]);
+
+  try {
+    const session = getStoredSession();
+    voteApiPlanOption(planId, { optionId, userId }, session?.token).catch(() => {});
+  } catch {}
+
   return plan;
 }
 
@@ -352,5 +385,30 @@ export function addPlanChatMessage(planId: string, message: Omit<PlanChatMessage
 
   plan.chatMessages = [...(plan.chatMessages || []), newMsg];
   savePlans([...plans]);
+
+  try {
+    const session = getStoredSession();
+    sendApiPlanChatMessage(planId, {
+      userId: message.userId,
+      displayName: message.displayName,
+      avatarUrl: message.avatarUrl,
+      text: message.text
+    }, session?.token).catch(() => {});
+  } catch {}
+
   return newMsg;
+}
+
+export async function fetchPlansFromServer(): Promise<Plan[]> {
+  try {
+    const session = getStoredSession();
+    const res = await getApiPlans(session?.token);
+    if (res?.plans && Array.isArray(res.plans) && res.plans.length > 0) {
+      savePlans(res.plans);
+      return res.plans;
+    }
+  } catch (err) {
+    console.warn('Could not sync plans from server, using local store:', err);
+  }
+  return getPlans();
 }

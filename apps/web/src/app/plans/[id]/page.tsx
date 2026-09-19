@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { useTheme } from '../../../context/ThemeContext';
-import { getStoredSession, UserSession } from '../../../lib/api';
+import { getStoredSession, UserSession, getApiPlanById } from '../../../lib/api';
 import { Plan, RSVPStatus, PlanActivity } from '../../../types/plans';
 import {
   getPlanById,
@@ -71,8 +71,21 @@ export default function PlanDetailPage() {
   const loadCurrentPlan = () => {
     if (!planId) return;
     const found = getPlanById(planId);
-    setPlan(found || null);
-    setLoading(false);
+    if (found) {
+      setPlan(found);
+      setLoading(false);
+    }
+    // Also fetch from real server API
+    getApiPlanById(planId)
+      .then((res) => {
+        if (res?.plan) {
+          setPlan(res.plan);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!found) setLoading(false);
+      });
   };
 
   useEffect(() => {
