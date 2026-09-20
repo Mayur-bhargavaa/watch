@@ -1,0 +1,79 @@
+name: CI/CD Quality Check & Auto Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-check:
+    name: 🧪 Quality Checks & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🔨 Build Shared Common Package
+        run: npm --workspace=@synccinema/common run build
+
+      - name: ⚙️ Build Backend Server
+        run: npm --workspace=@synccinema/server run build
+
+      - name: 🌐 Build Next.js Web App
+        run: npm --workspace=@synccinema/web run build
+
+  deploy:
+    name: 🚀 Auto Deploy to Oracle Cloud
+    needs: quality-check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔑 Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST || '92.4.81.40' }}
+          username: ${{ secrets.SSH_USERNAME || 'ubuntu' }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 Connecting to production app directory..."
+            cd /home/ubuntu/apps/watch
+
+            echo "📥 Pulling latest verified changes from main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "📦 Installing any updated dependencies..."
+            npm install --prefer-offline --no-audit
+
+            echo "🔨 Building packages..."
+            npm --workspace=@synccinema/common run build
+            npm --workspace=@synccinema/server run build
+            npm --workspace=@synccinema/web run build
+
+            echo "🔄 Reloading PM2 processes (watch-server & watch-web)..."
+            pm2 reload watch-server watch-web || pm2 reload all
+            pm2 save
+
+            echo "🎉 Deployment successfully finished and verified live!"

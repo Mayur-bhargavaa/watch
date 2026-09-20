@@ -210,6 +210,7 @@ export interface LudoGameState {
     currentTurnSeat: number;
     currentTurnColor: LudoColor;
     diceValue: number | null;
+    lastDrawnDiceValue?: number | null;
     isRolling: boolean;
     canRoll: boolean;
     legalMoves: number[];

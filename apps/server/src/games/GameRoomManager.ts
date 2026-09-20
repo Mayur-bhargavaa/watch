@@ -647,7 +647,7 @@ export class GameRoomManager {
             userId: client.userId,
             userName: client.displayName,
             avatarUrl: client.avatarUrl,
-            content: String(msg.payload.content).slice(0, 300),
+            content: String(msg.payload.content).slice(0, 4000),
             timestamp: now,
             replyTo: msg.payload?.replyTo ? {
               id: String(msg.payload.replyTo.id),

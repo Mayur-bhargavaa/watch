@@ -204,6 +204,7 @@ export interface LudoGameState {
   currentTurnSeat: number; // seat index 0..playersCount-1
   currentTurnColor: LudoColor;
   diceValue: number | null;
+  lastDrawnDiceValue?: number | null;
   isRolling: boolean;
   canRoll: boolean;
   legalMoves: number[]; // array of token IDs (0..3) that can legally move

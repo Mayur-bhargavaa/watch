@@ -23,6 +23,7 @@ import {
 } from '@synccinema/common';
 import { FloatingReaction, TokenMovedEvent } from '../../hooks/useGameRoom';
 import { VideoGridParticipant } from '../../hooks/useWebRTC';
+import { HomeCelebrationModal } from './HomeCelebrationModal';
 
 // Live Circular Video Feed for In-Call Avatars
 export const VideoAvatar = React.memo(function VideoAvatar({
@@ -495,6 +496,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     color: LudoColor;
     isMe: boolean;
     playerName: string;
+    finishedCount?: number;
   } | null>(null);
 
   // Capture impact animation (burst slash/stars on tile)
@@ -526,9 +528,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     onMoveTokenRef.current = onMoveToken;
   }, [onMoveToken]);
 
+  // The authoritative last drawn dice value across all players in the game room
+  const sharedLastDrawnDice = gameState.diceValue ?? gameState.lastDrawnDiceValue ?? lastDiceRoll?.diceValue ?? 6;
+
   // Bottom interactive dice states for zero-latency feedback & 3D spin
   const [isRollingDice, setIsRollingDice] = useState(false);
-  const [bottomDiceDisplay, setBottomDiceDisplay] = useState<number>(gameState.diceValue || 6);
+  const [bottomDiceDisplay, setBottomDiceDisplay] = useState<number>(sharedLastDrawnDice);
   const bottomDiceCycleRef = useRef<NodeJS.Timeout | null>(null);
   const prevHandledRollKeyRef = useRef<string | null>(null);
 
@@ -679,12 +684,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     };
   }, []);
 
-  // Keep bottom interactive dice display strictly locked to authoritative server diceValue (Fix Bug 4)
+  // Keep bottom interactive dice display strictly locked to authoritative last drawn dice value across all players
   useEffect(() => {
-    if (gameState.diceValue !== null && !isRollingDice) {
-      setBottomDiceDisplay(gameState.diceValue);
+    if (!isRollingDice) {
+      setBottomDiceDisplay(sharedLastDrawnDice);
     }
-  }, [gameState.diceValue, isRollingDice]);
+  }, [sharedLastDrawnDice, isRollingDice]);
 
   // Clean animation timeout manager to avoid stutter or overlapping frames
   const animTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
@@ -791,6 +796,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         bottomDiceCycleRef.current = null;
       }
       setIsRollingDice(false);
+      setBottomDiceDisplay(sharedLastDrawnDice);
     }
   }, [gameState.diceValue, gameState.currentTurnColor, lastDiceRoll]);
 
@@ -1040,17 +1046,20 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             if (nextStep === 56 || lastTokenMove?.reachedHome) {
               const moverIsMe = (color === myColor);
               const moverName = playerByColor[color]?.displayName || color.toUpperCase();
+              const tokensForColor = gameState.tokens[color] || [];
+              const finishedCount = tokensForColor.filter(t => t.step === 56).length || 1;
               if (moverIsMe) {
                 playSound('win');
               }
               setHomeReachedBanner({
                 color,
                 isMe: moverIsMe,
-                playerName: moverName
+                playerName: moverName,
+                finishedCount: Math.max(1, finishedCount)
               });
               const homeBannerTimeout = setTimeout(() => {
                 setHomeReachedBanner(null);
-              }, 2800);
+              }, 3800);
               animTimeoutsRef.current.push(homeBannerTimeout);
             }
           }
@@ -1197,8 +1206,40 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       });
     });
 
+    // 3D Isometric / Top-Down Depth Sorting (Painters Algorithm):
+    // Pawns further back on the screen (smaller screen-Y) MUST be rendered FIRST in SVG order.
+    // Pawns closer to the front / camera (larger screen-Y) MUST be rendered LATER (on top).
+    // This prevents background pawns from cutting off helmets of foreground pawns.
+    // Airborne / hopping pawns get top-level visual priority.
+    const rad = (boardRotation * Math.PI) / 180;
+    const sinRot = Math.sin(rad);
+    const cosRot = Math.cos(rad);
+
+    pawns.sort((a, b) => {
+      // 1. Airborne/hopping pawns always stay on top
+      const hopA = a.isHopping ? 10000 : a.isReverseRunning ? 5000 : 0;
+      const hopB = b.isHopping ? 10000 : b.isReverseRunning ? 5000 : 0;
+      if (hopA !== hopB) return hopA - hopB;
+
+      // 2. Projected Screen-Y (Board center is 300, 300)
+      const dxA = a.x - 300;
+      const dyA = a.groundY - 300;
+      const screenYA = 300 + dxA * sinRot + dyA * cosRot;
+
+      const dxB = b.x - 300;
+      const dyB = b.groundY - 300;
+      const screenYB = 300 + dxB * sinRot + dyB * cosRot;
+
+      if (Math.abs(screenYA - screenYB) > 0.05) {
+        return screenYA - screenYB;
+      }
+
+      // 3. Stable tie-breaker: sort by token ID
+      return a.token.id - b.token.id;
+    });
+
     return pawns;
-  }, [gameState.tokens, gameState.seats, myPlayer, isMyTurn, legalMoves, animatingPawn, heldVictimPawn]);
+  }, [gameState.tokens, gameState.seats, myPlayer, isMyTurn, legalMoves, animatingPawn, heldVictimPawn, boardRotation]);
 
   // Render Crisp 3D Dice Face with Perfectly Spaced Pips (Zero Overlap)
   const renderDiceFace = (value: number | null, size: 'sm' | 'lg' = 'sm') => {
@@ -1248,20 +1289,20 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   // Render pixel-perfect 3D Astronaut pawn figurine matching the user reference
   const renderLuxuryPawn = (color: LudoColor, isLegal: boolean, isMyColor: boolean = false) => {
     const playerAccent = COLOR_CONFIG[color].neon;
-    const pw = 35;
-    const ph = 56; // pw * 1.6
+    const pw = 32;
+    const ph = 51.2; // 32 * 1.6 aspect ratio
 
     return (
-      <g filter="url(#tile3DShadow)">
+      <g>
         {/* 1. Base Pedestal Ring: Underneath astronaut base to ground and align with sockets & cells */}
         <g transform="translate(0, 0)">
           {/* Player Distinction Halo */}
           {isMyColor && (
             <ellipse
               cx="0"
-              cy="2"
-              rx="15"
-              ry="7.5"
+              cy="1.5"
+              rx="14.5"
+              ry="6.5"
               fill="none"
               stroke={playerAccent}
               strokeWidth="1.2"
@@ -1271,17 +1312,17 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           )}
 
           {/* Pedestal Ground Drop Shadow */}
-          <ellipse cx="0" cy="4" rx="14" ry="5.5" fill="#000000" opacity="0.35" filter="url(#contactShadowBlur)" />
+          <ellipse cx="0" cy="3.5" rx="13" ry="5.0" fill="#000000" opacity="0.32" filter="url(#contactShadowBlur)" />
 
           {/* Polished Gold Bevel Ground Step */}
-          <ellipse cx="0" cy="3" rx="13.8" ry="6.2" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.6" opacity="0.75" />
+          <ellipse cx="0" cy="2.5" rx="13" ry="5.4" fill="url(#baroqueGoldGrad)" stroke="#543b0d" strokeWidth="0.6" opacity="0.8" />
         </g>
 
         {/* 2. Pixel-Perfect 3D Astronaut Figurine (Red, Green, Blue, Yellow) */}
         <image
           href={`/games/ludo/pawn-${color}.png`}
           x={-pw / 2}
-          y={13.5 - ph * 0.975}
+          y={5.5 - ph * 0.984}
           width={pw}
           height={ph}
           preserveAspectRatio="xMidYMid meet"
@@ -1292,9 +1333,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         {isLegal && (
           <ellipse
             cx="0"
-            cy="4"
-            rx="14.5"
-            ry="6.5"
+            cy="2.5"
+            rx="14"
+            ry="6.0"
             fill="none"
             stroke="#d97706"
             strokeWidth="1.6"
@@ -1567,48 +1608,22 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             </div>
           )}
 
-          {/* Home Celebration Banner: Party poppers for winner, playful teaser for opponent (Bug 2) */}
+          {/* Grand Full-Screen Party Popper Blast & 3D Celebration Modal */}
           {homeReachedBanner && (
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 p-4 animate-in zoom-in-75 fade-in duration-200">
-              {homeReachedBanner.isMe ? (
-                <div className="relative flex flex-col items-center justify-center px-6 py-4 rounded-3xl bg-gradient-to-br from-amber-500/95 via-yellow-600/95 to-amber-700/95 border-2 border-yellow-200 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_35px_rgba(245,158,11,0.6)] text-center text-white backdrop-blur-md max-w-xs animate-bounce">
-                  <div className="absolute -top-3 -left-3 text-2xl animate-pulse">🎉</div>
-                  <div className="absolute -top-3 -right-3 text-2xl animate-pulse">✨</div>
-                  <div className="absolute -bottom-2 -left-2 text-2xl animate-pulse">🚀</div>
-                  <div className="absolute -bottom-2 -right-2 text-2xl animate-pulse">🎊</div>
-
-                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner mb-2">
-                    <Sparkles className="w-7 h-7 text-yellow-100 fill-current animate-spin" style={{ animationDuration: '3s' }} />
-                  </div>
-                  <span className="text-sm font-black tracking-widest uppercase text-yellow-100 drop-shadow">
-                    GOTI REACHED HOME!
-                  </span>
-                  <span className="text-xs font-bold text-white/95 mt-0.5">
-                    🎉 +1 Bonus Roll Awarded!
-                  </span>
-                </div>
-              ) : (
-                <div className="relative flex flex-col items-center justify-center px-6 py-4 rounded-3xl bg-gradient-to-br from-slate-900/95 via-red-950/95 to-slate-900/95 border-2 border-red-500/60 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(239,68,68,0.35)] text-center text-white backdrop-blur-md max-w-xs animate-pulse">
-                  <div className="absolute -top-3 -right-2 text-2xl">🥲</div>
-                  <div className="absolute -bottom-2 -left-2 text-2xl">👀</div>
-
-                  <div className="text-3xl mb-1">🥲</div>
-                  <span className="text-xs sm:text-sm font-black tracking-wider uppercase text-red-300 drop-shadow">
-                    OUCH! {homeReachedBanner.playerName} REACHED HOME!
-                  </span>
-                  <span className="text-[11px] sm:text-xs font-semibold text-slate-300 mt-1">
-                    Stay alert — don&apos;t let them win!
-                  </span>
-                </div>
-              )}
-            </div>
+            <HomeCelebrationModal
+              color={homeReachedBanner.color}
+              isMe={homeReachedBanner.isMe}
+              playerName={homeReachedBanner.playerName}
+              finishedCount={homeReachedBanner.finishedCount}
+              onClose={() => setHomeReachedBanner(null)}
+            />
           )}
 
           {/* SVG Board Container with Luxury Frame matching reference image */}
           <svg
             viewBox="-16 -16 632 632"
-            className="w-full h-full rounded-[26px] overflow-hidden shadow-[inset_0_0_25px_rgba(0,0,0,0.9)] border border-[#2b2535]"
-            style={{ shapeRendering: 'geometricPrecision' }}
+            className="w-full h-full rounded-[26px] shadow-[inset_0_0_25px_rgba(0,0,0,0.9)] border border-[#2b2535]"
+            style={{ shapeRendering: 'geometricPrecision', overflow: 'visible' }}
           >
               <defs>
                 {/* Contact Shadow & Ambient Occlusion Blurs */}
@@ -2773,7 +2788,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   ? 'animate-nudge-wobble' 
                   : ''
               }`}>
-                {renderDiceFace(bottomDiceDisplay, 'sm')}
+                {renderDiceFace(isRollingDice ? bottomDiceDisplay : sharedLastDrawnDice, 'sm')}
               </div>
             </button>
 

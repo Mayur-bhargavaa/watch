@@ -40,6 +40,7 @@ import { ContextualChat } from '../../../components/chat/ContextualChat';
 import { GameLounge } from '../../../components/games/GameLounge';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
 import { StickerPicker, StickerMessageView } from '../../../components/chat/StickerPicker';
+import { DrawStickerModal } from '../../../components/chat/DrawStickerModal';
 import { parseStickerMessage, formatStickerMessage } from '../../../components/chat/StickersData';
 import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/ChatReplyUI';
 import { getStoredSession, recordFriendStreak } from '../../../lib/api';
@@ -136,6 +137,7 @@ const RoomChatInputBar = React.memo(function RoomChatInputBar({
 }: RoomChatInputBarProps) {
   const [chatInput, setChatInput] = useState('');
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [showDrawModal, setShowDrawModal] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,7 +170,7 @@ const RoomChatInputBar = React.memo(function RoomChatInputBar({
         ))}
       </div>
 
-      {/* Chat Input Bar with stickers, smiley and pink send button */}
+      {/* Chat Input Bar with stickers, draw sticker and pink send button */}
       <div className="relative pt-1 shrink-0">
         {/* Floating Sticker Picker Tray */}
         {showStickerPicker && (
@@ -179,10 +181,24 @@ const RoomChatInputBar = React.memo(function RoomChatInputBar({
                 setShowStickerPicker(false);
                 onClearReply();
               }}
+              onOpenDrawModal={() => {
+                setShowStickerPicker(false);
+                setShowDrawModal(true);
+              }}
               onClose={() => setShowStickerPicker(false)}
             />
           </div>
         )}
+
+        {/* Interactive Hand-Drawn Animated Sticker Modal */}
+        <DrawStickerModal
+          isOpen={showDrawModal}
+          onClose={() => setShowDrawModal(false)}
+          onSendDrawnSticker={(formattedMessage) => {
+            onSendMessage(formattedMessage, replyingTo);
+            onClearReply();
+          }}
+        />
 
         {/* Replying-to Preview Bar */}
         {replyingTo && (
@@ -218,19 +234,19 @@ const RoomChatInputBar = React.memo(function RoomChatInputBar({
                   ? 'text-amber-400 bg-amber-400/20'
                   : 'text-rose-300/70 hover:text-amber-300'
               }`}
-              title="Send stickers"
+              title="Send stickers & GIFs"
             >
               <Sparkles className="w-4 h-4" />
             </button>
 
-            {/* Smile Emoji */}
+            {/* Draw Animated Sticker Button (Replaces static Smile emoji) */}
             <button
               type="button"
-              onClick={() => setChatInput(prev => `${prev} 😊`)}
-              className="absolute right-2.5 text-rose-300/70 hover:text-white transition"
-              title="Add Smile"
+              onClick={() => setShowDrawModal(true)}
+              className="absolute right-2.5 p-1 rounded-lg text-pink-400 hover:text-white hover:bg-rose-500/20 transition-all cursor-pointer relative group/drawbtn active:scale-95"
+              title="Draw animated sticker"
             >
-              <Smile className="w-4 h-4" />
+              <Palette className="w-4 h-4 text-pink-400 group-hover/drawbtn:text-amber-300 transition-colors" />
             </button>
           </div>
 

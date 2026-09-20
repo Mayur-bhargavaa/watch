@@ -9,9 +9,11 @@ export interface StickerItem {
     | 'cat_memes'
     | 'genz'
     | 'cinema'
-    | 'romance';
+    | 'romance'
+    | 'drawn';
   gifUrl?: string; // High-res transparent animated Giphy GIF URL
   webpUrl?: string;
+  drawingSvg?: string; // Inline compact SVG markup for user hand-drawn animated stickers
   emoji?: string;
   tagline: string;
   tags: string[];
@@ -666,7 +668,30 @@ export function parseStickerMessage(content: string): StickerItem | null {
     }
   }
 
-  // 3. Auto-detect raw GIF or Giphy URLs
+  // 3. Check [draw:<svgContent>|<caption?>]
+  if (content.startsWith('[draw:')) {
+    const raw = content.slice(6, content.endsWith(']') ? -1 : undefined);
+    const pipeIdx = raw.lastIndexOf('|');
+    let svgContent = raw;
+    let caption = 'HAND-DRAWN ✨';
+    if (pipeIdx !== -1) {
+      svgContent = raw.slice(0, pipeIdx);
+      caption = raw.slice(pipeIdx + 1) || 'HAND-DRAWN ✨';
+    }
+    return {
+      id: `draw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: caption,
+      category: 'drawn',
+      drawingSvg: svgContent,
+      tagline: caption.toUpperCase(),
+      tags: ['drawn', 'handdrawn', 'custom', 'art'],
+      bgGradient: 'from-fuchsia-600/30 via-rose-600/20 to-amber-500/30',
+      borderColor: 'border-rose-400/50',
+      textColor: 'text-rose-200'
+    };
+  }
+
+  // 4. Auto-detect raw GIF or Giphy URLs
   if (/^https?:\/\/[^\s]+(?:\.gif|\.webp|giphy\.com|tenor\.com)[^\s]*$/i.test(content.trim())) {
     const url = content.trim();
     return {
@@ -690,4 +715,8 @@ export function formatStickerMessage(stickerIdOrUrl: string, caption?: string): 
     return caption ? `[gif:${stickerIdOrUrl}|${caption}]` : `[gif:${stickerIdOrUrl}]`;
   }
   return `[sticker:${stickerIdOrUrl}]`;
+}
+
+export function formatDrawStickerMessage(svgPathsString: string, caption: string = 'HAND-DRAWN ✨'): string {
+  return `[draw:${svgPathsString}|${caption}]`;
 }

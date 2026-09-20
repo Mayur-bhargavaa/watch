@@ -7,14 +7,15 @@ import {
   StickerItem,
   parseStickerMessage
 } from './StickersData';
-import { Sparkles, X, Search, Link as LinkIcon, Send } from 'lucide-react';
+import { Sparkles, X, Search, Link as LinkIcon, Send, Palette } from 'lucide-react';
 
 interface StickerPickerProps {
   onSelectSticker: (stickerIdOrUrl: string, caption?: string) => void;
   onClose: () => void;
+  onOpenDrawModal?: () => void;
 }
 
-export function StickerPicker({ onSelectSticker, onClose }: StickerPickerProps) {
+export function StickerPicker({ onSelectSticker, onClose, onOpenDrawModal }: StickerPickerProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showCustomLinkInput, setShowCustomLinkInput] = useState(false);
@@ -71,7 +72,7 @@ export function StickerPicker({ onSelectSticker, onClose }: StickerPickerProps) 
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-black tracking-wide bg-gradient-to-r from-rose-200 via-pink-300 to-amber-200 bg-clip-text text-transparent">
-              GIPHY & Gen-Z Stickers
+              GIPHY & Stickers
             </span>
             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/30 text-rose-300 font-bold">
               Bubu Dudu ✨
@@ -79,6 +80,17 @@ export function StickerPicker({ onSelectSticker, onClose }: StickerPickerProps) 
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {onOpenDrawModal && (
+            <button
+              type="button"
+              onClick={onOpenDrawModal}
+              className="px-2 py-1 rounded-xl bg-gradient-to-r from-rose-600 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white font-black text-[10px] flex items-center gap-1 shadow-md shadow-rose-950/50 transition cursor-pointer active:scale-95"
+              title="Draw custom animated sticker"
+            >
+              <Palette className="w-3 h-3" />
+              <span>Draw ✨</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowCustomLinkInput((prev) => !prev)}
@@ -247,9 +259,14 @@ export function StickerMessageView({ content }: { content: string }) {
         className={`absolute inset-0 rounded-3xl bg-gradient-to-tr ${sticker.bgGradient} opacity-60 blur-md group-hover/sticker:opacity-95 transition-opacity`}
       />
 
-      {/* Visual Sticker: Animated GIF or Large Emoji */}
+      {/* Visual Sticker: Animated GIF, Hand-Drawn SVG, or Large Emoji */}
       <div className="relative z-10 flex items-center justify-center">
-        {sticker.gifUrl ? (
+        {sticker.drawingSvg ? (
+          <div
+            className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center filter drop-shadow-[0_8px_20px_rgba(236,72,153,0.5)] group-hover/sticker:scale-105 transition-transform duration-200 animate-pulse"
+            dangerouslySetInnerHTML={{ __html: sticker.drawingSvg }}
+          />
+        ) : sticker.gifUrl ? (
           <img
             src={sticker.gifUrl}
             alt={sticker.name}

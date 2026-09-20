@@ -45,6 +45,7 @@ export class LudoEngine {
       currentTurnSeat: 0,
       currentTurnColor: initialTurnColor,
       diceValue: null,
+      lastDrawnDiceValue: 6,
       isRolling: false,
       canRoll: true,
       legalMoves: [],
@@ -127,6 +128,7 @@ export class LudoEngine {
       const updated: LudoGameState = {
         ...state,
         diceValue,
+        lastDrawnDiceValue: diceValue,
         canRoll: true,
         legalMoves: [],
         consecutiveSixes: 0,
@@ -153,6 +155,7 @@ export class LudoEngine {
       const updated: LudoGameState = {
         ...state,
         diceValue,
+        lastDrawnDiceValue: diceValue,
         canRoll: true,
         legalMoves: [],
         consecutiveSixes: 0,
@@ -173,6 +176,7 @@ export class LudoEngine {
     const updated: LudoGameState = {
       ...state,
       diceValue,
+      lastDrawnDiceValue: diceValue,
       canRoll: false,
       legalMoves,
       consecutiveSixes,
@@ -306,7 +310,8 @@ export class LudoEngine {
     const updatedState: LudoGameState = {
       ...state,
       tokens: tokensCopy,
-      diceValue: earnedBonusRoll ? null : state.diceValue,
+      diceValue: null,
+      lastDrawnDiceValue: state.diceValue ?? state.lastDrawnDiceValue ?? 6,
       canRoll: true,
       legalMoves: [],
       consecutiveSixes: earnedBonusRoll ? state.consecutiveSixes : 0,

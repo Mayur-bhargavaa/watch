@@ -85,6 +85,7 @@ import { LudoGame, VideoAvatar } from '../../../components/games/LudoGame';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
 import { StickerPicker, StickerMessageView } from '../../../components/chat/StickerPicker';
+import { DrawStickerModal } from '../../../components/chat/DrawStickerModal';
 import { parseStickerMessage, formatStickerMessage } from '../../../components/chat/StickersData';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
@@ -194,9 +195,9 @@ function LudoPageContent() {
 
   // Floating Panels & Drawers
   const [isChatOpen, setIsChatOpen] = useState(true);
-  const [activeSideTab, setActiveSideTab] = useState<'chat' | 'call' | 'players'>('chat');
   const [chatInput, setChatInput] = useState('');
   const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [showDrawModal, setShowDrawModal] = useState(false);
   const [replyingTo, setReplyingTo] = useState<ChatReplyTo | null>(null);
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -1763,70 +1764,31 @@ function LudoPageContent() {
               <div className="w-full lg:w-80 shrink-0 bg-[#1c0c16]/65 border border-rose-500/25 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col h-[580px] backdrop-blur-xl relative">
                 {/* Header */}
                 <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-black text-white">
-                      {activeSideTab === 'chat' ? 'Game Chat' : activeSideTab === 'call' ? 'In-Game Call' : 'Players'}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-rose-950/40">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-white leading-none">Game Chat</h3>
+                      <p className="text-[10px] text-rose-300/70 mt-0.5 font-medium">Live table messages & stickers</p>
+                    </div>
                   </div>
 
                   <button
                     onClick={() => setIsChatOpen(false)}
-                    className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white"
-                    title="Close Drawer"
+                    className="p-1.5 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                    title="Close Chat"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Tabs: Chat | Call | Players */}
-                <div className="flex items-center gap-1.5 mt-2 border-b border-rose-500/20 pb-2">
-                  <button
-                    onClick={() => setActiveSideTab('chat')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 relative ${
-                      activeSideTab === 'chat'
-                        ? 'text-rose-300 font-extrabold after:absolute after:bottom-[-9px] after:left-1/4 after:right-1/4 after:h-0.5 after:bg-rose-400'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>Chat</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveSideTab('call')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 relative ${
-                      activeSideTab === 'call'
-                        ? 'text-rose-300 font-extrabold after:absolute after:bottom-[-9px] after:left-1/4 after:right-1/4 after:h-0.5 after:bg-rose-400'
-                        : isCameraOn || !isMicMuted
-                        ? 'text-emerald-300 hover:text-emerald-200'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    <Video className="w-3.5 h-3.5" />
-                    <span>Call {(isCameraOn || videoGridParticipants.some(p => p.isCameraOn)) ? '🔴' : ''}</span>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveSideTab('players')}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 relative ${
-                      activeSideTab === 'players'
-                        ? 'text-rose-300 font-extrabold after:absolute after:bottom-[-9px] after:left-1/4 after:right-1/4 after:h-0.5 after:bg-rose-400'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    <span>Players</span>
-                  </button>
-                </div>
-
-                {/* Tab 1: Chat Stream */}
-                {activeSideTab === 'chat' && (
-                  <>
-                    <div
-                      ref={chatContainerRef}
-                      onScroll={handleChatScroll}
-                      className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs scrollbar-none"
-                    >
+                {/* Chat Stream */}
+                <div
+                  ref={chatContainerRef}
+                  onScroll={handleChatScroll}
+                  className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs scrollbar-none"
+                >
                       {chatMessages.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12">
                           <Heart className="w-8 h-8 mb-2 text-rose-500/40" />
@@ -1955,6 +1917,10 @@ function LudoPageContent() {
                               setShowStickerPicker(false);
                               setReplyingTo(null);
                             }}
+                            onOpenDrawModal={() => {
+                              setShowStickerPicker(false);
+                              setShowDrawModal(true);
+                            }}
                             onClose={() => setShowStickerPicker(false)}
                           />
                         </div>
@@ -1968,6 +1934,19 @@ function LudoPageContent() {
                           accentColor="rose"
                         />
                       )}
+
+                      {/* Interactive Hand-Drawn Animated Sticker Modal */}
+                      <DrawStickerModal
+                        isOpen={showDrawModal}
+                        onClose={() => setShowDrawModal(false)}
+                        onSendDrawnSticker={(formattedMessage) => {
+                          const now = Date.now();
+                          if (now - lastStickerSentRef.current < 500) return;
+                          lastStickerSentRef.current = now;
+                          sendChat(formattedMessage, replyingTo);
+                          setReplyingTo(null);
+                        }}
+                      />
 
                       <form onSubmit={handleSendChat} className="flex items-center gap-2">
                         <div className="flex-1 relative flex items-center">
@@ -1995,18 +1974,18 @@ function LudoPageContent() {
                                   ? 'text-pink-400 bg-pink-500/20'
                                   : 'text-zinc-400 hover:text-pink-300 hover:bg-white/10'
                               }`}
-                              title="Send stickers"
+                              title="Send stickers & GIFs"
                             >
                               <Sparkles className="w-4 h-4" />
                             </button>
-                            {/* Smiley Button */}
+                            {/* Draw Sticker Button (Replaces static Smile emoji) */}
                             <button
                               type="button"
-                              onClick={() => setChatInput(prev => `${prev} 😊`)}
-                              className="p-1 rounded-lg text-rose-300/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                              title="Add smile"
+                              onClick={() => setShowDrawModal(true)}
+                              className="p-1 rounded-lg text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all cursor-pointer relative group/drawbtn active:scale-95"
+                              title="Draw animated sticker"
                             >
-                              <Smile className="w-4 h-4" />
+                              <Palette className="w-4 h-4 text-pink-400 group-hover/drawbtn:text-amber-300 transition-colors" />
                             </button>
                           </div>
                         </div>
@@ -2019,142 +1998,6 @@ function LudoPageContent() {
                         </button>
                       </form>
                     </div>
-                  </>
-                )}
-
-                {/* Tab 2: Live Audio & Video Call */}
-                {activeSideTab === 'call' && (
-                  <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs">
-                    <div className="p-3 rounded-2xl bg-gradient-to-r from-rose-500/10 via-pink-500/10 to-purple-500/10 border border-rose-500/20 text-center">
-                      <p className="text-white font-bold text-xs mb-0.5">Live In-Game Video Call</p>
-                      <p className="text-[11px] text-zinc-300">
-                        {isCameraOn ? '📹 Your camera is on' : '📷 Camera is off'} • {isMicMuted ? '🔇 Mic muted' : '🎙️ Mic unmuted'}
-                      </p>
-                    </div>
-
-                    {/* Participant Video Tiles Grid */}
-                    <div className="grid grid-cols-1 gap-2.5">
-                      {videoGridParticipants.map(participant => (
-                        <div
-                          key={participant.userId}
-                          className="relative aspect-video rounded-2xl overflow-hidden border border-white/10 bg-black/60 flex items-center justify-center shadow-lg"
-                        >
-                          {participant.isCameraOn && participant.stream ? (
-                            <VideoAvatar
-                              stream={participant.stream}
-                              isSelf={participant.isSelf}
-                              displayName={participant.displayName}
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center gap-1.5 text-zinc-400">
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 text-white font-black text-base flex items-center justify-center shadow">
-                                {participant.displayName[0]?.toUpperCase()}
-                              </div>
-                              <span className="text-[11px] font-semibold text-zinc-300">Camera Off</span>
-                            </div>
-                          )}
-
-                          {/* Overlay Name & Mic status */}
-                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-sm">
-                              {participant.isSelf ? `${participant.displayName} (You)` : participant.displayName}
-                            </span>
-                            <span
-                              className={`p-1 rounded-md backdrop-blur-sm ${
-                                participant.isMuted ? 'bg-red-500/80 text-white' : 'bg-emerald-500/80 text-white'
-                              }`}
-                            >
-                              {participant.isMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Quick Call Action Buttons */}
-                    <div className="flex items-center justify-center gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={toggleMic}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow ${
-                          isMicMuted
-                            ? 'bg-rose-600/30 border-rose-500 text-rose-200 hover:bg-rose-600/40'
-                            : 'bg-emerald-600/30 border-emerald-400 text-emerald-200 hover:bg-emerald-600/40'
-                        }`}
-                      >
-                        {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                        <span>{isMicMuted ? 'Unmute Mic' : 'Mute Mic'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={toggleCamera}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow ${
-                          isCameraOn
-                            ? 'bg-rose-600/30 border-rose-500 text-rose-200 hover:bg-rose-600/40'
-                            : 'bg-white/10 border-white/20 text-zinc-300 hover:bg-white/20'
-                        }`}
-                      >
-                        {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
-                        <span>{isCameraOn ? 'Turn Cam Off' : 'Turn Cam On'}</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Tab 3: Players Roster */}
-                {activeSideTab === 'players' && (
-                  <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs">
-                    {room.players.map((p) => {
-                      const isMe = p.userId === session?.user?.id;
-                      const pColor = p.color || 'red';
-                      const tokens = gameState.tokens[pColor] || [];
-                      const finishedCount = tokens.filter((t: any) => t.step === 56).length;
-
-                      return (
-                        <div
-                          key={p.userId}
-                          className="p-3 rounded-2xl bg-white/5 border border-rose-500/20 flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs text-white shadow"
-                              style={{
-                                backgroundColor:
-                                  pColor === 'red' ? '#e62446' :
-                                  pColor === 'green' ? '#0eb563' :
-                                  pColor === 'yellow' ? '#f59e0b' : '#1d70e8'
-                              }}
-                            >
-                              {p.displayName[0]?.toUpperCase()}
-                            </div>
-
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-white text-xs">{p.displayName}</span>
-                                {p.seat === 0 && <Crown className="w-3 h-3 text-amber-400 inline" />}
-                                {isMe && (
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300 font-bold">
-                                    You
-                                  </span>
-                                )}
-                              </div>
-
-                              <span className="text-[10px] text-zinc-400 capitalize block mt-0.5">
-                                {pColor} • {finishedCount}/4 In Home
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span>Active</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             )}
           </div>
