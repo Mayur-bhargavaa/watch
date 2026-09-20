@@ -19,4 +19,5 @@ __exportStar(require("./protocol.js"), exports);
 __exportStar(require("./sync.js"), exports);
 __exportStar(require("./ott.js"), exports);
 __exportStar(require("./provider.js"), exports);
+__exportStar(require("./bingo.js"), exports);
 //# sourceMappingURL=index.js.map

@@ -542,6 +542,22 @@ export async function playWithPartner(
   return res.json();
 }
 
+export async function createGameRoomWithPartner(
+  gameType: GameType = 'bingo',
+  friendUserId?: string
+): Promise<{ room: GameRoom; inviteUrl?: string }> {
+  const s = getStoredSession();
+  if (!s?.token) throw new Error('Not authenticated');
+  const res = await playWithPartner(s.token, gameType, friendUserId);
+  return { room: res.room, inviteUrl: res.inviteUrl };
+}
+
+export async function joinGameRoomByCode(code: string): Promise<{ room: GameRoom }> {
+  const s = getStoredSession();
+  if (!s?.token) throw new Error('Not authenticated');
+  return joinGameRoom(s.token, code);
+}
+
 // =====================================================================
 // Snapchat-Style Friends & Daily Streaks (🔥) API
 // =====================================================================

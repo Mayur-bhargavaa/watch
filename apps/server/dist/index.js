@@ -11,6 +11,8 @@ import { detectProviderFromUrl } from '@synccinema/common';
 import { mongoLogger } from './services/mongoLogger.js';
 function resolveGameType(raw) {
     const lower = (raw || '').toLowerCase();
+    if (lower.includes('bingo') || lower.includes('tambola') || lower.includes('housie'))
+        return 'bingo';
     if (lower.includes('tic'))
         return 'tic-tac-toe';
     if (lower.includes('four') || lower.includes('connect'))
@@ -18,6 +20,8 @@ function resolveGameType(raw) {
     return 'ludo';
 }
 function getGameBasePath(gameType) {
+    if (gameType === 'bingo')
+        return '/games/bingo';
     if (gameType === 'tic-tac-toe')
         return '/games/tic-tac-toe';
     if (gameType === 'four-in-a-row')

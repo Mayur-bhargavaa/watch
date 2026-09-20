@@ -13,6 +13,7 @@ import { GAME_DEFINITIONS } from './GameDefinitions.js';
 import { LudoEngine } from './LudoEngine.js';
 import { FourInARowEngine } from './FourInARowEngine.js';
 import { TicTacToeEngine } from './TicTacToeEngine.js';
+import { BingoEngine, DEFAULT_BINGO_CONFIG } from './BingoEngine.js';
 
 interface ConnectedGameClient {
   socket: WebSocket;
@@ -38,6 +39,8 @@ export class GameRoomManager {
   private roomChatHistory = new Map<string, any[]>();
   // roomId -> Set of userIds who voted for rematch
   private rematchVotes = new Map<string, Set<string>>();
+  // roomId -> auto call timer
+  private bingoTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(db: DatabaseService) {
     this.db = db;
@@ -52,6 +55,8 @@ export class GameRoomManager {
       prefix = 'FOUR';
     } else if (gameType.toLowerCase().includes('tic')) {
       prefix = 'TIC';
+    } else if (gameType.toLowerCase().includes('bingo')) {
+      prefix = 'BINGO';
     } else {
       prefix = gameType.toUpperCase();
     }
@@ -212,7 +217,15 @@ export class GameRoomManager {
 
     // Check if room is now full of real human players
     if (room.players.length === room.maxPlayers) {
-      this.startGame(room);
+      if (room.gameType === 'bingo') {
+        this.broadcast(room.id, {
+          type: 'game:lobby_ready',
+          roomId: room.id,
+          payload: { room }
+        });
+      } else {
+        this.startGame(room);
+      }
     }
 
     return room;
@@ -221,7 +234,7 @@ export class GameRoomManager {
   /**
    * Starts the game when all required human players are present
    */
-  private startGame(room: GameRoom): void {
+  public startGame(room: GameRoom): void {
     const def = GAME_DEFINITIONS[room.gameType];
     const colors = def?.colorAssignments[room.maxPlayers];
 
@@ -243,12 +256,16 @@ export class GameRoomManager {
       initialState = FourInARowEngine.createInitialState(playerConfigs, 0);
     } else if (room.gameType === 'tic-tac-toe') {
       initialState = TicTacToeEngine.createInitialState(playerConfigs, 0);
+    } else if (room.gameType === 'bingo') {
+      this.stopBingoAutoCall(room.id);
+      const config = (room as any).bingoConfig || DEFAULT_BINGO_CONFIG;
+      initialState = BingoEngine.createInitialState(playerConfigs, config);
     } else {
       initialState = LudoEngine.createInitialState(playerConfigs, room.maxPlayers as any);
     }
 
     this.db.updateGameRoomStatus(room.id, 'PLAYING', now);
-    this.db.updateGameRoomState(room.id, initialState, initialState.currentTurnSeat);
+    this.db.updateGameRoomState(room.id, initialState, initialState?.currentTurnSeat ?? 0);
 
     room.status = 'PLAYING';
     room.gameState = initialState;
@@ -261,9 +278,13 @@ export class GameRoomManager {
       payload: {
         room,
         gameState: initialState,
-        message: 'All human players connected! Game starting now!'
+        message: room.gameType === 'bingo' ? 'Bingo Duel started! Numbers calling...' : 'All human players connected! Game starting now!'
       }
     });
+
+    if (room.gameType === 'bingo' && initialState.config?.autoCall) {
+      this.startBingoAutoCall(room.id, initialState.config.callingSpeed);
+    }
   }
 
   /**
@@ -493,6 +514,242 @@ export class GameRoomManager {
     });
   }
 
+  // =====================================================================
+  // BINGO DUEL GAME HANDLERS
+  // =====================================================================
+
+  public startBingoAutoCall(roomId: string, speedMs: number): void {
+    this.stopBingoAutoCall(roomId);
+    const interval = Math.max(800, speedMs || 3000);
+    const timer = setInterval(() => {
+      this.tickBingoAutoCall(roomId);
+    }, interval);
+    this.bingoTimers.set(roomId, timer);
+  }
+
+  public stopBingoAutoCall(roomId: string): void {
+    const existing = this.bingoTimers.get(roomId);
+    if (existing) {
+      clearInterval(existing);
+      this.bingoTimers.delete(roomId);
+    }
+  }
+
+  public tickBingoAutoCall(roomId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.status !== 'PLAYING' || !room.gameState || room.gameType !== 'bingo') {
+      this.stopBingoAutoCall(roomId);
+      return;
+    }
+
+    if (room.gameState.callingPaused || room.gameState.phase === 'FINISHED') {
+      if (room.gameState.phase === 'FINISHED') {
+        this.stopBingoAutoCall(roomId);
+      }
+      return;
+    }
+
+    const { state, calledNumber, isFinished } = BingoEngine.callNext(room.gameState);
+    room.gameState = state;
+    this.db.updateGameRoomState(room.id, state);
+
+    if (isFinished) {
+      this.stopBingoAutoCall(roomId);
+      const now = new Date().toISOString();
+      this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+    }
+
+    this.broadcast(room.id, {
+      type: 'bingo:number_called',
+      roomId: room.id,
+      payload: {
+        number: calledNumber,
+        word: state.currentNumberWord,
+        calledNumbers: state.calledNumbers,
+        remainingCount: state.callQueue.length,
+        gameState: state
+      }
+    });
+
+    if (isFinished) {
+      this.broadcast(room.id, {
+        type: 'bingo:game_over',
+        roomId: room.id,
+        payload: {
+          winnerUserId: state.winnerUserId,
+          winnerDisplayName: state.winnerDisplayName,
+          scores: state.scores,
+          summary: state.gameSummary,
+          gameState: state
+        }
+      });
+    }
+  }
+
+  public handleBingoStart(roomId: string, userId: string, config?: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room) throw new Error('Game room not found');
+    if (room.hostUserId !== userId) {
+      throw new Error('Only the host can start the Bingo game');
+    }
+    if (config) {
+      (room as any).bingoConfig = { ...DEFAULT_BINGO_CONFIG, ...config };
+    }
+    this.startGame(room);
+  }
+
+  public handleBingoCallNext(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'bingo') return;
+    if (room.hostUserId !== userId) {
+      throw new Error('Only the host can manually call numbers');
+    }
+    if (room.gameState.phase === 'FINISHED') return;
+
+    const { state, calledNumber, isFinished } = BingoEngine.callNext(room.gameState);
+    room.gameState = state;
+    this.db.updateGameRoomState(room.id, state);
+
+    if (isFinished) {
+      this.stopBingoAutoCall(roomId);
+      const now = new Date().toISOString();
+      this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+    }
+
+    this.broadcast(room.id, {
+      type: 'bingo:number_called',
+      roomId: room.id,
+      payload: {
+        number: calledNumber,
+        word: state.currentNumberWord,
+        calledNumbers: state.calledNumbers,
+        remainingCount: state.callQueue.length,
+        gameState: state
+      }
+    });
+
+    if (isFinished) {
+      this.broadcast(room.id, {
+        type: 'bingo:game_over',
+        roomId: room.id,
+        payload: {
+          winnerUserId: state.winnerUserId,
+          winnerDisplayName: state.winnerDisplayName,
+          scores: state.scores,
+          summary: state.gameSummary,
+          gameState: state
+        }
+      });
+    }
+  }
+
+  public handleBingoClaim(roomId: string, userId: string, condition: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'bingo') return;
+    const player = room.players.find(p => p.userId === userId);
+    if (!player) return;
+
+    const result = BingoEngine.validateClaim(
+      room.gameState,
+      userId,
+      player.displayName,
+      condition
+    );
+
+    this.db.updateGameRoomState(room.id, room.gameState);
+
+    // Send direct claim result to the claiming player
+    this.sendToUser(userId, {
+      type: 'bingo:claim_result',
+      roomId: room.id,
+      payload: {
+        userId,
+        displayName: player.displayName,
+        condition,
+        valid: result.valid,
+        message: result.message,
+        pointsEarned: result.pointsEarned,
+        penaltySeconds: result.penaltySeconds,
+        gameState: room.gameState
+      }
+    });
+
+    if (result.valid) {
+      const isGameOver = room.gameState.phase === 'FINISHED';
+      if (isGameOver) {
+        this.stopBingoAutoCall(room.id);
+        const now = new Date().toISOString();
+        this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+      }
+
+      // Broadcast winning notification to everyone
+      this.broadcast(room.id, {
+        type: 'bingo:condition_won',
+        roomId: room.id,
+        payload: {
+          condition,
+          conditionName: BingoEngine.getConditionFriendlyName(condition),
+          userId,
+          displayName: player.displayName,
+          points: result.pointsEarned,
+          scores: room.gameState.scores,
+          gameState: room.gameState,
+          isGameOver
+        }
+      });
+
+      if (isGameOver) {
+        this.broadcast(room.id, {
+          type: 'bingo:game_over',
+          roomId: room.id,
+          payload: {
+            winnerUserId: room.gameState.winnerUserId,
+            winnerDisplayName: room.gameState.winnerDisplayName,
+            scores: room.gameState.scores,
+            summary: room.gameState.gameSummary,
+            gameState: room.gameState
+          }
+        });
+      }
+    }
+  }
+
+  public handleBingoMark(roomId: string, userId: string, numberToMark: number): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'bingo') return;
+    const updatedState = BingoEngine.markNumber(room.gameState, userId, numberToMark);
+    room.gameState = updatedState;
+    this.db.updateGameRoomState(room.id, updatedState);
+
+    this.broadcast(room.id, {
+      type: 'bingo:number_marked',
+      roomId: room.id,
+      payload: {
+        userId,
+        number: numberToMark,
+        playerMarked: updatedState.playerMarked[userId]
+      }
+    });
+  }
+
+  public handleBingoConfigUpdate(roomId: string, userId: string, partialConfig: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room) return;
+    if (room.hostUserId !== userId) {
+      throw new Error('Only host can update room settings');
+    }
+    const currentConfig = (room as any).bingoConfig || DEFAULT_BINGO_CONFIG;
+    const updated = { ...currentConfig, ...partialConfig };
+    (room as any).bingoConfig = updated;
+
+    this.broadcast(room.id, {
+      type: 'bingo:config_updated',
+      roomId: room.id,
+      payload: { config: updated }
+    });
+  }
+
+
   /**
    * Registers a WebSocket connection to a game room
    */
@@ -633,6 +890,26 @@ export class GameRoomManager {
 
       case 'game:tictactoe_move':
         this.handleTicTacToeMove(client.roomId, client.userId, Number(msg.payload?.cellIndex ?? msg.payload?.cell));
+        break;
+
+      case 'bingo:start':
+        this.handleBingoStart(client.roomId, client.userId, msg.payload?.config);
+        break;
+
+      case 'bingo:call_next':
+        this.handleBingoCallNext(client.roomId, client.userId);
+        break;
+
+      case 'bingo:claim':
+        this.handleBingoClaim(client.roomId, client.userId, msg.payload?.condition);
+        break;
+
+      case 'bingo:mark':
+        this.handleBingoMark(client.roomId, client.userId, Number(msg.payload?.number));
+        break;
+
+      case 'bingo:config_update':
+        this.handleBingoConfigUpdate(client.roomId, client.userId, msg.payload?.config);
         break;
 
       case 'game:chat': {
@@ -814,6 +1091,13 @@ export class GameRoomManager {
           room.gameState.winnerUserId = winner.userId;
           room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
           this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+        } else if (room.gameType === 'bingo' && room.gameState) {
+          this.stopBingoAutoCall(room.id);
+          room.gameState.phase = 'FINISHED';
+          room.gameState.winnerUserId = winner.userId;
+          room.gameState.winnerDisplayName = winner.displayName;
+          room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+          this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
         }
       }
     }
@@ -881,7 +1165,15 @@ export class GameRoomManager {
             room.gameState.winnerUserId = winner.userId;
             room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
             this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
+          } else if (room.gameType === 'bingo' && room.gameState) {
+            this.stopBingoAutoCall(room.id);
+            room.gameState.phase = 'FINISHED';
+            room.gameState.winnerUserId = winner.userId;
+            room.gameState.winnerDisplayName = winner.displayName;
+            room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+            this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
           }
+
 
           this.broadcast(room.id, {
             type: 'game:player_left',

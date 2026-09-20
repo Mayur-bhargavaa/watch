@@ -137,6 +137,9 @@ export function useGameRoom(roomCode: string | null) {
   const [lastTokenMove, setLastTokenMove] = useState<TokenMovedEvent | null>(null);
   const [lastDiscDrop, setLastDiscDrop] = useState<DiscDropEvent | null>(null);
   const [lastTicTacToeMove, setLastTicTacToeMove] = useState<TicTacToeCellMarkEvent | null>(null);
+  const [lastBingoCall, setLastBingoCall] = useState<any | null>(null);
+  const [lastBingoClaimResult, setLastBingoClaimResult] = useState<any | null>(null);
+  const [lastBingoConditionWon, setLastBingoConditionWon] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<{
     userId: string;
@@ -603,6 +606,66 @@ export function useGameRoom(roomCode: string | null) {
         break;
       }
 
+      case 'game:lobby_ready': {
+        const { room: readyRoom } = msg.payload || {};
+        if (readyRoom) {
+          setRoom(readyRoom);
+        }
+        break;
+      }
+
+      case 'bingo:number_called': {
+        const { number, word, calledNumbers, remainingCount, gameState: nextState } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        setLastBingoCall({
+          number,
+          word,
+          calledNumbers,
+          remainingCount,
+          timestamp: Date.now()
+        });
+        break;
+      }
+
+      case 'bingo:claim_result': {
+        const result = msg.payload;
+        if (result?.gameState) setGameState(result.gameState);
+        setLastBingoClaimResult({
+          ...result,
+          timestamp: Date.now()
+        });
+        break;
+      }
+
+      case 'bingo:condition_won': {
+        const { condition, conditionName, userId, displayName, points, scores, gameState: nextState, isGameOver } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        setLastBingoConditionWon({
+          condition,
+          conditionName,
+          userId,
+          displayName,
+          points,
+          scores,
+          isGameOver,
+          timestamp: Date.now()
+        });
+        break;
+      }
+
+      case 'bingo:game_over': {
+        const { winnerUserId, winnerDisplayName, scores, summary, gameState: nextState } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        setRoom(prev => prev ? { ...prev, status: 'FINISHED', gameState: nextState || prev.gameState } : prev);
+        break;
+      }
+
+      case 'bingo:config_updated': {
+        const { config } = msg.payload || {};
+        setGameState((prev: any) => prev ? { ...prev, config } : prev);
+        break;
+      }
+
       case 'game:chat_message': {
         const chat = msg.payload;
         if (!chat) break;
@@ -882,6 +945,56 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const startBingoGame = useCallback((config?: any) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:start',
+        payload: { config }
+      })
+    );
+  }, []);
+
+  const callNextBingoNumber = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:call_next',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const claimBingo = useCallback((condition: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:claim',
+        payload: { condition }
+      })
+    );
+  }, []);
+
+  const markBingoNumber = useCallback((number: number) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:mark',
+        payload: { number }
+      })
+    );
+  }, []);
+
+  const updateBingoConfig = useCallback((config: any) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:config_update',
+        payload: { config }
+      })
+    );
+  }, []);
+
   // Periodic cleanup of stale typing indicators (> 3.5s)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -916,6 +1029,9 @@ export function useGameRoom(roomCode: string | null) {
     lastTokenMove,
     lastDiscDrop,
     lastTicTacToeMove,
+    lastBingoCall,
+    lastBingoClaimResult,
+    lastBingoConditionWon,
     chatMessages,
     typingUsers,
     floatingReactions,
@@ -930,6 +1046,11 @@ export function useGameRoom(roomCode: string | null) {
     moveToken,
     dropDisc,
     makeTicTacToeMove,
+    startBingoGame,
+    callNextBingoNumber,
+    claimBingo,
+    markBingoNumber,
+    updateBingoConfig,
     sendChat,
     sendReaction,
     sendNudge,

@@ -64,6 +64,20 @@ const GAMES_CATALOG: GameItem[] = [
     description: 'Roll dice, capture opponent tokens, and race home with friends in real-time with zero bots and live floating video call.'
   },
   {
+    id: 'bingo',
+    title: 'BINGO DUEL',
+    subtext: 'Classic Tambola & 75-Ball Duel',
+    badge: '🔥 Live 2-Player',
+    badgeColor: 'bg-gradient-to-r from-rose-600 via-[#ee1d49] to-pink-600 text-white shadow-lg shadow-rose-600/30',
+    category: 'Tambola / Housie',
+    players: '2 Players',
+    icon: '🎱',
+    route: '/games/bingo',
+    featured: true,
+    artwork: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&h=400&fit=crop&q=80',
+    description: 'Private 2-player real-time Tambola & 75-ball Bingo. Unique tickets, auto/manual calling, custom patterns, and instant win validation.'
+  },
+  {
     id: 'four-in-a-row',
     title: 'FOUR IN A ROW',
     subtext: 'Vertical Disc Duel & Live Reactions',

@@ -52,5 +52,17 @@ export const GAME_DEFINITIONS: Record<string, GameDefinition> = {
     colorAssignments: {
       2: ['red', 'blue']
     }
+  },
+  bingo: {
+    id: 'bingo',
+    name: 'Bingo Duel',
+    minPlayers: 2,
+    maxPlayers: 2,
+    playerOptions: [2],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'blue']
+    }
   }
 };

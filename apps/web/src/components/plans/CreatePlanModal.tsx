@@ -93,6 +93,13 @@ const GAME_CATALOG = [
     icon: '❌',
     players: '2 Players',
     url: '/games/tic-tac-toe'
+  },
+  {
+    gameId: 'bingo',
+    title: 'Bingo Duel',
+    icon: '🎱',
+    players: '2 Players',
+    url: '/games/bingo'
   }
 ];
 
@@ -575,7 +582,7 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                   + Add Game or Hangout:
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   <button
                     type="button"
                     onClick={() => handleAddGameActivity(GAME_CATALOG[0])}
@@ -583,6 +590,15 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
                   >
                     <Gamepad2 className="w-4 h-4 text-violet-400" />
                     <span>🎲 Ludo Party</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAddGameActivity(GAME_CATALOG[3])}
+                    className="p-3 rounded-xl bg-white dark:bg-white/10 text-left border border-slate-200 dark:border-white/10 hover:border-rose-500 transition text-xs font-bold flex items-center gap-2"
+                  >
+                    <Gamepad2 className="w-4 h-4 text-rose-400" />
+                    <span>🎱 Bingo Duel</span>
                   </button>
 
                   <button
