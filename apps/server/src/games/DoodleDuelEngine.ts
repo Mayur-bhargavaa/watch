@@ -291,7 +291,11 @@ export class DoodleDuelEngine {
     const choices = this.getWordChoices(state.config, usedWords);
 
     state.phase = 'WORD_CHOICE';
-    state.wordChoices = choices.map(c => `${c.emoji} ${c.word}`);
+    state.wordChoices = choices.map(c => ({
+      word: `${c.emoji} ${c.word}`,
+      category: c.category,
+      difficulty: c.difficulty
+    }));
     state.timeRemaining = 15; // 15 seconds to pick word
     state.statusMessage = 'Drawer is choosing a secret word...';
 
@@ -475,9 +479,14 @@ export class DoodleDuelEngine {
     const nextRound = state.round + 1;
     const nextDrawerId = state.guesserUserId;
     const nextGuesserId = state.drawerUserId;
+    const nextDrawerName = state.guesserDisplayName;
+    const nextGuesserName = state.drawerDisplayName;
 
     state.round = nextRound;
-    return this.startRoundIntro(state, nextDrawerId, nextGuesserId);
+    this.startRoundIntro(state, nextDrawerId, nextGuesserId);
+    state.drawerDisplayName = nextDrawerName;
+    state.guesserDisplayName = nextGuesserName;
+    return state;
   }
 
   /**

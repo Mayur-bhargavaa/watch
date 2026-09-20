@@ -25,6 +25,24 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
 }) => {
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / totalTime) * 100));
 
+  const normalizedChoices = (wordChoices || []).map((choice: any) => {
+    if (typeof choice === 'string') {
+      const raw = choice.replace(/^[^\w\s]+\s*/, '').trim();
+      return {
+        word: choice,
+        rawWord: raw || choice,
+        category: 'Word',
+        difficulty: 'easy' as const
+      };
+    }
+    return {
+      word: choice.word || '',
+      rawWord: (choice.word || '').replace(/^[^\w\s]+\s*/, '').trim(),
+      category: choice.category || 'General',
+      difficulty: choice.difficulty || 'easy'
+    };
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg rounded-3xl bg-[#0f1424] border border-white/10 shadow-2xl p-6 sm:p-8 flex flex-col items-center text-center overflow-hidden">
@@ -61,7 +79,7 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
 
             {/* Word Choices */}
             <div className="w-full flex flex-col gap-3">
-              {wordChoices.map((choice, idx) => {
+              {normalizedChoices.map((choice, idx) => {
                 const difficultyColors: Record<string, string> = {
                   easy: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
                   medium: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
@@ -71,10 +89,10 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
 
                 return (
                   <button
-                    key={choice.word}
+                    key={`${choice.word}_${idx}`}
                     type="button"
-                    onClick={() => onChooseWord(choice.word)}
-                    className="group relative w-full flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-rose-500/50 transition-all transform hover:-translate-y-0.5 active:scale-[0.98] text-left shadow-lg"
+                    onClick={() => onChooseWord(choice.rawWord || choice.word)}
+                    className="group relative w-full flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-rose-500/50 transition-all transform hover:-translate-y-0.5 active:scale-[0.98] text-left shadow-lg cursor-pointer"
                   >
                     <div className="flex flex-col gap-0.5">
                       <span className="text-lg font-black text-white group-hover:text-rose-400 transition-colors">

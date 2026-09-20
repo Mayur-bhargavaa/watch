@@ -224,6 +224,25 @@ export class GameRoomManager {
     // Check if room is now full of real human players
     if (room.players.length === room.maxPlayers) {
       if (room.gameType === 'bingo' || room.gameType === 'doodle-duel') {
+        if (room.gameType === 'doodle-duel' && !room.gameState) {
+          const playerConfigs = room.players.map(p => ({
+            userId: p.userId,
+            displayName: p.displayName,
+            seat: p.seat,
+            color: colors && colors[p.seat] ? colors[p.seat] : p.color
+          }));
+          const config = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
+          room.gameState = DoodleDuelEngine.createInitialState(playerConfigs, config);
+          const p1 = room.players[0];
+          const p2 = room.players[1];
+          if (p1 && p2) {
+            room.gameState.drawerUserId = p1.userId;
+            room.gameState.drawerDisplayName = p1.displayName;
+            room.gameState.guesserUserId = p2.userId;
+            room.gameState.guesserDisplayName = p2.displayName;
+          }
+          this.db.updateGameRoomState(room.id, room.gameState);
+        }
         this.broadcast(room.id, {
           type: 'game:lobby_ready',
           roomId: room.id,
@@ -840,7 +859,16 @@ export class GameRoomManager {
     if (!room || !room.gameState) return;
 
     const fullState = room.gameState;
+    fullState.currentRound = fullState.round;
+    fullState.timeLeftSeconds = fullState.timeRemaining;
+    fullState.category = fullState.secretWordCategory;
+    fullState.currentGuesses = fullState.guesses;
+
     const sanitizedState = DoodleDuelEngine.sanitizeStateForGuesser(fullState);
+    sanitizedState.currentRound = fullState.round;
+    sanitizedState.timeLeftSeconds = fullState.timeRemaining;
+    sanitizedState.category = fullState.secretWordCategory;
+    sanitizedState.currentGuesses = fullState.guesses;
 
     const clients = this.roomClients.get(roomId);
     if (!clients) return;
@@ -865,7 +893,24 @@ export class GameRoomManager {
 
   public handleDoodleSelectRole(roomId: string, userId: string, drawerUserIdOrRole: any): void {
     const room = this.db.getGameRoomById(roomId);
-    if (!room || !room.gameState) return;
+    if (!room) return;
+
+    if (!room.gameState) {
+      const def = GAME_DEFINITIONS[room.gameType];
+      const colors = def?.colorAssignments[room.maxPlayers];
+      const playerConfigs = room.players.map(p => ({
+        userId: p.userId,
+        displayName: p.displayName,
+        seat: p.seat,
+        color: colors && colors[p.seat] ? colors[p.seat] : p.color
+      }));
+      const config = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
+      room.gameState = DoodleDuelEngine.createInitialState(playerConfigs, config);
+    }
+
+    if (!room.gameState.roleSelections) {
+      room.gameState.roleSelections = {};
+    }
 
     // Support both direct drawerUserId or role string
     if (typeof drawerUserIdOrRole === 'string') {
@@ -874,9 +919,14 @@ export class GameRoomManager {
       } else {
         // drawerUserId passed directly
         const targetDrawerId = drawerUserIdOrRole;
+        const targetDrawerPlayer = room.players.find(p => p.userId === targetDrawerId);
         const otherPlayer = room.players.find(p => p.userId !== targetDrawerId);
         room.gameState.drawerUserId = targetDrawerId;
-        room.gameState.guesserUserId = otherPlayer ? otherPlayer.userId : (room.players[0]?.userId === targetDrawerId ? room.players[1]?.userId : room.players[0]?.userId);
+        room.gameState.drawerDisplayName = targetDrawerPlayer?.displayName || 'Drawer';
+        if (otherPlayer) {
+          room.gameState.guesserUserId = otherPlayer.userId;
+          room.gameState.guesserDisplayName = otherPlayer.displayName || 'Guesser';
+        }
         room.gameState.roleSelections[targetDrawerId] = 'drawer';
         if (otherPlayer) {
           room.gameState.roleSelections[otherPlayer.userId] = 'guesser';
@@ -901,13 +951,9 @@ export class GameRoomManager {
 
   public handleDoodleStart(roomId: string, userId: string, config?: Partial<DoodleConfig>): void {
     const room = this.db.getGameRoomById(roomId);
-    if (!room || !room.gameState) return;
+    if (!room) return;
     if (room.hostUserId !== userId) {
       throw new Error('Only the host can start Doodle Duel');
-    }
-
-    if (config) {
-      room.gameState.config = { ...room.gameState.config, ...config };
     }
 
     const players = room.players;
@@ -915,9 +961,35 @@ export class GameRoomManager {
       throw new Error('Need 2 players to start Doodle Duel');
     }
 
+    const def = GAME_DEFINITIONS[room.gameType];
+    const colors = def?.colorAssignments[room.maxPlayers];
+    const playerConfigs = room.players.map(p => {
+      const assignedColor = colors && colors[p.seat] ? colors[p.seat] : p.color;
+      p.color = assignedColor;
+      return {
+        userId: p.userId,
+        displayName: p.displayName,
+        seat: p.seat,
+        color: assignedColor
+      };
+    });
+
+    const activeConfig: DoodleConfig = {
+      ...DEFAULT_DOODLE_CONFIG,
+      ...((room as any).doodleConfig || {}),
+      ...(config || {})
+    };
+
+    if (!room.gameState) {
+      this.stopDoodleTimer(room.id);
+      room.gameState = DoodleDuelEngine.createInitialState(playerConfigs, activeConfig);
+    } else {
+      room.gameState.config = { ...room.gameState.config, ...activeConfig };
+    }
+
     const p1 = players[0].userId;
     const p2 = players[1].userId;
-    const roles = room.gameState.roleSelections;
+    const roles = room.gameState.roleSelections || {};
 
     let drawerId = room.gameState.drawerUserId || p1;
     let guesserId = room.gameState.guesserUserId || (drawerId === p1 ? p2 : p1);
@@ -930,11 +1002,20 @@ export class GameRoomManager {
       guesserId = p2;
     }
 
+    const drawerPlayer = players.find(p => p.userId === drawerId) || players[0];
+    const guesserPlayer = players.find(p => p.userId === guesserId) || players[1];
+
     room.status = 'PLAYING';
     const now = new Date().toISOString();
+    room.startedAt = now;
     this.db.updateGameRoomStatus(room.id, 'PLAYING', now);
 
-    DoodleDuelEngine.startRoundIntro(room.gameState, drawerId, guesserId);
+    DoodleDuelEngine.startRoundIntro(room.gameState, drawerPlayer.userId, guesserPlayer.userId);
+    room.gameState.drawerDisplayName = drawerPlayer.displayName;
+    room.gameState.guesserDisplayName = guesserPlayer.displayName;
+    room.gameState.currentRound = room.gameState.round;
+    room.gameState.timeLeftSeconds = room.gameState.timeRemaining;
+
     this.db.updateGameRoomState(room.id, room.gameState);
 
     // Broadcast authoritative game:started event
