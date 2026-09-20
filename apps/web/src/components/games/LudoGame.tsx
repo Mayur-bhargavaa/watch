@@ -21,7 +21,7 @@ import {
   LudoColor,
   LudoToken
 } from '@synccinema/common';
-import { FloatingReaction } from '../../hooks/useGameRoom';
+import { FloatingReaction, TokenMovedEvent } from '../../hooks/useGameRoom';
 import { VideoGridParticipant } from '../../hooks/useWebRTC';
 
 // Live Circular Video Feed for In-Call Avatars
@@ -119,6 +119,7 @@ export interface LudoGameProps {
     hasLegalMoves?: boolean;
     earnedBonusRoll?: boolean;
   } | null;
+  lastTokenMove?: TokenMovedEvent | null;
 }
 
 // Color starting tile indices on the common 52-tile ring
@@ -413,7 +414,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   isMicMuted = true,
   isCompact = false,
   onNudgePlayer,
-  lastDiceRoll = null
+  lastDiceRoll = null,
+  lastTokenMove = null
 }) => {
   // Web Audio sound synthesizer for realistic board feel
   const playSound = (type: 'roll' | 'step' | 'move' | 'capture' | 'win' | 'nudge') => {
@@ -487,6 +489,41 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
   // Visual feedback when sender taps nudge
   const [justNudged, setJustNudged] = useState(false);
+
+  // Home celebration banner (confetti/poppers for winner of goti, playful tease for opponent)
+  const [homeReachedBanner, setHomeReachedBanner] = useState<{
+    color: LudoColor;
+    isMe: boolean;
+    playerName: string;
+  } | null>(null);
+
+  // Capture impact animation (burst slash/stars on tile)
+  const [captureEffect, setCaptureEffect] = useState<{
+    x: number;
+    y: number;
+    color: LudoColor;
+  } | null>(null);
+
+  // Victim pawn held on tile while attacker goti is hopping towards it
+  const [heldVictimPawn, setHeldVictimPawn] = useState<{
+    color: LudoColor;
+    tokenId: number;
+    step: number;
+  } | null>(null);
+  const pendingCaptureRef = useRef<{
+    color: LudoColor;
+    tokenId: number;
+    step: number;
+  } | null>(null);
+
+  // Initial mount ref to prevent refresh dice animation/sound
+  const isInitialMountRef = useRef<boolean>(true);
+
+  // Ref to always have latest onMoveToken without resetting autoMove timer
+  const onMoveTokenRef = useRef(onMoveToken);
+  useEffect(() => {
+    onMoveTokenRef.current = onMoveToken;
+  }, [onMoveToken]);
 
   // Bottom interactive dice states for zero-latency feedback & 3D spin
   const [isRollingDice, setIsRollingDice] = useState(false);
@@ -595,48 +632,58 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     };
   }, []);
 
-  // Single-pawn auto-move: If only 1 goti is legal, move automatically after dice settle
-  // If 2 or more, player will be prompted to choose
+  // Single-pawn auto-move: If only 1 goti is legal, move automatically after dice settle (850ms)
+  // Fix Bug 5: Depend on primitive singleLegalTokenId so harmless component re-renders do NOT abort timer!
+  const singleLegalTokenId = (isMyTurn && !canRoll && gameState.diceValue !== null && !gameState.winnerColor && legalMoves.length === 1)
+    ? legalMoves[0]
+    : null;
+
   const autoMoveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastHandledRollKeyRef = useRef<string | null>(null);
+  const activeAutoMoveKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isMyTurn || canRoll || gameState.diceValue === null || gameState.winnerColor) {
+    if (singleLegalTokenId === null) {
       if (autoMoveTimerRef.current) {
         clearTimeout(autoMoveTimerRef.current);
         autoMoveTimerRef.current = null;
       }
+      activeAutoMoveKeyRef.current = null;
       return;
     }
 
-    const rollKey = `${gameState.currentTurnColor}_${gameState.diceValue}_${legalMoves.join(',')}`;
-
-    if (legalMoves.length === 1) {
-      if (lastHandledRollKeyRef.current !== rollKey) {
-        lastHandledRollKeyRef.current = rollKey;
-        const targetTokenId = legalMoves[0];
-
-        if (autoMoveTimerRef.current) clearTimeout(autoMoveTimerRef.current);
-        // Wait 850ms so dice roll settles smoothly, then automatically move the single legal goti
-        autoMoveTimerRef.current = setTimeout(() => {
-          hideCenterDice();
-          onMoveToken(targetTokenId);
-        }, 850);
-      }
-    } else {
-      if (autoMoveTimerRef.current) {
-        clearTimeout(autoMoveTimerRef.current);
-        autoMoveTimerRef.current = null;
-      }
+    const currentKey = `${gameState.currentTurnColor}_${gameState.diceValue}_${singleLegalTokenId}_${lastDiceRoll?.rollId || ''}`;
+    if (activeAutoMoveKeyRef.current === currentKey) {
+      return;
     }
 
+    activeAutoMoveKeyRef.current = currentKey;
+    if (autoMoveTimerRef.current) {
+      clearTimeout(autoMoveTimerRef.current);
+      autoMoveTimerRef.current = null;
+    }
+
+    autoMoveTimerRef.current = setTimeout(() => {
+      hideCenterDice();
+      onMoveTokenRef.current(singleLegalTokenId);
+      autoMoveTimerRef.current = null;
+    }, 850);
+  }, [singleLegalTokenId, gameState.currentTurnColor, gameState.diceValue, lastDiceRoll?.rollId]);
+
+  useEffect(() => {
     return () => {
       if (autoMoveTimerRef.current) {
         clearTimeout(autoMoveTimerRef.current);
         autoMoveTimerRef.current = null;
       }
     };
-  }, [isMyTurn, canRoll, legalMoves, gameState.diceValue, gameState.currentTurnColor, gameState.winnerColor, onMoveToken]);
+  }, []);
+
+  // Keep bottom interactive dice display strictly locked to authoritative server diceValue (Fix Bug 4)
+  useEffect(() => {
+    if (gameState.diceValue !== null && !isRollingDice) {
+      setBottomDiceDisplay(gameState.diceValue);
+    }
+  }, [gameState.diceValue, isRollingDice]);
 
   // Clean animation timeout manager to avoid stutter or overlapping frames
   const animTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
@@ -655,10 +702,34 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     // Unique roll identifier: prefers rollId or timestamp from lastDiceRoll; falls back to turn + value combo
     const currentRollKey = lastDiceRoll?.rollId || 
       (lastDiceRoll?.timestamp ? `roll_${lastDiceRoll.timestamp}` : null) ||
-      (gameState.diceValue !== null ? `legacy_${gameState.currentTurnColor}_${gameState.diceValue}_${Date.now()}` : null);
+      (gameState.diceValue !== null ? `legacy_${gameState.currentTurnColor}_${gameState.diceValue}` : null);
 
     if (gameState.diceValue !== null) {
-      // Check if this roll has already been handled
+      // Refresh Bug 3: On initial page mount, if dice is already rolled, render statically without animation/sound
+      if (isInitialMountRef.current) {
+        isInitialMountRef.current = false;
+        if (currentRollKey) {
+          prevHandledRollKeyRef.current = currentRollKey;
+        }
+        prevDiceValueRef.current = gameState.diceValue;
+        if (bottomDiceCycleRef.current) {
+          clearInterval(bottomDiceCycleRef.current);
+          bottomDiceCycleRef.current = null;
+        }
+        setBottomDiceDisplay(gameState.diceValue);
+        setIsRollingDice(false);
+        return;
+      }
+
+      // Always stop bottom dice cycle and synchronize bottom display to server value immediately
+      if (bottomDiceCycleRef.current) {
+        clearInterval(bottomDiceCycleRef.current);
+        bottomDiceCycleRef.current = null;
+      }
+      setBottomDiceDisplay(gameState.diceValue);
+      setIsRollingDice(false);
+
+      // Check if this roll has already been animated in center
       if (currentRollKey && prevHandledRollKeyRef.current === currentRollKey) {
         return;
       }
@@ -669,14 +740,6 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
       const finalVal = gameState.diceValue;
       const turnColor = gameState.currentTurnColor;
-
-      // Stop optimistic bottom dice rolling cycle and lock to the server value
-      if (bottomDiceCycleRef.current) {
-        clearInterval(bottomDiceCycleRef.current);
-        bottomDiceCycleRef.current = null;
-      }
-      setBottomDiceDisplay(finalVal);
-      setIsRollingDice(false);
 
       clearDiceTimeouts();
       playSound('roll');
@@ -718,6 +781,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         clearDiceTimeouts();
       };
     } else if (gameState.diceValue === null) {
+      isInitialMountRef.current = false;
       prevDiceValueRef.current = null;
       prevHandledRollKeyRef.current = null;
       hideCenterDice();
@@ -761,31 +825,90 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     prevTokensRef.current = gameState.tokens;
 
     const colors: LudoColor[] = ['red', 'green', 'yellow', 'blue'];
-    let movedPawnInfo: { color: LudoColor; tokenId: number; fromStep: number; toStep: number } | null = null;
+    let moverInfo: { color: LudoColor; tokenId: number; fromStep: number; toStep: number } | null = null;
+    let victimInfo: { color: LudoColor; tokenId: number; step: number } | null = null;
 
-    for (const col of colors) {
-      const prevList = prevTokens[col] || [];
-      const currentList = gameState.tokens[col] || [];
-
-      for (const cur of currentList) {
-        const prev = prevList.find(p => p.id === cur.id);
-        if (prev && prev.step !== cur.step) {
-          movedPawnInfo = {
-            color: col,
-            tokenId: cur.id,
-            fromStep: prev.step,
-            toStep: cur.step
+    // Check lastTokenMove first if available
+    if (lastTokenMove) {
+      const pList = prevTokens[lastTokenMove.color] || [];
+      const prevMover = pList.find(p => p.id === lastTokenMove.tokenId);
+      const cList = gameState.tokens[lastTokenMove.color] || [];
+      const curMover = cList.find(p => p.id === lastTokenMove.tokenId);
+      if (prevMover && curMover && prevMover.step !== curMover.step) {
+        moverInfo = {
+          color: lastTokenMove.color,
+          tokenId: lastTokenMove.tokenId,
+          fromStep: prevMover.step,
+          toStep: curMover.step
+        };
+      }
+      if (lastTokenMove.capturedToken) {
+        const vList = prevTokens[lastTokenMove.capturedToken.color] || [];
+        const prevVictim = vList.find(p => p.id === lastTokenMove.capturedToken!.tokenId);
+        if (prevVictim && prevVictim.step >= 0) {
+          victimInfo = {
+            color: lastTokenMove.capturedToken.color,
+            tokenId: lastTokenMove.capturedToken.tokenId,
+            step: prevVictim.step
           };
-          break;
         }
       }
-      if (movedPawnInfo) break;
     }
 
-    if (!movedPawnInfo) return;
+    // Fallback mover detection if lastTokenMove wasn't supplied or moverInfo not found
+    if (!moverInfo) {
+      for (const col of colors) {
+        const prevList = prevTokens[col] || [];
+        const curList = gameState.tokens[col] || [];
+        for (const cur of curList) {
+          const prev = prevList.find(p => p.id === cur.id);
+          if (prev && (cur.step > prev.step || (prev.step === -1 && cur.step === 0))) {
+            moverInfo = {
+              color: col,
+              tokenId: cur.id,
+              fromStep: prev.step,
+              toStep: cur.step
+            };
+            break;
+          }
+        }
+        if (moverInfo) break;
+      }
+    }
+
+    // Fallback victim detection if captured token was not explicitly listed in lastTokenMove
+    if (!victimInfo) {
+      for (const col of colors) {
+        const prevList = prevTokens[col] || [];
+        const curList = gameState.tokens[col] || [];
+        for (const cur of curList) {
+          const prev = prevList.find(p => p.id === cur.id);
+          if (prev && prev.step >= 0 && cur.step === -1) {
+            victimInfo = {
+              color: col,
+              tokenId: cur.id,
+              step: prev.step
+            };
+            break;
+          }
+        }
+        if (victimInfo) break;
+      }
+    }
+
+    if (!moverInfo) return;
 
     hideCenterDice();
-    const { color, tokenId, fromStep, toStep } = movedPawnInfo;
+    const { color, tokenId, fromStep, toStep } = moverInfo;
+
+    // Hold victim on its board tile while attacker goti is hopping towards it
+    if (victimInfo) {
+      pendingCaptureRef.current = victimInfo;
+      setHeldVictimPawn(victimInfo);
+    } else {
+      pendingCaptureRef.current = null;
+      setHeldVictimPawn(null);
+    }
 
     // Case 1: Spawning from yard to start
     if (fromStep === -1 && toStep === 0) {
@@ -841,6 +964,45 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             isHopArc: false
           });
 
+          // AT THE EXACT MOMENT THE ATTACKER GOTI LANDS ON THE FINAL STEP:
+          if (isFinalStep) {
+            // 1. Capture / Cut animation with sound precisely when opponent goti reaches victim's place
+            if (pendingCaptureRef.current) {
+              playSound('capture');
+              const [cx, cy] = getStepCoordinates(color, nextStep, tokenId);
+              setCaptureEffect({ x: cx, y: cy, color });
+              const effectTimeout = setTimeout(() => {
+                setCaptureEffect(null);
+              }, 750);
+              animTimeoutsRef.current.push(effectTimeout);
+
+              // After 240ms of dramatic slash impact, release victim pawn back to yard
+              const releaseTimeout = setTimeout(() => {
+                setHeldVictimPawn(null);
+                pendingCaptureRef.current = null;
+              }, 240);
+              animTimeoutsRef.current.push(releaseTimeout);
+            }
+
+            // 2. Home reached celebratory party poppers for player, or playful teaser for opponent
+            if (nextStep === 56 || lastTokenMove?.reachedHome) {
+              const moverIsMe = (color === myColor);
+              const moverName = playerByColor[color]?.displayName || color.toUpperCase();
+              if (moverIsMe) {
+                playSound('win');
+              }
+              setHomeReachedBanner({
+                color,
+                isMe: moverIsMe,
+                playerName: moverName
+              });
+              const homeBannerTimeout = setTimeout(() => {
+                setHomeReachedBanner(null);
+              }, 2800);
+              animTimeoutsRef.current.push(homeBannerTimeout);
+            }
+          }
+
           // Step C: STOP & PAUSE visibly on this box so player clearly sees it move one-by-one
           hopIndex++;
           const pauseTime = isFinalStep ? 360 : 250;
@@ -852,7 +1014,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
       runHop();
     }
-  }, [gameState.tokens]);
+  }, [gameState.tokens, lastTokenMove]);
 
   // Compute all rendered pawns with co-location offset (so pawns on same tile never hide each other)
   const renderedPawns = useMemo(() => {
@@ -876,7 +1038,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         const isThisTokenAnimating = Boolean(
           animatingPawn && animatingPawn.color === color && animatingPawn.tokenId === token.id
         );
-        const activeStep = isThisTokenAnimating && animatingPawn ? animatingPawn.currentStep : token.step;
+        let activeStep = isThisTokenAnimating && animatingPawn ? animatingPawn.currentStep : token.step;
+        if (heldVictimPawn && heldVictimPawn.color === color && heldVictimPawn.tokenId === token.id) {
+          activeStep = heldVictimPawn.step;
+        }
 
         rawList.push({
           token,
@@ -1342,6 +1507,43 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Home Celebration Banner: Party poppers for winner, playful teaser for opponent (Bug 2) */}
+          {homeReachedBanner && (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50 p-4 animate-in zoom-in-75 fade-in duration-200">
+              {homeReachedBanner.isMe ? (
+                <div className="relative flex flex-col items-center justify-center px-6 py-4 rounded-3xl bg-gradient-to-br from-amber-500/95 via-yellow-600/95 to-amber-700/95 border-2 border-yellow-200 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_35px_rgba(245,158,11,0.6)] text-center text-white backdrop-blur-md max-w-xs animate-bounce">
+                  <div className="absolute -top-3 -left-3 text-2xl animate-pulse">🎉</div>
+                  <div className="absolute -top-3 -right-3 text-2xl animate-pulse">✨</div>
+                  <div className="absolute -bottom-2 -left-2 text-2xl animate-pulse">🚀</div>
+                  <div className="absolute -bottom-2 -right-2 text-2xl animate-pulse">🎊</div>
+
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner mb-2">
+                    <Sparkles className="w-7 h-7 text-yellow-100 fill-current animate-spin" style={{ animationDuration: '3s' }} />
+                  </div>
+                  <span className="text-sm font-black tracking-widest uppercase text-yellow-100 drop-shadow">
+                    GOTI REACHED HOME!
+                  </span>
+                  <span className="text-xs font-bold text-white/95 mt-0.5">
+                    🎉 +1 Bonus Roll Awarded!
+                  </span>
+                </div>
+              ) : (
+                <div className="relative flex flex-col items-center justify-center px-6 py-4 rounded-3xl bg-gradient-to-br from-slate-900/95 via-red-950/95 to-slate-900/95 border-2 border-red-500/60 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(239,68,68,0.35)] text-center text-white backdrop-blur-md max-w-xs animate-pulse">
+                  <div className="absolute -top-3 -right-2 text-2xl">🥲</div>
+                  <div className="absolute -bottom-2 -left-2 text-2xl">👀</div>
+
+                  <div className="text-3xl mb-1">🥲</div>
+                  <span className="text-xs sm:text-sm font-black tracking-wider uppercase text-red-300 drop-shadow">
+                    OUCH! {homeReachedBanner.playerName} REACHED HOME!
+                  </span>
+                  <span className="text-[11px] sm:text-xs font-semibold text-slate-300 mt-1">
+                    Stay alert — don&apos;t let them win!
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -2365,7 +2567,57 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   </g>
                 );
               })}
-              {/* 6. DEBUG GRID & PAWN ALIGNMENT CROSSHAIRS OVERLAY */}
+              {/* 6. CAPTURE / CUT IMPACT SLASH & SHOCKWAVE EFFECT (Bug 1) */}
+              {captureEffect && (
+                <g
+                  transform={`translate(${captureEffect.x}, ${captureEffect.y})`}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {/* Outer Shockwave Circle 1 */}
+                  <circle cx={0} cy={0} r={10} fill="none" stroke="#ef4444" strokeWidth="4" opacity="0.95">
+                    <animate attributeName="r" values="8;36" dur="0.55s" fill="freeze" />
+                    <animate attributeName="opacity" values="0.95;0" dur="0.55s" fill="freeze" />
+                    <animate attributeName="stroke-width" values="4;1" dur="0.55s" fill="freeze" />
+                  </circle>
+                  {/* Inner Shockwave Circle 2 (Gold ring) */}
+                  <circle cx={0} cy={0} r={6} fill="none" stroke="#fbbf24" strokeWidth="3" opacity="0.9">
+                    <animate attributeName="r" values="5;26" dur="0.45s" fill="freeze" />
+                    <animate attributeName="opacity" values="0.9;0" dur="0.45s" fill="freeze" />
+                  </circle>
+                  {/* Slash 1: Diagonal slash from top-left to bottom-right */}
+                  <line x1="-24" y1="-24" x2="24" y2="24" stroke="#ffffff" strokeWidth="5" strokeLinecap="round">
+                    <animate attributeName="stroke-dasharray" values="0,70; 70,0" dur="0.22s" fill="freeze" />
+                    <animate attributeName="opacity" values="1; 1; 0" dur="0.5s" fill="freeze" />
+                  </line>
+                  <line x1="-24" y1="-24" x2="24" y2="24" stroke="#ef4444" strokeWidth="3" strokeLinecap="round">
+                    <animate attributeName="stroke-dasharray" values="0,70; 70,0" dur="0.22s" fill="freeze" />
+                    <animate attributeName="opacity" values="1; 1; 0" dur="0.5s" fill="freeze" />
+                  </line>
+                  {/* Slash 2: Counter-diagonal slash from bottom-left to top-right */}
+                  <line x1="-24" y1="24" x2="24" y2="-24" stroke="#ffffff" strokeWidth="5" strokeLinecap="round">
+                    <animate attributeName="stroke-dasharray" values="0,70; 70,0" dur="0.22s" fill="freeze" />
+                    <animate attributeName="opacity" values="1; 1; 0" dur="0.5s" fill="freeze" />
+                  </line>
+                  <line x1="-24" y1="24" x2="24" y2="-24" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round">
+                    <animate attributeName="stroke-dasharray" values="0,70; 70,0" dur="0.22s" fill="freeze" />
+                    <animate attributeName="opacity" values="1; 1; 0" dur="0.5s" fill="freeze" />
+                  </line>
+                  {/* 4 Energy sparks exploding outward */}
+                  {[-1, 1].map(sx => [-1, 1].map(sy => (
+                    <circle key={`spark-${sx}-${sy}`} cx={sx * 6} cy={sy * 6} r="3" fill="#fef08a">
+                      <animate attributeName="cx" values={`${sx * 6};${sx * 28}`} dur="0.45s" fill="freeze" />
+                      <animate attributeName="cy" values={`${sy * 6};${sy * 28}`} dur="0.45s" fill="freeze" />
+                      <animate attributeName="opacity" values="1;0" dur="0.45s" fill="freeze" />
+                    </circle>
+                  )))}
+                  {/* Central Radiant Flash */}
+                  <circle cx={0} cy={0} r={14} fill="#ffffff">
+                    <animate attributeName="r" values="4;20;0" dur="0.28s" fill="freeze" />
+                    <animate attributeName="opacity" values="1;0.9;0" dur="0.28s" fill="freeze" />
+                  </circle>
+                </g>
+              )}
+              {/* 7. DEBUG GRID & PAWN ALIGNMENT CROSSHAIRS OVERLAY */}
               </g>
             </svg>
 
@@ -2412,6 +2664,18 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   bottomDiceCycleRef.current = setInterval(() => {
                     setBottomDiceDisplay(Math.floor(Math.random() * 6) + 1);
                   }, 55);
+
+                  // Safety timeout so dice never gets stuck rolling if network stalls
+                  setTimeout(() => {
+                    if (bottomDiceCycleRef.current) {
+                      clearInterval(bottomDiceCycleRef.current);
+                      bottomDiceCycleRef.current = null;
+                    }
+                    setIsRollingDice(false);
+                    if (gameState.diceValue !== null) {
+                      setBottomDiceDisplay(gameState.diceValue);
+                    }
+                  }, 1200);
 
                   // 2. Dispatch network event immediately
                   onRollDice();

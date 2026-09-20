@@ -371,6 +371,7 @@ function LudoPageContent() {
     canMove,
     legalMoves,
     lastDiceRoll,
+    lastTokenMove,
     chatMessages,
     floatingReactions,
     connectionStatus,
@@ -1753,6 +1754,7 @@ function LudoPageContent() {
                 isCameraOn={isCameraOn}
                 isMicMuted={isMicMuted}
                 lastDiceRoll={lastDiceRoll}
+                lastTokenMove={lastTokenMove}
               />
             </div>
 

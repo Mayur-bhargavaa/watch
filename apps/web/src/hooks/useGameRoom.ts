@@ -39,6 +39,21 @@ export interface DiceRollEvent {
   earnedBonusRoll: boolean;
 }
 
+export interface TokenMovedEvent {
+  moveId?: string;
+  timestamp?: number;
+  seat: number;
+  color: LudoColor;
+  displayName: string;
+  tokenId: number;
+  capturedToken?: { color: LudoColor; tokenId: number };
+  reachedHome?: boolean;
+  earnedBonusRoll: boolean;
+  isWinner: boolean;
+  winnerColor?: string | null;
+  winnerUserId?: string | null;
+}
+
 export interface DiscDropEvent {
   seat: number;
   color: string;
@@ -119,6 +134,7 @@ export function useGameRoom(roomCode: string | null) {
   const [typingUsers, setTypingUsers] = useState<Record<string, { userName: string; timestamp: number }>>({});
   const [floatingReactions, setFloatingReactions] = useState<FloatingReaction[]>([]);
   const [lastDiceRoll, setLastDiceRoll] = useState<DiceRollEvent | null>(null);
+  const [lastTokenMove, setLastTokenMove] = useState<TokenMovedEvent | null>(null);
   const [lastDiscDrop, setLastDiscDrop] = useState<DiscDropEvent | null>(null);
   const [lastTicTacToeMove, setLastTicTacToeMove] = useState<TicTacToeCellMarkEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -521,8 +537,36 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'game:token_moved': {
-        const { gameState: nextState } = msg.payload;
+        const {
+          moveId,
+          timestamp,
+          seat,
+          color,
+          displayName,
+          tokenId,
+          capturedToken,
+          reachedHome,
+          earnedBonusRoll,
+          isWinner,
+          winnerColor,
+          winnerUserId,
+          gameState: nextState
+        } = msg.payload;
         setGameState(nextState);
+        setLastTokenMove({
+          moveId: moveId || `move_${Date.now()}_${Math.random()}`,
+          timestamp: timestamp || Date.now(),
+          seat,
+          color,
+          displayName,
+          tokenId,
+          capturedToken,
+          reachedHome,
+          earnedBonusRoll,
+          isWinner,
+          winnerColor,
+          winnerUserId
+        });
         break;
       }
 
@@ -869,6 +913,7 @@ export function useGameRoom(roomCode: string | null) {
     canMove,
     legalMoves,
     lastDiceRoll,
+    lastTokenMove,
     lastDiscDrop,
     lastTicTacToeMove,
     chatMessages,

@@ -198,6 +198,7 @@ export class LudoEngine {
   ): {
     state: LudoGameState;
     capturedToken?: { color: LudoColor; tokenId: number };
+    reachedHome?: boolean;
     earnedBonusRoll: boolean;
     isWinner: boolean;
   } {
@@ -319,6 +320,7 @@ export class LudoEngine {
     return {
       state: updatedState,
       capturedToken,
+      reachedHome: token.step === 56,
       earnedBonusRoll,
       isWinner: !!winnerColor
     };

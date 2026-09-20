@@ -327,15 +327,19 @@ export class GameRoomManager {
       this.db.updateGameRoomState(room.id, result.state, result.state.currentTurnSeat);
     }
 
+    const moveId = `move_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.broadcast(room.id, {
       type: 'game:token_moved',
       roomId: room.id,
       payload: {
+        moveId,
+        timestamp: Date.now(),
         seat: player.seat,
         color: player.color,
         displayName: player.displayName,
         tokenId,
         capturedToken: result.capturedToken,
+        reachedHome: result.reachedHome,
         earnedBonusRoll: result.earnedBonusRoll,
         isWinner: result.isWinner,
         winnerColor: result.state.winnerColor,
