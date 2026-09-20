@@ -175,55 +175,7 @@ function BingoGameContent() {
 
   // 1. NO ROOM PARAM -> Render Lobby
   if (!roomCodeParam) {
-    return (
-      <div className="min-h-screen bg-[#080a12] text-white flex flex-col justify-between selection:bg-rose-600 selection:text-white">
-        {/* Top Minimal Bar */}
-        <header className="h-16 border-b border-white/[0.08] px-4 sm:px-8 flex items-center justify-between bg-black/40 backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => router.push('/games')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Games</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="text-base">🎱</span>
-            <span className="text-sm font-black text-white">Bingo Duel</span>
-          </div>
-          <div className="w-16" />
-        </header>
-
-        <main className="flex-1 flex flex-col items-center justify-center">
-          <BingoLobby
-            session={session}
-            onOpenFriendSelector={() => setShowFriendDrawer(true)}
-          />
-        </main>
-
-        <footer className="h-10 border-t border-white/[0.05] px-6 flex items-center justify-center text-[11px] text-zinc-500">
-          Watch Cinema Gaming Platform · Stitchbyte
-        </footer>
-
-        {/* Friend Selector Drawer */}
-        <GameFriendSelectorDrawer
-          isOpen={showFriendDrawer}
-          onClose={() => setShowFriendDrawer(false)}
-          token={session?.token}
-          gameTitle="Bingo Duel"
-          onSelectFriend={async (friend) => {
-            try {
-              const res = await createGameRoomWithPartner('bingo', friend.friendUser.id);
-              if (res?.room?.roomCode) {
-                router.push(`/games/bingo?room=${res.room.roomCode}`);
-              }
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-        />
-      </div>
-    );
+    return <BingoLobby />;
   }
 
   // 2. ROOM WAITING / READY -> Render Waiting Room
@@ -266,10 +218,10 @@ function BingoGameContent() {
   }
 
   // 3. LIVE GAME / FINISHED SCREEN
-  const currentNum = gameState?.currentNumber ?? null;
-  const currentWord = gameState?.currentNumberWord ?? null;
-  const lastCalled = gameState?.lastCalledNumbers ?? [];
-  const remaining = gameState?.callQueue?.length ?? 90;
+  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
+  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? null;
+  const lastCalled = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
+  const remaining = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 90;
 
   const myTicket = gameState?.tickets?.[me?.userId || ''] || { cells: [] };
   const opponentTicket = opponent ? gameState?.tickets?.[opponent.userId] || { cells: [] } : null;

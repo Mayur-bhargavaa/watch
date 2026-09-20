@@ -2,195 +2,162 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Palette, Brain, Users, Play, Sparkles, ArrowRight, Shield } from 'lucide-react';
-import { UserSession, createGameRoomWithPartner, joinGameRoomByCode } from '../../../lib/api';
+import { Palette, Brain, Trophy, Sparkles } from 'lucide-react';
+import { GameJoinLobby } from '../GameJoinLobby';
+import { createGameRoomWithPartner, getStoredSession } from '../../../lib/api';
 
-interface DoodlePreRoomLobbyProps {
-  session: UserSession | null;
-  onOpenFriendSelector: () => void;
-}
-
-export const DoodlePreRoomLobby: React.FC<DoodlePreRoomLobbyProps> = ({
-  session,
-  onOpenFriendSelector
-}) => {
+export const DoodlePreRoomLobby: React.FC<{
+  session?: any;
+  onOpenFriendSelector?: () => void;
+}> = () => {
   const router = useRouter();
-  const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [rounds, setRounds] = useState<number>(6);
+  const [drawTime, setDrawTime] = useState<number>(60);
 
-  const handleCreateRoom = async () => {
-    if (!session) {
+  const handleCreateCustomDoodleRoom = async () => {
+    const s = getStoredSession();
+    if (!s?.token) {
       router.push('/login');
       return;
     }
-    setIsCreating(true);
-    setError(null);
-    try {
-      const res = await createGameRoomWithPartner('doodle-duel');
-      if (res?.room?.roomCode) {
-        router.push(`/games/doodle-duel?room=${res.room.roomCode}`);
-      } else {
-        throw new Error('Failed to create game room');
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create room. Please try again.');
-      setIsCreating(false);
+    const res = await createGameRoomWithPartner('doodle-duel');
+    if (res?.room?.roomCode) {
+      router.push(`/games/doodle-duel?room=${res.room.roomCode}`);
     }
   };
 
-  const handleJoinByCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!roomCodeInput.trim()) return;
-    setIsJoining(true);
-    setError(null);
-    try {
-      let code = roomCodeInput.trim().toUpperCase();
-      if (!code.startsWith('DOODLE-') && !code.startsWith('ROOM-') && code.length <= 6) {
-        // user typed short code or full code
-      }
-      const res = await joinGameRoomByCode(code);
-      if (res?.room?.roomCode) {
-        router.push(`/games/doodle-duel?room=${res.room.roomCode}`);
-      } else {
-        throw new Error('Room not found or expired');
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Could not join room. Check code and try again.');
-      setIsJoining(false);
-    }
-  };
-
-  return (
-    <div className="w-full max-w-4xl mx-auto space-y-8 py-8 px-4 select-none">
-      {/* Hero Header */}
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-black uppercase tracking-widest shadow-[0_0_20px_rgba(244,63,94,0.2)]">
-          <Palette className="w-3.5 h-3.5" />
-          <span>DOODLE DUEL • 2 PLAYERS</span>
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight">
-          Draw Fast. Guess Faster.
-        </h1>
-        <p className="text-sm sm:text-base text-zinc-400 max-w-xl mx-auto">
-          Private 2-player real-time draw & guess showdown. Alternate drawing and guessing turns with live audio/video reactions!
-        </p>
-      </div>
-
-      {error && (
-        <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold text-center max-w-md mx-auto">
-          {error}
-        </div>
-      )}
-
-      {/* Action Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl mx-auto">
-        {/* Card 1: Create Private Duel */}
-        <div className="relative p-6 sm:p-8 rounded-3xl bg-[#111625]/90 border border-white/10 shadow-2xl flex flex-col justify-between overflow-hidden">
-          <div className="absolute -top-20 -right-20 w-44 h-44 rounded-full bg-rose-500/10 blur-2xl pointer-events-none" />
-
-          <div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white shadow-lg mb-4">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-black text-white mb-1">Create Private Duel</h3>
-            <p className="text-xs text-zinc-400 mb-6">
-              Start an instant 2-player room and invite your friend via link or partner list.
-            </p>
-          </div>
-
-          <div className="space-y-2.5">
+  const createOptions = (
+    <div className="space-y-4">
+      <div>
+        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+          Total Rounds
+        </label>
+        <div className="grid grid-cols-4 gap-2">
+          {[4, 6, 8, 10].map(r => (
             <button
+              key={r}
               type="button"
-              onClick={handleCreateRoom}
-              disabled={isCreating}
-              className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(244,63,94,0.4)] transition-all active:scale-[0.98] disabled:opacity-50"
+              onClick={() => setRounds(r)}
+              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                rounds === r
+                  ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
+                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
+              }`}
             >
-              <Play className="w-4 h-4 fill-current" />
-              <span>{isCreating ? 'Creating Match...' : 'Create Private Room'}</span>
+              {r} Rounds
             </button>
-
-            {session && (
-              <button
-                type="button"
-                onClick={onOpenFriendSelector}
-                className="w-full py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-[0.98]"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Invite from Friends</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Card 2: Join with Room Code */}
-        <div className="relative p-6 sm:p-8 rounded-3xl bg-[#111625]/90 border border-white/10 shadow-2xl flex flex-col justify-between overflow-hidden">
-          <div className="absolute -top-20 -right-20 w-44 h-44 rounded-full bg-violet-500/10 blur-2xl pointer-events-none" />
-
-          <div>
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-violet-500 to-blue-500 flex items-center justify-center text-white shadow-lg mb-4">
-              <Brain className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-black text-white mb-1">Join with Code</h3>
-            <p className="text-xs text-zinc-400 mb-6">
-              Got an invite code from your partner? Enter it below to join the duel.
-            </p>
-          </div>
-
-          <form onSubmit={handleJoinByCode} className="space-y-2.5">
-            <input
-              type="text"
-              value={roomCodeInput}
-              onChange={e => setRoomCodeInput(e.target.value.toUpperCase())}
-              placeholder="e.g. DOODLE-1234 or CODE"
-              maxLength={20}
-              className="w-full bg-white/5 border border-white/15 focus:border-violet-500 rounded-2xl px-4 py-3.5 text-center font-mono text-sm font-bold text-white placeholder-zinc-500 outline-none uppercase tracking-wider transition"
-            />
-            <button
-              type="submit"
-              disabled={!roomCodeInput.trim() || isJoining}
-              className="w-full py-3.5 px-5 rounded-2xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(139,92,246,0.3)] transition-all active:scale-[0.98]"
-            >
-              <span>{isJoining ? 'Joining...' : 'Join Duel'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
+          ))}
         </div>
       </div>
 
-      {/* Feature Highlights */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 max-w-3xl mx-auto pt-4">
-        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 shrink-0">
-            <Palette className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-white block">Auto Role Switch</span>
-            <span className="text-[10px] text-zinc-400">Roles swap automatically every round</span>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400 shrink-0">
-            <Brain className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-white block">Speed Bonus</span>
-            <span className="text-[10px] text-zinc-400">Faster guesses score up to 100 points</span>
-          </div>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
-            <Shield className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-xs font-bold text-white block">Private & Human</span>
-            <span className="text-[10px] text-zinc-400">Exactly 2 players, zero bots</span>
-          </div>
+      <div>
+        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+          Draw Time per Round
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Fast (45s)', val: 45 },
+            { label: 'Classic (60s)', val: 60 },
+            { label: 'Relaxed (90s)', val: 90 }
+          ].map(p => (
+            <button
+              key={p.val}
+              type="button"
+              onClick={() => setDrawTime(p.val)}
+              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                drawTime === p.val
+                  ? 'bg-rose-500/20 border-rose-500 text-rose-300'
+                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>
+  );
+
+  const rightGraphic = (
+    <div className="relative w-full h-full flex items-center justify-center select-none pointer-events-none">
+      {/* Outer ambient glow */}
+      <div className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-gradient-to-tr from-[#ee1d49]/30 via-pink-600/20 to-transparent blur-3xl pointer-events-none" />
+
+      {/* 3D Isometric Art Canvas Card */}
+      <div className="relative w-60 h-60 sm:w-72 sm:h-72 rounded-[32px] bg-gradient-to-br from-[#1a1426] via-[#100d1c] to-[#08060e] border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_50px_rgba(238,29,73,0.3),inset_0_4px_18px_rgba(255,255,255,0.2)] p-5 flex flex-col justify-between transform hover:rotate-1 transition-transform">
+        {/* Canvas Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-rose-500" />
+            <span className="w-3 h-3 rounded-full bg-amber-400" />
+            <span className="w-3 h-3 rounded-full bg-emerald-400" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 font-mono">
+            ROUND 1 • DRAW
+          </span>
+        </div>
+
+        {/* Center Drawing Preview Graphic */}
+        <div className="flex-1 my-3 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+          <Palette className="w-12 h-12 sm:w-16 sm:h-16 text-[#ee1d49] animate-bounce mb-1" />
+          <span className="text-xs font-mono font-bold text-zinc-300">"ROCKET"</span>
+          <div className="flex items-center gap-1 mt-1 text-[10px] font-mono text-zinc-500">
+            <span>_ _ _ _ _ _</span>
+          </div>
+        </div>
+
+        {/* Bottom Tools Row */}
+        <div className="flex items-center justify-between px-2 pt-1 border-t border-white/10 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="w-4 h-4 rounded-full bg-[#ee1d49] ring-2 ring-white/40" />
+            <span className="w-4 h-4 rounded-full bg-[#185df2]" />
+            <span className="w-4 h-4 rounded-full bg-[#10b981]" />
+            <span className="w-4 h-4 rounded-full bg-[#f59e0b]" />
+          </div>
+          <span className="text-[10px] font-bold text-rose-400">60s LEFT</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const rulesContent = (
+    <div className="space-y-4 text-xs text-zinc-300">
+      <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+        <h4 className="font-bold text-white flex items-center gap-1.5">
+          <Palette className="w-4 h-4 text-rose-400" />
+          <span>How It Works</span>
+        </h4>
+        <ul className="list-disc list-inside space-y-1 text-zinc-300 pl-1">
+          <li><strong>Role Switching:</strong> One player draws while the other guesses. Roles switch every round.</li>
+          <li><strong>Drawing Phase:</strong> Drawer picks 1 of 3 secret words and draws it on the shared canvas.</li>
+          <li><strong>Guessing Phase:</strong> Guesser types guesses. Exact matches award maximum speed points!</li>
+          <li><strong>Hints:</strong> When time is running low, the guesser can request letter hints.</li>
+        </ul>
+      </div>
+
+      <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-1">
+        <h4 className="font-bold text-rose-300 flex items-center gap-1.5">
+          <Trophy className="w-4 h-4 text-amber-400" />
+          <span>Scoring</span>
+        </h4>
+        <p className="text-rose-200/80 leading-relaxed">
+          Points are awarded based on how fast the word was correctly guessed. Both drawer and guesser score points for successful rounds!
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <GameJoinLobby
+      gameType="doodle-duel"
+      eyebrow="DRAW • GUESS • HAVE FUN"
+      titlePrimary="Doodle"
+      titleSecondary="Duel"
+      description="Private 2-player real-time draw & guess showdown. Alternate roles every round with instant canvas syncing."
+      rightGraphic={rightGraphic}
+      createModalOptions={createOptions}
+      onCreateCustomRoom={handleCreateCustomDoodleRoom}
+      rulesContent={rulesContent}
+    />
   );
 };

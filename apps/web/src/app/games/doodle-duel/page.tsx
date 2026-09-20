@@ -136,7 +136,7 @@ function DoodleDuelGameContent() {
   };
 
   const isHost = room?.hostUserId === currentUserId;
-  const isLobby = !room || room.status === 'WAITING' || dState?.phase === 'LOBBY' || dState?.phase === 'ROLE_SELECTION';
+  const isLobby = !room || (!['ROUND_INTRO', 'WORD_CHOICE', 'CHOOSING_WORD', 'DRAWING', 'ROUND_RESULT', 'FINISHED'].includes(dState?.phase || '') && room.status === 'WAITING');
   const isChoosingWord = dState?.phase === 'CHOOSING_WORD' || dState?.phase === 'WORD_CHOICE';
   const isRoundIntro = dState?.phase === 'ROUND_INTRO';
   const isDrawing = dState?.phase === 'DRAWING';
@@ -149,53 +149,7 @@ function DoodleDuelGameContent() {
   };
 
   if (!roomCodeParam) {
-    return (
-      <div className="min-h-screen bg-[#080a12] text-white flex flex-col justify-between selection:bg-rose-600 selection:text-white">
-        <header className="h-16 border-b border-white/[0.08] px-4 sm:px-8 flex items-center justify-between bg-black/40 backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => router.push('/games')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Games</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="text-base">🎨</span>
-            <span className="text-sm font-black text-white">Doodle Duel</span>
-          </div>
-          <div className="w-16" />
-        </header>
-
-        <main className="flex-1 flex flex-col items-center justify-center">
-          <DoodlePreRoomLobby
-            session={session}
-            onOpenFriendSelector={() => setShowFriendDrawer(true)}
-          />
-        </main>
-
-        <footer className="h-10 border-t border-white/[0.05] px-6 flex items-center justify-center text-[11px] text-zinc-500">
-          Watch Cinema Gaming Platform · Stitchbyte
-        </footer>
-
-        <GameFriendSelectorDrawer
-          isOpen={showFriendDrawer}
-          onClose={() => setShowFriendDrawer(false)}
-          token={session?.token}
-          gameTitle="Doodle Duel"
-          onSelectFriend={async friend => {
-            try {
-              const res = await createGameRoomWithPartner('doodle-duel', friend.friendUser.id);
-              if (res?.room?.roomCode) {
-                router.push(`/games/doodle-duel?room=${res.room.roomCode}`);
-              }
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-        />
-      </div>
-    );
+    return <DoodlePreRoomLobby />;
   }
 
   return (
@@ -231,30 +185,21 @@ function DoodleDuelGameContent() {
         </div>
       )}
 
-      {/* Top Header Bar */}
+      {/* Top Header Bar (Matching Ludo Arena standard) */}
       <header className="relative z-20 w-full px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-white/10 bg-[#080a12]/80 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleLeave}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 border border-white/10"
             title="Back to Games"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4" />
+            <span>Games</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]">
-              <Palette className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="text-sm font-black tracking-tight text-white block leading-none">
-                Doodle Duel
-              </span>
-              <span className="text-[10px] font-bold text-rose-400 tracking-wider">
-                WATCH GAMES
-              </span>
-            </div>
+          <div className="text-xs sm:text-sm font-semibold tracking-tight text-zinc-400">
+            <span>Watch.</span> <span className="text-zinc-600">/</span> <span>Game Lobby</span> <span className="text-zinc-600">/</span> <span className="text-[#ee1d49] font-bold">Doodle Duel</span>
           </div>
         </div>
 
@@ -273,7 +218,7 @@ function DoodleDuelGameContent() {
           <button
             type="button"
             onClick={() => setShowSettingsModal(true)}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition active:scale-95"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition active:scale-95 cursor-pointer"
             title="Settings & Rules"
           >
             <Settings className="w-5 h-5" />
@@ -282,17 +227,27 @@ function DoodleDuelGameContent() {
       </header>
 
       {/* Main Container */}
-      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto p-3 sm:p-6 flex flex-col justify-center">
+      <main className={`relative z-10 flex-1 w-full flex flex-col justify-center ${isLobby && room ? 'p-0 max-w-none min-h-[calc(100vh-4rem)] relative overflow-hidden' : 'max-w-7xl mx-auto p-3 sm:p-6'}`}>
         {isLobby && room && (
-          <DoodleLobby
-            room={room}
-            gameState={dState!}
-            myUserId={currentUserId}
-            isHost={isHost}
-            onSelectRole={drawerId => selectDoodleRole(drawerId)}
-            onStartGame={cfg => startDoodleGame(cfg)}
-            onUpdateConfig={cfg => updateDoodleConfig(cfg)}
-          />
+          <div className="relative w-full h-full min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            {/* Cozy cinematic waiting room background */}
+            <div
+              className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat select-none pointer-events-none"
+              style={{ backgroundImage: `url('/images/ludo-waiting-bg.jpg')` }}
+            >
+              <div className="absolute inset-0 bg-black/20 backdrop-blur-[0.5px]" />
+            </div>
+
+            <DoodleLobby
+              room={room}
+              gameState={dState!}
+              myUserId={currentUserId}
+              isHost={isHost}
+              onSelectRole={drawerId => selectDoodleRole(drawerId)}
+              onStartGame={cfg => startDoodleGame(cfg)}
+              onUpdateConfig={cfg => updateDoodleConfig(cfg)}
+            />
+          </div>
         )}
 
         {/* In-Game Active Match UI (3-Zone Layout) */}

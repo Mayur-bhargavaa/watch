@@ -266,6 +266,10 @@ export class GameRoomManager {
       this.stopBingoAutoCall(room.id);
       const config = (room as any).bingoConfig || DEFAULT_BINGO_CONFIG;
       initialState = BingoEngine.createInitialState(playerConfigs, config);
+      if (initialState.config?.autoCall) {
+        // Draw the very first ball immediately so the arena ball displays a number from moment 1
+        BingoEngine.callNext(initialState);
+      }
     } else if (room.gameType === 'doodle-duel') {
       this.stopDoodleTimer(room.id);
       const config = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
@@ -531,6 +535,17 @@ export class GameRoomManager {
   public startBingoAutoCall(roomId: string, speedMs: number): void {
     this.stopBingoAutoCall(roomId);
     const interval = Math.max(800, speedMs || 3000);
+
+    // Call first number shortly after start (1000ms) so players see the first number right away
+    setTimeout(() => {
+      const room = this.db.getGameRoomById(roomId);
+      if (room && room.status === 'PLAYING' && room.gameState && room.gameType === 'bingo') {
+        if (!room.gameState.currentNumber && room.gameState.calledNumbers.length === 0) {
+          this.tickBingoAutoCall(roomId);
+        }
+      }
+    }, 1000);
+
     const timer = setInterval(() => {
       this.tickBingoAutoCall(roomId);
     }, interval);
@@ -841,17 +856,39 @@ export class GameRoomManager {
     }
   }
 
-  public handleDoodleSelectRole(roomId: string, userId: string, role: 'drawer' | 'guesser'): void {
+  public handleDoodleSelectRole(roomId: string, userId: string, drawerUserIdOrRole: any): void {
     const room = this.db.getGameRoomById(roomId);
     if (!room || !room.gameState) return;
 
-    room.gameState.roleSelections[userId] = role;
+    // Support both direct drawerUserId or role string
+    if (typeof drawerUserIdOrRole === 'string') {
+      if (drawerUserIdOrRole === 'drawer' || drawerUserIdOrRole === 'guesser') {
+        room.gameState.roleSelections[userId] = drawerUserIdOrRole;
+      } else {
+        // drawerUserId passed directly
+        const targetDrawerId = drawerUserIdOrRole;
+        const otherPlayer = room.players.find(p => p.userId !== targetDrawerId);
+        room.gameState.drawerUserId = targetDrawerId;
+        room.gameState.guesserUserId = otherPlayer ? otherPlayer.userId : (room.players[0]?.userId === targetDrawerId ? room.players[1]?.userId : room.players[0]?.userId);
+        room.gameState.roleSelections[targetDrawerId] = 'drawer';
+        if (otherPlayer) {
+          room.gameState.roleSelections[otherPlayer.userId] = 'guesser';
+        }
+      }
+    }
+
     this.db.updateGameRoomState(room.id, room.gameState);
 
     this.broadcast(room.id, {
       type: 'doodle:role_selected',
       roomId: room.id,
-      payload: { userId, role, roleSelections: room.gameState.roleSelections }
+      payload: {
+        userId,
+        role: room.gameState.roleSelections[userId],
+        drawerUserId: room.gameState.drawerUserId,
+        roleSelections: room.gameState.roleSelections,
+        gameState: room.gameState
+      }
     });
   }
 
@@ -875,12 +912,15 @@ export class GameRoomManager {
     const p2 = players[1].userId;
     const roles = room.gameState.roleSelections;
 
-    let drawerId = p1;
-    let guesserId = p2;
+    let drawerId = room.gameState.drawerUserId || p1;
+    let guesserId = room.gameState.guesserUserId || (drawerId === p1 ? p2 : p1);
 
     if (roles[p1] === 'guesser' || roles[p2] === 'drawer') {
       drawerId = p2;
       guesserId = p1;
+    } else if (roles[p1] === 'drawer' || roles[p2] === 'guesser') {
+      drawerId = p1;
+      guesserId = p2;
     }
 
     room.status = 'PLAYING';
@@ -889,6 +929,17 @@ export class GameRoomManager {
 
     DoodleDuelEngine.startRoundIntro(room.gameState, drawerId, guesserId);
     this.db.updateGameRoomState(room.id, room.gameState);
+
+    // Broadcast authoritative game:started event
+    this.broadcast(room.id, {
+      type: 'game:started',
+      roomId: room.id,
+      payload: {
+        room,
+        gameState: room.gameState,
+        message: 'Doodle Duel started! Round intro begins.'
+      }
+    });
 
     this.startDoodleTimer(room.id);
     this.broadcastDoodleState(room.id);

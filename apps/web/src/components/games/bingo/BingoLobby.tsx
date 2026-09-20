@@ -2,205 +2,161 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Gamepad2,
-  Users,
-  Sparkles,
-  Play,
-  Share2,
-  ChevronRight,
-  Trophy,
-  Flame,
-  ArrowRight,
-  Info
-} from 'lucide-react';
-import { createGameRoomWithPartner, joinGameRoomByCode, UserSession } from '../../../lib/api';
+import { Sparkles, Trophy, Award } from 'lucide-react';
+import { GameJoinLobby } from '../GameJoinLobby';
+import { BingoMode, BingoRoomConfig } from '@synccinema/common';
+import { createGameRoomWithPartner, getStoredSession } from '../../../lib/api';
 
-interface BingoLobbyProps {
-  session: UserSession | null;
-  onOpenFriendSelector: () => void;
-}
-
-export const BingoLobby: React.FC<BingoLobbyProps> = ({
-  session,
-  onOpenFriendSelector
-}) => {
+export const BingoLobby: React.FC<{
+  session?: any;
+  onOpenFriendSelector?: () => void;
+}> = () => {
   const router = useRouter();
-  const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [joining, setJoining] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<BingoMode>('90-ball');
+  const [autoCallSpeed, setAutoCallSpeed] = useState<number>(3000);
 
-  const handleCreateRoom = async () => {
-    if (!session) {
+  const handleCreateCustomBingoRoom = async () => {
+    const s = getStoredSession();
+    if (!s?.token) {
       router.push('/login');
       return;
     }
-    setCreating(true);
-    setError(null);
-    try {
-      const res = await createGameRoomWithPartner('bingo');
-      if (res?.room?.roomCode) {
-        router.push(`/games/bingo?room=${res.room.roomCode}`);
-      } else {
-        throw new Error('Failed to generate Bingo room code');
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Failed to create room. Please try again.');
-      setCreating(false);
+    const res = await createGameRoomWithPartner('bingo');
+    if (res?.room?.roomCode) {
+      router.push(`/games/bingo?room=${res.room.roomCode}`);
     }
   };
 
-  const handleJoinByCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!roomCodeInput.trim()) return;
-    setJoining(true);
-    setError(null);
-    try {
-      const code = roomCodeInput.trim().toUpperCase();
-      const res = await joinGameRoomByCode(code);
-      if (res?.room?.roomCode) {
-        router.push(`/games/bingo?room=${res.room.roomCode}`);
-      } else {
-        throw new Error('Room not found or expired');
-      }
-    } catch (err: any) {
-      setError(err?.message || 'Could not join room. Check the code and try again.');
-      setJoining(false);
-    }
-  };
-
-  return (
-    <div className="w-full max-w-4xl mx-auto space-y-8 py-6 px-4">
-      {/* Hero Header */}
-      <div className="text-center space-y-3 relative">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-[#ee1d49] text-xs font-black uppercase tracking-wider shadow-sm">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Real-time 2-Player Duel</span>
-        </div>
-        <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight uppercase">
-          BINGO DUEL
-        </h1>
-        <p className="text-sm sm:text-base text-zinc-400 max-w-md mx-auto">
-          Classic 90-ball Tambola & 75-ball Bingo with real-time server validation, unique tickets, and live reactions.
-        </p>
-      </div>
-
-      {error && (
-        <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-xs text-red-300 text-center font-bold">
-          {error}
-        </div>
-      )}
-
-      {/* Main Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Create Room Card */}
-        <div className="p-6 rounded-3xl bg-[#0e101a] border border-white/10 shadow-2xl flex flex-col justify-between space-y-6 relative overflow-hidden group hover:border-rose-500/40 transition-all">
-          <div className="space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-[#ee1d49] flex items-center justify-center text-2xl shadow-lg shadow-rose-600/30">
-              🎱
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-white">Create Bingo Room</h2>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Host a private duel. Pick 90-ball Tambola or 75-ball Bingo, custom winning conditions, and calling pace.
-              </p>
-            </div>
-          </div>
-
+  const createOptions = (
+    <div className="space-y-4">
+      <div>
+        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+          Bingo Mode
+        </label>
+        <div className="grid grid-cols-2 gap-2.5">
           <button
             type="button"
-            disabled={creating}
-            onClick={handleCreateRoom}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-600 via-[#ee1d49] to-pink-600 hover:brightness-110 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider transition shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 cursor-pointer"
+            onClick={() => setSelectedMode('90-ball')}
+            className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all border ${
+              selectedMode === '90-ball'
+                ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
+                : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
+            }`}
           >
-            {creating ? (
-              <span>Creating Room...</span>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                <span>Create Bingo Room</span>
-              </>
-            )}
+            90-Ball Tambola
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedMode('75-ball')}
+            className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all border ${
+              selectedMode === '75-ball'
+                ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
+                : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            75-Ball Classic
           </button>
         </div>
+      </div>
 
-        {/* Join With Code Card */}
-        <div className="p-6 rounded-3xl bg-[#0e101a] border border-white/10 shadow-2xl flex flex-col justify-between space-y-6 hover:border-white/20 transition-all">
-          <div className="space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl">
-              🎟️
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-white">Join with Room Code</h2>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Have an invite from a friend? Enter the temporary room code to jump straight into the lobby.
-              </p>
-            </div>
-          </div>
-
-          <form onSubmit={handleJoinByCode} className="space-y-2.5">
-            <input
-              type="text"
-              placeholder="e.g. BINGO-7F2A"
-              value={roomCodeInput}
-              onChange={(e) => setRoomCodeInput(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-xs sm:text-sm font-mono font-bold text-white placeholder:text-zinc-600 focus:outline-none focus:border-rose-500 transition"
-            />
+      <div>
+        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+          Calling Pace
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Fast (2s)', val: 2000 },
+            { label: 'Normal (3s)', val: 3000 },
+            { label: 'Relaxed (5s)', val: 5000 }
+          ].map(p => (
             <button
-              type="submit"
-              disabled={joining || !roomCodeInput.trim()}
-              className="w-full py-3 px-6 rounded-2xl bg-white/10 hover:bg-white/15 disabled:opacity-40 text-white font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer"
+              key={p.val}
+              type="button"
+              onClick={() => setAutoCallSpeed(p.val)}
+              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all border ${
+                autoCallSpeed === p.val
+                  ? 'bg-rose-500/20 border-rose-500 text-rose-300'
+                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+              }`}
             >
-              <span>{joining ? 'Connecting...' : 'Join Match'}</span>
-              <ArrowRight className="w-4 h-4" />
+              {p.label}
             </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Challenge a Friend Button */}
-      <div className="p-5 rounded-3xl bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-black/40 border border-violet-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-violet-500/20 text-violet-400 flex items-center justify-center">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-white">Play with Watch Friends</h3>
-            <p className="text-xs text-zinc-400">Invite your watch party partner directly with one tap</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onOpenFriendSelector}
-          className="py-2.5 px-5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-violet-600/30 transition flex items-center gap-2 whitespace-nowrap cursor-pointer"
-        >
-          <span>Choose Friend</span>
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Rules Overview Accordion */}
-      <div className="p-6 rounded-3xl bg-[#0e101a]/70 border border-white/10 space-y-4">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-rose-400" />
-          <h3 className="text-xs font-black uppercase tracking-wider text-white">Winning Rules Overview</h3>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-zinc-300">
-          <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-            <span className="font-bold text-white block mb-0.5">Early 5</span>
-            <p className="text-[11px] text-zinc-400">First player to mark any 5 called numbers across their entire ticket.</p>
-          </div>
-          <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-            <span className="font-bold text-white block mb-0.5">Top / Middle / Bottom Lines</span>
-            <p className="text-[11px] text-zinc-400">Complete all 5 numbers in any individual row horizontally.</p>
-          </div>
-          <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-            <span className="font-bold text-white block mb-0.5">Four Corners & Housefull</span>
-            <p className="text-[11px] text-zinc-400">Four outer corners or complete every number on the ticket for major victory.</p>
-          </div>
+          ))}
         </div>
       </div>
     </div>
+  );
+
+  const rightGraphic = (
+    <div className="relative w-full h-full flex items-center justify-center select-none pointer-events-none">
+      {/* Outer ambient glow */}
+      <div className="absolute w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-gradient-to-tr from-[#ee1d49]/30 via-purple-600/20 to-transparent blur-3xl pointer-events-none" />
+
+      {/* 3D Glass Sphere with Golden Numbers */}
+      <div className="relative w-56 h-56 sm:w-72 sm:h-72 rounded-full bg-gradient-to-br from-[#1f1933] via-[#120f20] to-[#07060c] border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.8),0_0_50px_rgba(238,29,73,0.3),inset_0_4px_18px_rgba(255,255,255,0.25)] flex flex-col items-center justify-center">
+        {/* Top glossy reflection */}
+        <div className="absolute top-3 w-32 h-16 rounded-full bg-gradient-to-b from-white/25 to-transparent blur-[2px]" />
+
+        {/* Center Golden Ball 88 */}
+        <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 shadow-[0_0_30px_rgba(245,158,11,0.5),inset_0_2px_8px_rgba(255,255,255,0.4)] flex flex-col items-center justify-center text-zinc-950 font-black">
+          <span className="text-3xl sm:text-5xl font-mono tracking-tighter leading-none">88</span>
+          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-900/80">TAMBOLA</span>
+        </div>
+
+        {/* Orbiting Mini Ball 7 */}
+        <div className="absolute -top-3 -right-2 w-14 h-14 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 text-white font-mono font-black text-xl flex items-center justify-center shadow-lg border border-white/30 transform rotate-12">
+          7
+        </div>
+
+        {/* Orbiting Mini Ball 21 */}
+        <div className="absolute -bottom-2 -left-2 w-12 h-12 rounded-full bg-gradient-to-br from-violet-400 to-violet-600 text-white font-mono font-black text-lg flex items-center justify-center shadow-lg border border-white/30 transform -rotate-12">
+          21
+        </div>
+      </div>
+    </div>
+  );
+
+  const rulesContent = (
+    <div className="space-y-4 text-xs text-zinc-300">
+      <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+        <h4 className="font-bold text-white flex items-center gap-1.5">
+          <Trophy className="w-4 h-4 text-amber-400" />
+          <span>Winning Conditions & Points</span>
+        </h4>
+        <p className="text-zinc-400 leading-relaxed">
+          Mark called numbers on your ticket. Be the first to claim winning patterns:
+        </p>
+        <ul className="list-disc list-inside space-y-1 text-zinc-300 pl-1">
+          <li><strong>Early 5:</strong> First player to mark any 5 numbers (10 pts)</li>
+          <li><strong>Top Line / Middle Line / Bottom Line:</strong> Complete horizontal rows (15 pts each)</li>
+          <li><strong>Four Corners:</strong> Mark the corner numbers (15 pts)</li>
+          <li><strong>Housefull / Full House:</strong> Mark every single number on your ticket (50 pts)</li>
+        </ul>
+      </div>
+
+      <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-1">
+        <h4 className="font-bold text-rose-300 flex items-center gap-1.5">
+          <Award className="w-4 h-4 text-rose-400" />
+          <span>Bogus Claim Penalty</span>
+        </h4>
+        <p className="text-rose-200/80 leading-relaxed">
+          Claiming a condition that is incomplete results in a 10-second penalty lock where you cannot claim any conditions. Double-check before you shout Bingo!
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <GameJoinLobby
+      gameType="bingo"
+      eyebrow="MARK • CALL • CLAIM DUEL"
+      titlePrimary="Bingo"
+      titleSecondary="Duel"
+      description="Classic 90-ball Tambola & 75-ball Bingo with real-time server calling, synchronized tickets, and live reactions."
+      rightGraphic={rightGraphic}
+      createModalOptions={createOptions}
+      onCreateCustomRoom={handleCreateCustomBingoRoom}
+      rulesContent={rulesContent}
+    />
   );
 };

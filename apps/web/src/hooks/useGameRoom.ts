@@ -527,6 +527,15 @@ export function useGameRoom(roomCode: string | null) {
           if (updatedRoom) return updatedRoom;
           return prev ? { ...prev, status: 'PLAYING', gameState: startState } : prev;
         });
+        if (startState?.currentNumber !== undefined && startState?.currentNumber !== null) {
+          setLastBingoCall({
+            number: startState.currentNumber,
+            word: startState.currentNumberWord || null,
+            calledNumbers: startState.calledNumbers || [startState.currentNumber],
+            remainingCount: startState.callQueue?.length ?? 89,
+            timestamp: Date.now()
+          });
+        }
         break;
       }
 
@@ -676,7 +685,12 @@ export function useGameRoom(roomCode: string | null) {
       case 'doodle:state_sync':
       case 'doodle:role_selected': {
         const nextState = msg.payload?.gameState;
-        if (nextState) setGameState(nextState);
+        if (nextState) {
+          setGameState(nextState);
+          if (nextState.phase && nextState.phase !== 'LOBBY' && nextState.phase !== 'ROLE_SELECTION') {
+            setRoom(prev => (prev ? { ...prev, status: 'PLAYING', gameState: nextState } : prev));
+          }
+        }
         break;
       }
 
