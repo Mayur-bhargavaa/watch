@@ -6,7 +6,12 @@ import {
   GameRoomPlayer,
   LudoGameState,
   LudoColor,
-  ChatReplyTo
+  ChatReplyTo,
+  DoodleGameState,
+  DoodleStroke,
+  DoodleGuess,
+  DoodleConfig,
+  DoodleRole
 } from '@synccinema/common';
 import { WS_BASE, getStoredSession, ensureSession } from '../lib/api';
 
@@ -140,6 +145,8 @@ export function useGameRoom(roomCode: string | null) {
   const [lastBingoCall, setLastBingoCall] = useState<any | null>(null);
   const [lastBingoClaimResult, setLastBingoClaimResult] = useState<any | null>(null);
   const [lastBingoConditionWon, setLastBingoConditionWon] = useState<any | null>(null);
+  const [lastDoodleStroke, setLastDoodleStroke] = useState<DoodleStroke | null>(null);
+  const [lastDoodleGuess, setLastDoodleGuess] = useState<DoodleGuess | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<{
     userId: string;
@@ -666,6 +673,64 @@ export function useGameRoom(roomCode: string | null) {
         break;
       }
 
+      case 'doodle:state_sync':
+      case 'doodle:role_selected': {
+        const nextState = msg.payload?.gameState;
+        if (nextState) setGameState(nextState);
+        break;
+      }
+
+      case 'doodle:stroke_added': {
+        const stroke = msg.payload?.stroke;
+        if (stroke) {
+          setLastDoodleStroke(stroke);
+          setGameState((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              strokes: [...(prev.strokes || []), stroke]
+            };
+          });
+        }
+        break;
+      }
+
+      case 'doodle:strokes_updated': {
+        const strokes = msg.payload?.strokes;
+        setGameState((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            strokes: strokes || []
+          };
+        });
+        break;
+      }
+
+      case 'doodle:canvas_cleared': {
+        setGameState((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            strokes: []
+          };
+        });
+        break;
+      }
+
+      case 'doodle:guess_result': {
+        const { guess, gameState: nextState } = msg.payload || {};
+        if (guess) setLastDoodleGuess(guess);
+        if (nextState) setGameState(nextState);
+        break;
+      }
+
+      case 'doodle:config_updated': {
+        const { config } = msg.payload || {};
+        setGameState((prev: any) => prev ? { ...prev, config } : prev);
+        break;
+      }
+
       case 'game:chat_message': {
         const chat = msg.payload;
         if (!chat) break;
@@ -995,6 +1060,96 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const selectDoodleRole = useCallback((drawerUserId: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:select_role',
+        payload: { drawerUserId }
+      })
+    );
+  }, []);
+
+  const startDoodleGame = useCallback((config?: Partial<DoodleConfig>) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:start',
+        payload: { config }
+      })
+    );
+  }, []);
+
+  const chooseDoodleWord = useCallback((word: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:choose_word',
+        payload: { word }
+      })
+    );
+  }, []);
+
+  const sendDoodleStroke = useCallback((stroke: DoodleStroke) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:stroke',
+        payload: { stroke }
+      })
+    );
+  }, []);
+
+  const undoDoodleStroke = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:undo',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const clearDoodleCanvas = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:clear',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const sendDoodleGuess = useCallback((guess: string) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:guess',
+        payload: { guess }
+      })
+    );
+  }, []);
+
+  const requestDoodleHint = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:request_hint',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const updateDoodleConfig = useCallback((config: Partial<DoodleConfig>) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:config_update',
+        payload: { config }
+      })
+    );
+  }, []);
+
   // Periodic cleanup of stale typing indicators (> 3.5s)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -1032,6 +1187,8 @@ export function useGameRoom(roomCode: string | null) {
     lastBingoCall,
     lastBingoClaimResult,
     lastBingoConditionWon,
+    lastDoodleStroke,
+    lastDoodleGuess,
     chatMessages,
     typingUsers,
     floatingReactions,
@@ -1051,6 +1208,15 @@ export function useGameRoom(roomCode: string | null) {
     claimBingo,
     markBingoNumber,
     updateBingoConfig,
+    selectDoodleRole,
+    startDoodleGame,
+    chooseDoodleWord,
+    sendDoodleStroke,
+    undoDoodleStroke,
+    clearDoodleCanvas,
+    sendDoodleGuess,
+    requestDoodleHint,
+    updateDoodleConfig,
     sendChat,
     sendReaction,
     sendNudge,

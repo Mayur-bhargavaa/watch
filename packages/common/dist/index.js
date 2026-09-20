@@ -20,4 +20,5 @@ __exportStar(require("./sync.js"), exports);
 __exportStar(require("./ott.js"), exports);
 __exportStar(require("./provider.js"), exports);
 __exportStar(require("./bingo.js"), exports);
+__exportStar(require("./doodle.js"), exports);
 //# sourceMappingURL=index.js.map

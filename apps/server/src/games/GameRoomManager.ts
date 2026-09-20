@@ -6,7 +6,8 @@ import {
   LudoColor,
   LudoGameState,
   GameRoomStatus,
-  GameType
+  GameType,
+  DoodleConfig
 } from '@synccinema/common';
 import { DatabaseService } from '../db/database.js';
 import { GAME_DEFINITIONS } from './GameDefinitions.js';
@@ -14,6 +15,7 @@ import { LudoEngine } from './LudoEngine.js';
 import { FourInARowEngine } from './FourInARowEngine.js';
 import { TicTacToeEngine } from './TicTacToeEngine.js';
 import { BingoEngine, DEFAULT_BINGO_CONFIG } from './BingoEngine.js';
+import { DoodleDuelEngine, DEFAULT_DOODLE_CONFIG, DOODLE_WORDS } from './DoodleDuelEngine.js';
 
 interface ConnectedGameClient {
   socket: WebSocket;
@@ -41,6 +43,8 @@ export class GameRoomManager {
   private rematchVotes = new Map<string, Set<string>>();
   // roomId -> auto call timer
   private bingoTimers = new Map<string, NodeJS.Timeout>();
+  // roomId -> doodle timer
+  private doodleTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(db: DatabaseService) {
     this.db = db;
@@ -57,6 +61,8 @@ export class GameRoomManager {
       prefix = 'TIC';
     } else if (gameType.toLowerCase().includes('bingo')) {
       prefix = 'BINGO';
+    } else if (gameType.toLowerCase().includes('doodle')) {
+      prefix = 'DOODLE';
     } else {
       prefix = gameType.toUpperCase();
     }
@@ -217,7 +223,7 @@ export class GameRoomManager {
 
     // Check if room is now full of real human players
     if (room.players.length === room.maxPlayers) {
-      if (room.gameType === 'bingo') {
+      if (room.gameType === 'bingo' || room.gameType === 'doodle-duel') {
         this.broadcast(room.id, {
           type: 'game:lobby_ready',
           roomId: room.id,
@@ -260,6 +266,10 @@ export class GameRoomManager {
       this.stopBingoAutoCall(room.id);
       const config = (room as any).bingoConfig || DEFAULT_BINGO_CONFIG;
       initialState = BingoEngine.createInitialState(playerConfigs, config);
+    } else if (room.gameType === 'doodle-duel') {
+      this.stopDoodleTimer(room.id);
+      const config = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
+      initialState = DoodleDuelEngine.createInitialState(playerConfigs, config);
     } else {
       initialState = LudoEngine.createInitialState(playerConfigs, room.maxPlayers as any);
     }
@@ -749,6 +759,286 @@ export class GameRoomManager {
     });
   }
 
+  // =====================================================================
+  // DOODLE DUEL GAME HANDLERS
+  // =====================================================================
+
+  public startDoodleTimer(roomId: string): void {
+    this.stopDoodleTimer(roomId);
+    const timer = setInterval(() => {
+      this.tickDoodleTimer(roomId);
+    }, 1000);
+    this.doodleTimers.set(roomId, timer);
+  }
+
+  public stopDoodleTimer(roomId: string): void {
+    const existing = this.doodleTimers.get(roomId);
+    if (existing) {
+      clearInterval(existing);
+      this.doodleTimers.delete(roomId);
+    }
+  }
+
+  public tickDoodleTimer(roomId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.status !== 'PLAYING' || !room.gameState || room.gameType !== 'doodle-duel') {
+      this.stopDoodleTimer(roomId);
+      return;
+    }
+
+    const { state, phaseChanged, isTimeUp } = DoodleDuelEngine.tick(room.gameState);
+    room.gameState = state;
+    this.db.updateGameRoomState(room.id, state);
+
+    if (phaseChanged || state.timeRemaining % 5 === 0 || state.timeRemaining <= 10) {
+      this.broadcastDoodleState(roomId);
+    }
+
+    if (isTimeUp || state.phase === 'ROUND_RESULT') {
+      // Pause on round result for 5 seconds, then advance to next round
+      setTimeout(() => {
+        const freshRoom = this.db.getGameRoomById(roomId);
+        if (freshRoom && freshRoom.status === 'PLAYING' && freshRoom.gameState?.phase === 'ROUND_RESULT') {
+          const nextState = DoodleDuelEngine.advanceToNextRound(freshRoom.gameState);
+          freshRoom.gameState = nextState;
+          this.db.updateGameRoomState(freshRoom.id, nextState);
+          if (nextState.phase === 'FINISHED') {
+            this.stopDoodleTimer(roomId);
+            const now = new Date().toISOString();
+            this.db.updateGameRoomStatus(freshRoom.id, 'FINISHED', undefined, now);
+          }
+          this.broadcastDoodleState(roomId);
+        }
+      }, 5000);
+    }
+  }
+
+  public broadcastDoodleState(roomId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+
+    const fullState = room.gameState;
+    const sanitizedState = DoodleDuelEngine.sanitizeStateForGuesser(fullState);
+
+    const clients = this.roomClients.get(roomId);
+    if (!clients) return;
+
+    for (const client of clients) {
+      const isDrawer = client.userId === fullState.drawerUserId;
+      const payloadState = isDrawer || fullState.phase === 'ROUND_RESULT' || fullState.phase === 'FINISHED'
+        ? fullState
+        : sanitizedState;
+
+      if (client.socket.readyState === 1) {
+        try {
+          client.socket.send(JSON.stringify({
+            type: 'doodle:state_sync',
+            roomId,
+            payload: { gameState: payloadState }
+          }));
+        } catch {}
+      }
+    }
+  }
+
+  public handleDoodleSelectRole(roomId: string, userId: string, role: 'drawer' | 'guesser'): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+
+    room.gameState.roleSelections[userId] = role;
+    this.db.updateGameRoomState(room.id, room.gameState);
+
+    this.broadcast(room.id, {
+      type: 'doodle:role_selected',
+      roomId: room.id,
+      payload: { userId, role, roleSelections: room.gameState.roleSelections }
+    });
+  }
+
+  public handleDoodleStart(roomId: string, userId: string, config?: Partial<DoodleConfig>): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.hostUserId !== userId) {
+      throw new Error('Only the host can start Doodle Duel');
+    }
+
+    if (config) {
+      room.gameState.config = { ...room.gameState.config, ...config };
+    }
+
+    const players = room.players;
+    if (players.length < 2) {
+      throw new Error('Need 2 players to start Doodle Duel');
+    }
+
+    const p1 = players[0].userId;
+    const p2 = players[1].userId;
+    const roles = room.gameState.roleSelections;
+
+    let drawerId = p1;
+    let guesserId = p2;
+
+    if (roles[p1] === 'guesser' || roles[p2] === 'drawer') {
+      drawerId = p2;
+      guesserId = p1;
+    }
+
+    room.status = 'PLAYING';
+    const now = new Date().toISOString();
+    this.db.updateGameRoomStatus(room.id, 'PLAYING', now);
+
+    DoodleDuelEngine.startRoundIntro(room.gameState, drawerId, guesserId);
+    this.db.updateGameRoomState(room.id, room.gameState);
+
+    this.startDoodleTimer(room.id);
+    this.broadcastDoodleState(room.id);
+  }
+
+  public handleDoodleChooseWord(roomId: string, userId: string, chosenWord: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.gameState.drawerUserId !== userId) return;
+
+    const raw = chosenWord.replace(/^[^\w\s]+\s*/, '').trim();
+    const wordItem = DOODLE_WORDS.find(w => w.word.toLowerCase() === raw.toLowerCase()) || {
+      word: raw,
+      emoji: '🎨',
+      category: 'Drawing',
+      difficulty: 'easy' as const,
+      hint: 'Word to draw'
+    };
+
+    DoodleDuelEngine.startDrawing(room.gameState, wordItem);
+    this.db.updateGameRoomState(room.id, room.gameState);
+    this.broadcastDoodleState(room.id);
+  }
+
+  public handleDoodleStroke(roomId: string, userId: string, stroke: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.gameState.drawerUserId !== userId) return;
+
+    room.gameState.strokes.push(stroke);
+    this.db.updateGameRoomState(room.id, room.gameState);
+
+    // Broadcast stroke to other player with minimal latency
+    this.broadcast(room.id, {
+      type: 'doodle:stroke_added',
+      roomId: room.id,
+      payload: { stroke }
+    }, userId);
+  }
+
+  public handleDoodleUndo(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.gameState.drawerUserId !== userId) return;
+
+    room.gameState.strokes.pop();
+    this.db.updateGameRoomState(room.id, room.gameState);
+
+    this.broadcast(room.id, {
+      type: 'doodle:strokes_updated',
+      roomId: room.id,
+      payload: { strokes: room.gameState.strokes }
+    });
+  }
+
+  public handleDoodleClear(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.gameState.drawerUserId !== userId) return;
+
+    room.gameState.strokes = [];
+    this.db.updateGameRoomState(room.id, room.gameState);
+
+    this.broadcast(room.id, {
+      type: 'doodle:canvas_cleared',
+      roomId: room.id,
+      payload: {}
+    });
+  }
+
+  public handleDoodleGuess(roomId: string, userId: string, guessText: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    const player = room.players.find(p => p.userId === userId);
+    if (!player) return;
+
+    const { isCorrect, state, points, completed } = DoodleDuelEngine.submitGuess(
+      room.gameState,
+      userId,
+      player.displayName,
+      guessText
+    );
+
+    room.gameState = state;
+    this.db.updateGameRoomState(room.id, state);
+
+    this.broadcast(room.id, {
+      type: 'doodle:guess_result',
+      roomId: room.id,
+      payload: {
+        userId,
+        displayName: player.displayName,
+        text: guessText,
+        isCorrect,
+        pointsEarned: points,
+        completed
+      }
+    });
+
+    if (completed) {
+      this.broadcastDoodleState(room.id);
+      // Wait 5 seconds to show round results then advance to next round
+      setTimeout(() => {
+        const freshRoom = this.db.getGameRoomById(roomId);
+        if (freshRoom && freshRoom.gameState?.phase === 'ROUND_RESULT') {
+          const nextState = DoodleDuelEngine.advanceToNextRound(freshRoom.gameState);
+          freshRoom.gameState = nextState;
+          this.db.updateGameRoomState(freshRoom.id, nextState);
+          if (nextState.phase === 'FINISHED') {
+            this.stopDoodleTimer(roomId);
+            const now = new Date().toISOString();
+            this.db.updateGameRoomStatus(freshRoom.id, 'FINISHED', undefined, now);
+          }
+          this.broadcastDoodleState(roomId);
+        }
+      }, 5000);
+    }
+  }
+
+  public handleDoodleRequestHint(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.gameState.drawerUserId !== userId) return;
+
+    room.gameState.hintUsed = true;
+    this.db.updateGameRoomState(room.id, room.gameState);
+    this.broadcastDoodleState(room.id);
+  }
+
+  public handleDoodleConfigUpdate(roomId: string, userId: string, partialConfig: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room) return;
+    if (room.hostUserId !== userId) {
+      throw new Error('Only host can update room settings');
+    }
+    const currentConfig = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
+    const updated = { ...currentConfig, ...partialConfig };
+    (room as any).doodleConfig = updated;
+    if (room.gameState) {
+      room.gameState.config = updated;
+      this.db.updateGameRoomState(room.id, room.gameState);
+    }
+
+    this.broadcast(room.id, {
+      type: 'doodle:config_updated',
+      roomId: room.id,
+      payload: { config: updated }
+    });
+  }
+
 
   /**
    * Registers a WebSocket connection to a game room
@@ -910,6 +1200,42 @@ export class GameRoomManager {
 
       case 'bingo:config_update':
         this.handleBingoConfigUpdate(client.roomId, client.userId, msg.payload?.config);
+        break;
+
+      case 'doodle:select_role':
+        this.handleDoodleSelectRole(client.roomId, client.userId, msg.payload?.drawerUserId);
+        break;
+
+      case 'doodle:start':
+        this.handleDoodleStart(client.roomId, client.userId, msg.payload?.config);
+        break;
+
+      case 'doodle:choose_word':
+        this.handleDoodleChooseWord(client.roomId, client.userId, msg.payload?.word);
+        break;
+
+      case 'doodle:stroke':
+        this.handleDoodleStroke(client.roomId, client.userId, msg.payload?.stroke);
+        break;
+
+      case 'doodle:undo':
+        this.handleDoodleUndo(client.roomId, client.userId);
+        break;
+
+      case 'doodle:clear':
+        this.handleDoodleClear(client.roomId, client.userId);
+        break;
+
+      case 'doodle:guess':
+        this.handleDoodleGuess(client.roomId, client.userId, msg.payload?.guess);
+        break;
+
+      case 'doodle:request_hint':
+        this.handleDoodleRequestHint(client.roomId, client.userId);
+        break;
+
+      case 'doodle:config_update':
+        this.handleDoodleConfigUpdate(client.roomId, client.userId, msg.payload?.config);
         break;
 
       case 'game:chat': {
@@ -1098,6 +1424,13 @@ export class GameRoomManager {
           room.gameState.winnerDisplayName = winner.displayName;
           room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
           this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
+        } else if (room.gameType === 'doodle-duel' && room.gameState) {
+          this.stopDoodleTimer(room.id);
+          room.gameState.phase = 'FINISHED';
+          room.gameState.winnerUserId = winner.userId;
+          room.gameState.winnerDisplayName = winner.displayName;
+          room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+          this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
         }
       }
     }
@@ -1167,6 +1500,13 @@ export class GameRoomManager {
             this.db.updateGameRoomState(room.id, room.gameState, room.gameState.currentTurnSeat, winner.seat);
           } else if (room.gameType === 'bingo' && room.gameState) {
             this.stopBingoAutoCall(room.id);
+            room.gameState.phase = 'FINISHED';
+            room.gameState.winnerUserId = winner.userId;
+            room.gameState.winnerDisplayName = winner.displayName;
+            room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+            this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
+          } else if (room.gameType === 'doodle-duel' && room.gameState) {
+            this.stopDoodleTimer(room.id);
             room.gameState.phase = 'FINISHED';
             room.gameState.winnerUserId = winner.userId;
             room.gameState.winnerDisplayName = winner.displayName;

@@ -4,3 +4,4 @@ export * from './sync.js';
 export * from './ott.js';
 export * from './provider.js';
 export * from './bingo.js';
+export * from './doodle.js';

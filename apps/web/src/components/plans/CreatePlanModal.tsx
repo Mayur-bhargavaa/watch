@@ -100,6 +100,13 @@ const GAME_CATALOG = [
     icon: '🎱',
     players: '2 Players',
     url: '/games/bingo'
+  },
+  {
+    gameId: 'doodle-duel',
+    title: 'Doodle Duel',
+    icon: '🎨',
+    players: '2 Players',
+    url: '/games/doodle-duel'
   }
 ];
 

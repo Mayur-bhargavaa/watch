@@ -78,6 +78,20 @@ const GAMES_CATALOG: GameItem[] = [
     description: 'Private 2-player real-time Tambola & 75-ball Bingo. Unique tickets, auto/manual calling, custom patterns, and instant win validation.'
   },
   {
+    id: 'doodle-duel',
+    title: 'DOODLE DUEL',
+    subtext: 'Fast 2-Player Draw & Guess Showdown',
+    badge: '🔥 Live 2-Player',
+    badgeColor: 'bg-gradient-to-r from-violet-600 via-purple-600 to-rose-600 text-white shadow-lg shadow-purple-600/30',
+    category: 'Draw & Guess',
+    players: '2 Players',
+    icon: '🎨',
+    route: '/games/doodle-duel',
+    featured: true,
+    artwork: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&h=400&fit=crop&q=80',
+    description: 'Private 2-player real-time draw & guess duel. Automatic role alternation every round, secret word choices, live canvas synchronization, and speed bonuses.'
+  },
+  {
     id: 'four-in-a-row',
     title: 'FOUR IN A ROW',
     subtext: 'Vertical Disc Duel & Live Reactions',
