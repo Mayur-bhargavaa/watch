@@ -283,10 +283,13 @@ export class GameRoomManager {
     const result = LudoEngine.rollDice(room.gameState, player.seat);
     this.db.updateGameRoomState(room.id, result.state, result.state.currentTurnSeat);
 
+    const rollId = `roll_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     this.broadcast(room.id, {
       type: 'game:dice_rolled',
       roomId: room.id,
       payload: {
+        rollId,
+        timestamp: Date.now(),
         seat: player.seat,
         color: player.color,
         displayName: player.displayName,

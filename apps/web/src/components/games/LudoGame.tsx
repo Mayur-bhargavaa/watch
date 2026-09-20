@@ -109,6 +109,16 @@ export interface LudoGameProps {
   isMicMuted?: boolean;
   isCompact?: boolean;
   onNudgePlayer?: (userId?: string, displayName?: string) => void;
+  lastDiceRoll?: {
+    rollId?: string;
+    timestamp?: number;
+    seat?: number;
+    color?: LudoColor;
+    displayName?: string;
+    diceValue?: number;
+    hasLegalMoves?: boolean;
+    earnedBonusRoll?: boolean;
+  } | null;
 }
 
 // Color starting tile indices on the common 52-tile ring
@@ -402,7 +412,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   isCameraOn = false,
   isMicMuted = true,
   isCompact = false,
-  onNudgePlayer
+  onNudgePlayer,
+  lastDiceRoll = null
 }) => {
   // Web Audio sound synthesizer for realistic board feel
   const playSound = (type: 'roll' | 'step' | 'move' | 'capture' | 'win' | 'nudge') => {
@@ -476,6 +487,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
   // Visual feedback when sender taps nudge
   const [justNudged, setJustNudged] = useState(false);
+
+  // Bottom interactive dice states for zero-latency feedback & 3D spin
+  const [isRollingDice, setIsRollingDice] = useState(false);
+  const [bottomDiceDisplay, setBottomDiceDisplay] = useState<number>(gameState.diceValue || 6);
+  const bottomDiceCycleRef = useRef<NodeJS.Timeout | null>(null);
+  const prevHandledRollKeyRef = useRef<string | null>(null);
 
   // Map players by color
   const playerByColor = useMemo(() => {
@@ -635,10 +652,31 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   }, []);
 
   useEffect(() => {
-    if (gameState.diceValue !== null && gameState.diceValue !== prevDiceValueRef.current) {
+    // Unique roll identifier: prefers rollId or timestamp from lastDiceRoll; falls back to turn + value combo
+    const currentRollKey = lastDiceRoll?.rollId || 
+      (lastDiceRoll?.timestamp ? `roll_${lastDiceRoll.timestamp}` : null) ||
+      (gameState.diceValue !== null ? `legacy_${gameState.currentTurnColor}_${gameState.diceValue}_${Date.now()}` : null);
+
+    if (gameState.diceValue !== null) {
+      // Check if this roll has already been handled
+      if (currentRollKey && prevHandledRollKeyRef.current === currentRollKey) {
+        return;
+      }
+      if (currentRollKey) {
+        prevHandledRollKeyRef.current = currentRollKey;
+      }
       prevDiceValueRef.current = gameState.diceValue;
+
       const finalVal = gameState.diceValue;
       const turnColor = gameState.currentTurnColor;
+
+      // Stop optimistic bottom dice rolling cycle and lock to the server value
+      if (bottomDiceCycleRef.current) {
+        clearInterval(bottomDiceCycleRef.current);
+        bottomDiceCycleRef.current = null;
+      }
+      setBottomDiceDisplay(finalVal);
+      setIsRollingDice(false);
 
       clearDiceTimeouts();
       playSound('roll');
@@ -681,9 +719,15 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       };
     } else if (gameState.diceValue === null) {
       prevDiceValueRef.current = null;
+      prevHandledRollKeyRef.current = null;
       hideCenterDice();
+      if (bottomDiceCycleRef.current) {
+        clearInterval(bottomDiceCycleRef.current);
+        bottomDiceCycleRef.current = null;
+      }
+      setIsRollingDice(false);
     }
-  }, [gameState.diceValue, gameState.currentTurnColor]);
+  }, [gameState.diceValue, gameState.currentTurnColor, lastDiceRoll]);
 
   // =========================================================================
   // 2. STEP-BY-STEP PAWN ("GOTI") HOPPING ANIMATION
@@ -2359,12 +2403,23 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               onClick={() => {
                 if (gameState.winnerColor && onRematch) {
                   onRematch();
-                } else if (canRoll) {
+                } else if (canRoll && !isRollingDice) {
+                  // 1. INSTANT zero-latency optimistic audio & visual feedback
+                  playSound('roll');
+                  setIsRollingDice(true);
+
+                  if (bottomDiceCycleRef.current) clearInterval(bottomDiceCycleRef.current);
+                  bottomDiceCycleRef.current = setInterval(() => {
+                    setBottomDiceDisplay(Math.floor(Math.random() * 6) + 1);
+                  }, 55);
+
+                  // 2. Dispatch network event immediately
                   onRollDice();
                 } else if (canMove) {
                   // choosing goti
                 } else {
                   // Friendly nudge (notifies only recipient)
+                  playSound('nudge');
                   onNudgePlayer?.(turnPlayer?.userId, turnPlayer?.displayName);
                   setJustNudged(true);
                   setTimeout(() => setJustNudged(false), 2500);
@@ -2383,8 +2438,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               }`}
             >
               {/* 3D Royal Crimson Cube with Gold-Tinted Pip Trim */}
-              <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#7f1d1d] border border-amber-200/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu">
-                {renderDiceFace(gameState.diceValue || 6, 'sm')}
+              <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#7f1d1d] border border-amber-200/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu ${
+                isRollingDice 
+                  ? 'animate-dice-spin' 
+                  : justNudged 
+                  ? 'animate-nudge-wobble' 
+                  : ''
+              }`}>
+                {renderDiceFace(bottomDiceDisplay, 'sm')}
               </div>
             </button>
 
@@ -2400,6 +2461,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             }`}>
               {gameState.winnerColor
                 ? 'REMATCH'
+                : isRollingDice
+                ? 'ROLLING...'
                 : canRoll
                 ? 'ROLL THE DICE'
                 : canMove

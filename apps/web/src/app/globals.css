@@ -133,6 +133,41 @@ body {
   animation: diceVanish 0.35s ease-in forwards;
 }
 
+@keyframes diceRollSpin {
+  0% {
+    transform: rotate(0deg) scale(0.92);
+  }
+  25% {
+    transform: rotate(180deg) scale(1.12);
+  }
+  50% {
+    transform: rotate(360deg) scale(1.05);
+  }
+  75% {
+    transform: rotate(540deg) scale(1.1);
+  }
+  100% {
+    transform: rotate(720deg) scale(1);
+  }
+}
+
+.animate-dice-spin {
+  animation: diceRollSpin 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes nudgeWobble {
+  0% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-14deg) scale(1.08); }
+  40% { transform: rotate(12deg) scale(1.05); }
+  60% { transform: rotate(-8deg) scale(1.02); }
+  80% { transform: rotate(4deg) scale(1.01); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+.animate-nudge-wobble {
+  animation: nudgeWobble 0.45s ease-in-out forwards;
+}
+
 /* 3D Flip Card Utilities */
 .perspective-1000 {
   perspective: 1000px;

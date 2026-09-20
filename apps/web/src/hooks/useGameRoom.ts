@@ -29,6 +29,8 @@ export interface FloatingReaction {
 }
 
 export interface DiceRollEvent {
+  rollId?: string;
+  timestamp?: number;
   seat: number;
   color: LudoColor;
   displayName: string;
@@ -503,9 +505,11 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'game:dice_rolled': {
-        const { seat, color, displayName, diceValue, hasLegalMoves, earnedBonusRoll, gameState: nextState } = msg.payload;
+        const { rollId, timestamp, seat, color, displayName, diceValue, hasLegalMoves, earnedBonusRoll, gameState: nextState } = msg.payload;
         setGameState(nextState);
         setLastDiceRoll({
+          rollId: rollId || `roll_${Date.now()}_${Math.random()}`,
+          timestamp: timestamp || Date.now(),
           seat,
           color,
           displayName,

@@ -1752,6 +1752,7 @@ function LudoPageContent() {
                 localUserStream={localUserStream}
                 isCameraOn={isCameraOn}
                 isMicMuted={isMicMuted}
+                lastDiceRoll={lastDiceRoll}
               />
             </div>
 
