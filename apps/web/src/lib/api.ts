@@ -40,6 +40,8 @@ export function getStoredSession(): UserSession | null {
 export function setStoredSession(session: UserSession): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem('synccinema_session', JSON.stringify(session));
+  // Notify same-tab listeners (e.g. AppSidebar avatar) about the update
+  window.dispatchEvent(new Event('synccinema:session-updated'));
 }
 
 export function clearStoredSession(): void {

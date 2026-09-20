@@ -67,21 +67,38 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   // Load user session
   useEffect(() => {
-    const s = getStoredSession();
-    if (s && s.token) {
-      setSession(s);
-      // Fetch incoming friend requests count if not provided
-      if (incomingRequestsCount === undefined) {
-        getFriendRequests(s.token)
-          .then((res) => {
-            if (res?.incoming) {
-              setPendingRequests(res.incoming.length);
-            }
-          })
-          .catch(() => {});
+    const loadSession = () => {
+      const s = getStoredSession();
+      if (s && s.token) {
+        setSession(s);
+        if (incomingRequestsCount === undefined) {
+          getFriendRequests(s.token)
+            .then((res) => {
+              if (res?.incoming) {
+                setPendingRequests(res.incoming.length);
+              }
+            })
+            .catch(() => {});
+        }
       }
-    }
+    };
+
+    loadSession();
+
+    // Re-sync whenever session is updated (e.g. after saving avatar)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'synccinema_session') loadSession();
+    };
+    const handleCustom = () => loadSession();
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('synccinema:session-updated', handleCustom);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('synccinema:session-updated', handleCustom);
+    };
   }, [incomingRequestsCount]);
+
 
   // Sync if prop updates
   useEffect(() => {
