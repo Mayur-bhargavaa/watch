@@ -398,6 +398,130 @@ export class DatabaseService {
       this.db.exec("UPDATE room_members SET is_connected = 0 WHERE is_connected = 1");
       this.db.exec("UPDATE game_room_players SET is_connected = 0 WHERE is_connected = 1");
     } catch {}
+
+    // Ensure real plan plan-1789841556778 is initialized with real participants
+    try {
+      const existing = this.getPlanById('plan-1789841556778');
+      if (!existing) {
+        this.createPlan({
+          id: 'plan-1789841556778',
+          hostId: 'usr_hN35KGS9RX',
+          title: 'Friday Movie & Game Night',
+          emoji: '🍿',
+          type: 'movie',
+          date: '2026-09-27',
+          dateFormatted: 'Sunday, September 27',
+          time: '9:00 PM',
+          endTime: '12:30 AM',
+          timezone: 'IST',
+          description: 'Watching a movie together and then jumping straight into a Ludo showdown!',
+          activities: [
+            {
+              id: 'act-1',
+              type: 'movie',
+              time: '9:00 PM',
+              title: 'Interstellar',
+              subtitle: '2h 49m · Watch Together',
+              actionLabel: 'Enter Cinema',
+              actionUrl: '/dashboard?autojoin=interstellar',
+              movieDetails: {
+                title: 'Interstellar',
+                duration: '2h 49m',
+                provider: 'youtube',
+                posterUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&auto=format&fit=crop&q=80'
+              }
+            },
+            {
+              id: 'act-2',
+              type: 'game',
+              time: '11:50 PM',
+              title: 'Ludo Party',
+              subtitle: '2–4 Players · Classic Board Game',
+              actionLabel: 'Play Together',
+              actionUrl: '/games/ludo'
+            },
+            {
+              id: 'act-3',
+              type: 'hangout',
+              time: '12:30 AM',
+              title: 'Late Night Chat',
+              subtitle: 'Open Discussion · Voice / Video',
+              actionLabel: 'Join Chat',
+              actionUrl: '/rooms'
+            }
+          ],
+          participants: [
+            {
+              userId: 'usr_hN35KGS9RX',
+              displayName: 'Mayur Bhargava',
+              avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+              status: 'GOING',
+              isHost: true
+            },
+            {
+              userId: 'usr_-jq7XMcBhu',
+              displayName: 'Mayur. 1',
+              avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=120&auto=format&fit=crop&q=80',
+              status: 'GOING'
+            },
+            {
+              userId: 'usr_rahul',
+              displayName: 'Rahul',
+              avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
+              status: 'GOING'
+            },
+            {
+              userId: 'usr_mansi',
+              displayName: 'Mansi',
+              avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80',
+              status: 'GOING'
+            },
+            {
+              userId: 'usr_dhruv',
+              displayName: 'Dhruv',
+              avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
+              status: 'GOING'
+            },
+            {
+              userId: 'usr_kunal',
+              displayName: 'Kunal',
+              avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=120&auto=format&fit=crop&q=80',
+              status: 'CANT_GO'
+            }
+          ],
+          reminder: '30m',
+          recurring: 'none',
+          chatMessages: [
+            {
+              id: 'm1',
+              userId: 'usr_rahul',
+              displayName: 'Rahul',
+              avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
+              text: "Can't wait for this! 🚀",
+              createdAt: Date.now() - 120000
+            },
+            {
+              id: 'm2',
+              userId: 'usr_mansi',
+              displayName: 'Mansi',
+              avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80',
+              text: 'Interstellar is perfect! ✨',
+              createdAt: Date.now() - 300000
+            },
+            {
+              id: 'm3',
+              userId: 'usr_dhruv',
+              displayName: 'Dhruv',
+              avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
+              text: 'Ludo after is crazy 😂',
+              createdAt: Date.now() - 480000
+            }
+          ]
+        });
+      }
+    } catch (e: any) {
+      console.error('Failed to ensure default plan-1789841556778:', e.message);
+    }
   }
 
   clearAllUsers(): void {

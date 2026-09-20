@@ -22,18 +22,30 @@ import {
   Gamepad2,
   MessageCircle,
   Crown,
-  X
+  X,
+  Download,
+  ExternalLink,
+  CalendarCheck,
+  UserPlus,
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { useTheme } from '../../../context/ThemeContext';
-import { getStoredSession, UserSession, getApiPlanById } from '../../../lib/api';
+import {
+  getStoredSession,
+  UserSession,
+  getApiPlanById,
+  getFriendsWithStreaks
+} from '../../../lib/api';
 import { Plan, RSVPStatus, PlanActivity } from '../../../types/plans';
 import {
   getPlanById,
   updatePlan,
   updateRSVP,
   voteOption,
-  addPlanChatMessage
+  addPlanChatMessage,
+  inviteParticipant
 } from '../../../lib/plansStore';
 import { ActivityTimeline } from '../../../components/plans/ActivityTimeline';
 import { CollaborativeVoting } from '../../../components/plans/CollaborativeVoting';
@@ -53,6 +65,7 @@ export default function PlanDetailPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [availableFriends, setAvailableFriends] = useState<any[]>([]);
 
   // Invite modal
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -65,8 +78,9 @@ export default function PlanDetailPage() {
   const [newStepTime, setNewStepTime] = useState('11:00 PM');
 
   const [activeTab, setActiveTab] = useState<'schedule' | 'about' | 'attendees' | 'chat'>('schedule');
+  const [attendeesFilter, setAttendeesFilter] = useState<'ALL' | RSVPStatus>('ALL');
 
-  const currentUserId = session?.user?.id || 'u1';
+  const currentUserId = session?.user?.id || 'usr_hN35KGS9RX';
   const currentUserName = session?.user?.displayName || 'Mayur Bhargava';
   const currentUserAvatar = session?.user?.avatarUrl;
 
@@ -92,6 +106,13 @@ export default function PlanDetailPage() {
     const s = getStoredSession();
     if (s && s.token) {
       setSession(s);
+      getFriendsWithStreaks(s.token)
+        .then((res) => {
+          if (res?.friends && Array.isArray(res.friends)) {
+            setAvailableFriends(res.friends.map((f: any) => f.friendUser));
+          }
+        })
+        .catch(() => {});
     }
     loadCurrentPlan();
 
@@ -110,6 +131,47 @@ export default function PlanDetailPage() {
 
     return () => clearInterval(interval);
   }, [planId]);
+
+  const handleDownloadICS = () => {
+    if (!plan) return;
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//StitchByte//Watch Plans//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:plan-${plan.id}@stitchbyte.in`,
+      'DTSTAMP:20260920T120000Z',
+      'DTSTART:20260927T153000Z',
+      'DTEND:20260927T190000Z',
+      `SUMMARY:${plan.title}`,
+      `DESCRIPTION:${plan.description || ''} - Join: ${typeof window !== 'undefined' ? window.location.href : ''}`,
+      'LOCATION:Online Watch Party',
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', `${plan.id}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const getGoogleCalendarUrl = () => {
+    const startStr = '20260927T153000Z';
+    const endStr = '20260927T190000Z';
+    const title = encodeURIComponent(plan?.title || 'Watch Party');
+    const details = encodeURIComponent(
+      `${plan?.description || ''}\n\nJoin live: ${typeof window !== 'undefined' ? window.location.href : ''}`
+    );
+    const location = encodeURIComponent('Watch App · StitchByte (Online)');
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
+  };
 
   if (loading) {
     return (
@@ -233,18 +295,18 @@ export default function PlanDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-x-hidden">
-      {/* Centralized App Sidebar */}
+    <div className="h-screen bg-slate-50 dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-hidden">
+      {/* Centralized App Sidebar - Fixed in place */}
       <AppSidebar
         activeNav="plans"
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+      {/* Main Content Area - Scrollable */}
+      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto">
         {/* Top Header Bar matching screenshot */}
-        <header className="flex items-center justify-between px-6 md:px-10 py-4 bg-white/60 dark:bg-[#130e1b]/60 backdrop-blur-md border-b border-slate-200/60 dark:border-white/5 sticky top-0 z-30">
+        <header className="flex items-center justify-between px-6 md:px-10 py-4 bg-white/80 dark:bg-[#130e1b]/80 backdrop-blur-md border-b border-slate-200/60 dark:border-white/5 sticky top-0 z-30 shrink-0">
           <div className="flex items-center space-x-3">
             <Link
               href="/plans"
@@ -418,14 +480,14 @@ export default function PlanDetailPage() {
             </div>
           </div>
 
-          {/* Navigation Tabs matching screenshot */}
+          {/* Navigation Tabs matching screenshot media_1789897511705.png */}
           <div className="flex items-center gap-8 border-b border-slate-200/80 dark:border-white/10 px-2">
             <button
               type="button"
               onClick={() => setActiveTab('schedule')}
-              className={`pb-3 text-xs font-black transition cursor-pointer border-b-2 ${
+              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
                 activeTab === 'schedule'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
                   : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
@@ -434,9 +496,9 @@ export default function PlanDetailPage() {
             <button
               type="button"
               onClick={() => setActiveTab('about')}
-              className={`pb-3 text-xs font-bold transition cursor-pointer border-b-2 ${
+              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
                 activeTab === 'about'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
                   : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
@@ -445,9 +507,9 @@ export default function PlanDetailPage() {
             <button
               type="button"
               onClick={() => setActiveTab('attendees')}
-              className={`pb-3 text-xs font-bold transition cursor-pointer border-b-2 ${
+              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
                 activeTab === 'attendees'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
                   : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
@@ -456,9 +518,9 @@ export default function PlanDetailPage() {
             <button
               type="button"
               onClick={() => setActiveTab('chat')}
-              className={`pb-3 text-xs font-bold transition cursor-pointer border-b-2 ${
+              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
                 activeTab === 'chat'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f]'
+                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
                   : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
@@ -466,46 +528,365 @@ export default function PlanDetailPage() {
             </button>
           </div>
 
-          {/* Grid Layout: Left (Timeline + Voting) vs Right (Attendees + Chat) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column (2 Cols) */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Activity Timeline (Visual Centerpiece) */}
-              <ActivityTimeline
-                activities={plan.activities}
-                planTitle={plan.title}
-                isHost={isHost}
-                onAddActivity={() => setShowAddStepModal(true)}
-              />
-
-              {/* Collaborative Voting (if applicable) */}
-              {plan.voting && (
-                <CollaborativeVoting
-                  question={plan.voting.question}
-                  type={plan.voting.type}
-                  options={plan.voting.options}
-                  currentUserId={currentUserId}
-                  isClosed={plan.voting.isClosed}
-                  confirmedTitle={plan.voting.confirmedTitle}
+          {/* TAB 1: SCHEDULE VIEW (matches default 2-column layout) */}
+          {activeTab === 'schedule' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column (2 Cols) */}
+              <div className="lg:col-span-2 space-y-8">
+                {/* Activity Timeline (Visual Centerpiece) */}
+                <ActivityTimeline
+                  activities={plan.activities}
+                  planTitle={plan.title}
                   isHost={isHost}
-                  onVote={handleVote}
-                  onConfirmSelection={handleConfirmSelection}
-                  onAddOption={handleAddVotingOption}
+                  onAddActivity={() => setShowAddStepModal(true)}
                 />
-              )}
+
+                {/* Collaborative Voting (if applicable) */}
+                {plan.voting && (
+                  <CollaborativeVoting
+                    question={plan.voting.question}
+                    type={plan.voting.type}
+                    options={plan.voting.options}
+                    currentUserId={currentUserId}
+                    isClosed={plan.voting.isClosed}
+                    confirmedTitle={plan.voting.confirmedTitle}
+                    isHost={isHost}
+                    onVote={handleVote}
+                    onConfirmSelection={handleConfirmSelection}
+                    onAddOption={handleAddVotingOption}
+                  />
+                )}
+              </div>
+
+              {/* Right Column (1 Col) */}
+              <div className="space-y-6">
+                {/* Attendees List */}
+                <ParticipantList
+                  participants={plan.participants}
+                  currentUserId={currentUserId}
+                  onInviteClick={() => setShowInviteModal(true)}
+                  onUpdateRSVP={handleRSVP}
+                />
+
+                {/* Event Chat */}
+                <EventChat
+                  messages={plan.chatMessages || []}
+                  currentUserId={currentUserId}
+                  currentUserName={currentUserName}
+                  currentUserAvatar={currentUserAvatar}
+                  onSendMessage={handleSendMessage}
+                />
+              </div>
             </div>
+          )}
 
-            {/* Right Column (1 Col) */}
-            <div className="space-y-6">
-              {/* Attendees List */}
-              <ParticipantList
-                participants={plan.participants}
-                currentUserId={currentUserId}
-                onInviteClick={() => setShowInviteModal(true)}
-                onUpdateRSVP={handleRSVP}
-              />
+          {/* TAB 2: ABOUT VIEW */}
+          {activeTab === 'about' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Details (2 Cols) */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Description & Overview */}
+                <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    About This Plan
+                  </h3>
+                  <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
+                    {plan.description ||
+                      'Join our synchronized watch session and competitive game night with live banter, voice chat, and synchronized playback!'}
+                  </p>
 
-              {/* Event Chat */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 space-y-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Date & Time
+                      </span>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">
+                        {plan.dateFormatted} · {plan.time} {plan.endTime ? `– ${plan.endTime}` : ''}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
+                        Timezone: {plan.timezone} (Indian Standard Time)
+                      </p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 space-y-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        Reminder Status
+                      </span>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-[#ff2a5f]" />
+                        {plan.reminder && plan.reminder !== 'none'
+                          ? `Alert set for ${plan.reminder} prior`
+                          : 'No reminder set'}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
+                        Syncs with mobile push & browser notifications
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activities Breakdown */}
+                <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    Program Schedule
+                  </h3>
+                  <div className="space-y-3">
+                    {plan.activities.map((act, index) => (
+                      <div
+                        key={act.id}
+                        className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-xl bg-[#ff2a5f]/10 text-[#ff2a5f] font-black text-xs flex items-center justify-center">
+                            #{index + 1}
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                              {act.title}
+                            </h4>
+                            <p className="text-xs text-slate-400">
+                              {act.time} · {act.subtitle || act.type}
+                            </p>
+                          </div>
+                        </div>
+
+                        <Link
+                          href={act.actionUrl || '/rooms'}
+                          className="px-4 py-2 rounded-xl bg-white dark:bg-white/10 text-slate-800 dark:text-white text-xs font-bold border border-slate-200 dark:border-white/10 hover:border-[#ff2a5f] hover:text-[#ff2a5f] transition inline-flex items-center gap-1.5"
+                        >
+                          <span>{act.actionLabel || 'Enter'}</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Details (1 Col) */}
+              <div className="space-y-6">
+                {/* Host Card */}
+                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
+                    Host & Organizer
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={
+                        plan.participants.find((p) => p.isHost)?.avatarUrl ||
+                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
+                      }
+                      alt="Host"
+                      className="w-12 h-12 rounded-full object-cover ring-2 ring-[#ff2a5f]/30"
+                    />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-slate-900 dark:text-white">
+                          {plan.participants.find((p) => p.isHost)?.displayName || 'Mayur Bhargava'}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#fff8ee] dark:bg-amber-500/10 text-[#f59e0b] dark:text-amber-400 border border-[#fed7aa] dark:border-amber-500/30 text-[10px] font-black uppercase">
+                          HOST
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400">Event Creator & Stream Director</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Calendar Sync */}
+                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
+                    Add to Calendar
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Export event to your personal calendar to never miss when the party starts.
+                  </p>
+
+                  <div className="space-y-2 pt-1">
+                    <a
+                      href={getGoogleCalendarUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-900 dark:text-white text-xs font-bold flex items-center justify-center gap-2 transition"
+                    >
+                      <CalendarCheck className="w-4 h-4 text-[#ff2a5f]" />
+                      <span>Add to Google Calendar</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadICS}
+                      className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-900 dark:text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                    >
+                      <Download className="w-4 h-4 text-emerald-500" />
+                      <span>Download .ICS File</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: ATTENDEES VIEW */}
+          {activeTab === 'attendees' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main Attendees Card (2 Cols) */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                        Guest Roster & RSVPs
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-zinc-400">
+                        {plan.participants.length} friends invited to this watch session
+                      </p>
+                    </div>
+
+                    {/* Filter Pills */}
+                    <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-white/5">
+                      {(['ALL', 'GOING', 'MAYBE', 'CANT_GO'] as const).map((status) => {
+                        const count =
+                          status === 'ALL'
+                            ? plan.participants.length
+                            : plan.participants.filter((p) => p.status === status).length;
+                        return (
+                          <button
+                            key={status}
+                            type="button"
+                            onClick={() => setAttendeesFilter(status)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                              attendeesFilter === status
+                                ? 'bg-white dark:bg-white/15 text-slate-900 dark:text-white shadow-xs'
+                                : 'text-slate-400 hover:text-slate-700 dark:hover:text-white'
+                            }`}
+                          >
+                            {status === 'ALL'
+                              ? `All (${count})`
+                              : status === 'GOING'
+                              ? `Going (${count})`
+                              : status === 'MAYBE'
+                              ? `Maybe (${count})`
+                              : `Can't Go (${count})`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Attendees List matching media_1789897511706.png */}
+                  <div className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+                    {plan.participants
+                      .filter((p) => (attendeesFilter === 'ALL' ? true : p.status === attendeesFilter))
+                      .map((p) => (
+                        <div
+                          key={p.userId}
+                          className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={
+                                p.avatarUrl ||
+                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
+                              }
+                              alt={p.displayName}
+                              className="w-11 h-11 rounded-full object-cover shrink-0 ring-1 ring-slate-200/80 dark:ring-white/10 shadow-xs"
+                            />
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                                {p.displayName}
+                              </span>
+                              {p.isHost && (
+                                <span className="px-2.5 py-0.5 rounded-full bg-[#fff8ee] dark:bg-amber-500/10 text-[#f59e0b] dark:text-amber-400 border border-[#fed7aa] dark:border-amber-500/30 text-[11px] font-black tracking-wider uppercase inline-flex items-center shrink-0">
+                                  HOST
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span
+                            className={`px-4 py-1.5 rounded-full font-bold text-xs shrink-0 ${
+                              p.status === 'GOING'
+                                ? 'bg-[#eafaf1] text-[#10b981] dark:bg-emerald-500/15 dark:text-emerald-400'
+                                : p.status === 'MAYBE'
+                                ? 'bg-[#fef9c3] text-[#ca8a04] dark:bg-amber-500/15 dark:text-amber-400'
+                                : 'bg-[#fee2e2] text-[#ef4444] dark:bg-rose-500/15 dark:text-rose-400'
+                            }`}
+                          >
+                            {p.status === 'GOING' ? 'Going' : p.status === 'MAYBE' ? 'Maybe' : "Can't Go"}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sidebar Action: Invite & Your Status (1 Col) */}
+              <div className="space-y-6">
+                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
+                    Your Response
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleRSVP('GOING')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        myStatus === 'GOING'
+                          ? 'bg-[#10b981]/15 border-[#10b981]/30 text-[#10b981]'
+                          : 'border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      Going
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRSVP('MAYBE')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        myStatus === 'MAYBE'
+                          ? 'bg-amber-500/15 border-amber-500/30 text-amber-500'
+                          : 'border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      Maybe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRSVP('CANT_GO')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        myStatus === 'CANT_GO'
+                          ? 'bg-rose-500/15 border-rose-500/30 text-rose-500'
+                          : 'border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      Can't Go
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
+                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
+                    Invite More Friends
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    Have friends who want to watch Interstellar or play Ludo? Send them an invite link.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowInviteModal(true)}
+                    className="w-full py-3 rounded-2xl bg-[#ff2a5f] hover:bg-[#ee1d49] text-white text-xs font-black shadow-md shadow-[#ff2a5f]/25 transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Invite Friends</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: CHAT VIEW */}
+          {activeTab === 'chat' && (
+            <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
               <EventChat
                 messages={plan.chatMessages || []}
                 currentUserId={currentUserId}
@@ -514,7 +895,7 @@ export default function PlanDetailPage() {
                 onSendMessage={handleSendMessage}
               />
             </div>
-          </div>
+          )}
         </div>
       </main>
 
@@ -546,11 +927,67 @@ export default function PlanDetailPage() {
               <button
                 type="button"
                 onClick={handleShare}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shrink-0"
+                className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shrink-0 cursor-pointer"
               >
                 {copiedLink ? 'Copied!' : 'Copy'}
               </button>
             </div>
+
+            {/* Direct Friend Invite List */}
+            {availableFriends.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-white/10">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Quick Invite Friends
+                </span>
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {availableFriends.map((f) => {
+                    const alreadyInvited = plan.participants.some((p) => p.userId === f.id);
+                    return (
+                      <div
+                        key={f.id}
+                        className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-white/5"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={
+                              f.avatarUrl ||
+                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
+                            }
+                            alt={f.displayName}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          <span className="text-xs font-bold truncate text-slate-900 dark:text-white">
+                            {f.displayName}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={alreadyInvited}
+                          onClick={() => {
+                            inviteParticipant(plan.id, {
+                              userId: f.id,
+                              displayName: f.displayName,
+                              avatarUrl: f.avatarUrl,
+                              status: 'GOING'
+                            });
+                            loadCurrentPlan();
+                            setInviteFeedback(`Invited ${f.displayName}!`);
+                            setTimeout(() => setInviteFeedback(null), 2000);
+                          }}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                            alreadyInvited
+                              ? 'bg-slate-200 dark:bg-white/10 text-slate-400 cursor-default'
+                              : 'bg-[#ff2a5f] hover:bg-[#ee1d49] text-white cursor-pointer'
+                          }`}
+                        >
+                          {alreadyInvited ? 'Invited' : 'Invite'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
@@ -561,7 +998,7 @@ export default function PlanDetailPage() {
                   setShowInviteModal(false);
                 }, 1500);
               }}
-              className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#ee1d49] to-[#ff3b68] text-white text-xs font-bold shadow-md shadow-[#ee1d49]/30"
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#ee1d49] to-[#ff3b68] text-white text-xs font-bold shadow-md shadow-[#ee1d49]/30 cursor-pointer"
             >
               {inviteFeedback || 'Notify All Friends On Watch'}
             </button>

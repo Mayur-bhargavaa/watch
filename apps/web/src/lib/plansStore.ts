@@ -129,268 +129,36 @@ export const SEED_PLANS: Plan[] = [
     ],
     createdAt: Date.now() - 3600000,
     isPast: false
-  },
-  {
-    id: 'plan-friday-night',
-    title: 'Friday Night',
-    emoji: '🍿',
-    type: 'movie',
-    tagLabel: 'Movie + Game',
-    posterUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=600&auto=format&fit=crop&q=80',
-    posterOverlayText: 'INTERSTELLAR',
-    date: '2024-09-27',
-    dateFormatted: 'Sat, 27 September',
-    time: '9:00 PM – 1:00 AM (IST)',
-    timezone: 'IST',
-    description: 'A movie, a game, and great company.',
-    activities: [
-      {
-        id: 'act-1',
-        type: 'movie',
-        time: '9:00 PM',
-        title: 'Interstellar',
-        subtitle: 'Duration: 2h 49m · 4K IMAX',
-        actionLabel: 'Enter Cinema',
-        actionUrl: '/dashboard?autojoin=interstellar',
-        movieDetails: {
-          title: 'Interstellar',
-          duration: '2h 49m',
-          provider: 'youtube',
-          posterUrl: 'https://img.youtube.com/vi/zSWdZVtXT7E/maxresdefault.jpg',
-          sourceUrl: 'https://www.youtube.com/watch?v=zSWdZVtXT7E'
-        }
-      },
-      {
-        id: 'act-2',
-        type: 'game',
-        time: '11:50 PM',
-        title: 'Ludo Party',
-        subtitle: 'After the movie · 4 Players',
-        actionLabel: 'Play Together',
-        actionUrl: '/games/ludo',
-        gameDetails: {
-          gameId: 'ludo',
-          title: 'Ludo Party',
-          icon: '🎲',
-          players: '2-4 Players'
-        }
-      },
-      {
-        id: 'act-3',
-        type: 'hangout',
-        time: '12:30 AM',
-        title: 'Late Night Chat',
-        subtitle: 'Hangout & recap thoughts',
-        actionLabel: 'Join Chat'
-      }
-    ],
-    participants: [
-      { userId: 'user-mayur', displayName: 'Mayur', avatarUrl: '/avatars/batman.png', status: 'GOING', isHost: true },
-      { userId: 'user-rahul', displayName: 'Rahul', avatarUrl: '/avatars/deadpool.png', status: 'GOING' },
-      { userId: 'user-dhruv', displayName: 'Dhruv', avatarUrl: '/avatars/ironman.png', status: 'GOING' },
-      { userId: 'user-mansi', displayName: 'Mansi', avatarUrl: '/avatars/wonderwoman.png', status: 'GOING' },
-      { userId: 'user-kunal', displayName: 'Kunal', avatarUrl: '/avatars/spiderman.png', status: 'GOING' },
-      { userId: 'user-ananya', displayName: 'Ananya', avatarUrl: '/avatars/harley.png', status: 'MAYBE' },
-      { userId: 'user-rohit', displayName: 'Rohit', avatarUrl: null, status: 'MAYBE' }
-    ],
-    voting: {
-      id: 'vote-1',
-      question: 'What should we watch?',
-      type: 'movie',
-      options: [
-        { id: 'opt-1', title: 'Interstellar', subtitle: 'Christopher Nolan · Sci-Fi', votes: ['user-mayur', 'user-rahul', 'user-dhruv', 'user-mansi'], type: 'movie' },
-        { id: 'opt-2', title: 'Inception', subtitle: 'Mind-Bending Thriller', votes: ['user-kunal', 'user-ananya'], type: 'movie' },
-        { id: 'opt-3', title: 'The Dark Knight', subtitle: 'Action · Crime', votes: ['user-rohit'], type: 'movie' }
-      ],
-      isClosed: true,
-      confirmedTitle: 'Interstellar'
-    },
-    reminder: '30m',
-    recurring: 'weekly',
-    chatMessages: [
-      { id: 'm1', userId: 'user-rahul', displayName: 'Rahul', avatarUrl: '/avatars/deadpool.png', text: 'Popcorn is already loaded! IMAX mode tonight? 🍿', createdAt: Date.now() - 3600000 },
-      { id: 'm2', userId: 'user-mayur', displayName: 'Mayur', avatarUrl: '/avatars/batman.png', text: 'Yes! Virtual theater front seats ready. Ludo right after.', createdAt: Date.now() - 1800000 },
-      { id: 'm3', userId: 'user-dhruv', displayName: 'Dhruv', avatarUrl: '/avatars/ironman.png', text: 'Ready for the soundtrack drop. Let’s go! 🚀', createdAt: Date.now() - 600000 }
-    ],
-    createdAt: Date.now() - 86400000,
-    isPast: false
-  },
-  {
-    id: 'plan-rahuls-birthday',
-    title: "Rahul's Birthday",
-    emoji: '🎂',
-    type: 'birthday',
-    tagLabel: 'Birthday',
-    posterUrl: 'https://images.unsplash.com/photo-1558636508-e0db3814bd1d?w=600&auto=format&fit=crop&q=80',
-    posterOverlayText: 'Good Friends\nBrighter\nBirthdays\n♡',
-    date: '2024-10-04',
-    dateFormatted: 'Sun, 4 October',
-    time: '7:00 PM – 11:00 PM (IST)',
-    timezone: 'IST',
-    description: "Let's make it special! 🎉",
-    activities: [
-      {
-        id: 'act-b1',
-        type: 'movie',
-        time: '7:00 PM',
-        title: 'Tears of Steel',
-        subtitle: 'Sci-Fi Cyberpunk Special',
-        actionLabel: 'Enter Cinema',
-        actionUrl: '/dashboard?autojoin=tears-of-steel',
-        movieDetails: {
-          title: 'Tears of Steel',
-          duration: '12m',
-          provider: 'youtube',
-          posterUrl: 'https://img.youtube.com/vi/R6MlUcmOul8/maxresdefault.jpg',
-          sourceUrl: 'https://www.youtube.com/watch?v=R6MlUcmOul8'
-        }
-      },
-      {
-        id: 'act-b2',
-        type: 'game',
-        time: '8:30 PM',
-        title: 'Trivia & Games',
-        subtitle: 'Birthday showdown · Everyone invited',
-        actionLabel: 'Play Together',
-        actionUrl: '/games/four-in-a-row',
-        gameDetails: {
-          gameId: 'connect4',
-          title: 'Four in a Row',
-          icon: '🔴',
-          players: '2-4 Players'
-        }
-      },
-      {
-        id: 'act-b3',
-        type: 'hangout',
-        time: '9:45 PM',
-        title: 'Cake & Wishes',
-        subtitle: 'Live video party with camera previews',
-        actionLabel: 'Join Chat'
-      }
-    ],
-    participants: [
-      { userId: 'user-rahul', displayName: 'Rahul', avatarUrl: '/avatars/deadpool.png', status: 'GOING', isHost: true },
-      { userId: 'user-mayur', displayName: 'Mayur', avatarUrl: '/avatars/batman.png', status: 'GOING' },
-      { userId: 'user-mansi', displayName: 'Mansi', avatarUrl: '/avatars/wonderwoman.png', status: 'GOING' },
-      { userId: 'user-dhruv', displayName: 'Dhruv', avatarUrl: '/avatars/ironman.png', status: 'GOING' },
-      { userId: 'user-kunal', displayName: 'Kunal', avatarUrl: '/avatars/spiderman.png', status: 'GOING' },
-      { userId: 'user-priya', displayName: 'Priya', avatarUrl: null, status: 'MAYBE' },
-      { userId: 'user-sam', displayName: 'Sam', avatarUrl: null, status: 'MAYBE' }
-    ],
-    reminder: '1d',
-    recurring: 'none',
-    chatMessages: [
-      { id: 'mb1', userId: 'user-mayur', displayName: 'Mayur', avatarUrl: '/avatars/batman.png', text: 'Shhh, do not spoil the intro video we prepared! 🤫🎂', createdAt: Date.now() - 7200000 },
-      { id: 'mb2', userId: 'user-mansi', displayName: 'Mansi', avatarUrl: '/avatars/wonderwoman.png', text: 'I got the party stickers loaded up 🎉', createdAt: Date.now() - 3600000 }
-    ],
-    createdAt: Date.now() - 172800000,
-    isPast: false
-  },
-  {
-    id: 'plan-ludo-night',
-    title: 'Ludo Night',
-    emoji: '🎮',
-    type: 'game',
-    tagLabel: 'Game',
-    posterUrl: 'https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?w=600&auto=format&fit=crop&q=80',
-    posterOverlayText: 'Game Friends\nAre The\nBest Friends',
-    date: '2024-10-09',
-    dateFormatted: 'Fri, 9 October',
-    time: '9:00 PM – 11:00 PM (IST)',
-    timezone: 'IST',
-    description: 'Roll. Play. Repeat. 🎲',
-    activities: [
-      {
-        id: 'act-l1',
-        type: 'game',
-        time: '9:00 PM',
-        title: 'Ludo Party',
-        subtitle: '4 Players · Safe star rules active',
-        actionLabel: 'Play Together',
-        actionUrl: '/games/ludo',
-        gameDetails: {
-          gameId: 'ludo',
-          title: 'Ludo Party',
-          icon: '🎲',
-          players: '4 Players'
-        }
-      },
-      {
-        id: 'act-l2',
-        type: 'game',
-        time: '10:00 PM',
-        title: 'Tic-Tac-Toe Quickfire',
-        subtitle: 'Double elimination tie-breaker',
-        actionLabel: 'Play Together',
-        actionUrl: '/games/tic-tac-toe',
-        gameDetails: {
-          gameId: 'tic-tac-toe',
-          title: 'Tic-Tac-Toe',
-          icon: '⭕',
-          players: '2 Players'
-        }
-      }
-    ],
-    participants: [
-      { userId: 'user-mayur', displayName: 'Mayur', avatarUrl: '/avatars/batman.png', status: 'GOING', isHost: true },
-      { userId: 'user-rahul', displayName: 'Rahul', avatarUrl: '/avatars/deadpool.png', status: 'GOING' },
-      { userId: 'user-dhruv', displayName: 'Dhruv', avatarUrl: '/avatars/ironman.png', status: 'GOING' },
-      { userId: 'user-kunal', displayName: 'Kunal', avatarUrl: '/avatars/spiderman.png', status: 'GOING' }
-    ],
-    reminder: '1h',
-    recurring: 'weekly',
-    chatMessages: [
-      { id: 'ml1', userId: 'user-dhruv', displayName: 'Dhruv', avatarUrl: '/avatars/ironman.png', text: 'My green token is taking revenge on Rahul’s red one this time! 😈', createdAt: Date.now() - 5400000 }
-    ],
-    createdAt: Date.now() - 259200000,
-    isPast: false
-  },
-  {
-    id: 'plan-retro-cinema',
-    title: 'Retro Sci-Fi Night',
-    emoji: '✨',
-    type: 'movie',
-    date: '2026-09-12',
-    dateFormatted: 'Friday · 12 September',
-    time: '8:30 PM',
-    endTime: '11:00 PM',
-    timezone: 'IST',
-    description: 'Blender Open Movie classics marathon with popcorn and live voice banter.',
-    activities: [
-      {
-        id: 'act-r1',
-        type: 'movie',
-        time: '8:30 PM',
-        title: 'Big Buck Bunny',
-        subtitle: '4K Animation Classic · 10m',
-        actionLabel: 'Enter Cinema',
-        actionUrl: '/dashboard?autojoin=big-buck-bunny'
-      }
-    ],
-    participants: [
-      { userId: 'user-mayur', displayName: 'Mayur', avatarUrl: '/avatars/batman.png', status: 'GOING', isHost: true },
-      { userId: 'user-mansi', displayName: 'Mansi', avatarUrl: '/avatars/wonderwoman.png', status: 'GOING' }
-    ],
-    reminder: 'none',
-    recurring: 'none',
-    chatMessages: [],
-    createdAt: Date.now() - 800000000,
-    isPast: true
   }
 ];
 
+const DUMMY_PLAN_IDS = new Set([
+  'plan-friday-night',
+  'plan-rahuls-birthday',
+  'plan-ludo-night',
+  'plan-retro-cinema'
+]);
+
 export function getPlans(): Plan[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') return SEED_PLANS;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return [];
+      return SEED_PLANS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      // Filter out any stale dummy plans from older versions of localStorage
+      const realOnly = parsed.filter((p: Plan) => p && !DUMMY_PLAN_IDS.has(p.id));
+      if (realOnly.length === 0) {
+        savePlans(SEED_PLANS);
+        return SEED_PLANS;
+      }
+      return realOnly;
+    }
+    return SEED_PLANS;
   } catch {
-    return [];
+    return SEED_PLANS;
   }
 }
 
@@ -404,10 +172,37 @@ export function savePlans(plans: Plan[]): void {
 }
 
 export function getPlanById(id: string): Plan | undefined {
+  if (DUMMY_PLAN_IDS.has(id)) return undefined;
   const plans = getPlans();
   const found = plans.find((p) => p.id === id);
   if (found) return found;
   return SEED_PLANS.find((p) => p.id === id);
+}
+
+export function inviteParticipant(
+  planId: string,
+  participant: { userId: string; displayName: string; avatarUrl?: string | null; status?: RSVPStatus }
+): Plan | undefined {
+  const plans = getPlans();
+  const plan = plans.find((p) => p.id === planId);
+  if (!plan) return undefined;
+
+  const existingIdx = plan.participants.findIndex((p) => p.userId === participant.userId);
+  if (existingIdx === -1) {
+    plan.participants.push({
+      userId: participant.userId,
+      displayName: participant.displayName,
+      avatarUrl: participant.avatarUrl,
+      status: participant.status || 'GOING',
+      isHost: false
+    });
+    savePlans([...plans]);
+    try {
+      const session = getStoredSession();
+      updateApiPlan(planId, { participants: plan.participants }, session?.token).catch(() => {});
+    } catch {}
+  }
+  return plan;
 }
 
 export function addPlan(plan: Plan): void {
