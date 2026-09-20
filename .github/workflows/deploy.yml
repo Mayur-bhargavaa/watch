@@ -70,6 +70,8 @@ jobs:
             echo "🔨 Building packages..."
             npm --workspace=@synccinema/common run build
             npm --workspace=@synccinema/server run build
+            echo "🧹 Clearing stale Next.js build cache..."
+            rm -rf apps/web/.next
             npm --workspace=@synccinema/web run build
 
             echo "🔄 Reloading PM2 processes (watch-server & watch-web)..."
