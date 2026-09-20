@@ -482,6 +482,12 @@ export function useGameRoom(roomCode: string | null) {
 
       case 'game:rematch_status': {
         setRematchStatus(msg.payload);
+        if (msg.payload?.room) {
+          setRoom(msg.payload.room);
+        } else {
+          setRoom(prev => (prev ? { ...prev, status: 'WAITING' } : null));
+        }
+        setGameState(null);
         break;
       }
 

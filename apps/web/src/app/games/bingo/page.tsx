@@ -117,7 +117,8 @@ function BingoGameContent() {
     sendLeave,
     sendVoiceState,
     sendCameraState,
-    rematch
+    rematch,
+    rematchStatus
   } = useGameRoom(roomCodeParam);
 
   // Sync config from gameState when active
@@ -186,6 +187,8 @@ function BingoGameContent() {
           room={room}
           myUserId={myUserId || session?.user.id || ''}
           config={roomConfig}
+          rematchStatus={rematchStatus}
+          onRematch={rematch}
           onStartGame={(cfg) => {
             startBingoGame(cfg);
           }}
@@ -536,6 +539,7 @@ function BingoGameContent() {
           myUserId={myUserId || session?.user.id || ''}
           finalScores={gameState?.scores || gameState?.gameSummary?.finalScores || {}}
           roundsWon={gameState?.gameSummary?.roundsWon || []}
+          rematchStatus={rematchStatus}
           onRematch={rematch}
           onBackToPlan={() => router.push('/plans')}
           onBackToLobby={() => router.push('/games')}

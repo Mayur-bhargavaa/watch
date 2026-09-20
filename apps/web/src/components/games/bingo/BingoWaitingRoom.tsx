@@ -13,7 +13,8 @@ import {
   Sparkles,
   ChevronLeft,
   ShieldCheck,
-  User
+  User,
+  RotateCcw
 } from 'lucide-react';
 import { GameRoom, BingoRoomConfig } from '@synccinema/common';
 import { BingoRoomSettings } from './BingoRoomSettings';
@@ -22,6 +23,13 @@ interface BingoWaitingRoomProps {
   room: GameRoom;
   myUserId: string;
   config: BingoRoomConfig;
+  rematchStatus?: {
+    votedUserIds: string[];
+    votedCount: number;
+    totalNeeded: number;
+    allVoted: boolean;
+  } | null;
+  onRematch?: () => void;
   onStartGame: (config: BingoRoomConfig) => void;
   onUpdateConfig: (config: BingoRoomConfig) => void;
   onLeave: () => void;
@@ -32,6 +40,8 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
   room,
   myUserId,
   config,
+  rematchStatus,
+  onRematch,
   onStartGame,
   onUpdateConfig,
   onLeave,
@@ -267,6 +277,63 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Rematch Status Banner if play again was pressed */}
+          {(() => {
+            const hasVotedRematch = Boolean(rematchStatus?.votedUserIds?.includes(myUserId));
+            const rematchVotedCount = rematchStatus?.votedCount ?? 0;
+            const partnerRequestedRematch = !hasVotedRematch && rematchVotedCount > 0;
+            const requestingPlayer = room.players.find(p => rematchStatus?.votedUserIds?.includes(p.userId));
+
+            if (rematchVotedCount === 0) return null;
+
+            if (rematchStatus?.allVoted) {
+              return (
+                <div className="w-full mb-4 p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-center space-y-1 animate-fadeIn">
+                  <div className="flex items-center justify-center space-x-2 text-emerald-400 text-xs font-black">
+                    <Check className="w-4 h-4" />
+                    <span>Both players agreed! Starting rematch...</span>
+                  </div>
+                </div>
+              );
+            }
+
+            if (partnerRequestedRematch) {
+              return (
+                <div className="w-full mb-4 p-4 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-center space-y-2.5 animate-pulse">
+                  <div className="flex items-center justify-center gap-2 text-rose-300 font-black text-sm">
+                    <Sparkles className="w-4 h-4 text-rose-400" />
+                    <span>🔥 {requestingPlayer?.displayName || 'Opponent'} wants to play again!</span>
+                  </div>
+                  <p className="text-xs text-zinc-300">
+                    Your opponent is in the waiting room ready for a rematch.
+                  </p>
+                  {onRematch && (
+                    <button
+                      type="button"
+                      onClick={onRematch}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-[#ee1d49] hover:brightness-110 active:scale-95 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Accept & Play Again 🔄</span>
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div className="w-full mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1.5 animate-fadeIn">
+                <div className="flex items-center justify-center gap-2 text-amber-400 font-bold text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+                  <span>Waiting for partner to accept Play Again... (1/2)</span>
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  Match will automatically start as soon as your partner accepts!
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Action Button: Start or Waiting */}
           <div className="w-full pt-1">

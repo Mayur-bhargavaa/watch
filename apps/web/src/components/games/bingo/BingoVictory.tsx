@@ -18,6 +18,12 @@ interface BingoVictoryProps {
   myUserId: string;
   finalScores?: Record<string, number>;
   roundsWon?: { condition: BingoWinCondition; winnerName: string; points: number }[];
+  rematchStatus?: {
+    votedUserIds: string[];
+    votedCount: number;
+    totalNeeded: number;
+    allVoted: boolean;
+  } | null;
   onRematch: () => void;
   onBackToPlan?: () => void;
   onBackToLobby: () => void;
@@ -31,12 +37,15 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
   myUserId,
   finalScores = {},
   roundsWon = [],
+  rematchStatus,
   onRematch,
   onBackToPlan,
   onBackToLobby
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isMe = winnerUserId === myUserId;
+  const hasVoted = Boolean(rematchStatus?.votedUserIds?.includes(myUserId));
+  const partnerVoted = !hasVoted && (rematchStatus?.votedCount ?? 0) > 0;
 
   // Subtle Confetti Animation
   useEffect(() => {
@@ -163,15 +172,37 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
           </div>
         )}
 
+        {partnerVoted && (
+          <div className="p-3.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-center space-y-1 animate-pulse">
+            <div className="flex items-center justify-center gap-1.5 text-rose-300 font-black text-xs">
+              <Sparkles className="w-3.5 h-3.5 text-rose-400" />
+              <span>🔥 Opponent wants to play again!</span>
+            </div>
+            <p className="text-[11px] text-zinc-300">
+              Click Play Again to accept and return to waiting room!
+            </p>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 pt-2">
           <button
             type="button"
             onClick={onRematch}
-            className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-600 to-[#ee1d49] hover:brightness-110 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
+            className={`w-full py-3.5 px-6 rounded-2xl text-white font-black text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 cursor-pointer ${
+              hasVoted
+                ? 'bg-zinc-700 opacity-70 cursor-not-allowed'
+                : 'bg-gradient-to-r from-rose-600 to-[#ee1d49] hover:brightness-110 shadow-rose-600/30'
+            }`}
           >
-            <RotateCcw className="w-4 h-4" />
-            <span>Play Again</span>
+            <RotateCcw className={`w-4 h-4 ${hasVoted ? 'animate-spin' : ''}`} />
+            <span>
+              {hasVoted
+                ? 'Returning to Waiting Room...'
+                : partnerVoted
+                ? 'Accept & Play Again 🔄'
+                : 'Play Again'}
+            </span>
           </button>
 
           <div className="grid grid-cols-2 gap-2">

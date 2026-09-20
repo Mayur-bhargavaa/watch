@@ -243,6 +243,8 @@ function DoodleDuelGameContent() {
               gameState={dState!}
               myUserId={currentUserId}
               isHost={isHost}
+              rematchStatus={rematchStatus}
+              onRematch={rematch}
               onSelectRole={drawerId => selectDoodleRole(drawerId)}
               onStartGame={cfg => startDoodleGame(cfg)}
               onUpdateConfig={cfg => updateDoodleConfig(cfg)}

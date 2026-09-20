@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Palette, Brain, Trophy, Sparkles } from 'lucide-react';
 import { GameJoinLobby } from '../GameJoinLobby';
 import { createGameRoomWithPartner, getStoredSession } from '../../../lib/api';
+import { useTheme } from '../../../context/ThemeContext';
 
-export const DoodlePreRoomLobby: React.FC<{
-  session?: any;
-  onOpenFriendSelector?: () => void;
-}> = () => {
+export const DoodlePreRoomLobby: React.FC = () => {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== 'light';
   const [rounds, setRounds] = useState<number>(6);
   const [drawTime, setDrawTime] = useState<number>(60);
 
@@ -29,7 +29,7 @@ export const DoodlePreRoomLobby: React.FC<{
   const createOptions = (
     <div className="space-y-4">
       <div>
-        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+        <label className={`text-xs font-semibold block mb-2 ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
           Total Rounds
         </label>
         <div className="grid grid-cols-4 gap-2">
@@ -41,7 +41,9 @@ export const DoodlePreRoomLobby: React.FC<{
               className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all border ${
                 rounds === r
                   ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
-                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
+                  : isDark
+                  ? 'bg-white/5 border-white/10 text-zinc-400 hover:text-white hover:bg-white/10'
+                  : 'bg-zinc-100 border-zinc-200 text-zinc-600 hover:bg-zinc-200'
               }`}
             >
               {r} Rounds
@@ -51,7 +53,7 @@ export const DoodlePreRoomLobby: React.FC<{
       </div>
 
       <div>
-        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+        <label className={`text-xs font-semibold block mb-2 ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
           Draw Time per Round
         </label>
         <div className="grid grid-cols-3 gap-2">
@@ -66,8 +68,10 @@ export const DoodlePreRoomLobby: React.FC<{
               onClick={() => setDrawTime(p.val)}
               className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all border ${
                 drawTime === p.val
-                  ? 'bg-rose-500/20 border-rose-500 text-rose-300'
-                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+                  ? 'bg-rose-500/20 border-rose-500 text-rose-500'
+                  : isDark
+                  ? 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+                  : 'bg-zinc-100 border-zinc-200 text-zinc-600 hover:bg-zinc-200'
               }`}
             >
               {p.label}

@@ -401,6 +401,12 @@ export class GameRoomManager {
     const votedUserIds = Array.from(votes);
     const allVoted = votes.size >= totalNeeded;
 
+    // Reset room status to WAITING in DB and in memory so both players return to the waiting screen
+    room.status = 'WAITING';
+    room.gameState = null;
+    this.db.updateGameRoomStatus(roomId, 'WAITING');
+    this.db.updateGameRoomState(roomId, null, undefined, undefined);
+
     // Broadcast rematch progress to all players in the room
     this.broadcast(roomId, {
       type: 'game:rematch_status',
@@ -409,7 +415,8 @@ export class GameRoomManager {
         votedUserIds,
         votedCount: votes.size,
         totalNeeded,
-        allVoted
+        allVoted,
+        room
       }
     });
 

@@ -1570,13 +1570,14 @@ export class DatabaseService {
     }
     updateGameRoomState(roomId, gameState, currentTurnSeat, winnerSeat) {
         const json = JSON.stringify(gameState);
+        const turnSeat = currentTurnSeat ?? gameState?.currentTurnSeat ?? null;
         if (winnerSeat !== undefined) {
             this.db.prepare('UPDATE game_rooms SET game_state = ?, current_turn_seat = ?, winner_seat = ? WHERE id = ?')
-                .run(json, currentTurnSeat ?? gameState.currentTurnSeat, winnerSeat, roomId);
+                .run(json, turnSeat, winnerSeat, roomId);
         }
         else {
             this.db.prepare('UPDATE game_rooms SET game_state = ?, current_turn_seat = ? WHERE id = ?')
-                .run(json, currentTurnSeat ?? gameState.currentTurnSeat, roomId);
+                .run(json, turnSeat, roomId);
         }
     }
     // --- Plans Methods ---

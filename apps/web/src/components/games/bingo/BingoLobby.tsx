@@ -6,12 +6,15 @@ import { Sparkles, Trophy, Award } from 'lucide-react';
 import { GameJoinLobby } from '../GameJoinLobby';
 import { BingoMode, BingoRoomConfig } from '@synccinema/common';
 import { createGameRoomWithPartner, getStoredSession } from '../../../lib/api';
+import { useTheme } from '../../../context/ThemeContext';
 
 export const BingoLobby: React.FC<{
   session?: any;
   onOpenFriendSelector?: () => void;
 }> = () => {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== 'light';
   const [selectedMode, setSelectedMode] = useState<BingoMode>('90-ball');
   const [autoCallSpeed, setAutoCallSpeed] = useState<number>(3000);
 
@@ -30,7 +33,7 @@ export const BingoLobby: React.FC<{
   const createOptions = (
     <div className="space-y-4">
       <div>
-        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+        <label className={`text-xs font-semibold block mb-2 ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
           Bingo Mode
         </label>
         <div className="grid grid-cols-2 gap-2.5">
@@ -40,7 +43,9 @@ export const BingoLobby: React.FC<{
             className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all border ${
               selectedMode === '90-ball'
                 ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
-                : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
+                : isDark
+                ? 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
+                : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
             }`}
           >
             90-Ball Tambola
@@ -51,7 +56,9 @@ export const BingoLobby: React.FC<{
             className={`py-3 px-3 rounded-2xl text-xs font-bold transition-all border ${
               selectedMode === '75-ball'
                 ? 'bg-[#ed1c46] border-[#ed1c46] text-white shadow-sm'
-                : 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
+                : isDark
+                ? 'bg-white/5 border-white/10 text-zinc-300 hover:text-white hover:bg-white/10'
+                : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200'
             }`}
           >
             75-Ball Classic
@@ -60,7 +67,7 @@ export const BingoLobby: React.FC<{
       </div>
 
       <div>
-        <label className="text-xs font-semibold block mb-2 text-zinc-300">
+        <label className={`text-xs font-semibold block mb-2 ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
           Calling Pace
         </label>
         <div className="grid grid-cols-3 gap-2">
@@ -75,8 +82,10 @@ export const BingoLobby: React.FC<{
               onClick={() => setAutoCallSpeed(p.val)}
               className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all border ${
                 autoCallSpeed === p.val
-                  ? 'bg-rose-500/20 border-rose-500 text-rose-300'
-                  : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+                  ? 'bg-rose-500/20 border-rose-500 text-rose-500'
+                  : isDark
+                  ? 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+                  : 'bg-zinc-100 border-zinc-200 text-zinc-600 hover:bg-zinc-200'
               }`}
             >
               {p.label}
