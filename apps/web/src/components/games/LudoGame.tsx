@@ -504,11 +504,12 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     color: LudoColor;
   } | null>(null);
 
-  // Victim pawn held on tile while attacker goti is hopping towards it
+  // Victim pawn held on tile and rewinding backwards in opposite direction upon capture
   const [heldVictimPawn, setHeldVictimPawn] = useState<{
     color: LudoColor;
     tokenId: number;
     step: number;
+    isReverseRunning?: boolean;
   } | null>(null);
   const pendingCaptureRef = useRef<{
     color: LudoColor;
@@ -968,6 +969,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           if (isFinalStep) {
             // 1. Capture / Cut animation with sound precisely when opponent goti reaches victim's place
             if (pendingCaptureRef.current) {
+              const victim = pendingCaptureRef.current;
               playSound('capture');
               const [cx, cy] = getStepCoordinates(color, nextStep, tokenId);
               setCaptureEffect({ x: cx, y: cy, color });
@@ -976,12 +978,62 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               }, 750);
               animTimeoutsRef.current.push(effectTimeout);
 
-              // After 240ms of dramatic slash impact, release victim pawn back to yard
-              const releaseTimeout = setTimeout(() => {
-                setHeldVictimPawn(null);
-                pendingCaptureRef.current = null;
-              }, 240);
-              animTimeoutsRef.current.push(releaseTimeout);
+              // Wait 220ms for the slash impact, then visibly move the cut goti in reverse direction all the way back to base yard
+              const startRewindTimeout = setTimeout(() => {
+                const startStep = victim.step;
+                if (startStep <= 0) {
+                  // Direct hop back into yard
+                  setHeldVictimPawn({ color: victim.color, tokenId: victim.tokenId, step: -1, isReverseRunning: true });
+                  playSound('move');
+                  const finishTimeout = setTimeout(() => {
+                    setHeldVictimPawn(null);
+                    pendingCaptureRef.current = null;
+                  }, 260);
+                  animTimeoutsRef.current.push(finishTimeout);
+                  return;
+                }
+
+                // Sequence of reverse steps along track: (startStep - 1) down to 0, then -1 into yard socket
+                const reverseSteps: number[] = [];
+                for (let s = startStep - 1; s >= 0; s--) {
+                  reverseSteps.push(s);
+                }
+                reverseSteps.push(-1); // final landing in yard
+
+                // Paced reverse glide so the goti movement backwards in opposite direction is clearly visible (approx 1.1s total)
+                const stepInterval = Math.max(40, Math.min(85, Math.floor(1100 / reverseSteps.length)));
+                let revIdx = 0;
+
+                const runReverseStep = () => {
+                  if (revIdx >= reverseSteps.length) {
+                    setHeldVictimPawn(null);
+                    pendingCaptureRef.current = null;
+                    return;
+                  }
+
+                  const revStep = reverseSteps[revIdx];
+                  setHeldVictimPawn({
+                    color: victim.color,
+                    tokenId: victim.tokenId,
+                    step: revStep,
+                    isReverseRunning: true
+                  });
+
+                  if (revStep === -1) {
+                    playSound('move');
+                  } else if (revIdx % 2 === 0) {
+                    playSound('step');
+                  }
+
+                  revIdx++;
+                  const nextDelay = revStep === -1 ? 280 : stepInterval;
+                  const t = setTimeout(runReverseStep, nextDelay);
+                  animTimeoutsRef.current.push(t);
+                };
+
+                runReverseStep();
+              }, 220);
+              animTimeoutsRef.current.push(startRewindTimeout);
             }
 
             // 2. Home reached celebratory party poppers for player, or playful teaser for opponent
@@ -1025,6 +1077,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       isLegal: boolean;
       isMyColor: boolean;
       isHopping: boolean;
+      isReverseRunning?: boolean;
     }> = [];
 
     const colors: LudoColor[] = ['red', 'green', 'yellow', 'blue'];
@@ -1038,8 +1091,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         const isThisTokenAnimating = Boolean(
           animatingPawn && animatingPawn.color === color && animatingPawn.tokenId === token.id
         );
+        const isVictimHeld = Boolean(heldVictimPawn && heldVictimPawn.color === color && heldVictimPawn.tokenId === token.id);
         let activeStep = isThisTokenAnimating && animatingPawn ? animatingPawn.currentStep : token.step;
-        if (heldVictimPawn && heldVictimPawn.color === color && heldVictimPawn.tokenId === token.id) {
+        if (isVictimHeld && heldVictimPawn) {
           activeStep = heldVictimPawn.step;
         }
 
@@ -1049,7 +1103,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           step: activeStep,
           isLegal,
           isMyColor: Boolean(isMyColor),
-          isHopping: isThisTokenAnimating && Boolean(animatingPawn?.isHopArc)
+          isHopping: isThisTokenAnimating && Boolean(animatingPawn?.isHopArc),
+          isReverseRunning: isVictimHeld && Boolean(heldVictimPawn?.isReverseRunning)
         });
       });
     }
@@ -1082,6 +1137,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       isMyColor: boolean;
       color: LudoColor;
       isHopping: boolean;
+      isReverseRunning: boolean;
       scale: number;
       isInGame: boolean;
     }> = [];
@@ -1134,6 +1190,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           isMyColor: item.isMyColor,
           color: item.color,
           isHopping: item.isHopping,
+          isReverseRunning: Boolean(item.isReverseRunning),
           scale,
           isInGame: isColorInGame(item.color)
         });
@@ -1141,7 +1198,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     });
 
     return pawns;
-  }, [gameState.tokens, gameState.seats, myPlayer, isMyTurn, legalMoves, animatingPawn]);
+  }, [gameState.tokens, gameState.seats, myPlayer, isMyTurn, legalMoves, animatingPawn, heldVictimPawn]);
 
   // Render Crisp 3D Dice Face with Perfectly Spaced Pips (Zero Overlap)
   const renderDiceFace = (value: number | null, size: 'sm' | 'lg' = 'sm') => {
@@ -2445,7 +2502,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               </g>
 
               {/* 5. 3D EMBOSSED LUXURY PAWNS WITH REALISTIC SHADOWS */}
-              {renderedPawns.map(({ token, x, y, groundY, isLegal, isMyColor, color, isHopping, scale, isInGame }) => {
+              {renderedPawns.map(({ token, x, y, groundY, isLegal, isMyColor, color, isHopping, isReverseRunning, scale, isInGame }) => {
                 const cfg = COLOR_CONFIG[color];
 
                 const handlePawnClick = (e: React.MouseEvent | React.TouchEvent) => {
@@ -2477,7 +2534,11 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                     <g
                       transform={`translate(${x}, ${groundY}) rotate(${-boardRotation})`}
                       style={{
-                        transition: isHopping ? 'transform 0.25s ease-out' : 'transform 0.22s ease-in'
+                        transition: isReverseRunning
+                          ? 'transform 0.08s linear'
+                          : isHopping
+                          ? 'transform 0.25s ease-out'
+                          : 'transform 0.22s ease-in'
                       }}
                     >
                       <circle
@@ -2531,11 +2592,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
                     {/* C. 3D Luxury Figurine Pawn Body (3D standing posture, counter-rotated & hopped straight up into the air) */}
                     <g
-                      transform={`translate(${x}, ${groundY}) rotate(${-boardRotation}) translate(0, ${isHopping ? -14 : 0}) scale(${scale})`}
+                      transform={`translate(${x}, ${groundY}) rotate(${-boardRotation}) translate(0, ${isHopping ? -14 : 0}) scale(${scale}) ${isReverseRunning ? 'rotate(-10)' : ''}`}
                       style={{
-                        transition: isHopping
+                        transition: isReverseRunning
+                          ? 'transform 0.08s linear'
+                          : isHopping
                           ? 'transform 0.25s cubic-bezier(0.25, 1, 0.5, 1)'
-                          : 'transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)'
+                          : 'transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1)',
+                        filter: isReverseRunning ? 'drop-shadow(0 0 10px #ef4444)' : undefined
                       }}
                     >
                       {/* Generous invisible hitbox covering entire pawn body and ground area */}
