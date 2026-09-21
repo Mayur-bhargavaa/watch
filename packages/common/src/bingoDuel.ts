@@ -72,6 +72,8 @@ export interface BingoDuelGameState {
   lastCalledNumbers: number[]; // up to last 5 called numbers
   playerMarks: Record<string, number[]>; // userId -> numbers marked by user
   playerProgress: Record<string, BingoDuelPatternProgress>; // userId -> pattern progress
+  currentTurnUserId?: string | null; // which player has the turn to select/call the next number
+  callerUserId?: string | null; // who called the most recent number
   phase: 'SETUP' | 'CONFIGURING' | 'PLAYING' | 'ROUND_OVER' | 'FINISHED';
   currentRound: number;
   targetRounds: number; // 1 for quick/classic, 2 for bestOf3, 3 for bestOf5

@@ -1239,6 +1239,16 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const selectBingoNumber = useCallback((number: number) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:select_number',
+        payload: { number }
+      })
+    );
+  }, []);
+
   const selectDoodleRole = useCallback((drawerUserId: string) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
@@ -1502,6 +1512,7 @@ export function useGameRoom(roomCode: string | null) {
     markBingoNumber,
     updateBingoConfig,
     setBingoBoard,
+    selectBingoNumber,
     selectDoodleRole,
     startDoodleGame,
     chooseDoodleWord,

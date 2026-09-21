@@ -284,6 +284,7 @@ function BingoDuelGameContent() {
     markBingoNumber,
     updateBingoConfig,
     setBingoBoard,
+    selectBingoNumber,
     sendChat,
     sendReaction,
     sendLeave,
@@ -338,6 +339,12 @@ function BingoDuelGameContent() {
   const opponentProgress = gameState?.playerProgress?.[opponentUserId];
   const opponentWins = gameState?.roundsWon?.[opponentUserId] || 0;
 
+  // Alternating Turn Calculation
+  const currentTurnUserId = gameState?.currentTurnUserId || room?.hostUserId;
+  const isMyTurn = currentTurnUserId === effectiveUserId;
+  const currentTurnPlayer = players.find(p => p.userId === currentTurnUserId);
+  const currentTurnDisplayName = isMyTurn ? 'You' : currentTurnPlayer?.displayName || 'Opponent';
+
   // Penalty countdown
   const now = Date.now();
   const penaltyUntil = gameState?.falseBingoPenaltyUntil?.[effectiveUserId] || 0;
@@ -347,24 +354,36 @@ function BingoDuelGameContent() {
     ? (lastBingoConditionWon?.winningIndices || lastBingoClaimResult?.winningIndices)
     : undefined;
 
-  // Strict Number Marking validation
+  // Alternating Turn Number Picking / Marking
   const handleCellClick = (num: number) => {
     if (isFinished || isRoundOver) return;
-    const isDrawn = gameState?.calledNumbers?.includes(num);
-    if (!isDrawn) {
+
+    const isAlreadyCalled = gameState?.calledNumbers?.includes(num);
+
+    if (isAlreadyCalled) {
+      // Number is already called - verify mark
+      const alreadyMarked = myMarks.includes(num);
+      if (!alreadyMarked) {
+        markBingoNumber(num);
+      }
+      return;
+    }
+
+    // Number is uncalled: can only be called if it's currently this player's turn
+    if (!isMyTurn) {
       setClaimToast({
         valid: false,
-        message: `⚠️ Number ${num} has not been drawn yet! Wait for it to be called.`,
+        message: `⏳ It's ${currentTurnDisplayName}'s turn to pick a number! Please wait.`,
         timestamp: Date.now()
       });
       setTimeout(() => {
-        setClaimToast(curr => (curr?.message?.includes(`Number ${num}`) ? null : curr));
+        setClaimToast(curr => (curr?.message?.includes('turn to pick') ? null : curr));
       }, 3500);
       return;
     }
-    const alreadyMarked = myMarks.includes(num);
-    if (alreadyMarked) return;
-    markBingoNumber(num);
+
+    // It IS this player's turn: select the number to call it!
+    selectBingoNumber(num);
   };
 
   // Custom 5x5 Board saving handler
@@ -1212,36 +1231,73 @@ function BingoDuelGameContent() {
       {/* 3-COLUMN IN-GAME ARENA LAYOUT (Exact Ludo architecture) */}
       <main className="flex-1 w-full max-w-[1600px] mx-auto p-3 sm:p-5 z-10">
         <div className="w-full flex flex-col lg:flex-row items-start justify-between gap-6 relative">
-          {/* Left Column: Floating Room Code Card & Duel Info */}
-          <div className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
-            <div className="p-4 rounded-3xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-xl backdrop-blur-xl">
-              <span className="text-[10px] font-bold text-rose-300/80 uppercase tracking-wider block">
-                Room Code
-              </span>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xl font-mono font-black text-white tracking-wider">
-                  {room?.roomCode}
-                </span>
+          {/* Left Column: Floating Room Code Card & Duel Info matching reference image */}
+          <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
+            {/* Badge Card */}
+            <div className="p-4 rounded-3xl bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 border border-rose-500/30 shadow-xl backdrop-blur-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black text-[#ff8ca1] uppercase tracking-wider block">
+                    BINGO DUEL
+                  </span>
+                  <span className="text-xl font-mono font-black text-white tracking-wider">
+                    {room?.roomCode}
+                  </span>
+                </div>
                 <button
                   onClick={handleCopyRoomCode}
-                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-rose-300 transition cursor-pointer"
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-rose-300 transition cursor-pointer border border-white/10"
                   title="Copy Room Code"
                 >
                   {copiedRoomCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
-              <div className="flex items-center gap-1.5 mt-2 text-[11px] font-medium text-rose-300/80">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>{players.length} Players • Bingo Duel (1–25)</span>
-              </div>
-              {gameState && gameState.targetRounds > 1 && (
-                <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
-                  <span className="text-zinc-400">Current Round</span>
-                  <span className="font-bold text-pink-300 bg-pink-500/20 px-2 py-0.5 rounded-full border border-pink-500/30">
-                    Round {gameState.currentRound} of {gameState.targetRounds}
+
+              <div className="mt-3 pt-3 border-t border-white/10 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Winning Target</span>
+                  <span className="font-extrabold text-[#ff8ca1]">5 Lines</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Calling Mode</span>
+                  <span className="font-extrabold text-white">Turn-by-Turn</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Numbers Left</span>
+                  <span className="font-mono font-black text-white bg-white/10 px-2 py-0.5 rounded-lg">
+                    {25 - (gameState?.calledNumbers?.length || 0)} / 25
                   </span>
                 </div>
-              )}
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-400">Voice Announce</span>
+                  <span className="font-semibold text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Active
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Turn Indicator Banner */}
+            <div className={`p-4 rounded-3xl border transition-all backdrop-blur-xl ${
+              isMyTurn
+                ? 'bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]'
+                : 'bg-[#180a14]/70 border-white/10'
+            }`}>
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+                Active Player
+              </span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-[#ff4d79] animate-ping' : 'bg-zinc-500'}`} />
+                <span className="text-sm font-extrabold text-white">
+                  {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                {isMyTurn
+                  ? 'Tap any uncalled number on your ticket to call it aloud!'
+                  : 'Wait for opponent to pick their next number.'}
+              </p>
             </div>
           </div>
 
@@ -1253,14 +1309,13 @@ function BingoDuelGameContent() {
               currentNumberWord={gameState?.currentNumberWord || null}
               lastCalledNumbers={gameState?.lastCalledNumbers || []}
               calledNumbersCount={gameState?.calledNumbers?.length || 0}
-              remainingCount={gameState?.callQueue?.length || 0}
+              remainingCount={25 - (gameState?.calledNumbers?.length || 0)}
               isPaused={Boolean(gameState?.callingPaused)}
               isHost={isHost}
               voiceCallerEnabled={Boolean(duelConfig.voiceCaller)}
               onToggleVoiceCaller={() => setDuelConfig(p => ({ ...p, voiceCaller: !p.voiceCaller }))}
-              onTogglePause={toggleBingoPause}
-              onCallNextManually={callNextBingoNumber}
-              isManualMode={duelConfig.autoCallSpeed === 0}
+              currentTurnDisplayName={currentTurnDisplayName}
+              isMyTurn={isMyTurn}
             />
 
             {/* 2. Player Duel Status Header: You vs Opponent */}
@@ -1270,6 +1325,7 @@ function BingoDuelGameContent() {
                 avatarUrl={me?.avatarUrl}
                 userId={effectiveUserId}
                 isMe={true}
+                isTurn={isMyTurn}
                 marksCount={myMarks.length}
                 progress={myProgress}
                 roundsWon={myWins}
@@ -1281,6 +1337,7 @@ function BingoDuelGameContent() {
                 avatarUrl={opponent?.avatarUrl}
                 userId={opponentUserId}
                 isMe={false}
+                isTurn={!isMyTurn && Boolean(opponentUserId)}
                 marksCount={opponentMarks.length}
                 progress={opponentProgress}
                 roundsWon={opponentWins}

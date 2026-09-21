@@ -178,7 +178,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
   // -----------------------------------------------------------------------------------
   if (isSetupMode) {
     return (
-      <div className="w-full max-w-md mx-auto p-4 sm:p-5 rounded-3xl bg-slate-900/95 border border-indigo-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl flex flex-col gap-4 text-white animate-in fade-in zoom-in-95 duration-300">
+      <div className="w-full max-w-md mx-auto p-4 sm:p-5 rounded-3xl bg-[#1d0c18]/95 border border-rose-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col gap-4 text-white animate-in fade-in zoom-in-95 duration-300">
         {/* Setup Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div>
@@ -186,19 +186,19 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
               <span>🎯 Custom 5×5 Matrix</span>
               {setupLocked && (
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Locked
+                  <Lock className="w-3 h-3" /> Ready
                 </span>
               )}
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Fill numbers <strong className="text-indigo-300">1 to 25</strong> without duplicates.
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Fill numbers <strong className="text-[#ff8ca1]">1 to 25</strong> manually or shuffle.
             </p>
           </div>
           <div className="text-right">
             <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
               isSetupGridFull
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
             }`}>
               {placedNumbers.size} / 25
             </span>
@@ -233,10 +233,10 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                     }}
                     className={`relative rounded-xl border-2 font-mono font-black text-base sm:text-xl transition-all duration-150 flex items-center justify-center select-none ${
                       isSelected && !setupLocked
-                        ? 'bg-indigo-600 border-indigo-400 text-white ring-4 ring-indigo-500/40 scale-105 z-10 shadow-lg'
+                        ? 'bg-[#ff4d79] border-white text-white ring-4 ring-[#ff758c]/40 scale-105 z-10 shadow-lg'
                         : isFilled
-                        ? 'bg-indigo-950/70 border-indigo-500/40 text-indigo-100 hover:border-indigo-400'
-                        : 'bg-white/5 border-dashed border-white/20 text-slate-500 hover:bg-white/10'
+                        ? 'bg-[#2b1222] border-[#ff6b8b]/40 text-white hover:border-[#ff6b8b]'
+                        : 'bg-white/5 border-dashed border-white/20 text-zinc-500 hover:bg-white/10'
                     } ${setupLocked ? 'cursor-default opacity-90' : 'cursor-pointer active:scale-95'}`}
                   >
                     {isFilled ? (
@@ -246,7 +246,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                     )}
 
                     {isFilled && !setupLocked && isSelected && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-500 text-[10px] flex items-center justify-center font-sans shadow">
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#ff4d79] text-[10px] flex items-center justify-center font-sans shadow text-white">
                         ✎
                       </span>
                     )}
@@ -260,9 +260,9 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
         {/* Numeric Palette Tray (Chips 1..25) */}
         {!setupLocked ? (
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400">
               <span>Select number to place in cell:</span>
-              <span className="text-slate-500">
+              <span className="text-zinc-500 font-mono">
                 Cell [{selectedCell ? `${selectedCell.r + 1},${selectedCell.c + 1}` : 'None'}]
               </span>
             </div>
@@ -277,8 +277,8 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                     onClick={() => handleAssignNumber(num)}
                     className={`py-1.5 sm:py-2 rounded-lg font-mono font-bold text-xs sm:text-sm border transition-all ${
                       isPlaced
-                        ? 'bg-white/5 border-white/5 text-slate-600 cursor-not-allowed opacity-50 line-through'
-                        : 'bg-gradient-to-b from-indigo-900/60 to-purple-900/60 border-indigo-500/40 text-indigo-200 hover:border-indigo-400 hover:scale-105 active:scale-95'
+                        ? 'bg-white/5 border-white/5 text-zinc-600 cursor-not-allowed opacity-50 line-through'
+                        : 'bg-gradient-to-b from-[#2b1222] to-[#1d0c18] border-rose-500/40 text-rose-200 hover:border-[#ff6b8b] hover:scale-105 active:scale-95'
                     }`}
                   >
                     {num}
@@ -354,13 +354,13 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
   return (
     <div className="w-full max-w-md mx-auto flex flex-col gap-2.5 sm:gap-3">
       {/* 1. B - I - N - G - O Header Badges with Smooth Lighting */}
-      <div className="w-full p-2.5 sm:p-3 rounded-2xl bg-slate-900/90 border border-white/10 shadow-xl backdrop-blur-xl flex flex-col gap-2">
+      <div className="w-full p-2.5 sm:p-3 rounded-2xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-xl backdrop-blur-xl flex flex-col gap-2">
         <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-300/80 flex items-center gap-1.5">
-            <Award className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#ff8ca1] flex items-center gap-1.5">
+            <Award className="w-3.5 h-3.5 text-[#ff758c]" />
             Target: 5 Lines to Win
           </span>
-          <span className="text-[11px] font-mono font-bold text-amber-400">
+          <span className="text-[11px] font-mono font-black text-[#ff8ca1]">
             {completedLines.length} / 5 Lines Done
           </span>
         </div>
@@ -374,20 +374,20 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                 key={`bingo-badge-${letter}`}
                 className={`relative py-2 rounded-xl text-center font-black font-mono text-lg sm:text-2xl transition-all duration-300 border-2 select-none overflow-hidden ${
                   isUnlocked
-                    ? 'bg-gradient-to-br from-amber-400 via-rose-500 to-indigo-600 border-amber-300 text-white shadow-lg shadow-pink-500/40 scale-105 animate-pulse'
-                    : 'bg-white/5 border-white/10 text-slate-600'
+                    ? 'bg-gradient-to-br from-[#ff4d79] via-[#ff758c] to-[#ffa3b1] border-white/80 text-white shadow-[0_4px_16px_rgba(255,77,121,0.6)] scale-105'
+                    : 'bg-[#180a14]/60 border-white/10 text-zinc-600'
                 }`}
               >
                 <span>{letter}</span>
 
                 {/* Strikethrough line across unlocked letters */}
                 {isUnlocked && (
-                  <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 sm:h-1 bg-white/90 shadow-[0_0_8px_white]" />
+                  <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 sm:h-1 bg-white shadow-[0_0_8px_white]" />
                 )}
 
                 {/* Star on letter completion */}
                 {isUnlocked && (
-                  <span className="absolute top-0.5 right-0.5 text-amber-200">
+                  <span className="absolute top-0.5 right-0.5 text-white">
                     <Sparkles className="w-2.5 h-2.5" />
                   </span>
                 )}
@@ -408,19 +408,19 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
               const isMarked = markSet.has(cellNum);
               const isWinningCell = winningSet.has(`${r},${c}`);
 
-              // Style calculation
-              let cellClass = 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10';
+              // Style calculation matching reference image
+              let cellClass = 'bg-[#22101c]/80 border-white/10 text-white/90 hover:bg-[#321629] hover:border-[#ff6b8b]/50';
 
               if (isWinningCell) {
                 cellClass =
-                  'bg-gradient-to-tr from-amber-500 via-pink-500 to-indigo-500 border-amber-300 text-white shadow-lg shadow-pink-500/40 scale-[1.03] z-10';
+                  'bg-gradient-to-tr from-amber-400 via-rose-500 to-[#ff4d79] border-amber-300 text-white shadow-[0_0_20px_rgba(255,77,121,0.6)] scale-[1.04] z-10 ring-2 ring-amber-300/60';
               } else if (isMarked) {
+                // Soft coral-pink marked state with rounded checkmark
                 cellClass =
-                  'bg-gradient-to-br from-indigo-600 to-purple-700 border-indigo-400 text-white shadow-md shadow-indigo-600/30';
+                  'bg-gradient-to-br from-[#ff4d79] to-[#ff758c] border-[#ff8ca1] text-white shadow-[0_4px_16px_rgba(255,77,121,0.45)] scale-[1.01]';
               } else if (isCalled) {
-                // Called by server but player hasn't marked yet - pulsing glow
                 cellClass =
-                  'bg-indigo-950/90 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 animate-pulse hover:bg-indigo-900';
+                  'bg-[#ff4d79]/25 border-[#ff6b8b] text-white ring-2 ring-[#ff6b8b]/50 animate-pulse';
               }
 
               return (
@@ -434,18 +434,18 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                   }`}
                 >
                   {/* Cell Number */}
-                  <span>{cellNum < 10 ? `0${cellNum}` : cellNum}</span>
+                  <span className="drop-shadow-sm">{cellNum < 10 ? `0${cellNum}` : cellNum}</span>
 
-                  {/* Marked Check Indicator */}
+                  {/* Marked Check Indicator matching reference image */}
                   {isMarked && !isWinningCell && (
-                    <span className="absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 w-3.5 h-3.5 rounded-full bg-white/20 flex items-center justify-center text-white">
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    <span className="absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 w-4 h-4 rounded-full bg-white/25 backdrop-blur-xs flex items-center justify-center text-white shadow-xs">
+                      <Check className="w-2.5 h-2.5 stroke-[3.5]" />
                     </span>
                   )}
 
                   {/* Winning sparkle indicator */}
                   {isWinningCell && (
-                    <span className="absolute top-1 right-1 text-amber-200">
+                    <span className="absolute top-1 right-1 text-amber-200 animate-spin">
                       <Sparkles className="w-3.5 h-3.5" />
                     </span>
                   )}

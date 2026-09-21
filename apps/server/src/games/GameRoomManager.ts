@@ -346,12 +346,7 @@ export class GameRoomManager {
       }
     });
 
-    if (room.gameType === 'bingo') {
-      const speed = initialState.config?.autoCallSpeed;
-      if (speed && speed > 0) {
-        this.startBingoAutoCall(room.id, speed);
-      }
-    } else if (room.gameType === 'tambola' && initialState.config?.autoCall) {
+    if (room.gameType === 'tambola' && initialState.config?.autoCall) {
       this.startBingoAutoCall(room.id, initialState.config.callingSpeed);
     } else if (room.gameType === 'chess') {
       this.startChessClock(room.id);
@@ -1046,11 +1041,73 @@ export class GameRoomManager {
     }
   }
 
+  public handleBingoSelectNumber(roomId: string, userId: string, numberToCall: number): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'bingo') return;
+
+    const playerUserIds = room.players.map(p => p.userId);
+    const result = BingoDuelEngine.selectNumber(room.gameState, userId, numberToCall, playerUserIds);
+
+    if (!result.success) {
+      this.sendToUser(userId, {
+        type: 'bingo:error',
+        roomId: room.id,
+        payload: { message: result.message }
+      });
+      return;
+    }
+
+    room.gameState = result.state;
+    this.db.updateGameRoomState(room.id, result.state);
+
+    // Broadcast number called event to all players
+    this.broadcast(room.id, {
+      type: 'bingo:number_called',
+      roomId: room.id,
+      payload: {
+        number: result.calledNumber,
+        calledNumber: result.calledNumber,
+        currentNumber: result.calledNumber,
+        word: result.state.currentNumberWord,
+        numberWord: result.state.currentNumberWord,
+        last5: result.state.lastCalledNumbers,
+        allCalled: result.state.calledNumbers,
+        calledNumbers: result.state.calledNumbers,
+        remainingCount: 25 - result.state.calledNumbers.length,
+        currentTurnUserId: result.state.currentTurnUserId,
+        callerUserId: result.state.callerUserId,
+        playerProgress: result.state.playerProgress,
+        gameState: result.state
+      }
+    });
+
+    if (result.isFinished) {
+      this.broadcast(room.id, {
+        type: 'bingo:game_over',
+        roomId: room.id,
+        payload: {
+          winnerUserId: room.gameState.winnerUserId,
+          winnerDisplayName: room.gameState.winnerDisplayName,
+          roundHistory: room.gameState.roundHistory,
+          summary: room.gameState.statusMessage,
+          gameState: room.gameState
+        }
+      });
+    }
+  }
+
   public handleBingoSetBoard(roomId: string, userId: string, board: number[][]): void {
     const room = this.db.getGameRoomById(roomId);
     if (!room || !room.gameState || room.gameType !== 'bingo') return;
 
-    const { state, success, message } = BingoDuelEngine.setPlayerBoard(room.gameState, userId, board);
+    const playerUserIds = room.players.map(p => p.userId);
+    const { state, success, message, allReady } = BingoDuelEngine.setPlayerBoard(
+      room.gameState,
+      userId,
+      board,
+      playerUserIds
+    );
+
     if (success) {
       room.gameState = state;
       this.db.updateGameRoomState(room.id, state);
@@ -1063,8 +1120,27 @@ export class GameRoomManager {
           board,
           playerProgress: state.playerProgress[userId],
           gameState: state,
-          message
+          message,
+          allReady
         }
+      });
+
+      if (allReady) {
+        this.broadcast(room.id, {
+          type: 'bingo:round_started',
+          roomId: room.id,
+          payload: {
+            currentRound: state.currentRound,
+            gameState: state,
+            message: 'Both players ready! Match started! Pick numbers alternatively.'
+          }
+        });
+      }
+    } else {
+      this.sendToUser(userId, {
+        type: 'bingo:error',
+        roomId: room.id,
+        payload: { message }
       });
     }
   }
@@ -1914,6 +1990,10 @@ export class GameRoomManager {
 
       case 'bingo:set_board':
         this.handleBingoSetBoard(client.roomId, client.userId, msg.payload?.board);
+        break;
+
+      case 'bingo:select_number':
+        this.handleBingoSelectNumber(client.roomId, client.userId, Number(msg.payload?.number));
         break;
 
       case 'bingo:config_update':

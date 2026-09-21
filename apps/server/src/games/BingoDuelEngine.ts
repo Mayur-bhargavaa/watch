@@ -380,10 +380,9 @@ export class BingoDuelEngine {
     const roundsWon: Record<string, number> = {};
 
     playerUserIds.forEach(userId => {
-      // Initialize with a default generated board so it is always populated,
-      // but user can re-arrange/fill until match starts or lock in.
-      boards[userId] = this.generateBoard();
-      boardsReady[userId] = true; // default ready, can be customized
+      // Boards start empty for manual filling; boardsReady tracks when player locks their ticket
+      boards[userId] = [];
+      boardsReady[userId] = false;
       playerMarks[userId] = [];
       playerProgress[userId] = { current: 0, total: 5, isCompleted: false };
       roundsWon[userId] = 0;
@@ -403,7 +402,8 @@ export class BingoDuelEngine {
       lastCalledNumbers: [],
       playerMarks,
       playerProgress,
-      phase: 'PLAYING',
+      currentTurnUserId: playerUserIds[0] || null, // Host selects first
+      phase: 'SETUP', // Starts in manual setup phase
       currentRound: 1,
       targetRounds,
       roundsWon,
@@ -413,7 +413,7 @@ export class BingoDuelEngine {
       falseBingoPenaltyUntil: {},
       callingPaused: false,
       startedAt: Date.now(),
-      statusMessage: 'Game started! Calling numbers 1–25...'
+      statusMessage: 'Fill your 5×5 ticket with numbers 1 to 25 to begin!'
     };
   }
 
@@ -423,16 +423,17 @@ export class BingoDuelEngine {
   public static setPlayerBoard(
     state: BingoDuelGameState,
     userId: string,
-    customBoard: number[][]
-  ): { state: BingoDuelGameState; success: boolean; message: string } {
+    customBoard: number[][],
+    allPlayerUserIds?: string[]
+  ): { state: BingoDuelGameState; success: boolean; message: string; allReady: boolean } {
     // Validate custom board is 5x5 containing unique numbers 1..25
     if (!Array.isArray(customBoard) || customBoard.length !== 5) {
-      return { state, success: false, message: 'Board must be a 5x5 grid.' };
+      return { state, success: false, message: 'Board must be a 5x5 grid.', allReady: false };
     }
 
     const flat = customBoard.flat();
     if (flat.length !== 25) {
-      return { state, success: false, message: 'Board must contain exactly 25 numbers.' };
+      return { state, success: false, message: 'Board must contain exactly 25 numbers.', allReady: false };
     }
 
     const seen = new Set<number>();
@@ -441,7 +442,8 @@ export class BingoDuelEngine {
         return {
           state,
           success: false,
-          message: 'Board must contain all numbers from 1 to 25 without duplicates.'
+          message: 'Board must contain all numbers from 1 to 25 without duplicates.',
+          allReady: false
         };
       }
       seen.add(n);
@@ -461,7 +463,103 @@ export class BingoDuelEngine {
       state.config.customPattern
     );
 
-    return { state, success: true, message: '5×5 Board successfully saved and locked!' };
+    // Check if all players are ready
+    const players = allPlayerUserIds && allPlayerUserIds.length > 0 ? allPlayerUserIds : Object.keys(state.boards);
+    const allReady = players.length >= 2 && players.every(id => state.boardsReady?.[id] === true);
+
+    if (allReady) {
+      state.phase = 'PLAYING';
+      state.startedAt = Date.now();
+      state.statusMessage = 'Both players ready! Match started! Pick numbers alternatively.';
+    } else {
+      state.statusMessage = 'Waiting for other player to select their numbers...';
+    }
+
+    return {
+      state,
+      success: true,
+      message: allReady ? 'All players ready! Game starts!' : 'Ticket locked! Waiting for opponent...',
+      allReady
+    };
+  }
+
+  /**
+   * Turn-based number selection: Host and Opponent alternate picking uncalled numbers
+   */
+  public static selectNumber(
+    state: BingoDuelGameState,
+    userId: string,
+    numberToCall: number,
+    playerUserIds: string[]
+  ): {
+    state: BingoDuelGameState;
+    success: boolean;
+    message: string;
+    calledNumber?: number;
+    isFinished?: boolean;
+  } {
+    if (state.phase !== 'PLAYING') {
+      return { state, success: false, message: 'Game is not in playing phase.' };
+    }
+
+    if (state.currentTurnUserId && state.currentTurnUserId !== userId) {
+      return { state, success: false, message: 'It is not your turn to pick a number.' };
+    }
+
+    if (typeof numberToCall !== 'number' || numberToCall < 1 || numberToCall > 25) {
+      return { state, success: false, message: 'Number must be between 1 and 25.' };
+    }
+
+    if (state.calledNumbers.includes(numberToCall)) {
+      return { state, success: false, message: `Number ${numberToCall} has already been called!` };
+    }
+
+    // Remove from callQueue
+    state.callQueue = state.callQueue.filter(n => n !== numberToCall);
+
+    // Record called number
+    state.calledNumbers.push(numberToCall);
+    state.currentNumber = numberToCall;
+    state.currentNumberWord = this.getNumberWord(numberToCall);
+    state.lastCalledNumbers = [numberToCall, ...state.lastCalledNumbers.filter(n => n !== numberToCall)].slice(0, 5);
+    state.callerUserId = userId;
+
+    // Automatically mark the called number for ALL players who have it on their board
+    playerUserIds.forEach(pId => {
+      if (!state.playerMarks[pId]) state.playerMarks[pId] = [];
+      if (!state.playerMarks[pId].includes(numberToCall)) {
+        state.playerMarks[pId].push(numberToCall);
+      }
+      if (state.boards[pId] && state.boards[pId].length === 5) {
+        state.playerProgress[pId] = this.evaluatePattern(
+          state.boards[pId],
+          state.config.pattern,
+          state.playerMarks[pId],
+          state.calledNumbers,
+          state.config.customPattern
+        );
+      }
+    });
+
+    // Check if all 25 numbers called
+    const isFinished = state.calledNumbers.length >= 25;
+    if (isFinished) {
+      state.statusMessage = 'All 25 numbers have been called!';
+    } else {
+      // Alternate turn to the next player
+      const currentIdx = playerUserIds.indexOf(userId);
+      const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % playerUserIds.length : 0;
+      state.currentTurnUserId = playerUserIds[nextIdx];
+      state.statusMessage = `Number ${numberToCall} called! Next turn: Player ${nextIdx + 1}`;
+    }
+
+    return {
+      state,
+      success: true,
+      message: `Number ${numberToCall} called!`,
+      calledNumber: numberToCall,
+      isFinished
+    };
   }
 
   /**
