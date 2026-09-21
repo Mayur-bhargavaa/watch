@@ -325,6 +325,9 @@ function TicTacToeContent() {
     lastTicTacToeMove,
     rematch,
     rematchStatus,
+    declineRematch,
+    rematchDeclined,
+    clearRematchDeclined,
     chatMessages,
     typingUsers,
     floatingReactions,
@@ -915,9 +918,136 @@ function TicTacToeContent() {
   }, [gameState?.winningLine]);
 
   return (
-    <div className={`flex w-full min-h-screen transition-colors duration-200 ${isDark ? 'bg-[#0c0d12] text-white' : 'bg-white text-zinc-900'}`}>
+    <div className={`flex w-full min-h-screen transition-colors duration-200 relative ${
+      roomParam ? 'bg-[#0c0a14] text-white' : (isDark ? 'bg-[#0c0d12] text-white' : 'bg-white text-zinc-900')
+    }`}>
+      {/* Full-screen atmospheric background wallpaper for in-game and waiting room */}
+      {roomParam && (
+        <div
+          className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat select-none pointer-events-none transition-all duration-700"
+          style={{ backgroundImage: `url('${currentTheme.bgUrl || '/images/cozy_ludo_bg.jpg'}')` }}
+        >
+          {/* Ambient overlay: dark semi-translucent backdrop filter so text and game elements pop with gorgeous contrast */}
+          <div className={`absolute inset-0 ${isDark ? 'bg-black/60 backdrop-blur-[1.5px]' : 'bg-black/45 backdrop-blur-[1px]'}`} />
+          {/* Radial ambient glow */}
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+        </div>
+      )}
+
       {/* Background Ambience / Effects */}
       {roomParam && <DynamicThemeEffects themeId={activeTheme} />}
+
+      {/* Rematch Request Popup from Opponent */}
+      {rematchStatus && !rematchStatus.allVoted && !rematchStatus.votedUserIds?.includes(effectiveUserId) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-rose-500/40 text-white shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_35px_rgba(244,63,94,0.25)] text-center space-y-4 relative overflow-hidden">
+            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg shadow-rose-500/30 animate-bounce">
+              ⚔️
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-white">Rematch Challenge!</h3>
+              <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                <strong className="text-[#ff3864] font-bold">{rematchStatus.requesterName || opponentPlayer?.displayName || 'Your Opponent'}</strong> has requested a rematch!
+                <br />
+                Do you want to play again?
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  rematch();
+                  setDismissVictoryModal(true);
+                }}
+                className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Accept Rematch (Yes!)</span>
+              </button>
+              <button
+                type="button"
+                onClick={declineRematch}
+                className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-zinc-300 rounded-xl transition cursor-pointer"
+              >
+                Decline (No)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rematch Waiting Modal for the player who requested */}
+      {rematchStatus && !rematchStatus.allVoted && rematchStatus.votedUserIds?.includes(effectiveUserId) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-7 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4 relative overflow-hidden">
+            <div className="w-16 h-16 mx-auto rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-3xl animate-pulse">
+              ⏳
+            </div>
+            <h3 className="text-xl font-black text-white">Rematch Requested</h3>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Waiting for <strong className="text-rose-400 font-bold">{opponentPlayer?.displayName || 'Opponent'}</strong> to accept the rematch...
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={declineRematch}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-zinc-300 transition cursor-pointer"
+              >
+                Cancel Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rematch Agreed (Starting) Modal */}
+      {rematchStatus?.allVoted && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-emerald-500/30 text-white shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-3xl animate-spin">
+              🔄
+            </div>
+            <h3 className="text-xl font-black text-white">Rematch Accepted!</h3>
+            <p className="text-xs text-emerald-300">
+              Both players agreed! Starting new match now...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Rematch Declined / Opponent Left Modal */}
+      {rematchDeclined && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-3xl">
+              🚪
+            </div>
+            <h3 className="text-xl font-black text-white">Rematch Declined</h3>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {rematchDeclined.message || 'Opponent declined the rematch or left the game.'}
+            </p>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  clearRematchDeclined();
+                  router.push('/games');
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition"
+              >
+                Games Hub
+              </button>
+              <button
+                type="button"
+                onClick={clearRematchDeclined}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[#ff2b5e] hover:bg-rose-600 text-xs font-bold text-white transition"
+              >
+                Stay on Board
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Opponent Left Match Instant Win Modal */}
       {opponentLeftWin && (
@@ -1338,7 +1468,9 @@ function TicTacToeContent() {
       }`}>
         {/* TOP NAVIGATION HEADER BAR */}
         <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
-          isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
+          roomParam
+            ? 'bg-[#0e0c18]/80 border-white/10 text-white'
+            : (isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs')
         }`}>
           {/* Left: Breadcrumbs or Leave Match */}
           <div className="flex items-center gap-3">
@@ -1359,11 +1491,7 @@ function TicTacToeContent() {
                     }
                   );
                 }}
-                className={`px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-2 font-semibold text-xs transition-all active:scale-95 group ${
-                  isDark
-                    ? 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border-white/[0.08]'
-                    : 'bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-950 border-zinc-200'
-                }`}
+                className="px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-2 font-semibold text-xs transition-all active:scale-95 group bg-white/10 hover:bg-white/20 text-white border-white/15"
                 title="Leave Match"
               >
                 <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
@@ -1406,19 +1534,17 @@ function TicTacToeContent() {
           {/* Center Header: Room Param or Call Pill */}
           {roomParam && (
             <div className="flex items-center gap-2">
-              <div className={`px-3 py-1 rounded-full border flex items-center gap-2 font-mono text-xs ${
-                isDark ? 'bg-white/[0.04] border-white/[0.08] text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-800'
-              }`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Room: <strong className={isDark ? 'text-white font-bold' : 'text-zinc-900 font-bold'}>{roomParam}</strong></span>
+              <div className="px-3 py-1 rounded-full border border-white/15 bg-white/10 flex items-center gap-2 font-mono text-xs text-white">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Room: <strong className="text-white font-bold">{roomParam}</strong></span>
               </div>
               {isPipClosed && (
                 <button
                   onClick={() => setIsPipClosed(false)}
-                  className="px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-xs font-semibold flex items-center gap-1.5 transition"
+                  className="px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 shadow text-xs font-semibold flex items-center gap-1.5 transition"
                   title="Open Floating Video Call"
                 >
-                  <Video className="w-3.5 h-3.5 text-rose-500" />
+                  <Video className="w-3.5 h-3.5 text-rose-400" />
                   <span>Show Video</span>
                 </button>
               )}
@@ -1435,9 +1561,9 @@ function TicTacToeContent() {
               }}
               title={soundEnabled ? 'Mute SFX' : 'Enable SFX'}
               className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                isDark
-                  ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
-                  : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
+                roomParam
+                  ? 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
+                  : (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950')
               }`}
             >
               {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-zinc-400" />}

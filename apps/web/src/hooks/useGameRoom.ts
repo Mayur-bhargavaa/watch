@@ -160,10 +160,18 @@ export function useGameRoom(roomCode: string | null) {
     timestamp: number;
   } | null>(null);
   const [rematchStatus, setRematchStatus] = useState<{
+    requesterId?: string;
+    requesterName?: string;
     votedUserIds: string[];
     votedCount: number;
     totalNeeded: number;
     allVoted: boolean;
+  } | null>(null);
+  const [rematchDeclined, setRematchDeclined] = useState<{
+    declinerId?: string;
+    declinerName?: string;
+    reason?: string;
+    message: string;
   } | null>(null);
   const [opponentLeftWin, setOpponentLeftWin] = useState<{
     opponentDisplayName: string;
@@ -482,12 +490,8 @@ export function useGameRoom(roomCode: string | null) {
 
       case 'game:rematch_status': {
         setRematchStatus(msg.payload);
-        if (msg.payload?.room) {
-          setRoom(msg.payload.room);
-        } else {
-          setRoom(prev => (prev ? { ...prev, status: 'WAITING' } : null));
-        }
-        setGameState(null);
+        setRematchDeclined(null);
+        // Do not wipe room status to WAITING or reset gameState - keep players on match screen
         break;
       }
 
@@ -498,6 +502,13 @@ export function useGameRoom(roomCode: string | null) {
           totalNeeded: 2,
           allVoted: true
         });
+        setRematchDeclined(null);
+        break;
+      }
+
+      case 'game:rematch_declined': {
+        setRematchStatus(null);
+        setRematchDeclined(msg.payload);
         break;
       }
 
@@ -528,6 +539,7 @@ export function useGameRoom(roomCode: string | null) {
       case 'game:started': {
         const { gameState: startState, room: updatedRoom } = msg.payload;
         setRematchStatus(null);
+        setRematchDeclined(null);
         setGameState(startState);
         setRoom(prev => {
           if (updatedRoom) return updatedRoom;
@@ -944,6 +956,16 @@ export function useGameRoom(roomCode: string | null) {
     socketRef.current.send(JSON.stringify({ type: 'game:rematch' }));
   }, []);
 
+  const declineRematch = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(JSON.stringify({ type: 'game:rematch_decline' }));
+    setRematchStatus(null);
+  }, []);
+
+  const clearRematchDeclined = useCallback(() => {
+    setRematchDeclined(null);
+  }, []);
+
   // WebRTC & Audio/Video Call Methods
   const sendWebRTCSignal = useCallback((targetUserId: string, signal: any) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
@@ -1304,6 +1326,9 @@ export function useGameRoom(roomCode: string | null) {
     sendTyping,
     rematch,
     rematchStatus,
+    declineRematch,
+    rematchDeclined,
+    clearRematchDeclined,
     sendWebRTCSignal,
     sendCameraState,
     sendVoiceState,

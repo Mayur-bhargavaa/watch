@@ -419,23 +419,19 @@ export class GameRoomManager {
     const totalNeeded = room.players.length;
     const votedUserIds = Array.from(votes);
     const allVoted = votes.size >= totalNeeded;
+    const requester = room.players.find(p => p.userId === userId);
 
-    // Reset room status to WAITING in DB and in memory so both players return to the waiting screen
-    room.status = 'WAITING';
-    room.gameState = null;
-    this.db.updateGameRoomStatus(roomId, 'WAITING');
-    this.db.updateGameRoomState(roomId, null, undefined, undefined);
-
-    // Broadcast rematch progress to all players in the room
+    // Broadcast rematch progress to all players in the room without kicking to waiting room
     this.broadcast(roomId, {
       type: 'game:rematch_status',
       roomId,
       payload: {
+        requesterId: userId,
+        requesterName: requester?.displayName || 'Opponent',
         votedUserIds,
         votedCount: votes.size,
         totalNeeded,
-        allVoted,
-        room
+        allVoted
       }
     });
 
@@ -457,6 +453,28 @@ export class GameRoomManager {
         }
       }, 500);
     }
+  }
+
+  /**
+   * Handle Rematch Decline Action
+   */
+  public handleRematchDecline(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room) return;
+
+    this.rematchVotes.delete(roomId);
+    const decliner = room.players.find(p => p.userId === userId);
+
+    this.broadcast(roomId, {
+      type: 'game:rematch_declined',
+      roomId,
+      payload: {
+        declinerId: userId,
+        declinerName: decliner?.displayName || 'Opponent',
+        reason: 'declined',
+        message: `${decliner?.displayName || 'Opponent'} declined the rematch request.`
+      }
+    });
   }
 
   /**
@@ -1291,6 +1309,10 @@ export class GameRoomManager {
         this.handleRematch(client.roomId, client.userId);
         break;
 
+      case 'game:rematch_decline':
+        this.handleRematchDecline(client.roomId, client.userId);
+        break;
+
       case 'game:nudge': {
         const roast = msg.payload?.message || 'Rematch accept karle, haarne se kyu darr raha hai? 😉';
         this.broadcast(client.roomId, {
@@ -1565,6 +1587,20 @@ export class GameRoomManager {
           this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
         }
       }
+    }
+
+    if (this.rematchVotes.has(client.roomId)) {
+      this.rematchVotes.delete(client.roomId);
+      this.broadcast(client.roomId, {
+        type: 'game:rematch_declined',
+        roomId: client.roomId,
+        payload: {
+          declinerId: client.userId,
+          declinerName: client.displayName,
+          reason: 'opponent_left',
+          message: `${client.displayName} left the game.`
+        }
+      });
     }
 
     this.broadcast(client.roomId, {
