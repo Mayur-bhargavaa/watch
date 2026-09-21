@@ -52,6 +52,7 @@ import {
   ChessDrawOfferModal,
   ChessTakebackModal
 } from '../../../components/games/chess/ChessModals';
+import { Chess } from 'chess.js';
 import {
   ChessGameState,
   ChessGameConfig,
@@ -90,6 +91,15 @@ function ChessGameContent() {
   const [chessConfig, setChessConfig] = useState<ChessGameConfig>(DEFAULT_CHESS_CONFIG);
   const [rematchRequested, setRematchRequested] = useState(false);
 
+  // Solo Practice Mode state
+  const [isPracticeMode, setIsPracticeMode] = useState<boolean>(false);
+  const [practiceFen, setPracticeFen] = useState<string>('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+  const [practiceTurn, setPracticeTurn] = useState<ChessColor>('w');
+  const [practiceLastMove, setPracticeLastMove] = useState<{ from: string; to: string } | null>(null);
+  const [practiceCheck, setPracticeCheck] = useState<boolean>(false);
+  const [practiceCheckSquare, setPracticeCheckSquare] = useState<string | undefined>(undefined);
+  const [practiceCheckmate, setPracticeCheckmate] = useState<boolean>(false);
+
   // Chat bar state
   const [chatMessage, setChatMessage] = useState('');
   const [showChatPanel, setShowChatPanel] = useState(false);
@@ -103,13 +113,12 @@ function ChessGameContent() {
     }
   }, []);
 
-  const userId = session?.user?.id || '';
-  const displayName = session?.user?.displayName || 'Grandmaster';
-
   // Game Room hook
   const {
     room,
     gameState: rawGameState,
+    myUserId: hookUserId,
+    myPlayer,
     error: roomError,
     chatMessages,
     floatingReactions,
@@ -134,10 +143,13 @@ function ChessGameContent() {
     rematchStatus,
     chessDrawOffer,
     chessTakebackRequest,
-    lastChessMove
+    lastChessMove,
+    chessMoveError
   } = useGameRoom(roomCodeParam || null);
 
   const gameState = rawGameState as ChessGameState | null;
+  const effectiveUserId = hookUserId || session?.user?.id || '';
+  const displayName = session?.user?.displayName || 'Grandmaster';
 
   // WebRTC Members mapped
   const webRTCMembers = useMemo(() => {
@@ -158,7 +170,7 @@ function ChessGameContent() {
     toggleCamera,
     toggleMic
   } = useWebRTC({
-    myUserId: userId,
+    myUserId: effectiveUserId,
     members: webRTCMembers as any,
     screenPresenter: null,
     sendWebRTCSignal,
@@ -187,28 +199,88 @@ function ChessGameContent() {
 
   // Determine current player's color
   const myPlayerInfo = useMemo(() => {
-    if (!gameState || !userId) return null;
-    if (gameState.whitePlayer?.userId === userId) return gameState.whitePlayer;
-    if (gameState.blackPlayer?.userId === userId) return gameState.blackPlayer;
-    return null;
-  }, [gameState, userId]);
+    if (isPracticeMode) {
+      return {
+        userId: effectiveUserId || 'practice_player',
+        displayName: `${displayName} (Solo)`,
+        avatarUrl: session?.user?.avatarUrl || null,
+        color: practiceTurn,
+        timeRemainingMs: 600000
+      };
+    }
+    if (!gameState) return null;
+    if (effectiveUserId) {
+      if (gameState.whitePlayer?.userId === effectiveUserId) return gameState.whitePlayer;
+      if (gameState.blackPlayer?.userId === effectiveUserId) return gameState.blackPlayer;
+    }
+    // Fallback: room player seats
+    if (room?.players && room.players.length > 0) {
+      const idx = room.players.findIndex(p => p.userId === effectiveUserId);
+      if (idx === 0) return gameState.whitePlayer;
+      if (idx === 1) return gameState.blackPlayer;
+    }
+    return gameState.whitePlayer;
+  }, [gameState, effectiveUserId, room?.players, isPracticeMode, practiceTurn, displayName, session?.user?.avatarUrl]);
 
-  const playerColor: ChessColor = myPlayerInfo?.color || 'w';
+  const playerColor: ChessColor = isPracticeMode ? practiceTurn : (myPlayerInfo?.color || 'w');
 
   // Opponent player info
   const opponentPlayerInfo = useMemo(() => {
-    if (!gameState || !userId) return null;
-    if (gameState.whitePlayer?.userId !== userId) return gameState.whitePlayer;
-    if (gameState.blackPlayer?.userId !== userId) return gameState.blackPlayer;
-    return null;
-  }, [gameState, userId]);
+    if (isPracticeMode) {
+      return {
+        userId: 'practice_pass_and_play',
+        displayName: 'Pass & Play (Local)',
+        avatarUrl: null,
+        color: (practiceTurn === 'w' ? 'b' : 'w') as ChessColor,
+        timeRemainingMs: 600000
+      };
+    }
+    if (!gameState) return null;
+    if (effectiveUserId) {
+      if (gameState.whitePlayer?.userId !== effectiveUserId) return gameState.whitePlayer;
+      if (gameState.blackPlayer?.userId !== effectiveUserId) return gameState.blackPlayer;
+    }
+    return playerColor === 'w' ? gameState.blackPlayer : gameState.whitePlayer;
+  }, [gameState, effectiveUserId, playerColor, isPracticeMode, practiceTurn]);
 
   // White and Black players for presentation
   const whitePlayer = gameState?.whitePlayer || null;
   const blackPlayer = gameState?.blackPlayer || null;
 
-  // Handle move emission
+  // Handle move emission (Practice vs Multiplayer)
   const handleMove = (from: string, to: string, promotion?: 'q' | 'r' | 'b' | 'n') => {
+    if (isPracticeMode) {
+      try {
+        const c = new Chess(practiceFen);
+        const res = c.move({ from: from as any, to: to as any, promotion: promotion || 'q' });
+        if (res) {
+          const nextFen = c.fen();
+          setPracticeFen(nextFen);
+          const nextTurn = c.turn() as ChessColor;
+          setPracticeTurn(nextTurn);
+          setPracticeLastMove({ from, to });
+          setPracticeCheck(c.inCheck());
+          setPracticeCheckmate(c.isCheckmate());
+
+          if (c.inCheck()) {
+            const board = c.board();
+            for (let r = 0; r < 8; r++) {
+              for (let f = 0; f < 8; f++) {
+                const sq = board[r][f];
+                if (sq && sq.type === 'k' && sq.color === nextTurn) {
+                  setPracticeCheckSquare(`${['a','b','c','d','e','f','g','h'][f]}${8 - r}`);
+                }
+              }
+            }
+          } else {
+            setPracticeCheckSquare(undefined);
+          }
+        }
+      } catch (err) {
+        console.error('Solo practice move error:', err);
+      }
+      return;
+    }
     makeChessMove(from, to, promotion);
   };
 
@@ -244,7 +316,7 @@ function ChessGameContent() {
     }
   }, [gameState?.status]);
 
-  // If loading or waiting room
+  // If loading
   if (!room) {
     return (
       <div className="min-h-screen bg-[#07070b] flex flex-col items-center justify-center text-white select-none">
@@ -255,13 +327,13 @@ function ChessGameContent() {
   }
 
   // Waiting Room state (before game starts)
-  const isLobby = room.status === 'WAITING' || gameState?.status === 'WAITING' || !gameState;
+  const isLobby = !isPracticeMode && (room.status === 'WAITING' || gameState?.status === 'WAITING' || !gameState);
   if (isLobby) {
     return (
       <>
         <ChessWaitingRoom
           room={room}
-          myUserId={userId}
+          myUserId={effectiveUserId}
           config={chessConfig}
           onStartGame={() => startChessGame(chessConfig)}
           onUpdateConfig={cfg => {
@@ -270,6 +342,15 @@ function ChessGameContent() {
           }}
           onLeave={handleLeave}
           onInviteFriend={() => setShowFriendDrawer(true)}
+          onStartPractice={() => {
+            setIsPracticeMode(true);
+            setPracticeFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+            setPracticeTurn('w');
+            setPracticeLastMove(null);
+            setPracticeCheck(false);
+            setPracticeCheckSquare(undefined);
+            setPracticeCheckmate(false);
+          }}
           onRematch={handleRematch}
           rematchStatus={rematchStatus}
         />
@@ -421,18 +502,93 @@ function ChessGameContent() {
 
         {/* Center: The Chess Board (Hero Focus) */}
         <div className="w-full max-w-[540px] flex flex-col items-center justify-center order-2 lg:order-2">
-          {gameState && (
+          {/* Turn / Mode Status Banner */}
+          <div className={`w-full mb-2.5 p-3 rounded-2xl flex items-center justify-between border transition-all ${
+            isGameOver
+              ? 'bg-zinc-800/80 border-white/10 text-zinc-300'
+              : isPracticeMode
+                ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-200'
+                : isMyTurn
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_25px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+          }`}>
+            <div className="flex items-center gap-2.5">
+              <span className={`w-3 h-3 rounded-full shrink-0 ${
+                isGameOver
+                  ? 'bg-zinc-500'
+                  : isPracticeMode
+                    ? 'bg-indigo-400'
+                    : isMyTurn
+                      ? 'bg-emerald-400 animate-pulse'
+                      : 'bg-amber-400 animate-ping'
+              }`} />
+              <div>
+                <div className="text-xs font-black tracking-wide flex items-center gap-1.5">
+                  {isGameOver ? (
+                    <span>Match Over · {gameState?.winnerReason || 'Completed'}</span>
+                  ) : isPracticeMode ? (
+                    <span>🎮 Solo Practice · {practiceTurn === 'w' ? 'White' : 'Black'} to Move</span>
+                  ) : isMyTurn ? (
+                    <span>👑 YOUR TURN · Move {playerColor === 'w' ? 'White' : 'Black'} Pieces</span>
+                  ) : (
+                    <span>⏳ OPPONENT&apos;S TURN · {gameState?.turn === 'w' ? 'White' : 'Black'} is Thinking...</span>
+                  )}
+                </div>
+                <div className="text-[10px] text-zinc-400 mt-0.5">
+                  {isGameOver ? (
+                    'Review moves below or request a rematch'
+                  ) : isPracticeMode ? (
+                    'Free play mode. Click any piece to move both White and Black sides.'
+                  ) : isMyTurn ? (
+                    'Click any of your pieces to show legal moves, then click a target square.'
+                  ) : (
+                    'The board will unlock automatically once your opponent moves.'
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {isPracticeMode && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowFriendDrawer(true)}
+                  className="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-[11px] font-bold text-amber-300 transition border border-amber-500/30 cursor-pointer"
+                >
+                  Invite
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPracticeMode(false)}
+                  className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-[11px] font-bold text-white transition border border-white/10 cursor-pointer"
+                >
+                  Lobby
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Server Move Error Toast if any */}
+          {chessMoveError && (
+            <div className="w-full mb-2.5 p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-2 animate-shake">
+              <span className="text-sm">⚠️</span>
+              <span>{chessMoveError}</span>
+            </div>
+          )}
+
+          {(gameState || isPracticeMode) && (
             <ChessBoard
-              fen={gameState.fen}
-              turn={gameState.turn}
+              fen={isPracticeMode ? practiceFen : gameState!.fen}
+              turn={isPracticeMode ? practiceTurn : gameState!.turn}
               playerColor={playerColor}
-              inCheck={gameState.inCheck}
-              checkSquare={gameState.checkSquare}
-              lastMove={lastChessMove ? { from: lastChessMove.from, to: lastChessMove.to } : null}
+              inCheck={isPracticeMode ? practiceCheck : gameState!.inCheck}
+              checkSquare={isPracticeMode ? practiceCheckSquare : gameState!.checkSquare}
+              lastMove={isPracticeMode ? practiceLastMove : (lastChessMove ? { from: lastChessMove.from, to: lastChessMove.to } : null)}
               onMove={handleMove}
               disabled={isGameOver || !isMyTurn}
-              isCheckmate={gameState.status === 'CHECKMATE'}
+              isCheckmate={isPracticeMode ? practiceCheckmate : (gameState?.status === 'CHECKMATE')}
               theme={boardTheme}
+              isPracticeMode={isPracticeMode}
             />
           )}
 
@@ -523,7 +679,7 @@ function ChessGameContent() {
                     <div
                       key={msg.id}
                       className={`p-2 rounded-xl max-w-[85%] ${
-                        msg.userId === userId
+                        msg.userId === effectiveUserId
                           ? 'ml-auto bg-amber-500/20 text-amber-200 border border-amber-500/30'
                           : 'mr-auto bg-white/5 text-zinc-200 border border-white/10'
                       }`}
@@ -630,7 +786,7 @@ function ChessGameContent() {
       {isGameOver && gameState && (
         <ChessGameEnd
           gameState={gameState}
-          myUserId={userId}
+          myUserId={effectiveUserId}
           onRematch={handleRematch}
           onReview={() => setShowReviewModal(true)}
           onLeave={handleLeave}

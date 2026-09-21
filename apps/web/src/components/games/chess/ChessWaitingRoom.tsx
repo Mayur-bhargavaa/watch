@@ -31,6 +31,7 @@ interface ChessWaitingRoomProps {
   onUpdateConfig: (config: ChessGameConfig) => void;
   onLeave: () => void;
   onInviteFriend?: () => void;
+  onStartPractice?: () => void;
   onRematch?: () => void;
   rematchStatus?: {
     votedUserIds: string[];
@@ -48,6 +49,7 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
   onUpdateConfig,
   onLeave,
   onInviteFriend,
+  onStartPractice,
   onRematch,
   rematchStatus
 }) => {
@@ -365,6 +367,17 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
                   <Share2 className="w-4 h-4" />
                   <span>Invite Opponent</span>
                 </button>
+
+                {onStartPractice && (
+                  <button
+                    type="button"
+                    onClick={onStartPractice}
+                    className="w-full py-3 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+                  >
+                    <Swords className="w-4 h-4 text-amber-400" />
+                    <span>Solo Practice Mode (Play Both Sides)</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

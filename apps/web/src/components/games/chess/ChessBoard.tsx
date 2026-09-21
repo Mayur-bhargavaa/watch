@@ -18,6 +18,7 @@ interface ChessBoardProps {
   disabled?: boolean;
   isCheckmate?: boolean;
   theme?: 'wood' | 'slate' | 'charcoal';
+  isPracticeMode?: boolean;
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -33,11 +34,27 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   onMove,
   disabled = false,
   isCheckmate = false,
-  theme = 'wood'
+  theme = 'wood',
+  isPracticeMode = false
 }) => {
   const [isFlipped, setIsFlipped] = useState<boolean>(playerColor === 'b');
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
+  const [boardNotice, setBoardNotice] = useState<string | null>(null);
+
+  // Sync flip orientation when player color changes
+  React.useEffect(() => {
+    if (!isPracticeMode) {
+      setIsFlipped(playerColor === 'b');
+    }
+  }, [playerColor, isPracticeMode]);
+
+  // Notice auto-dismiss timer
+  const triggerNotice = useCallback((msg: string) => {
+    setBoardNotice(msg);
+    const t = setTimeout(() => setBoardNotice(null), 2800);
+    return () => clearTimeout(t);
+  }, []);
 
   // Instantiated chess instance for clientside legal moves preview
   const chess = useMemo(() => {
@@ -53,15 +70,18 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     return chess.board();
   }, [chess]);
 
+  // Can interact if not disabled or in practice mode
+  const canInteract = !disabled || isPracticeMode;
+
   // Calculate all legal moves for currently selected square
   const legalMovesForSelected = useMemo(() => {
-    if (!selectedSquare || disabled) return [];
+    if (!selectedSquare || !canInteract) return [];
     try {
       return chess.moves({ square: selectedSquare as Square, verbose: true });
     } catch {
       return [];
     }
-  }, [chess, selectedSquare, disabled]);
+  }, [chess, selectedSquare, canInteract]);
 
   // Set of target squares that can be moved to from selected piece
   const legalTargetSquares = useMemo(() => {
@@ -74,7 +94,19 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   // Handle Square Click
   const handleSquareClick = useCallback((square: string) => {
-    if (disabled) return;
+    if (isCheckmate) {
+      triggerNotice('Checkmate! The game is over.');
+      return;
+    }
+
+    if (disabled && !isPracticeMode) {
+      if (turn !== playerColor) {
+        triggerNotice(`Waiting for Opponent (${turn === 'w' ? 'White' : 'Black'}) to move...`);
+      } else {
+        triggerNotice('Game is paused or waiting.');
+      }
+      return;
+    }
 
     const piece = chess.get(square as Square);
 
@@ -101,20 +133,38 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
     // Otherwise, click selects/deselects piece
     if (piece) {
-      // Allow selection only if piece color matches the current turn and (optionally) the player's assigned color
-      if (piece.color === turn) {
-        if (selectedSquare === square) {
-          setSelectedSquare(null); // toggle off
-        } else {
-          setSelectedSquare(square);
-        }
-      } else {
+      const isTurnColor = piece.color === turn;
+      const isMyPiece = isPracticeMode || piece.color === playerColor;
+
+      if (!isPracticeMode && !isMyPiece) {
+        triggerNotice(`You play as ${playerColor === 'w' ? 'White' : 'Black'}. Click your own pieces.`);
         setSelectedSquare(null);
+        return;
+      }
+
+      if (!isTurnColor) {
+        triggerNotice(`It is ${turn === 'w' ? 'White' : 'Black'}'s turn to move.`);
+        setSelectedSquare(null);
+        return;
+      }
+
+      // Check if this piece has legal moves
+      try {
+        const moves = chess.moves({ square: square as Square, verbose: true });
+        if (moves.length === 0) {
+          triggerNotice('This piece has no legal moves.');
+        }
+      } catch {}
+
+      if (selectedSquare === square) {
+        setSelectedSquare(null); // toggle off
+      } else {
+        setSelectedSquare(square);
       }
     } else {
       setSelectedSquare(null);
     }
-  }, [chess, selectedSquare, legalTargetSquares, disabled, turn, onMove]);
+  }, [chess, selectedSquare, legalTargetSquares, disabled, isPracticeMode, isCheckmate, turn, playerColor, onMove, triggerNotice]);
 
   // Promotion modal confirmation
   const handleConfirmPromotion = (promotion: 'q' | 'r' | 'b' | 'n') => {
@@ -154,6 +204,14 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       {/* 8x8 Board Container */}
       <div className="relative w-full aspect-square p-2 sm:p-3 rounded-2xl sm:rounded-3xl bg-[#14121d] border-2 border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col justify-between">
         
+        {/* Floating Notice / Error Banner */}
+        {boardNotice && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 max-w-[90%] px-3.5 py-1.5 rounded-full bg-black/90 border border-amber-500/60 text-amber-300 text-[11px] sm:text-xs font-black shadow-2xl flex items-center gap-1.5 backdrop-blur-md animate-fadeIn pointer-events-none">
+            <span className="text-amber-400 text-sm">♟</span>
+            <span>{boardNotice}</span>
+          </div>
+        )}
+
         {/* 8x8 Grid */}
         <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-xl sm:rounded-2xl overflow-hidden border border-black/30 shadow-inner">
           {displayRanks.map((rank, rIdx) =>
@@ -163,7 +221,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
               const rankIdx = 8 - parseInt(rank, 10);
               const piece = boardMatrix[rankIdx]?.[fileIdx];
 
-              const isLightSquare = (fileIdx + parseInt(rank, 10)) % 2 !== 0;
+              // International standard: bottom right (h1) is light square
+              const isLightSquare = (fileIdx + parseInt(rank, 10)) % 2 === 0;
               const isSelected = selectedSquare === square;
               const isLegalTarget = legalTargetSquares.has(square);
               const isLastMoveSquare = lastMove && (lastMove.from === square || lastMove.to === square);
@@ -184,7 +243,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                 <button
                   key={`sq-${square}`}
                   type="button"
-                  disabled={disabled}
                   onClick={() => handleSquareClick(square)}
                   className={`relative w-full h-full flex items-center justify-center transition-colors duration-100 cursor-pointer ${squareBg}`}
                   aria-label={`${square} ${piece ? `${piece.color === 'w' ? 'White' : 'Black'} ${piece.type}` : 'empty'}`}
