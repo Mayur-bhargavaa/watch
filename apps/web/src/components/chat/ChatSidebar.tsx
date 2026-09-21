@@ -54,7 +54,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const [isSubmittingFriend, setIsSubmittingFriend] = useState(false);
   const [addFriendFeedback, setAddFriendFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [myFriendCode, setMyFriendCode] = useState(() => ChatStore.getMyFriendCode());
+  const [myFriendCode, setMyFriendCode] = useState('');
 
   useEffect(() => {
     setMyFriendCode(ChatStore.getMyFriendCode());

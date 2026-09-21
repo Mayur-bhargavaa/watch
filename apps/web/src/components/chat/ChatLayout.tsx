@@ -21,7 +21,7 @@ import { CreateGroupModal } from './CreateGroupModal';
 import { ChatSearchModal } from './ChatSearchModal';
 
 export const ChatLayout: React.FC = () => {
-  const [session, setSession] = useState(() => getStoredSession());
+  const [session, setSession] = useState<any>(null);
   const currentUserId = session?.user?.id || 'current-user';
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -43,6 +43,9 @@ export const ChatLayout: React.FC = () => {
 
   // Initialize store and subscribe
   useEffect(() => {
+    const s = getStoredSession();
+    if (s) setSession(s);
+
     ChatStore.initialize();
     const updateFromStore = () => {
       setConversations(ChatStore.getConversations());
