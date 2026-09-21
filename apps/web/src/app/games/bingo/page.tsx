@@ -1278,45 +1278,68 @@ function BingoDuelGameContent() {
               </div>
             </div>
 
-            {/* Turn Indicator Banner */}
-            <div className={`p-4 rounded-3xl border transition-all backdrop-blur-xl ${
-              isMyTurn
-                ? 'bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]'
-                : 'bg-[#180a14]/70 border-white/10'
-            }`}>
-              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
-                Active Player
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-[#ff4d79] animate-ping' : 'bg-zinc-500'}`} />
-                <span className="text-sm font-extrabold text-white">
-                  {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}
+            {/* Turn Indicator / Setup Phase Banner */}
+            {gameState?.phase === 'SETUP' ? (
+              <div className="p-4 rounded-3xl border transition-all backdrop-blur-xl bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]">
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+                  Game Setup
                 </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="w-3 h-3 rounded-full bg-[#ff4d79] animate-pulse" />
+                  <span className="text-sm font-extrabold text-white">
+                    {!gameState?.boardsReady?.[effectiveUserId]
+                      ? 'Step 1: Fill Your Board'
+                      : 'Waiting for Opponent...'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  {!gameState?.boardsReady?.[effectiveUserId]
+                    ? 'Place numbers 1–25 on your 5×5 grid, then save!'
+                    : 'Opponent is filling their board. Game starts when both are ready.'}
+                </p>
               </div>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                {isMyTurn
-                  ? 'Tap any uncalled number on your ticket to call it aloud!'
-                  : 'Wait for opponent to pick their next number.'}
-              </p>
-            </div>
+            ) : (
+              <div className={`p-4 rounded-3xl border transition-all backdrop-blur-xl ${
+                isMyTurn
+                  ? 'bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]'
+                  : 'bg-[#180a14]/70 border-white/10'
+              }`}>
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+                  Active Player
+                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-[#ff4d79] animate-ping' : 'bg-zinc-500'}`} />
+                  <span className="text-sm font-extrabold text-white">
+                    {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 mt-1">
+                  {isMyTurn
+                    ? 'Tap any uncalled number on your ticket to call it aloud!'
+                    : 'Wait for opponent to pick their next number.'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Center Column: Number Caller + Player Duel Cards + 5x5 Board + Claim Button */}
           <div className="flex-1 w-full max-w-2xl sm:max-w-3xl mx-auto flex flex-col items-center gap-4">
-            {/* 1. Visual Number Caller (numbers 1-25) */}
-            <BingoDuelNumberCaller
-              currentNumber={gameState?.currentNumber || null}
-              currentNumberWord={gameState?.currentNumberWord || null}
-              lastCalledNumbers={gameState?.lastCalledNumbers || []}
-              calledNumbersCount={gameState?.calledNumbers?.length || 0}
-              remainingCount={25 - (gameState?.calledNumbers?.length || 0)}
-              isPaused={Boolean(gameState?.callingPaused)}
-              isHost={isHost}
-              voiceCallerEnabled={Boolean(duelConfig.voiceCaller)}
-              onToggleVoiceCaller={() => setDuelConfig(p => ({ ...p, voiceCaller: !p.voiceCaller }))}
-              currentTurnDisplayName={currentTurnDisplayName}
-              isMyTurn={isMyTurn}
-            />
+            {/* 1. Visual Number Caller (numbers 1-25) — hidden during SETUP phase */}
+            {gameState?.phase !== 'SETUP' && (
+              <BingoDuelNumberCaller
+                currentNumber={gameState?.currentNumber || null}
+                currentNumberWord={gameState?.currentNumberWord || null}
+                lastCalledNumbers={gameState?.lastCalledNumbers || []}
+                calledNumbersCount={gameState?.calledNumbers?.length || 0}
+                remainingCount={25 - (gameState?.calledNumbers?.length || 0)}
+                isPaused={Boolean(gameState?.callingPaused)}
+                isHost={isHost}
+                voiceCallerEnabled={Boolean(duelConfig.voiceCaller)}
+                onToggleVoiceCaller={() => setDuelConfig(p => ({ ...p, voiceCaller: !p.voiceCaller }))}
+                currentTurnDisplayName={currentTurnDisplayName}
+                isMyTurn={isMyTurn}
+              />
+            )}
 
             {/* 2. Player Duel Status Header: You vs Opponent */}
             <div className="w-full grid grid-cols-2 gap-3 sm:gap-4">
@@ -1346,9 +1369,48 @@ function BingoDuelGameContent() {
               />
             </div>
 
-            {/* 3. Authoritative 5x5 Bingo Board */}
+            {/* 3. Authoritative 5x5 Bingo Board (inline setup during SETUP phase) */}
             <div className="w-full my-auto py-2 flex flex-col items-center gap-2">
-              {myBoard.length > 0 ? (
+              {gameState?.phase === 'SETUP' && !gameState?.boardsReady?.[effectiveUserId] ? (
+                /* Step 1: Player hasn't saved their board yet — show inline setup */
+                <div className="w-full max-w-md mx-auto">
+                  <div className="text-center mb-3">
+                    <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#ff4d79]/20 to-[#ff758c]/10 border border-[#ff6b8b]/30 text-[#ff8ca1] text-xs font-black uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-[#ff4d79] animate-pulse" />
+                      Step 1 — Fill Your Board
+                    </span>
+                  </div>
+                  <BingoDuelBoard
+                    board={[]}
+                    playerMarks={[]}
+                    calledNumbers={[]}
+                    onCellClick={() => {}}
+                    isSetupMode={true}
+                    onSaveBoard={handleSaveCustomBoard}
+                    onCancelSetup={() => {}}
+                    onValidationToast={(msg) => {
+                      setClaimToast({ valid: false, message: msg, timestamp: Date.now() });
+                      setTimeout(() => setClaimToast(null), 3500);
+                    }}
+                  />
+                </div>
+              ) : gameState?.phase === 'SETUP' && gameState?.boardsReady?.[effectiveUserId] ? (
+                /* Step 1b: Player saved their board but opponent hasn't — show waiting */
+                <div className="w-full max-w-md mx-auto flex flex-col items-center gap-4">
+                  <div className="text-center p-8 bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 rounded-3xl border border-rose-500/30 shadow-xl backdrop-blur-xl">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#ff4d79] to-[#ff758c] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-rose-950/40">
+                      <span className="text-2xl">✅</span>
+                    </div>
+                    <h3 className="text-lg font-black text-white mb-1">Your Board is Ready!</h3>
+                    <p className="text-sm text-zinc-400 mb-4">Waiting for opponent to fill their board...</p>
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#ff4d79] animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-[#ff758c] animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 rounded-full bg-[#ff8ca1] animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              ) : myBoard.length > 0 ? (
                 <>
                   <BingoDuelBoard
                     board={myBoard}
@@ -1369,7 +1431,7 @@ function BingoDuelGameContent() {
                     <button
                       type="button"
                       onClick={() => setShowSetupModal(true)}
-                      className="mt-1 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-indigo-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      className="mt-1 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[#ff8ca1] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
                     >
                       <span>🎯 Customize Board Matrix (1–25)</span>
                     </button>
@@ -1382,16 +1444,18 @@ function BingoDuelGameContent() {
               )}
             </div>
 
-            {/* 4. Action Claim Button */}
-            <div className="w-full pt-2">
-              <BingoDuelClaimButton
-                onClaim={() => claimBingo('bingo')}
-                isCompleted={Boolean(myProgress?.isCompleted)}
-                penaltySeconds={penaltySeconds}
-                patternName={myProgress?.completedPatternName || duelConfig.pattern}
-                disabled={isFinished || isRoundOver}
-              />
-            </div>
+            {/* 4. Action Claim Button — hidden during SETUP phase */}
+            {gameState?.phase !== 'SETUP' && (
+              <div className="w-full pt-2">
+                <BingoDuelClaimButton
+                  onClaim={() => claimBingo('bingo')}
+                  isCompleted={Boolean(myProgress?.isCompleted)}
+                  penaltySeconds={penaltySeconds}
+                  patternName={myProgress?.completedPatternName || duelConfig.pattern}
+                  disabled={isFinished || isRoundOver}
+                />
+              </div>
+            )}
           </div>
 
           {/* Right Column: Full Game Chat with Stickers, Reactions, & Drawing (Matching Ludo) */}
