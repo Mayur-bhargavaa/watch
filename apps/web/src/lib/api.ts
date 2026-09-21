@@ -580,7 +580,7 @@ export function getGameRoute(gameType?: string, roomCode?: string): string {
 export function getGameTitle(gameType?: string, roomCode?: string): string {
   const lower = (gameType || '').toLowerCase();
   const code = (roomCode || '').toUpperCase();
-  if (lower.includes('bingo') || lower.includes('tambola') || code.startsWith('BINGO-')) return 'Bingo Duel';
+  if (lower.includes('bingo') || lower.includes('tambola') || code.startsWith('BINGO-')) return 'Tambola';
   if (lower.includes('tic') || code.startsWith('TIC-')) return 'Tic-Tac-Toe';
   if (lower.includes('four') || lower.includes('connect') || code.startsWith('FOUR-')) return 'Four in a Row';
   if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) return 'Doodle Duel';

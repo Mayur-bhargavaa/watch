@@ -55,8 +55,8 @@ const GAMES_DATA: GameCardData[] = [
   },
   {
     id: 'bingo',
-    title: 'Bingo Duel',
-    subtext: 'Classic Tambola. Modern twist.',
+    title: 'Tambola',
+    subtext: 'Classic 90-Ball Housie. Modern twist.',
     players: '2 Players',
     gradient: 'from-[#2e74ff] via-[#1a4ec8] to-[#0e1d52]',
     image: '/images/card-bingo-duel.png',

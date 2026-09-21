@@ -432,7 +432,7 @@ function BingoGameContent() {
           isOpen={showFriendDrawer}
           onClose={() => setShowFriendDrawer(false)}
           token={session?.token}
-          gameTitle="Bingo Duel"
+          gameTitle="Tambola"
           onSelectFriend={async (friend) => {
             try {
               const res = await createGameRoomWithPartner('bingo', friend.friendUser.id);
@@ -631,7 +631,7 @@ function BingoGameContent() {
 
           <div className="hidden sm:flex items-center gap-2">
             <span className="text-lg">🎱</span>
-            <span className="text-sm font-black text-white tracking-wide">Bingo Duel</span>
+            <span className="text-sm font-black text-white tracking-wide">Tambola</span>
             <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] text-zinc-300 font-mono">
               Room: {room?.roomCode || roomCodeParam}
             </span>

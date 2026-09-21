@@ -118,7 +118,7 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
           <span className="text-zinc-600">/</span>
           <span className="text-[#ff2b5e] font-black flex items-center gap-1.5">
             <span>🎱</span>
-            <span>Bingo Duel</span>
+            <span>Tambola</span>
           </span>
         </div>
 
@@ -345,7 +345,7 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
                   className="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-extrabold text-sm uppercase tracking-wider shadow-[0_4px_20px_rgba(255,43,94,0.4)] transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-white" />
-                  <span>Start Bingo Duel 🚀</span>
+                  <span>Start Tambola 🚀</span>
                 </button>
               ) : (
                 <div className="w-full py-3.5 px-6 rounded-2xl bg-[#161220]/90 border border-white/10 text-center text-xs font-bold text-zinc-300 flex items-center justify-center gap-2">
