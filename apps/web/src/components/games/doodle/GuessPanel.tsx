@@ -238,6 +238,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
               </div>
             ) : (
               guesses.map(g => {
+                const guessString = g.guess || (g as any).text || '';
                 if (g.isCorrect) {
                   return (
                     <div
@@ -248,7 +249,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                         <span className="text-xs">{g.displayName}:</span>
                         <span className="text-xs uppercase tracking-wider font-black">
-                          {g.guess}
+                          {guessString}
                         </span>
                       </div>
                       {g.pointsAwarded !== undefined && (
@@ -269,7 +270,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                       <div className="flex items-center gap-2">
                         <Flame className="w-4 h-4 text-amber-500 shrink-0" />
                         <span className="text-xs">{g.displayName}:</span>
-                        <span className="text-xs">{g.guess}</span>
+                        <span className="text-xs">{guessString}</span>
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500">
                         Close!
@@ -294,7 +295,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                     >
                       {g.displayName}:
                     </span>
-                    <span className="text-xs font-semibold">{g.guess}</span>
+                    <span className="text-xs font-semibold">{guessString}</span>
                   </div>
                 );
               })

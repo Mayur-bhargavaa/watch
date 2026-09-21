@@ -743,9 +743,34 @@ export function useGameRoom(roomCode: string | null) {
       }
 
       case 'doodle:guess_result': {
-        const { guess, gameState: nextState } = msg.payload || {};
-        if (guess) setLastDoodleGuess(guess);
-        if (nextState) setGameState(nextState);
+        const payload = msg.payload || {};
+        const guessObj = payload.guess || {
+          id: `guess_${Date.now()}_${Math.random()}`,
+          userId: payload.userId,
+          displayName: payload.displayName,
+          text: payload.text || payload.guessText || '',
+          guess: payload.text || payload.guessText || '',
+          isCorrect: Boolean(payload.isCorrect),
+          pointsAwarded: payload.pointsEarned,
+          timestamp: Date.now()
+        };
+        setLastDoodleGuess(guessObj);
+        if (payload.gameState) {
+          setGameState(payload.gameState);
+        } else {
+          // Optimistically append guess to gameState so both players see it instantaneously
+          setGameState((prev: any) => {
+            if (!prev) return prev;
+            const existing = prev.guesses || prev.currentGuesses || [];
+            if (existing.some((g: any) => g.id === guessObj.id)) return prev;
+            const updatedGuesses = [...existing, guessObj];
+            return {
+              ...prev,
+              guesses: updatedGuesses,
+              currentGuesses: updatedGuesses
+            };
+          });
+        }
         break;
       }
 

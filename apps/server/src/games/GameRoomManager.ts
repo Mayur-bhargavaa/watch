@@ -1102,6 +1102,17 @@ export class GameRoomManager {
       guessText
     );
 
+    const latestGuess = state.guesses[state.guesses.length - 1] || {
+      id: `guess_${Date.now()}`,
+      userId,
+      displayName: player.displayName,
+      text: guessText,
+      guess: guessText,
+      isCorrect,
+      timestamp: Date.now()
+    };
+    (latestGuess as any).guess = latestGuess.text || guessText;
+
     room.gameState = state;
     this.db.updateGameRoomState(room.id, state);
 
@@ -1109,18 +1120,19 @@ export class GameRoomManager {
       type: 'doodle:guess_result',
       roomId: room.id,
       payload: {
+        guess: latestGuess,
         userId,
         displayName: player.displayName,
         text: guessText,
+        guessText,
         isCorrect,
         pointsEarned: points,
         completed
       }
     });
 
-    if (completed) {
-      this.broadcastDoodleState(room.id);
-    }
+    // Always broadcast sanitized state sync to keep guesses, scores, and round status identical across both clients
+    this.broadcastDoodleState(room.id);
   }
 
   public handleDoodleRequestHint(roomId: string, userId: string): void {
