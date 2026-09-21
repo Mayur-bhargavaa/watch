@@ -1069,12 +1069,12 @@ export class GameRoomManager {
     room.gameState.strokes.push(stroke);
     this.db.updateGameRoomState(room.id, room.gameState);
 
-    // Broadcast stroke to other player with minimal latency
+    // Broadcast stroke to all players in the room with minimal latency
     this.broadcast(room.id, {
       type: 'doodle:stroke_added',
       roomId: room.id,
       payload: { stroke }
-    }, userId);
+    });
   }
 
   public handleDoodleUndo(roomId: string, userId: string): void {

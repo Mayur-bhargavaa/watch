@@ -199,7 +199,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     currentPointsRef.current = [];
     setActivePoints([]);
 
-    if (pts.length > 0 && onStrokeComplete) {
+    if (pts.length > 0) {
       const stroke: DoodleStroke = {
         id: `strk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         color: currentColor,
@@ -208,7 +208,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         isEraser: currentTool === 'eraser',
         timestamp: Date.now()
       };
-      onStrokeComplete(stroke);
+      // Immediately render with this stroke included so there is never a single frame of disappearance
+      renderAllStrokes([...strokes, stroke], [], canvasDimensions.width, canvasDimensions.height);
+      if (onStrokeComplete) {
+        onStrokeComplete(stroke);
+      }
     }
   };
 

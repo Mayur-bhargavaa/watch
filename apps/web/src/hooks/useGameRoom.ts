@@ -706,9 +706,13 @@ export function useGameRoom(roomCode: string | null) {
           setLastDoodleStroke(stroke);
           setGameState((prev: any) => {
             if (!prev) return prev;
+            const existing = prev.strokes || [];
+            if (existing.some((s: any) => s.id === stroke.id)) {
+              return prev;
+            }
             return {
               ...prev,
-              strokes: [...(prev.strokes || []), stroke]
+              strokes: [...existing, stroke]
             };
           });
         }
@@ -1111,6 +1115,20 @@ export function useGameRoom(roomCode: string | null) {
   }, []);
 
   const sendDoodleStroke = useCallback((stroke: DoodleStroke) => {
+    // Optimistically add stroke immediately so drawer sees the stroke seamlessly without delay
+    setLastDoodleStroke(stroke);
+    setGameState((prev: any) => {
+      if (!prev) return prev;
+      const existing = prev.strokes || [];
+      if (existing.some((s: any) => s.id === stroke.id)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        strokes: [...existing, stroke]
+      };
+    });
+
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
       JSON.stringify({
@@ -1121,6 +1139,14 @@ export function useGameRoom(roomCode: string | null) {
   }, []);
 
   const undoDoodleStroke = useCallback(() => {
+    setGameState((prev: any) => {
+      if (!prev || !prev.strokes || prev.strokes.length === 0) return prev;
+      return {
+        ...prev,
+        strokes: prev.strokes.slice(0, -1)
+      };
+    });
+
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
       JSON.stringify({
@@ -1131,6 +1157,14 @@ export function useGameRoom(roomCode: string | null) {
   }, []);
 
   const clearDoodleCanvas = useCallback(() => {
+    setGameState((prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        strokes: []
+      };
+    });
+
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
       JSON.stringify({
