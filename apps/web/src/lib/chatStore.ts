@@ -12,11 +12,23 @@ import {
   ChatMessageMetadata,
   ChatMessageRequest
 } from '../types/chat';
-import { getStoredSession, getFriendsWithStreaks } from './api';
+import {
+  getStoredSession,
+  getFriendsWithStreaks,
+  getUserPartner,
+  acceptFriendRequest,
+  declineFriendRequest,
+  addFriendByCode
+} from './api';
 
 const STORAGE_PREFIX = 'watch_chat_v2_';
 
-// Initial Mock Seed Data reflecting user's social circle on Watch
+// Real-time state cache for authenticated user
+let realFriendsMap: Record<string, ChatUser> = {};
+let realRequestsList: ChatMessageRequest[] = [];
+let cachedMyFriendCode: string = '';
+
+// Initial Mock Seed Data reflecting user's social circle on Watch (fallback for guests)
 const DEFAULT_PARTICIPANTS: Record<string, ChatUser> = {
   rahul: {
     id: 'user_rahul',
@@ -407,28 +419,41 @@ export class ChatStore {
     } catch {}
   }
 
-  // Real-time synchronization: Load actual friends from existing getFriendsWithStreaks() without touching DB
+  // Real-time synchronization: Load actual friends and requests from existing getFriendsWithStreaks() without touching DB
   static async syncWithExistingFriends(): Promise<void> {
     const s = getStoredSession();
     if (!s?.token) return;
 
     try {
-      const res = await getFriendsWithStreaks(s.token);
-      if (res?.friends && Array.isArray(res.friends) && res.friends.length > 0) {
+      const [res, partnerRes] = await Promise.all([
+        getFriendsWithStreaks(s.token).catch(() => null),
+        getUserPartner(s.token).catch(() => null)
+      ]);
+
+      if (res) {
+        if (res.myFriendCode) {
+          cachedMyFriendCode = res.myFriendCode;
+        }
+
         const convs = this.getConversations();
-        let changed = false;
+        // When real authenticated user has friends, remove the mock seed placeholders
+        let cleanConvs = convs.filter(
+          (c) => !['conv_rahul', 'conv_dhruv', 'conv_mansi', 'conv_kunal', 'conv_group_friday'].includes(c.id)
+        );
+        let changed = cleanConvs.length !== convs.length;
 
-        for (const item of res.friends) {
-          const friend = item.friendUser;
-          if (!friend || !friend.id) continue;
+        realFriendsMap = {};
 
-          // Check if conversation already exists for this friend
-          const exists = convs.some(c => c.type === 'direct' && c.participants.some(p => p.id === friend.id));
-          if (!exists) {
+        if (res.friends && Array.isArray(res.friends)) {
+          for (const item of res.friends) {
+            const friend = item.friendUser;
+            if (!friend || !friend.id) continue;
+
             const chatUser: ChatUser = {
               id: friend.id,
               displayName: friend.displayName || 'Friend',
               name: friend.displayName || 'Friend',
+              username: friend.partnerCode ? `${friend.partnerCode}` : undefined,
               avatarUrl: friend.avatarUrl,
               avatar: friend.avatarUrl || undefined,
               onlineStatus: friend.isOnline ? 'ONLINE' : 'OFFLINE',
@@ -437,31 +462,67 @@ export class ChatStore {
               streakDays: item.streak?.currentStreak || 0,
               moviesWatched: Math.floor((item.streak?.totalMinutesWatched || 0) / 100),
               gamesPlayed: item.streak?.currentStreak || 0,
-              plansCount: 1,
-              friendsSince: item.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : 'Recently',
+              plansCount: 0,
+              sharedStats: {
+                moviesWatched: Math.floor((item.streak?.totalMinutesWatched || 0) / 100),
+                gamesPlayed: item.streak?.currentStreak || 0,
+                plansCompleted: 0
+              },
+              friendsSince: item.createdAt
+                ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+                : 'Connected',
               isFriend: true
             };
 
-            const newConv: ChatConversation = {
-              id: `conv_${friend.id}`,
-              type: 'direct',
-              name: friend.displayName,
-              title: friend.displayName,
-              avatarUrl: friend.avatarUrl,
-              avatar: friend.avatarUrl || undefined,
-              participants: [chatUser],
-              messages: [],
-              unreadCount: 0,
-              updatedAt: new Date().toISOString()
-            };
+            realFriendsMap[friend.id] = chatUser;
 
-            convs.push(newConv);
-            changed = true;
+            // Check if conversation already exists for this real friend
+            let existing = cleanConvs.find(
+              (c) => c.type === 'direct' && c.participants.some((p) => p.id === friend.id)
+            );
+            if (!existing) {
+              const newConv: ChatConversation = {
+                id: `conv_${friend.id}`,
+                type: 'direct',
+                name: friend.displayName,
+                title: friend.displayName,
+                avatarUrl: friend.avatarUrl,
+                avatar: friend.avatarUrl || undefined,
+                participants: [chatUser],
+                messages: [],
+                unreadCount: 0,
+                updatedAt: item.createdAt || new Date().toISOString()
+              };
+              cleanConvs.push(newConv);
+              changed = true;
+            } else {
+              existing.name = friend.displayName;
+              existing.title = friend.displayName;
+              existing.avatarUrl = friend.avatarUrl;
+              existing.avatar = friend.avatarUrl || undefined;
+              existing.participants = [chatUser];
+            }
           }
         }
 
+        // Map real incoming requests
+        if (res.requests?.incoming && Array.isArray(res.requests.incoming)) {
+          realRequestsList = res.requests.incoming.map((req) => ({
+            id: req.requestId,
+            senderId: req.user.id,
+            senderName: req.user.displayName,
+            senderAvatar: req.user.avatarUrl || undefined,
+            previewText: `Wants to connect with you! Code: #${req.user.partnerCode}`,
+            createdAt: req.createdAt
+          }));
+        } else {
+          realRequestsList = [];
+        }
+
         if (changed) {
-          this.saveConversations(convs);
+          this.saveConversations(cleanConvs);
+        } else {
+          notify();
         }
       }
     } catch (err) {
@@ -477,10 +538,38 @@ export class ChatStore {
   }
 
   static getUsers(): Record<string, ChatUser> {
+    const s = getStoredSession();
+    // For authenticated users, prioritize real friends
+    if (s?.token && Object.keys(realFriendsMap).length > 0) {
+      const userMap: Record<string, ChatUser> = { ...realFriendsMap };
+      const convs = this.getConversations();
+      for (const c of convs) {
+        for (const p of c.participants || []) {
+          if (p?.id && !userMap[p.id]) {
+            userMap[p.id] = {
+              ...p,
+              name: p.displayName || p.name || 'Friend',
+              avatar: p.avatarUrl || p.avatar || undefined,
+              isOnline: p.onlineStatus === 'ONLINE' || Boolean(p.isOnline)
+            };
+          }
+        }
+      }
+      return userMap;
+    }
+
+    // Fallback for demo or guest mode
     const userMap: Record<string, ChatUser> = {};
-    Object.values(DEFAULT_PARTICIPANTS).forEach(p => {
-      userMap[p.id] = { ...p, name: p.displayName, avatar: p.avatarUrl || undefined, isOnline: p.onlineStatus === 'ONLINE' };
-    });
+    if (!s?.token) {
+      Object.values(DEFAULT_PARTICIPANTS).forEach((p) => {
+        userMap[p.id] = {
+          ...p,
+          name: p.displayName,
+          avatar: p.avatarUrl || undefined,
+          isOnline: p.onlineStatus === 'ONLINE'
+        };
+      });
+    }
 
     const convs = this.getConversations();
     for (const c of convs) {
@@ -490,7 +579,7 @@ export class ChatStore {
             ...p,
             name: p.displayName || p.name || 'Friend',
             avatar: p.avatarUrl || p.avatar || undefined,
-            isOnline: p.onlineStatus === 'ONLINE' || Boolean(p.isOnline),
+            isOnline: p.onlineStatus === 'ONLINE' || Boolean(p.isOnline)
           };
         }
       }
@@ -499,10 +588,14 @@ export class ChatStore {
   }
 
   static getRequests(): ChatMessageRequest[] {
+    const s = getStoredSession();
+    if (s?.token) {
+      return realRequestsList;
+    }
     const convs = this.getConversations();
     return convs
-      .filter(c => c.isRequest)
-      .map(c => {
+      .filter((c) => c.isRequest)
+      .map((c) => {
         const other = c.participants[0] || { displayName: c.name, avatarUrl: c.avatarUrl };
         return {
           id: c.id,
@@ -778,20 +871,62 @@ export class ChatStore {
     return newGroup;
   }
 
-  static acceptRequest(conversationId: string): void {
+  static async acceptRequest(requestId: string): Promise<void> {
+    const s = getStoredSession();
+    const req = realRequestsList.find((r) => r.id === requestId);
+    if (s?.token && req?.senderId) {
+      try {
+        await acceptFriendRequest(s.token, req.senderId);
+        await this.syncWithExistingFriends();
+        return;
+      } catch (err) {
+        console.warn('Failed to accept request:', err);
+      }
+    }
+
+    // Fallback for local conversation request
     const convs = this.getConversations();
-    const conv = convs.find(c => c.id === conversationId);
+    const conv = convs.find((c) => c.id === requestId);
     if (conv) {
       conv.isRequest = false;
       this.saveConversations(convs);
-      this.sendMessage(conversationId, 'Accepted message request. You can now chat! ✨', 'system');
+      this.sendMessage(requestId, 'Accepted message request. You can now chat! ✨', 'system');
     }
   }
 
-  static ignoreRequest(conversationId: string): void {
+  static async ignoreRequest(requestId: string): Promise<void> {
+    const s = getStoredSession();
+    const req = realRequestsList.find((r) => r.id === requestId);
+    if (s?.token && req?.senderId) {
+      try {
+        await declineFriendRequest(s.token, req.senderId);
+        await this.syncWithExistingFriends();
+        return;
+      } catch (err) {
+        console.warn('Failed to decline request:', err);
+      }
+    }
+
     let convs = this.getConversations();
-    convs = convs.filter(c => c.id !== conversationId);
+    convs = convs.filter((c) => c.id !== requestId);
     this.saveConversations(convs);
+  }
+
+  static async addNewFriend(friendCode: string): Promise<{ success: boolean; message: string }> {
+    const s = getStoredSession();
+    if (!s?.token) return { success: false, message: 'Please log in to add friends' };
+    try {
+      const res = await addFriendByCode(s.token, friendCode.trim().replace(/^#/, ''));
+      await this.syncWithExistingFriends();
+      return { success: true, message: res.message || 'Friend request sent!' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Failed to connect friend' };
+    }
+  }
+
+  static getMyFriendCode(): string {
+    const s = getStoredSession();
+    return cachedMyFriendCode || s?.user?.partnerCode || '';
   }
 
   static getUnreadTotalCount(): number {
