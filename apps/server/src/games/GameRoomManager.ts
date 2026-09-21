@@ -832,31 +832,16 @@ export class GameRoomManager {
       room.gameState = state;
       this.db.updateGameRoomState(room.id, state);
 
-      const isCountdownPhase = state.phase === 'ROUND_INTRO' || state.phase === 'WORD_CHOICE';
+      const isCountdownPhase = state.phase === 'ROUND_INTRO' || state.phase === 'WORD_CHOICE' || state.phase === 'ROUND_RESULT';
       if (phaseChanged || isCountdownPhase || state.timeRemaining % 5 === 0 || state.timeRemaining <= 10) {
         this.broadcastDoodleState(roomId);
       }
 
-      if (isTimeUp || state.phase === 'ROUND_RESULT') {
-        // Pause on round result for 5 seconds, then advance to next round
-        setTimeout(() => {
-          try {
-            const freshRoom = this.db.getGameRoomById(roomId);
-            if (freshRoom && freshRoom.status === 'PLAYING' && freshRoom.gameState?.phase === 'ROUND_RESULT') {
-              const nextState = DoodleDuelEngine.advanceToNextRound(freshRoom.gameState);
-              freshRoom.gameState = nextState;
-              this.db.updateGameRoomState(freshRoom.id, nextState);
-              if (nextState.phase === 'FINISHED') {
-                this.stopDoodleTimer(roomId);
-                const now = new Date().toISOString();
-                this.db.updateGameRoomStatus(freshRoom.id, 'FINISHED', undefined, now);
-              }
-              this.broadcastDoodleState(roomId);
-            }
-          } catch (e) {
-            console.error('Error in round result timeout:', e);
-          }
-        }, 5000);
+      if (state.phase === 'FINISHED') {
+        this.stopDoodleTimer(roomId);
+        const now = new Date().toISOString();
+        this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+        this.broadcastDoodleState(roomId);
       }
     } catch (err) {
       console.error('Error in tickDoodleTimer:', err);
@@ -1138,21 +1123,6 @@ export class GameRoomManager {
 
     if (completed) {
       this.broadcastDoodleState(room.id);
-      // Wait 5 seconds to show round results then advance to next round
-      setTimeout(() => {
-        const freshRoom = this.db.getGameRoomById(roomId);
-        if (freshRoom && freshRoom.gameState?.phase === 'ROUND_RESULT') {
-          const nextState = DoodleDuelEngine.advanceToNextRound(freshRoom.gameState);
-          freshRoom.gameState = nextState;
-          this.db.updateGameRoomState(freshRoom.id, nextState);
-          if (nextState.phase === 'FINISHED') {
-            this.stopDoodleTimer(roomId);
-            const now = new Date().toISOString();
-            this.db.updateGameRoomStatus(freshRoom.id, 'FINISHED', undefined, now);
-          }
-          this.broadcastDoodleState(roomId);
-        }
-      }, 5000);
     }
   }
 

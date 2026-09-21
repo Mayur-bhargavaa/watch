@@ -365,19 +365,29 @@ export class DoodleDuelEngine {
       state.roundWinnerDisplayName = displayName;
       state.roundPointsEarned = points;
       state.phase = 'ROUND_RESULT';
+      state.timeRemaining = 5;
+      state.timeLeftSeconds = 5;
       state.statusMessage = `🎉 ${displayName} guessed "${state.secretWord}" in ${timeTaken}s! (+${points} pts)`;
 
-      // Record round summary
+      // Record round summary with all aliases so frontend never fails
       const roundSummary: DoodleRoundSummary = {
         round: state.round,
+        roundNumber: state.round,
         word: state.secretWord,
+        secretWord: state.secretWord,
         category: state.secretWordCategory,
         drawerUserId: state.drawerUserId,
-        drawerName: displayName === state.drawerUserId ? 'Guesser' : 'Drawer',
+        drawerName: state.drawerDisplayName || 'Drawer',
+        drawerDisplayName: state.drawerDisplayName || 'Drawer',
+        drawerPoints: 0,
         guesserUserId: state.guesserUserId,
-        guesserName: displayName,
+        guesserName: state.guesserDisplayName || displayName || 'Guesser',
+        guesserDisplayName: state.guesserDisplayName || displayName || 'Guesser',
+        guesserPoints: points,
         guessedCorrectly: true,
+        guessed: true,
         timeTaken,
+        timeTakenSeconds: timeTaken,
         pointsEarned: points
       };
       state.roundHistory.push(roundSummary);
@@ -440,26 +450,41 @@ export class DoodleDuelEngine {
       if (state.phase === 'DRAWING') {
         // Time expired without correct guess
         state.phase = 'ROUND_RESULT';
+        state.timeRemaining = 5;
+        state.timeLeftSeconds = 5;
         state.roundWinnerUserId = null;
         state.roundWinnerDisplayName = null;
         state.roundPointsEarned = 0;
         state.statusMessage = `Time's up! The word was "${state.secretWord}"`;
 
-        if (state.secretWord) {
-          state.roundHistory.push({
-            round: state.round,
-            word: state.secretWord,
-            category: state.secretWordCategory,
-            drawerUserId: state.drawerUserId,
-            drawerName: 'Drawer',
-            guesserUserId: state.guesserUserId,
-            guesserName: 'Guesser',
-            guessedCorrectly: false,
-            timeTaken: state.config.drawTime,
-            pointsEarned: 0
-          });
-        }
+        const summary: DoodleRoundSummary = {
+          round: state.round,
+          roundNumber: state.round,
+          word: state.secretWord || '',
+          secretWord: state.secretWord || '',
+          category: state.secretWordCategory,
+          drawerUserId: state.drawerUserId,
+          drawerName: state.drawerDisplayName || 'Drawer',
+          drawerDisplayName: state.drawerDisplayName || 'Drawer',
+          drawerPoints: 0,
+          guesserUserId: state.guesserUserId,
+          guesserName: state.guesserDisplayName || 'Guesser',
+          guesserDisplayName: state.guesserDisplayName || 'Guesser',
+          guesserPoints: 0,
+          guessedCorrectly: false,
+          guessed: false,
+          timeTaken: state.config.drawTime,
+          timeTakenSeconds: state.config.drawTime,
+          pointsEarned: 0
+        };
+        state.roundHistory.push(summary);
+        state.lastRoundSummary = summary;
         return { state, phaseChanged: true, isTimeUp: true };
+      }
+
+      if (state.phase === 'ROUND_RESULT') {
+        this.advanceToNextRound(state);
+        return { state, phaseChanged: true, isTimeUp: false };
       }
     }
 
