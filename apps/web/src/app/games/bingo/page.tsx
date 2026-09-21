@@ -840,9 +840,7 @@ function BingoDuelGameContent() {
       )}
 
       {/* 2. MAIN CONTENT AREA (FULL-SCREEN IN MATCH, ADAPTIVE IN LOBBY) */}
-      <div className={`flex-1 flex flex-col relative ${
-        roomCodeParam ? 'min-h-screen overflow-y-auto' : 'h-screen overflow-hidden'
-      }`}>
+      <div className="flex-1 flex flex-col relative h-screen overflow-hidden">
         {/* Audio listeners for remote audio streams */}
         {videoGridParticipants.map(
           p => p.stream && !p.isSelf && <RemoteAudioPlayer key={p.userId} stream={p.stream} />
@@ -1165,7 +1163,7 @@ function BingoDuelGameContent() {
       {/* MAIN CONTAINER */}
       <main className={`flex-1 w-full flex flex-col justify-start z-10 ${
         roomCodeParam && !isWaiting
-          ? 'max-w-[1600px] mx-auto p-3 sm:p-5'
+          ? 'max-w-[1600px] mx-auto px-3 sm:px-6 py-2 sm:py-2.5 h-[calc(100vh-4rem)] overflow-hidden'
           : (roomCodeParam && isWaiting
               ? 'max-w-none p-0 h-[calc(100vh-4rem)] relative overflow-hidden'
               : 'h-[calc(100vh-4rem)] max-w-none p-0 overflow-hidden')
@@ -1227,30 +1225,30 @@ function BingoDuelGameContent() {
 
         {/* ROOM VIEW: ACTIVE / FINISHED MATCH (Exact Layout from Reference Image) */}
         {roomCodeParam && isPlayingOrFinished && (
-          <div className="w-full flex flex-col lg:flex-row items-start justify-between gap-6 relative">
+          <div className="w-full h-full flex flex-col lg:flex-row items-center lg:items-stretch justify-between gap-3 lg:gap-5 relative overflow-hidden">
           {/* Left Column: Floating Room Code Card & Duel Info matching reference image */}
-          <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4">
+          <div className="w-full lg:w-56 xl:w-60 shrink-0 flex flex-col gap-2.5 justify-start">
             {/* Badge Card */}
-            <div className="p-4 rounded-3xl bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 border border-rose-500/30 shadow-xl backdrop-blur-xl">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 border border-rose-500/30 shadow-lg backdrop-blur-xl">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-black text-[#ff8ca1] uppercase tracking-wider block">
+                  <span className="text-[9px] font-black text-[#ff8ca1] uppercase tracking-wider block">
                     BINGO DUEL
                   </span>
-                  <span className="text-xl font-mono font-black text-white tracking-wider">
+                  <span className="text-lg font-mono font-black text-white tracking-wider">
                     {room?.roomCode}
                   </span>
                 </div>
                 <button
                   onClick={handleCopyRoomCode}
-                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-rose-300 transition cursor-pointer border border-white/10"
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-rose-300 transition cursor-pointer border border-white/10"
                   title="Copy Room Code"
                 >
-                  {copiedRoomCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               </div>
 
-              <div className="mt-3 pt-3 border-t border-white/10 space-y-2 text-xs">
+              <div className="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-[11px]">
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Winning Target</span>
                   <span className="font-extrabold text-[#ff8ca1]">5 Lines</span>
@@ -1261,7 +1259,7 @@ function BingoDuelGameContent() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-zinc-400">Numbers Left</span>
-                  <span className="font-mono font-black text-white bg-white/10 px-2 py-0.5 rounded-lg">
+                  <span className="font-mono font-black text-white bg-white/10 px-1.5 py-0.5 rounded">
                     {25 - (gameState?.calledNumbers?.length || 0)} / 25
                   </span>
                 </div>
@@ -1277,40 +1275,40 @@ function BingoDuelGameContent() {
 
             {/* Turn Indicator / Setup Phase Banner */}
             {gameState?.phase === 'SETUP' ? (
-              <div className="p-4 rounded-3xl border transition-all backdrop-blur-xl bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]">
-                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+              <div className="p-3 rounded-2xl border transition-all backdrop-blur-xl bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]">
+                <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block">
                   Game Setup
                 </span>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="w-3 h-3 rounded-full bg-[#ff4d79] animate-pulse" />
-                  <span className="text-sm font-extrabold text-white">
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff4d79] animate-pulse" />
+                  <span className="text-xs sm:text-sm font-extrabold text-white">
                     {!gameState?.boardsReady?.[effectiveUserId]
                       ? 'Step 1: Fill Your Board'
                       : 'Waiting for Opponent...'}
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 mt-1">
+                <p className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
                   {!gameState?.boardsReady?.[effectiveUserId]
                     ? 'Place numbers 1–25 on your 5×5 grid, then save!'
                     : 'Opponent is filling their board. Game starts when both are ready.'}
                 </p>
               </div>
             ) : (
-              <div className={`p-4 rounded-3xl border transition-all backdrop-blur-xl ${
+              <div className={`p-3 rounded-2xl border transition-all backdrop-blur-xl ${
                 isMyTurn
                   ? 'bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]'
                   : 'bg-[#180a14]/70 border-white/10'
               }`}>
-                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+                <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block">
                   Active Player
                 </span>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`w-3 h-3 rounded-full ${isMyTurn ? 'bg-[#ff4d79] animate-ping' : 'bg-zinc-500'}`} />
-                  <span className="text-sm font-extrabold text-white">
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${isMyTurn ? 'bg-[#ff4d79] animate-ping' : 'bg-zinc-500'}`} />
+                  <span className="text-xs sm:text-sm font-extrabold text-white">
                     {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}
                   </span>
                 </div>
-                <p className="text-[11px] text-zinc-400 mt-1">
+                <p className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
                   {isMyTurn
                     ? 'Tap any uncalled number on your ticket to call it aloud!'
                     : 'Wait for opponent to pick their next number.'}
@@ -1320,7 +1318,7 @@ function BingoDuelGameContent() {
           </div>
 
           {/* Center Column: Number Caller + Player Duel Cards + 5x5 Board + Claim Button */}
-          <div className="flex-1 w-full max-w-2xl sm:max-w-3xl mx-auto flex flex-col items-center gap-4">
+          <div className="flex-1 w-full max-w-xl mx-auto flex flex-col items-center justify-between gap-1.5 h-full overflow-hidden">
             {/* 1. Visual Number Caller (numbers 1-25) — hidden during SETUP phase */}
             {gameState?.phase !== 'SETUP' && (
               <BingoDuelNumberCaller
@@ -1339,7 +1337,7 @@ function BingoDuelGameContent() {
             )}
 
             {/* 2. Player Duel Status Header: You vs Opponent */}
-            <div className="w-full grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="w-full grid grid-cols-2 gap-2">
               <BingoPlayerDuelCard
                 displayName={me?.displayName || 'You'}
                 avatarUrl={me?.avatarUrl}
@@ -1367,13 +1365,13 @@ function BingoDuelGameContent() {
             </div>
 
             {/* 3. Authoritative 5x5 Bingo Board (inline setup during SETUP phase) */}
-            <div className="w-full my-auto py-2 flex flex-col items-center gap-2">
+            <div className="w-full my-auto flex flex-col items-center justify-center">
               {gameState?.phase === 'SETUP' && !gameState?.boardsReady?.[effectiveUserId] ? (
                 /* Step 1: Player hasn't saved their board yet — show inline setup */
-                <div className="w-full max-w-md mx-auto">
-                  <div className="text-center mb-3">
-                    <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-[#ff4d79]/20 to-[#ff758c]/10 border border-[#ff6b8b]/30 text-[#ff8ca1] text-xs font-black uppercase tracking-wider">
-                      <span className="w-2 h-2 rounded-full bg-[#ff4d79] animate-pulse" />
+                <div className="w-full max-w-sm mx-auto">
+                  <div className="text-center mb-1">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#ff4d79]/20 to-[#ff758c]/10 border border-[#ff6b8b]/30 text-[#ff8ca1] text-[10px] font-black uppercase tracking-wider">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff4d79] animate-pulse" />
                       Step 1 — Fill Your Board
                     </span>
                   </div>
@@ -1393,14 +1391,14 @@ function BingoDuelGameContent() {
                 </div>
               ) : gameState?.phase === 'SETUP' && gameState?.boardsReady?.[effectiveUserId] ? (
                 /* Step 1b: Player saved their board but opponent hasn't — show waiting */
-                <div className="w-full max-w-md mx-auto flex flex-col items-center gap-4">
-                  <div className="text-center p-8 bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 rounded-3xl border border-rose-500/30 shadow-xl backdrop-blur-xl">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#ff4d79] to-[#ff758c] flex items-center justify-center mx-auto mb-4 shadow-lg shadow-rose-950/40">
-                      <span className="text-2xl">✅</span>
+                <div className="w-full max-w-sm mx-auto flex flex-col items-center gap-2">
+                  <div className="text-center p-5 bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 rounded-2xl border border-rose-500/30 shadow-xl backdrop-blur-xl">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#ff4d79] to-[#ff758c] flex items-center justify-center mx-auto mb-2.5 shadow-md shadow-rose-950/40">
+                      <span className="text-xl">✅</span>
                     </div>
-                    <h3 className="text-lg font-black text-white mb-1">Your Board is Ready!</h3>
-                    <p className="text-sm text-zinc-400 mb-4">Waiting for opponent to fill their board...</p>
-                    <div className="flex items-center justify-center gap-2">
+                    <h3 className="text-base font-black text-white mb-1">Your Board is Ready!</h3>
+                    <p className="text-xs text-zinc-400 mb-3">Waiting for opponent to fill their board...</p>
+                    <div className="flex items-center justify-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-[#ff4d79] animate-bounce" style={{ animationDelay: '0ms' }} />
                       <span className="w-2 h-2 rounded-full bg-[#ff758c] animate-bounce" style={{ animationDelay: '150ms' }} />
                       <span className="w-2 h-2 rounded-full bg-[#ff8ca1] animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -1428,22 +1426,22 @@ function BingoDuelGameContent() {
                     <button
                       type="button"
                       onClick={() => setShowSetupModal(true)}
-                      className="mt-1 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[#ff8ca1] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                      className="mt-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[#ff8ca1] hover:text-white text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
                     >
                       <span>🎯 Customize Board Matrix (1–25)</span>
                     </button>
                   )}
                 </>
               ) : (
-                <div className="text-center p-8 bg-slate-900/50 rounded-3xl border border-white/10">
-                  <span className="text-sm text-slate-400">Loading your 5×5 duel board...</span>
+                <div className="text-center p-6 bg-slate-900/50 rounded-2xl border border-white/10">
+                  <span className="text-xs text-slate-400">Loading your 5×5 duel board...</span>
                 </div>
               )}
             </div>
 
             {/* 4. Action Claim Button — hidden during SETUP phase */}
             {gameState?.phase !== 'SETUP' && (
-              <div className="w-full pt-2">
+              <div className="w-full pt-0.5">
                 <BingoDuelClaimButton
                   onClaim={() => claimBingo('bingo')}
                   isCompleted={Boolean(myProgress?.isCompleted)}
@@ -1457,7 +1455,7 @@ function BingoDuelGameContent() {
 
           {/* Right Column: Full Game Chat with Stickers, Reactions, & Drawing (Matching Ludo) */}
           {isChatOpen && (
-            <div className="w-full lg:w-80 shrink-0 bg-[#1c0c16]/65 border border-rose-500/25 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col h-[580px] backdrop-blur-xl relative">
+            <div className="w-full lg:w-72 xl:w-80 shrink-0 bg-[#1c0c16]/65 border border-rose-500/25 rounded-2xl p-3 shadow-xl flex flex-col h-full max-h-[calc(100vh-5.5rem)] backdrop-blur-xl relative">
               {/* Header */}
               <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between">
                 <div className="flex items-center gap-2">

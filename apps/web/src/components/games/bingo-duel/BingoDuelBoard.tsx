@@ -178,24 +178,24 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
   // -----------------------------------------------------------------------------------
   if (isSetupMode) {
     return (
-      <div className="w-full max-w-md mx-auto p-4 sm:p-5 rounded-3xl bg-[#1d0c18]/95 border border-rose-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col gap-4 text-white animate-in fade-in zoom-in-95 duration-300">
+      <div className="w-full max-w-[340px] mx-auto p-3 rounded-2xl bg-[#1d0c18]/95 border border-rose-500/30 shadow-[0_15px_35px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col gap-2 text-white animate-in fade-in zoom-in-95 duration-200">
         {/* Setup Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
           <div>
-            <h3 className="font-black text-lg sm:text-xl text-white tracking-wide flex items-center gap-2">
+            <h3 className="font-black text-sm sm:text-base text-white tracking-wide flex items-center gap-1.5">
               <span>🎯 Custom 5×5 Matrix</span>
               {setupLocked && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Ready
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> Ready
                 </span>
               )}
             </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Fill numbers <strong className="text-[#ff8ca1]">1 to 25</strong> manually or shuffle.
+            <p className="text-[10px] text-zinc-400 mt-0.5">
+              Fill <strong className="text-[#ff8ca1]">1–25</strong> manually or click Auto Fill.
             </p>
           </div>
           <div className="text-right">
-            <span className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+            <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg border ${
               isSetupGridFull
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                 : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
@@ -207,15 +207,15 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
         {/* Error / Alert banner */}
         {setupError && (
-          <div className="px-3.5 py-2 rounded-xl bg-rose-950/80 border border-rose-500/50 text-rose-200 text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-top-1 duration-150">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-            <span>{setupError}</span>
+          <div className="px-2.5 py-1.5 rounded-lg bg-rose-950/80 border border-rose-500/50 text-rose-200 text-[11px] font-semibold flex items-center gap-1.5 animate-in slide-in-from-top-1 duration-150">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+            <span className="truncate">{setupError}</span>
           </div>
         )}
 
         {/* 5x5 Setup Grid */}
-        <div className="relative aspect-square w-full rounded-2xl bg-black/40 border border-white/10 p-2 sm:p-2.5">
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full h-full">
+        <div className="relative aspect-square w-full max-w-[270px] mx-auto rounded-xl bg-black/40 border border-white/10 p-1.5">
+          <div className="grid grid-cols-5 gap-1 w-full h-full">
             {setupGrid.map((row, r) =>
               row.map((cellNum, c) => {
                 const isSelected = selectedCell?.r === r && selectedCell?.c === c;
@@ -231,9 +231,9 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                         setSelectedCell({ r, c });
                       }
                     }}
-                    className={`relative rounded-xl border-2 font-mono font-black text-base sm:text-xl transition-all duration-150 flex items-center justify-center select-none ${
+                    className={`relative rounded-lg border font-mono font-black text-xs sm:text-sm transition-all duration-150 flex items-center justify-center select-none ${
                       isSelected && !setupLocked
-                        ? 'bg-[#ff4d79] border-white text-white ring-4 ring-[#ff758c]/40 scale-105 z-10 shadow-lg'
+                        ? 'bg-[#ff4d79] border-white text-white ring-2 ring-[#ff758c]/40 scale-105 z-10 shadow-md'
                         : isFilled
                         ? 'bg-[#2b1222] border-[#ff6b8b]/40 text-white hover:border-[#ff6b8b]'
                         : 'bg-white/5 border-dashed border-white/20 text-zinc-500 hover:bg-white/10'
@@ -246,7 +246,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                     )}
 
                     {isFilled && !setupLocked && isSelected && (
-                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-[#ff4d79] text-[10px] flex items-center justify-center font-sans shadow text-white">
+                      <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#ff4d79] text-[9px] flex items-center justify-center font-sans shadow text-white">
                         ✎
                       </span>
                     )}
@@ -259,14 +259,14 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
         {/* Numeric Palette Tray (Chips 1..25) */}
         {!setupLocked ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400">
-              <span>Select number to place in cell:</span>
-              <span className="text-zinc-500 font-mono">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-[10px] font-semibold text-zinc-400">
+              <span>Select number to place:</span>
+              <span className="text-zinc-400 font-mono text-[10px]">
                 Cell [{selectedCell ? `${selectedCell.r + 1},${selectedCell.c + 1}` : 'None'}]
               </span>
             </div>
-            <div className="grid grid-cols-5 sm:grid-cols-10 gap-1 sm:gap-1.5 max-h-36 overflow-y-auto p-1 bg-black/25 rounded-xl border border-white/5">
+            <div className="grid grid-cols-10 gap-0.5 p-1 bg-black/25 rounded-lg border border-white/5">
               {Array.from({ length: 25 }, (_, i) => i + 1).map(num => {
                 const isPlaced = placedNumbers.has(num);
                 return (
@@ -275,10 +275,10 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                     type="button"
                     disabled={isPlaced}
                     onClick={() => handleAssignNumber(num)}
-                    className={`py-1.5 sm:py-2 rounded-lg font-mono font-bold text-xs sm:text-sm border transition-all ${
+                    className={`py-0.5 rounded font-mono font-bold text-[11px] border transition-all ${
                       isPlaced
-                        ? 'bg-white/5 border-white/5 text-zinc-600 cursor-not-allowed opacity-50 line-through'
-                        : 'bg-gradient-to-b from-[#2b1222] to-[#1d0c18] border-rose-500/40 text-rose-200 hover:border-[#ff6b8b] hover:scale-105 active:scale-95'
+                        ? 'bg-white/5 border-white/5 text-zinc-600 cursor-not-allowed opacity-40 line-through'
+                        : 'bg-gradient-to-b from-[#2b1222] to-[#1d0c18] border-rose-500/40 text-rose-200 hover:border-[#ff6b8b] active:scale-95'
                     }`}
                   >
                     {num}
@@ -288,47 +288,47 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
             </div>
           </div>
         ) : (
-          <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-400" />
-              <span>Full 5×5 matrix complete! Ready to lock and play.</span>
+          <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[11px]">All 25 placed! Ready to lock.</span>
             </div>
             <button
               type="button"
               onClick={() => setSetupLocked(false)}
-              className="text-[11px] font-bold underline hover:text-emerald-200 flex items-center gap-1"
+              className="text-[10px] font-bold underline hover:text-emerald-200 flex items-center gap-1"
             >
-              <Unlock className="w-3 h-3" /> Edit
+              <Unlock className="w-2.5 h-2.5" /> Edit
             </button>
           </div>
         )}
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex items-center gap-2 pt-0.5">
           {!setupLocked ? (
             <>
               <button
                 type="button"
                 onClick={handleShuffleBoard}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 font-bold text-xs sm:text-sm text-indigo-200 flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                className="flex-1 py-1.5 px-2.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 font-bold text-xs text-indigo-200 flex items-center justify-center gap-1 transition-all active:scale-95"
               >
-                <Shuffle className="w-3.5 h-3.5" /> Auto Fill 1–25
+                <Shuffle className="w-3 h-3" /> Auto Fill 1–25
               </button>
               <button
                 type="button"
                 onClick={handleClearBoard}
-                className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 font-bold text-xs sm:text-sm text-slate-400 flex items-center justify-center gap-1.5 transition-all"
+                className="py-1.5 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 font-bold text-xs text-slate-400 flex items-center justify-center gap-1 transition-all"
               >
-                <RotateCcw className="w-3.5 h-3.5" /> Clear
+                <RotateCcw className="w-3 h-3" /> Clear
               </button>
             </>
           ) : (
             <button
               type="button"
               onClick={handleSaveBoard}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-extrabold text-sm text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-98"
+              className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-extrabold text-xs text-white shadow-md shadow-emerald-500/30 flex items-center justify-center gap-1.5 transition-all active:scale-98"
             >
-              <Check className="w-4 h-4" /> Save & Lock Board
+              <Check className="w-3.5 h-3.5" /> Save & Lock Board
             </button>
           )}
 
@@ -336,7 +336,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
             <button
               type="button"
               onClick={onCancelSetup}
-              className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-400"
+              className="py-1.5 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-400"
             >
               Cancel
             </button>
@@ -352,29 +352,29 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
   const letters = ['B', 'I', 'N', 'G', 'O'];
 
   return (
-    <div className="w-full max-w-md mx-auto flex flex-col gap-2.5 sm:gap-3">
+    <div className="w-full max-w-[340px] mx-auto flex flex-col gap-1.5">
       {/* 1. B - I - N - G - O Header Badges with Smooth Lighting */}
-      <div className="w-full p-2.5 sm:p-3 rounded-2xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-xl backdrop-blur-xl flex flex-col gap-2">
+      <div className="w-full p-2 rounded-xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-lg backdrop-blur-xl flex flex-col gap-1">
         <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#ff8ca1] flex items-center gap-1.5">
-            <Award className="w-3.5 h-3.5 text-[#ff758c]" />
+          <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#ff8ca1] flex items-center gap-1">
+            <Award className="w-3 h-3 text-[#ff758c]" />
             Target: 5 Lines to Win
           </span>
-          <span className="text-[11px] font-mono font-black text-[#ff8ca1]">
+          <span className="text-[10px] font-mono font-black text-[#ff8ca1]">
             {completedLines.length} / 5 Lines Done
           </span>
         </div>
 
         {/* 5 Letters Row */}
-        <div className="grid grid-cols-5 gap-2 sm:gap-2.5">
+        <div className="grid grid-cols-5 gap-1.5">
           {letters.map((letter, idx) => {
             const isUnlocked = idx < activeLettersCount;
             return (
               <div
                 key={`bingo-badge-${letter}`}
-                className={`relative py-2 rounded-xl text-center font-black font-mono text-lg sm:text-2xl transition-all duration-300 border-2 select-none overflow-hidden ${
+                className={`relative py-1 rounded-lg text-center font-black font-mono text-base sm:text-lg transition-all duration-300 border-2 select-none overflow-hidden ${
                   isUnlocked
-                    ? 'bg-gradient-to-br from-[#ff4d79] via-[#ff758c] to-[#ffa3b1] border-white/80 text-white shadow-[0_4px_16px_rgba(255,77,121,0.6)] scale-105'
+                    ? 'bg-gradient-to-br from-[#ff4d79] via-[#ff758c] to-[#ffa3b1] border-white/80 text-white shadow-[0_2px_10px_rgba(255,77,121,0.6)] scale-105'
                     : 'bg-[#180a14]/60 border-white/10 text-zinc-600'
                 }`}
               >
@@ -382,13 +382,13 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
                 {/* Strikethrough line across unlocked letters */}
                 {isUnlocked && (
-                  <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 sm:h-1 bg-white shadow-[0_0_8px_white]" />
+                  <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-0.5 bg-white shadow-[0_0_6px_white]" />
                 )}
 
                 {/* Star on letter completion */}
                 {isUnlocked && (
                   <span className="absolute top-0.5 right-0.5 text-white">
-                    <Sparkles className="w-2.5 h-2.5" />
+                    <Sparkles className="w-2 h-2" />
                   </span>
                 )}
               </div>
@@ -398,10 +398,10 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
       </div>
 
       {/* 2. 5x5 Main Board with Animated SVG Line Strike-Through Overlay */}
-      <div className="relative w-full aspect-square p-2.5 sm:p-4 rounded-3xl bg-slate-900/95 border-2 border-indigo-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl overflow-hidden flex flex-col justify-between">
+      <div className="relative w-full max-w-[310px] aspect-square mx-auto p-1.5 sm:p-2 rounded-2xl bg-slate-900/95 border-2 border-indigo-500/40 shadow-[0_15px_35px_rgba(0,0,0,0.85)] backdrop-blur-2xl overflow-hidden flex flex-col justify-between">
         
         {/* Animated 5x5 Grid */}
-        <div className="grid grid-cols-5 gap-2 sm:gap-2.5 w-full h-full relative z-10">
+        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 w-full h-full relative z-10">
           {board.map((row, r) =>
             row.map((cellNum, c) => {
               const isCalled = calledSet.has(cellNum);
@@ -413,11 +413,11 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
               if (isWinningCell) {
                 cellClass =
-                  'bg-gradient-to-tr from-amber-400 via-rose-500 to-[#ff4d79] border-amber-300 text-white shadow-[0_0_20px_rgba(255,77,121,0.6)] scale-[1.04] z-10 ring-2 ring-amber-300/60';
+                  'bg-gradient-to-tr from-amber-400 via-rose-500 to-[#ff4d79] border-amber-300 text-white shadow-[0_0_15px_rgba(255,77,121,0.6)] scale-[1.03] z-10 ring-2 ring-amber-300/60';
               } else if (isMarked) {
                 // Soft coral-pink marked state with rounded checkmark
                 cellClass =
-                  'bg-gradient-to-br from-[#ff4d79] to-[#ff758c] border-[#ff8ca1] text-white shadow-[0_4px_16px_rgba(255,77,121,0.45)] scale-[1.01]';
+                  'bg-gradient-to-br from-[#ff4d79] to-[#ff758c] border-[#ff8ca1] text-white shadow-[0_2px_10px_rgba(255,77,121,0.45)] scale-[1.01]';
               } else if (isCalled) {
                 cellClass =
                   'bg-[#ff4d79]/25 border-[#ff6b8b] text-white ring-2 ring-[#ff6b8b]/50 animate-pulse';
@@ -429,7 +429,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
                   type="button"
                   disabled={disabled}
                   onClick={() => onCellClick(cellNum)}
-                  className={`relative rounded-2xl border-2 font-mono font-black text-base sm:text-2xl transition-all duration-200 flex flex-col items-center justify-center select-none active:scale-95 ${cellClass} ${
+                  className={`relative rounded-xl border font-mono font-black text-xs sm:text-sm transition-all duration-150 flex flex-col items-center justify-center select-none active:scale-95 ${cellClass} ${
                     disabled ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'
                   }`}
                 >
@@ -438,15 +438,15 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
                   {/* Marked Check Indicator matching reference image */}
                   {isMarked && !isWinningCell && (
-                    <span className="absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 w-4 h-4 rounded-full bg-white/25 backdrop-blur-xs flex items-center justify-center text-white shadow-xs">
-                      <Check className="w-2.5 h-2.5 stroke-[3.5]" />
+                    <span className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full bg-white/25 backdrop-blur-xs flex items-center justify-center text-white shadow-xs">
+                      <Check className="w-2 h-2 stroke-[3.5]" />
                     </span>
                   )}
 
                   {/* Winning sparkle indicator */}
                   {isWinningCell && (
-                    <span className="absolute top-1 right-1 text-amber-200 animate-spin">
-                      <Sparkles className="w-3.5 h-3.5" />
+                    <span className="absolute top-0.5 right-0.5 text-amber-200 animate-spin">
+                      <Sparkles className="w-2.5 h-2.5" />
                     </span>
                   )}
                 </button>

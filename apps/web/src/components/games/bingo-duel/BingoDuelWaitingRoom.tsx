@@ -8,23 +8,14 @@ import {
   Play,
   Share2,
   Sparkles,
-  Sliders,
-  Volume2,
-  VolumeX,
-  Mic,
-  Clock,
   ShieldCheck,
-  ShieldAlert,
   Flame,
-  Grid,
   Crown,
   User,
   Heart,
-  UserPlus,
-  ChevronDown,
-  ChevronUp
+  UserPlus
 } from 'lucide-react';
-import { BingoDuelConfig, BingoDuelPattern, BingoDuelMode } from '@synccinema/common';
+import { BingoDuelConfig } from '@synccinema/common';
 import { GameRoom, GameRoomPlayer } from '@synccinema/common';
 
 interface BingoDuelWaitingRoomProps {
@@ -48,42 +39,6 @@ interface BingoDuelWaitingRoomProps {
   isBoardCustomized?: boolean;
 }
 
-const PATTERNS: { id: BingoDuelPattern; label: string; desc: string; iconText: string }[] = [
-  { id: 'fiveLines', label: '5 Lines (B-I-N-G-O)', desc: 'Any 5 lines (rows/cols/diags) to win', iconText: '5★' },
-  { id: 'firstRow', label: 'First Row', desc: 'Top horizontal row', iconText: '━' },
-  { id: 'middleRow', label: 'Middle Row', desc: 'Center horizontal row', iconText: '━' },
-  { id: 'lastRow', label: 'Last Row', desc: 'Bottom horizontal row', iconText: '━' },
-  { id: 'anyRow', label: 'Any Row', desc: 'Any complete horizontal line', iconText: '☰' },
-  { id: 'anyCol', label: 'Any Column', desc: 'Any complete vertical line', iconText: '|||' },
-  { id: 'fourCorners', label: '4 Corners', desc: 'The four corner cells', iconText: '⛶' },
-  { id: 'xPattern', label: 'X Pattern', desc: 'Both main diagonals', iconText: '✕' },
-  { id: 'plusPattern', label: 'Plus (+)', desc: 'Middle row and column', iconText: '✚' },
-  { id: 'diagonal', label: 'Diagonal', desc: 'Either diagonal line', iconText: '╱' },
-  { id: 'fullHouse', label: 'Full House', desc: 'All 25 board cells', iconText: '█' },
-  { id: 'custom', label: 'Custom Grid', desc: 'Host designed 5×5 pattern', iconText: '⊞' }
-];
-
-const MODES: { id: BingoDuelMode; label: string; desc: string }[] = [
-  { id: 'quick', label: 'Quick Match', desc: 'Fast single game' },
-  { id: 'classic', label: 'Classic', desc: 'Standard duel' },
-  { id: 'bestOf3', label: 'Best of 3', desc: 'First to 2 wins' },
-  { id: 'bestOf5', label: 'Best of 5', desc: 'First to 3 wins' }
-];
-
-const SPEEDS: { value: number; label: string }[] = [
-  { value: 3000, label: 'Fast (3s)' },
-  { value: 5000, label: 'Normal (5s)' },
-  { value: 10000, label: 'Chill (10s)' },
-  { value: 15000, label: 'Slow (15s)' },
-  { value: 0, label: 'Manual' }
-];
-
-const PENALTIES: { value: number; label: string }[] = [
-  { value: 0, label: 'None' },
-  { value: 3, label: '3 Seconds' },
-  { value: 5, label: '5 Seconds' }
-];
-
 export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
   room,
   players,
@@ -101,8 +56,6 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
 }) => {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [showRulesSettings, setShowRulesSettings] = useState(false);
-  const [showCustomEditor, setShowCustomEditor] = useState(false);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(room.roomCode);
@@ -125,16 +78,6 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     }
-  };
-
-  // Toggle cell in custom 5x5 pattern editor
-  const handleToggleCustomCell = (r: number, c: number) => {
-    if (!isHost) return;
-    const current = config.customPattern || Array(5).fill(null).map(() => Array(5).fill(false));
-    const next = current.map((row, ri) =>
-      row.map((val, ci) => (ri === r && ci === c ? !val : val))
-    );
-    onUpdateConfig({ customPattern: next, pattern: 'custom' });
   };
 
   const isFull = players.length >= 2;
@@ -313,172 +256,6 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
             </>
           )}
         </div>
-
-        {/* Collapsible Duel Rules & Pattern Settings Accordion */}
-        <div className="w-full bg-[#161220]/70 border border-white/10 rounded-2xl p-3 sm:p-4 text-left mb-4">
-          <button
-            type="button"
-            onClick={() => setShowRulesSettings(p => !p)}
-            className="w-full flex items-center justify-between text-xs font-bold text-white/90 hover:text-white transition cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <Sliders className="w-3.5 h-3.5 text-[#ff2b5e]" />
-              <span>Duel Rules: <strong className="text-[#ff2b5e] font-bold">{PATTERNS.find(p => p.id === config.pattern)?.label}</strong> • {MODES.find(m => m.id === config.mode)?.label}</span>
-            </div>
-            {showRulesSettings ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
-          </button>
-
-          {showRulesSettings && (
-            <div className="space-y-4 pt-3.5 border-t border-white/10 mt-3 animate-in fade-in duration-150">
-              {/* Pattern Selector */}
-              <div>
-                <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-2">
-                  Winning Pattern
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {PATTERNS.map(pat => {
-                    const active = config.pattern === pat.id;
-                    return (
-                      <button
-                        key={pat.id}
-                        type="button"
-                        disabled={!isHost}
-                        onClick={() => {
-                          onUpdateConfig({ pattern: pat.id });
-                          if (pat.id === 'custom') setShowCustomEditor(true);
-                        }}
-                        className={`p-2 rounded-xl border text-left transition flex items-center justify-between ${
-                          active
-                            ? 'bg-rose-500/20 border-rose-400 text-white font-bold'
-                            : 'bg-white/5 border-white/5 text-zinc-300 hover:bg-white/10'
-                        } ${!isHost ? 'opacity-80 cursor-default' : 'cursor-pointer'}`}
-                      >
-                        <div className="min-w-0">
-                          <div className="text-[11px] truncate">{pat.label}</div>
-                        </div>
-                        <span className="font-mono text-xs text-rose-300 ml-1">{pat.iconText}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Custom Pattern Grid */}
-                {config.pattern === 'custom' && (
-                  <div className="mt-3 p-3 rounded-xl bg-black/40 border border-rose-500/30">
-                    <span className="text-[11px] font-semibold text-rose-200 block mb-2">
-                      Custom 5×5 Pattern {isHost ? '(Click cells to toggle)' : '(Host defined)'}
-                    </span>
-                    <div className="grid grid-cols-5 gap-1.5 w-40 mx-auto">
-                      {Array.from({ length: 5 }).map((_, r) =>
-                        Array.from({ length: 5 }).map((_, c) => {
-                          const active = Boolean(config.customPattern?.[r]?.[c]);
-                          return (
-                            <button
-                              key={`${r}-${c}`}
-                              type="button"
-                              disabled={!isHost}
-                              onClick={() => handleToggleCustomCell(r, c)}
-                              className={`w-7 h-7 rounded-lg font-mono text-[11px] font-bold transition flex items-center justify-center ${
-                                active
-                                  ? 'bg-gradient-to-br from-[#ff2b5e] to-[#d6143c] text-white shadow'
-                                  : 'bg-white/10 text-zinc-500 hover:bg-white/15'
-                              }`}
-                            >
-                              {active ? '✓' : ''}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Mode & Speed */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div>
-                  <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">
-                    Match Series
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {MODES.map(m => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        disabled={!isHost}
-                        onClick={() => onUpdateConfig({ mode: m.id })}
-                        className={`p-2 rounded-xl border text-left text-xs transition ${
-                          config.mode === m.id
-                            ? 'bg-rose-500/20 border-rose-400 text-white font-bold'
-                            : 'bg-white/5 border-white/5 text-zinc-300 hover:bg-white/10'
-                        }`}
-                      >
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">
-                    Calling Speed
-                  </label>
-                  <div className="grid grid-cols-3 gap-1">
-                    {SPEEDS.map(s => (
-                      <button
-                        key={s.value}
-                        type="button"
-                        disabled={!isHost}
-                        onClick={() => onUpdateConfig({ autoCallSpeed: s.value })}
-                        className={`p-1.5 rounded-xl border text-center text-[11px] font-semibold transition ${
-                          config.autoCallSpeed === s.value
-                            ? 'bg-rose-500/20 border-rose-400 text-white font-bold'
-                            : 'bg-white/5 border-white/5 text-zinc-300 hover:bg-white/10'
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Board Customizer Button / Status */}
-        {onOpenBoardCustomizer && (
-          <div className="w-full bg-[#161220]/70 border border-white/10 rounded-2xl p-3 flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2.5 text-left">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                isBoardCustomized
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-              }`}>
-                {isBoardCustomized ? '✓' : '5×5'}
-              </div>
-              <div>
-                <span className="text-xs font-bold text-white block">
-                  {isBoardCustomized ? 'Board Custom 1–25 Ready' : 'Customize 5×5 Board'}
-                </span>
-                <span className="text-[10px] text-zinc-400 block">
-                  {isBoardCustomized ? 'Numbers 1–25 locked' : 'Fill numbers 1–25 yourself'}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onOpenBoardCustomizer}
-              className={`py-2 px-3.5 rounded-xl font-semibold text-xs transition border flex items-center gap-1.5 cursor-pointer ${
-                isBoardCustomized
-                  ? 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
-                  : 'bg-indigo-600/40 hover:bg-indigo-600/60 border-indigo-500/40 text-indigo-200'
-              }`}
-            >
-              <span>{isBoardCustomized ? 'Edit Board' : 'Build Board'}</span>
-            </button>
-          </div>
-        )}
 
         {/* Start Game CTA / Status */}
         {isHost ? (
