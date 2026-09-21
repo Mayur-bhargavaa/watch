@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Search,
-  Plus,
   Users,
   Bell,
   ChevronDown,
@@ -15,14 +14,14 @@ import {
   Moon,
   Sparkles,
   Gamepad2,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 import { useTheme } from '../../context/ThemeContext';
 import {
   getStoredSession,
   getUserPartner,
-  pingPartner,
   UserSession,
   FriendWithStreak
 } from '../../lib/api';
@@ -36,9 +35,10 @@ interface GameCardData {
   players: string;
   gradient: string;
   image: string;
-  route: string;
+  route?: string;
   watermark: 'crown' | 'sparkle';
   category: 'party' | 'duel';
+  isComingSoon?: boolean;
 }
 
 const GAMES_DATA: GameCardData[] = [
@@ -85,6 +85,50 @@ const GAMES_DATA: GameCardData[] = [
     route: '/games/tic-tac-toe',
     watermark: 'sparkle',
     category: 'duel'
+  },
+  {
+    id: 'four-in-a-row',
+    title: 'Four in a Row',
+    subtext: 'Vertical disc duel. 4 in a line.',
+    players: '2 Players',
+    gradient: 'from-[#3b82f6] via-[#1d4ed8] to-[#0f172a]',
+    image: '/images/card-four-in-row.png',
+    route: '/games/four-in-a-row',
+    watermark: 'sparkle',
+    category: 'duel'
+  },
+  {
+    id: 'cinema-trivia',
+    title: 'Cinema Trivia',
+    subtext: '15s Rapid Movie & Pop Quiz.',
+    players: '2-6 Players',
+    gradient: 'from-[#f59e0b] via-[#d97706] to-[#78350f]',
+    image: '/images/card-cinema-trivia.png',
+    watermark: 'sparkle',
+    category: 'party',
+    isComingSoon: true
+  },
+  {
+    id: 'chess-arena',
+    title: 'Chess Arena',
+    subtext: 'Tactical Mind Duel & Fast Clocks.',
+    players: '2 Players',
+    gradient: 'from-[#475569] via-[#334155] to-[#0f172a]',
+    image: '/images/card-chess-arena.png',
+    watermark: 'crown',
+    category: 'duel',
+    isComingSoon: true
+  },
+  {
+    id: 'co-op-sketch',
+    title: 'Co-Op Sketch',
+    subtext: 'Multiplayer Live Sketch & Guess.',
+    players: '2-6 Players',
+    gradient: 'from-[#ec4899] via-[#be185d] to-[#700738]',
+    image: '/images/card-doodle-duel.png',
+    watermark: 'sparkle',
+    category: 'party',
+    isComingSoon: true
   }
 ];
 
@@ -153,8 +197,12 @@ export default function GameLobbyPage() {
     router.push(selectedGameForPartner);
   };
 
-  const handleStayUpdated = () => {
-    setNotificationToast('🔔 Subscribed! You will be notified when new party games drop.');
+  const handleStayUpdated = (gameTitle?: string) => {
+    setNotificationToast(
+      gameTitle
+        ? `🔔 Subscribed to updates for ${gameTitle}!`
+        : '🔔 Subscribed! You will be notified when new party games drop.'
+    );
     setTimeout(() => setNotificationToast(null), 4000);
   };
 
@@ -164,7 +212,7 @@ export default function GameLobbyPage() {
       game.subtext.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     if (filterCategory === '2-players') return game.players.includes('2 Players');
-    if (filterCategory === 'party') return game.players.includes('2-4');
+    if (filterCategory === 'party') return game.players.includes('2-4') || game.players.includes('2-6');
     return true;
   });
 
@@ -208,7 +256,7 @@ export default function GameLobbyPage() {
         </div>
 
         {/* Page Inner Container */}
-        <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full space-y-7 animate-fadeIn">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full space-y-6 animate-fadeIn">
           {/* Notification Toast */}
           {notificationToast && (
             <div className="fixed top-5 right-5 z-50 bg-[#ff3864] text-white px-5 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce">
@@ -216,31 +264,31 @@ export default function GameLobbyPage() {
             </div>
           )}
 
-          {/* 1. TOP DARK HERO CARD */}
-          <div className="relative rounded-[32px] sm:rounded-[36px] overflow-hidden bg-[#0c0d14] border border-white/10 text-white min-h-[380px] sm:min-h-[420px] flex flex-col justify-between p-6 sm:p-10 lg:p-12 shadow-2xl">
+          {/* 1. TOP HERO CARD (Compact, clean, no create room / profile icons) */}
+          <div className="relative rounded-[28px] sm:rounded-[32px] overflow-hidden bg-[#0c0d14] border border-white/10 text-white min-h-[210px] sm:min-h-[240px] flex flex-col justify-between p-5 sm:p-7 lg:p-8 shadow-xl">
             {/* Background Image: Gaming controller on couch with popcorn */}
             <div className="absolute inset-0 pointer-events-none z-0">
               <img
                 src="/images/games-hero-banner.jpg"
                 alt="Games hit different together"
-                className="w-full h-full object-cover object-right lg:object-center opacity-70"
+                className="w-full h-full object-cover object-right sm:object-center opacity-70"
               />
               {/* Dark gradient overlay for text readability on left */}
               <div className="absolute inset-0 bg-gradient-to-r from-[#090a10] via-[#090a10]/85 sm:via-[#090a10]/65 to-transparent" />
-              {/* Bottom vignette */}
+              {/* Bottom subtle vignette */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#090a10]/80 via-transparent to-transparent" />
             </div>
 
-            {/* Top Row: PLAY TOGETHER category & Action buttons */}
+            {/* Top Row: PLAY TOGETHER category & Search */}
             <div className="relative z-10 flex items-center justify-between gap-4">
               <div className="text-[11px] sm:text-xs font-bold tracking-[0.25em] text-zinc-400 uppercase select-none">
                 PLAY TOGETHER
               </div>
 
-              <div className="flex items-center gap-3">
-                {/* Search Bar / Button */}
+              {/* Clean search bar / icon */}
+              <div>
                 {searchOpen ? (
-                  <div className="flex items-center bg-black/60 border border-white/20 rounded-full px-3 py-1.5 backdrop-blur-md">
+                  <div className="flex items-center bg-black/60 border border-white/20 rounded-full px-3 py-1 backdrop-blur-md">
                     <Search className="w-3.5 h-3.5 text-zinc-400 mr-2" />
                     <input
                       type="text"
@@ -256,64 +304,24 @@ export default function GameLobbyPage() {
                   <button
                     type="button"
                     onClick={() => setSearchOpen(true)}
-                    className="w-10 h-10 rounded-full bg-black/40 hover:bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-white cursor-pointer transition active:scale-95"
+                    className="w-9 h-9 rounded-full bg-black/40 hover:bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-white cursor-pointer transition active:scale-95"
                     title="Search games"
                   >
-                    <Search className="w-4 h-4 text-zinc-200" />
+                    <Search className="w-3.5 h-3.5 text-zinc-200" />
                   </button>
                 )}
-
-                {/* + Create Room Pill */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedGameForPartner('/games/ludo');
-                    setIsFriendDrawerOpen(true);
-                  }}
-                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#ff3864] to-[#ff2a55] hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-500/30 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
-                  <span>Create Room</span>
-                </button>
-
-                {/* User Avatar Circle with Chevron Dropdown */}
-                <div
-                  onClick={() => {
-                    setSelectedGameForPartner('/games/ludo');
-                    setIsFriendDrawerOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 pl-1 cursor-pointer group"
-                  title="Your Profile / Friends"
-                >
-                  <div className="w-9 h-9 rounded-full ring-2 ring-white/20 overflow-hidden bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shadow-md">
-                    {session?.user?.avatarUrl ? (
-                      <img
-                        src={session.user.avatarUrl}
-                        alt="User"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <img
-                        src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face"
-                        alt="User"
-                        className="w-full h-full object-cover"
-                      />
-                    )}
-                  </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition" />
-                </div>
               </div>
             </div>
 
-            {/* Middle Row: Big Headline & Subtitle */}
-            <div className="relative z-10 my-auto py-6 sm:py-8 max-w-xl">
-              <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-black text-white tracking-tight leading-[1.08]">
+            {/* Middle Row: Headline & Subtitle */}
+            <div className="relative z-10 my-auto py-2 sm:py-3 max-w-xl">
+              <h1 className="text-2xl sm:text-4xl lg:text-[42px] font-black text-white tracking-tight leading-[1.1]">
                 Games hit different{' '}
                 <span className="text-[#ff3864] drop-shadow-[0_2px_12px_rgba(255,56,100,0.5)]">
                   together.
                 </span>
               </h1>
-              <p className="text-sm sm:text-base text-zinc-300 font-normal mt-3.5 tracking-normal">
+              <p className="text-xs sm:text-sm text-zinc-300 font-normal mt-1.5 tracking-normal">
                 Real games. Real people. No bots, ever.
               </p>
             </div>
@@ -321,18 +329,18 @@ export default function GameLobbyPage() {
             {/* Bottom Row: 12K+ friends & Cursive Script Watermark */}
             <div className="relative z-10 flex items-end justify-between">
               {/* Stacked Social Avatars */}
-              <div className="flex items-center gap-3">
-                <div className="flex -space-x-2.5 overflow-hidden py-1">
+              <div className="flex items-center gap-2.5">
+                <div className="flex -space-x-2 overflow-hidden py-0.5">
                   {SOCIAL_AVATARS.map((url, idx) => (
                     <img
                       key={idx}
                       src={url}
                       alt="Player"
-                      className="inline-block h-8 w-8 sm:h-9 sm:w-9 rounded-full ring-2 ring-[#0c0d14] object-cover"
+                      className="inline-block h-7 w-7 sm:h-8 sm:w-8 rounded-full ring-2 ring-[#0c0d14] object-cover"
                     />
                   ))}
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-zinc-200">
+                <span className="text-xs font-semibold text-zinc-200">
                   12K+ friends are playing
                 </span>
               </div>
@@ -340,7 +348,7 @@ export default function GameLobbyPage() {
               {/* Artistic Cursive Handwriting Watermark */}
               <div className="hidden sm:block select-none pointer-events-none text-right">
                 <p
-                  className="italic text-2xl sm:text-3xl text-white/50 leading-tight transform rotate-[-6deg]"
+                  className="italic text-xl sm:text-2xl text-white/50 leading-tight transform rotate-[-5deg]"
                   style={{ fontFamily: "'Caveat', cursive, 'Brush Script MT', sans-serif" }}
                 >
                   Play<br />
@@ -352,7 +360,7 @@ export default function GameLobbyPage() {
           </div>
 
           {/* 2. SECTION HEADER: "Our Games" & "All Games ⌵" Dropdown */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1">
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 Our Games
@@ -374,7 +382,7 @@ export default function GameLobbyPage() {
                     ? 'All Games'
                     : filterCategory === '2-players'
                     ? '2 Players'
-                    : '2-4 Players'}
+                    : 'Party (2-4+)'}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
               </button>
@@ -417,7 +425,7 @@ export default function GameLobbyPage() {
                       filterCategory === 'party' ? 'text-[#ff3864]' : 'text-slate-700 dark:text-zinc-300'
                     }`}
                   >
-                    <span>2-4 Players</span>
+                    <span>Party (2-4+)</span>
                     {filterCategory === 'party' && <Check className="w-3.5 h-3.5" />}
                   </button>
                 </div>
@@ -425,12 +433,18 @@ export default function GameLobbyPage() {
             </div>
           </div>
 
-          {/* 3. FOUR GAME CARDS GRID */}
+          {/* 3. GAME CARDS GRID (Includes Four in a Row & Coming Soon games) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
             {filteredGames.map((game) => (
               <div
                 key={game.id}
-                onClick={() => router.push(game.route)}
+                onClick={() => {
+                  if (game.isComingSoon) {
+                    handleStayUpdated(game.title);
+                  } else if (game.route) {
+                    router.push(game.route);
+                  }
+                }}
                 className={`group relative rounded-[28px] sm:rounded-[32px] bg-gradient-to-b ${game.gradient} p-6 sm:p-7 text-white flex flex-col justify-between min-h-[460px] sm:min-h-[480px] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer select-none overflow-hidden`}
               >
                 {/* Top Row: Player count pill & Watermark icon */}
@@ -492,9 +506,16 @@ export default function GameLobbyPage() {
                 {/* Bottom Row: Game Title, Subtext & Action */}
                 <div className="relative z-10 space-y-4">
                   <div>
-                    <h3 className="text-2xl font-bold tracking-tight text-white">
-                      {game.title}
-                    </h3>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-2xl font-bold tracking-tight text-white">
+                        {game.title}
+                      </h3>
+                      {game.isComingSoon && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-300/30">
+                          SOON
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-white/80 font-normal mt-1 leading-relaxed">
                       {game.subtext}
                     </p>
@@ -502,11 +523,15 @@ export default function GameLobbyPage() {
 
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-xs sm:text-sm font-bold text-white group-hover:underline underline-offset-4 tracking-wide">
-                      Play Now
+                      {game.isComingSoon ? 'Notify Me' : 'Play Now'}
                     </span>
 
                     <div className="w-10 h-10 rounded-full bg-white/20 group-hover:bg-white/35 backdrop-blur-md border border-white/25 flex items-center justify-center text-white transition-all transform group-hover:translate-x-1 shadow-sm">
-                      <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                      {game.isComingSoon ? (
+                        <Bell className="w-4 h-4 text-amber-300" />
+                      ) : (
+                        <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -545,7 +570,7 @@ export default function GameLobbyPage() {
             {/* Right: Stay Updated Button */}
             <button
               type="button"
-              onClick={handleStayUpdated}
+              onClick={() => handleStayUpdated()}
               className="px-5 py-2.5 rounded-full bg-white dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-white/15 border border-rose-200 dark:border-white/10 text-slate-800 dark:text-white text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer self-start md:self-auto"
             >
               <Bell className="w-4 h-4 text-[#ff3864]" />
