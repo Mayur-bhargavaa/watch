@@ -55,14 +55,25 @@ const GAMES_DATA: GameCardData[] = [
   },
   {
     id: 'bingo',
-    title: 'Tambola',
-    subtext: 'Classic 90-Ball Housie. Modern twist.',
+    title: 'Bingo Duel',
+    subtext: 'Fast 1–25 5×5 duel. Complete the pattern first!',
     players: '2 Players',
-    gradient: 'from-[#2e74ff] via-[#1a4ec8] to-[#0e1d52]',
+    gradient: 'from-[#6366f1] via-[#4f46e5] to-[#1e1b4b]',
     image: '/images/card-bingo-duel.png',
     route: '/games/bingo',
     watermark: 'sparkle',
     category: 'duel'
+  },
+  {
+    id: 'tambola',
+    title: 'Tambola',
+    subtext: 'Classic 90-Ball Housie. Modern twist.',
+    players: '2–20 Players',
+    gradient: 'from-[#06b6d4] via-[#0284c7] to-[#082f49]',
+    image: '/images/card-bingo-duel.png',
+    route: '/games/tambola',
+    watermark: 'crown',
+    category: 'party'
   },
   {
     id: 'doodle-duel',

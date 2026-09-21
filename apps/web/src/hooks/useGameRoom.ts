@@ -1121,6 +1121,26 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const toggleBingoPause = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:toggle_pause',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const startBingoNextRound = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:next_round',
+        payload: {}
+      })
+    );
+  }, []);
+
   const updateBingoConfig = useCallback((config: any) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
@@ -1306,6 +1326,8 @@ export function useGameRoom(roomCode: string | null) {
     makeTicTacToeMove,
     startBingoGame,
     callNextBingoNumber,
+    toggleBingoPause,
+    startBingoNextRound,
     claimBingo,
     markBingoNumber,
     updateBingoConfig,

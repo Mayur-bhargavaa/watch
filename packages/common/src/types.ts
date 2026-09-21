@@ -215,7 +215,7 @@ export interface LudoGameState {
   consecutiveSixes: number;
 }
 
-export type GameType = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'bingo' | 'doodle-duel';
+export type GameType = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'bingo' | 'doodle-duel' | 'tambola';
 
 export type FourInARowDisc = 'R' | 'Y' | null;
 

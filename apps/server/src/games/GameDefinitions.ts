@@ -76,5 +76,19 @@ export const GAME_DEFINITIONS: Record<string, GameDefinition> = {
     colorAssignments: {
       2: ['red', 'blue']
     }
+  },
+  tambola: {
+    id: 'tambola',
+    name: 'Tambola',
+    minPlayers: 2,
+    maxPlayers: 20,
+    playerOptions: [2, 3, 4, 5, 6, 7, 8, 10, 15, 20],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'blue'],
+      3: ['red', 'blue', 'green'],
+      4: ['red', 'blue', 'green', 'yellow']
+    }
   }
 };

@@ -563,7 +563,9 @@ export function getGameRoute(gameType?: string, roomCode?: string): string {
   const code = (roomCode || '').toUpperCase();
 
   let basePath = '/games/ludo';
-  if (lower.includes('bingo') || lower.includes('tambola') || code.startsWith('BINGO-')) {
+  if (lower.includes('tambola') || lower.includes('housie') || code.startsWith('TAMBOLA-')) {
+    basePath = '/games/tambola';
+  } else if (lower.includes('bingo') || code.startsWith('BINGO-')) {
     basePath = '/games/bingo';
   } else if (lower.includes('tic') || code.startsWith('TIC-')) {
     basePath = '/games/tic-tac-toe';
@@ -580,7 +582,8 @@ export function getGameRoute(gameType?: string, roomCode?: string): string {
 export function getGameTitle(gameType?: string, roomCode?: string): string {
   const lower = (gameType || '').toLowerCase();
   const code = (roomCode || '').toUpperCase();
-  if (lower.includes('bingo') || lower.includes('tambola') || code.startsWith('BINGO-')) return 'Tambola';
+  if (lower.includes('tambola') || lower.includes('housie') || code.startsWith('TAMBOLA-')) return 'Tambola';
+  if (lower.includes('bingo') || code.startsWith('BINGO-')) return 'Bingo Duel';
   if (lower.includes('tic') || code.startsWith('TIC-')) return 'Tic-Tac-Toe';
   if (lower.includes('four') || lower.includes('connect') || code.startsWith('FOUR-')) return 'Four in a Row';
   if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) return 'Doodle Duel';

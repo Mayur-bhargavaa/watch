@@ -23,27 +23,39 @@ import {
   Minus,
   X as CloseIcon,
   Flame,
-  Crown,
-  Heart
+  Zap,
+  Volume2,
+  VolumeX,
+  ShieldAlert
 } from 'lucide-react';
 import { useGameRoom } from '../../../hooks/useGameRoom';
-import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
+import { useWebRTC } from '../../../hooks/useWebRTC';
 import { VideoAvatar } from '../../../components/games/LudoGame';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
-import { getStoredSession, UserSession, createGameRoomWithPartner, getGameRoute, getGameTitle } from '../../../lib/api';
-import { BingoLobby } from '../../../components/games/bingo/BingoLobby';
-import { BingoWaitingRoom } from '../../../components/games/bingo/BingoWaitingRoom';
-import { BingoCaller } from '../../../components/games/bingo/BingoCaller';
-import { BingoTicket } from '../../../components/games/bingo/BingoTicket';
-import { WinningProgress } from '../../../components/games/bingo/WinningProgress';
-import { ClaimBingoButton } from '../../../components/games/bingo/ClaimBingoButton';
-import { BingoVictory } from '../../../components/games/bingo/BingoVictory';
+import {
+  getStoredSession,
+  UserSession,
+  createGameRoomWithPartner,
+  getGameRoute,
+  getGameTitle,
+  createGameRoom
+} from '../../../lib/api';
+import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
+import { BingoDuelLobby } from '../../../components/games/bingo-duel/BingoDuelLobby';
+import { BingoDuelWaitingRoom } from '../../../components/games/bingo-duel/BingoDuelWaitingRoom';
+import { BingoDuelNumberCaller } from '../../../components/games/bingo-duel/BingoDuelNumberCaller';
+import { BingoDuelBoard } from '../../../components/games/bingo-duel/BingoDuelBoard';
+import { BingoPlayerDuelCard } from '../../../components/games/bingo-duel/BingoPlayerDuelCard';
+import { BingoDuelClaimButton } from '../../../components/games/bingo-duel/BingoDuelClaimButton';
+import { BingoDuelWinModal } from '../../../components/games/bingo-duel/BingoDuelWinModal';
 import { BingoBottomDock } from '../../../components/games/bingo/BingoBottomDock';
 import { BingoChatDrawer } from '../../../components/games/bingo/BingoChatDrawer';
-import { BingoRoomSettings } from '../../../components/games/bingo/BingoRoomSettings';
-import { BingoGameHistory } from '../../../components/games/bingo/BingoGameHistory';
-import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
-import { BingoRoomConfig, BingoWinCondition } from '@synccinema/common';
+import {
+  BingoDuelConfig,
+  BingoDuelGameState,
+  BingoDuelPatternProgress,
+  DEFAULT_BINGO_DUEL_CONFIG
+} from '@synccinema/common';
 
 export interface BoardTheme {
   id: string;
@@ -56,99 +68,46 @@ export interface BoardTheme {
 
 const THEMES: BoardTheme[] = [
   {
+    id: 'duel-neon',
+    name: 'Neon Duel',
+    bgUrl: '/theams/theam2.jpeg',
+    accent: '#6366f1',
+    gridBorder: 'border-indigo-500/30',
+    cellBg: 'bg-indigo-950/20'
+  },
+  {
     id: 'cozy',
     name: 'Cozy Cottage',
     bgUrl: '/images/cozy_ludo_bg.jpg',
     accent: '#f43f5e',
     gridBorder: 'border-rose-500/20',
-    cellBg: 'bg-rose-950/20 hover:bg-rose-900/30'
+    cellBg: 'bg-rose-950/20'
   },
   {
     id: 'theam1',
-    name: 'Theme 1 • Candlelit Café',
+    name: 'Candlelit Café',
     bgUrl: '/theams/theam1.jpeg',
     accent: '#fbbf24',
     gridBorder: 'border-amber-500/20',
-    cellBg: 'bg-amber-950/20 hover:bg-amber-900/30'
-  },
-  {
-    id: 'theam2',
-    name: 'Theme 2 • Neon Romance',
-    bgUrl: '/theams/theam2.jpeg',
-    accent: '#ec4899',
-    gridBorder: 'border-pink-500/30',
-    cellBg: 'bg-pink-950/25 hover:bg-pink-900/35'
+    cellBg: 'bg-amber-950/20'
   },
   {
     id: 'theam3',
-    name: 'Theme 3 • Better Together',
+    name: 'Better Together',
     bgUrl: '/theams/theam3.jpeg',
     accent: '#8b5cf6',
     gridBorder: 'border-purple-500/20',
-    cellBg: 'bg-purple-950/20 hover:bg-purple-900/30'
+    cellBg: 'bg-purple-950/20'
   },
   {
     id: 'theam4',
-    name: 'Theme 4 • Watch Together',
+    name: 'Watch Together',
     bgUrl: '/theams/theam4.jpeg',
     accent: '#3b82f6',
     gridBorder: 'border-blue-500/20',
-    cellBg: 'bg-blue-950/20 hover:bg-blue-900/30'
-  },
-  {
-    id: 'theam5',
-    name: 'Theme 5 • Snuggle Cinema',
-    bgUrl: '/theams/theam5.jpeg',
-    accent: '#f43f5e',
-    gridBorder: 'border-rose-500/20',
-    cellBg: 'bg-rose-950/20 hover:bg-rose-900/30'
-  },
-  {
-    id: 'theam6',
-    name: 'Theme 6 • Velvet Night',
-    bgUrl: '/theams/theam6.jpeg',
-    accent: '#06b6d4',
-    gridBorder: 'border-cyan-500/20',
-    cellBg: 'bg-cyan-950/20 hover:bg-cyan-900/30'
+    cellBg: 'bg-blue-950/20'
   }
 ];
-
-const QUICK_REACTION_EMOJIS = ['❤️', '😂', '🔥', '👏', '🎉', '🎱', '🥳', '🥺', '✨', '🙈', '😱'];
-
-const DEFAULT_CONFIG: BingoRoomConfig = {
-  mode: '90-ball',
-  winConditions: {
-    early5: true,
-    topLine: true,
-    middleLine: true,
-    bottomLine: true,
-    fourCorners: true,
-    housefull: true,
-    xPattern: false,
-    crossPattern: false,
-    starPattern: false,
-    diamond: false,
-    fullBorder: false,
-    customPattern: false
-  },
-  callingSpeed: 3000,
-  autoCall: true,
-  points: {
-    early5: 10,
-    topLine: 20,
-    middleLine: 20,
-    bottomLine: 20,
-    fourCorners: 30,
-    housefull: 100,
-    xPattern: 25,
-    crossPattern: 25,
-    starPattern: 40,
-    diamond: 30,
-    fullBorder: 35,
-    customPattern: 50
-  },
-  falseClaimPenalty: 0
-};
 
 function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -165,21 +124,22 @@ function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
   return <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />;
 }
 
-function BingoGameContent() {
+function BingoDuelGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomCodeParam = searchParams.get('room');
 
   const [session, setSession] = useState<UserSession | null>(null);
   const [showFriendDrawer, setShowFriendDrawer] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
-  const [activeTheme, setActiveTheme] = useState<string>('cozy');
+  const [activeTheme, setActiveTheme] = useState<string>('duel-neon');
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [roomConfig, setRoomConfig] = useState<BingoRoomConfig>(DEFAULT_CONFIG);
+  const [duelConfig, setDuelConfig] = useState<BingoDuelConfig>(DEFAULT_BINGO_DUEL_CONFIG);
 
-  // Claim Feedback Toast State
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+
+  // Claim Feedback Toast
   const [claimToast, setClaimToast] = useState<{
     valid: boolean;
     message: string;
@@ -197,7 +157,7 @@ function BingoGameContent() {
   const {
     room,
     players,
-    gameState,
+    gameState: rawGameState,
     myPlayer,
     myUserId,
     lastBingoCall,
@@ -208,6 +168,8 @@ function BingoGameContent() {
     connectionStatus,
     startBingoGame,
     callNextBingoNumber,
+    toggleBingoPause,
+    startBingoNextRound,
     claimBingo,
     markBingoNumber,
     updateBingoConfig,
@@ -227,11 +189,13 @@ function BingoGameContent() {
     registerVoiceListener
   } = useGameRoom(roomCodeParam);
 
-  // Cross-game redirect guard
+  const gameState = rawGameState as BingoDuelGameState | null;
+
+  // Cross-game redirect guard: only permit BINGO- rooms and gameType === 'bingo'
   useEffect(() => {
     if (roomCodeParam) {
       const code = roomCodeParam.trim().toUpperCase();
-      if (!code.startsWith('BINGO-') && (code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-'))) {
+      if (!code.startsWith('BINGO-') && (code.startsWith('TAMBOLA-') || code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-'))) {
         router.replace(getGameRoute(undefined, roomCodeParam));
         return;
       }
@@ -249,9 +213,32 @@ function BingoGameContent() {
 
   const isHost = room?.hostUserId === effectiveUserId;
   const isPlaying = room && room.status === 'PLAYING' && gameState !== null;
+  const isRoundOver = gameState?.phase === 'ROUND_OVER';
   const isFinished = room && (room.status === 'FINISHED' || gameState?.phase === 'FINISHED');
 
-  // WebRTC Setup
+  // Web Speech API Voice Caller for Bingo Duel
+  const lastSpokenNumberRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isPlaying) return;
+    if (duelConfig.voiceCaller && lastBingoCall?.number && lastBingoCall.number !== lastSpokenNumberRef.current) {
+      lastSpokenNumberRef.current = lastBingoCall.number;
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(
+            `${lastBingoCall.number}`
+          );
+          utterance.rate = 1.0;
+          utterance.pitch = 1.1;
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          // ignore speech synthesis errors
+        }
+      }
+    }
+  }, [isPlaying, duelConfig.voiceCaller, lastBingoCall?.number]);
+
+  // WebRTC Floating PIP Call Window Setup
   const webRTCMembers = useMemo(() => {
     return players.map(p => ({
       userId: p.userId,
@@ -287,7 +274,6 @@ function BingoGameContent() {
   const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDraggingPip, setIsDraggingPip] = useState(false);
   const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
-  const pipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && pipPosition === null) {
@@ -299,24 +285,18 @@ function BingoGameContent() {
     }
   }, [pipPosition]);
 
-  const handlePipDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, select')) return;
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    const rect = pipRef.current?.getBoundingClientRect();
-    const currentX = rect ? rect.left : 32;
-    const currentY = rect ? rect.top : 140;
-
+  const handlePipMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    if (isPipClosed) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    setIsDraggingPip(true);
     dragStartRef.current = {
       startX: clientX,
       startY: clientY,
-      initialX: currentX,
-      initialY: currentY
+      initialX: pipPosition?.x || 32,
+      initialY: pipPosition?.y || 140
     };
-    setIsDraggingPip(true);
-  }, []);
+  };
 
   useEffect(() => {
     const handleMove = (e: MouseEvent | TouchEvent) => {
@@ -354,7 +334,7 @@ function BingoGameContent() {
   // Sync config from gameState when active
   useEffect(() => {
     if (gameState?.config) {
-      setRoomConfig(gameState.config);
+      setDuelConfig(gameState.config);
     }
   }, [gameState?.config]);
 
@@ -377,9 +357,26 @@ function BingoGameContent() {
     router.push('/games');
   };
 
-  // Handle invite friend
-  const handleInviteFriend = () => {
-    setShowFriendDrawer(true);
+  const handleCreateRoom = async () => {
+    if (!session?.token) {
+      router.push('/login');
+      return;
+    }
+    try {
+      setIsCreatingRoom(true);
+      const res = await createGameRoom(session.token, 'bingo', 2);
+      if (res?.room?.roomCode) {
+        router.push(`/games/bingo?room=${res.room.roomCode}`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCreatingRoom(false);
+    }
+  };
+
+  const handleJoinRoom = (code: string) => {
+    router.push(`/games/bingo?room=${encodeURIComponent(code)}`);
   };
 
   const currentTheme = useMemo(() => {
@@ -402,38 +399,54 @@ function BingoGameContent() {
     return list;
   }, [videoGridParticipants, opponent]);
 
-  // 1. NO ROOM PARAM -> Render Lobby
+  // 1. NO ROOM PARAM -> Render Bingo Duel Lobby
   if (!roomCodeParam) {
-    return <BingoLobby />;
-  }
-
-  // 2. ROOM WAITING / READY -> Render Waiting Room
-  if (!isPlaying && !isFinished && room) {
     return (
-      <>
-        <BingoWaitingRoom
-          room={room}
-          myUserId={effectiveUserId}
-          config={roomConfig}
-          rematchStatus={rematchStatus}
-          onRematch={rematch}
-          onStartGame={(cfg) => {
-            startBingoGame(cfg);
-          }}
-          onUpdateConfig={(cfg) => {
-            setRoomConfig(cfg);
-            updateBingoConfig(cfg);
-          }}
-          onLeave={handleLeave}
-          onInviteFriend={handleInviteFriend}
+      <div className="min-h-screen bg-[#070913] text-white flex flex-col justify-between relative overflow-hidden">
+        {/* Dynamic Background Effects */}
+        <div
+          className="fixed inset-0 bg-cover bg-center opacity-15 pointer-events-none transition-all duration-700"
+          style={{ backgroundImage: `url(${currentTheme.bgUrl})` }}
         />
+        <div className="fixed inset-0 bg-gradient-to-b from-[#070913]/90 via-[#070913]/95 to-[#070913] pointer-events-none" />
+
+        {/* Top Header */}
+        <header className="relative z-20 px-4 sm:px-8 py-4 flex items-center justify-between border-b border-white/10 backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => router.push('/games')}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Games Hub</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Bingo Duel (1–25)
+            </span>
+          </div>
+        </header>
+
+        {/* Lobby Content */}
+        <main className="relative z-10 flex-1 flex items-center justify-center">
+          <BingoDuelLobby
+            session={session}
+            onCreateRoom={handleCreateRoom}
+            onJoinRoom={handleJoinRoom}
+            onSelectPartner={() => setShowFriendDrawer(true)}
+            isCreating={isCreatingRoom}
+            isJoining={isJoiningRoom}
+          />
+        </main>
 
         <GameFriendSelectorDrawer
           isOpen={showFriendDrawer}
           onClose={() => setShowFriendDrawer(false)}
           token={session?.token}
-          gameTitle="Tambola"
-          onSelectFriend={async (friend) => {
+          gameTitle="Bingo Duel"
+          onSelectFriend={async friend => {
             try {
               const res = await createGameRoomWithPartner('bingo', friend.friendUser.id);
               if (res?.room?.roomCode) {
@@ -444,696 +457,460 @@ function BingoGameContent() {
             }
           }}
         />
-      </>
+      </div>
     );
   }
 
-  // 3. LIVE GAME / FINISHED SCREEN
-  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
-  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? null;
-  const lastCalled = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
-  const remaining = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 90;
+  // 2. ROOM WAITING / READY -> Render Waiting Room
+  if (!isPlaying && !isFinished && room) {
+    return (
+      <div className="min-h-screen bg-[#070913] text-white flex flex-col justify-between relative overflow-hidden">
+        <div
+          className="fixed inset-0 bg-cover bg-center opacity-15 pointer-events-none transition-all duration-700"
+          style={{ backgroundImage: `url(${currentTheme.bgUrl})` }}
+        />
+        <div className="fixed inset-0 bg-gradient-to-b from-[#070913]/90 via-[#070913]/95 to-[#070913] pointer-events-none" />
 
-  // ONLY SELF TICKET IS USED ON SCREEN
-  const myTicket = gameState?.tickets?.[me?.userId || ''] || { cells: [] };
-  const myMarked = gameState?.playerMarked?.[me?.userId || ''] || [];
-  const myScore = gameState?.scores?.[me?.userId || ''] || 0;
-  const myProgress = gameState?.conditionProgress?.[me?.userId || ''] || {};
-
-  const opponentScore = opponent ? gameState?.scores?.[opponent.userId] || 0 : 0;
-  const opponentProgress = opponent ? gameState?.conditionProgress?.[opponent.userId] || {} : {};
-
-  // Count conditions claimed by opponent
-  const opponentCompletedCount = Object.values(opponentProgress).filter((p: any) => p?.isMet).length;
-
-  return (
-    <div className="min-h-screen text-white flex flex-col justify-between selection:bg-rose-600 selection:text-white relative overflow-hidden font-sans">
-      {/* Full-Screen Ambient Wallpaper Background */}
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat select-none pointer-events-none transition-all duration-700"
-        style={{ backgroundImage: `url('${currentTheme.bgUrl || '/images/cozy_ludo_bg.jpg'}')` }}
-      >
-        <div className="absolute inset-0 bg-[#0c0818]/75 backdrop-blur-[2px]" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-      </div>
-
-      <DynamicThemeEffects themeId={activeTheme} />
-
-      {/* Floating Remote Audio Player */}
-      {callParticipants.map(p => (
-        !p.isSelf && p.stream ? <RemoteAudioPlayer key={p.userId} stream={p.stream} /> : null
-      ))}
-
-      {/* Floating Reactions Overlay */}
-      <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-        {floatingReactions.map((r) => (
-          <div
-            key={r.id}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 animate-bounce text-3xl font-bold flex items-center gap-2 bg-black/70 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 shadow-2xl"
-          >
-            <span>{r.emoji}</span>
-            <span className="text-xs text-rose-300 font-semibold">{r.userName}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Rematch Request Popup from Opponent */}
-      {rematchStatus && !rematchStatus.allVoted && !rematchStatus.votedUserIds?.includes(effectiveUserId) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-rose-500/40 text-white shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_35px_rgba(244,63,94,0.25)] text-center space-y-4 relative overflow-hidden">
-            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg shadow-rose-500/30 animate-bounce">
-              ⚔️
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-white">Rematch Challenge!</h3>
-              <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                <strong className="text-[#ff3864] font-bold">{rematchStatus.requesterName || opponent?.displayName || 'Your Opponent'}</strong> has requested a rematch!
-                <br />
-                Do you want to play again?
-              </p>
-            </div>
-            <div className="flex flex-col gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => rematch()}
-                className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Accept Rematch (Yes!)</span>
-              </button>
-              <button
-                type="button"
-                onClick={declineRematch}
-                className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-zinc-300 rounded-xl transition cursor-pointer"
-              >
-                Decline (No)
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rematch Waiting Modal for requester */}
-      {rematchStatus && !rematchStatus.allVoted && rematchStatus.votedUserIds?.includes(effectiveUserId) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-7 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4 relative overflow-hidden">
-            <div className="w-16 h-16 mx-auto rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-3xl animate-pulse">
-              ⏳
-            </div>
-            <h3 className="text-xl font-black text-white">Rematch Requested</h3>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              Waiting for <strong className="text-rose-400 font-bold">{opponent?.displayName || 'Opponent'}</strong> to accept the rematch...
-            </p>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={declineRematch}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-zinc-300 transition cursor-pointer"
-              >
-                Cancel Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rematch Declined / Opponent Left Modal */}
-      {rematchDeclined && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-3xl">
-              🚪
-            </div>
-            <h3 className="text-xl font-black text-white">Rematch Declined</h3>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              {rematchDeclined.message || 'Opponent declined the rematch or left the game.'}
-            </p>
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  clearRematchDeclined();
-                  router.push('/games');
-                }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition"
-              >
-                Games Hub
-              </button>
-              <button
-                type="button"
-                onClick={clearRematchDeclined}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-[#ff2b5e] hover:bg-rose-600 text-xs font-bold text-white transition"
-              >
-                Stay on Board
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Claim Result Toast Notification */}
-      {claimToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-3 duration-200">
-          <div
-            className={`px-5 py-3 rounded-2xl border shadow-2xl flex items-center gap-2.5 text-xs font-black ${
-              claimToast.valid
-                ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200 shadow-emerald-950/50'
-                : 'bg-rose-950/90 border-rose-500/50 text-rose-200 shadow-rose-950/50'
-            }`}
-          >
-            {claimToast.valid ? <Sparkles className="w-4 h-4 text-yellow-300" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
-            <span>{claimToast.message}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Condition Won Banner */}
-      {lastBingoConditionWon && (
-        <div className="bg-gradient-to-r from-rose-950/80 via-purple-950/80 to-rose-950/80 border-b border-rose-500/30 px-4 py-2 text-center text-xs font-black text-white flex items-center justify-center gap-2 z-20 backdrop-blur-md">
-          <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-          <span>
-            {lastBingoConditionWon.displayName} won {lastBingoConditionWon.conditionName}! (+{lastBingoConditionWon.points} pts)
-          </span>
-        </div>
-      )}
-
-      {/* TOP NAVIGATION HEADER BAR */}
-      <header className="h-16 px-4 sm:px-8 border-b border-white/10 flex items-center justify-between bg-[#0e0c18]/80 backdrop-blur-xl z-30 sticky top-0">
-        <div className="flex items-center gap-3">
+        {/* Top Header */}
+        <header className="relative z-20 px-4 sm:px-8 py-4 flex items-center justify-between border-b border-white/10 backdrop-blur-md">
           <button
             type="button"
             onClick={handleLeave}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Leave</span>
           </button>
 
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="text-lg">🎱</span>
-            <span className="text-sm font-black text-white tracking-wide">Tambola</span>
-            <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] text-zinc-300 font-mono">
-              Room: {room?.roomCode || roomCodeParam}
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+              Duel Matchmaking
             </span>
+          </div>
+        </header>
+
+        <main className="relative z-10 flex-1 flex items-center justify-center">
+          <BingoDuelWaitingRoom
+            room={room}
+            players={players}
+            myUserId={effectiveUserId}
+            isHost={isHost}
+            config={duelConfig}
+            onUpdateConfig={partial => {
+              setDuelConfig(prev => ({ ...prev, ...partial }));
+              updateBingoConfig(partial);
+            }}
+            onStartGame={() => startBingoGame(duelConfig)}
+            onSelectPartner={() => setShowFriendDrawer(true)}
+          />
+        </main>
+
+        <GameFriendSelectorDrawer
+          isOpen={showFriendDrawer}
+          onClose={() => setShowFriendDrawer(false)}
+          token={session?.token}
+          gameTitle="Bingo Duel"
+          onSelectFriend={async friend => {
+            try {
+              const res = await createGameRoomWithPartner('bingo', friend.friendUser.id);
+              if (res?.room?.roomCode) {
+                router.push(`/games/bingo?room=${res.room.roomCode}`);
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // 3. IN GAME OR FINISHED -> Main Arena Layout
+  const myBoard = gameState?.boards?.[effectiveUserId] || [];
+  const myMarks = gameState?.playerMarks?.[effectiveUserId] || [];
+  const myProgress = gameState?.playerProgress?.[effectiveUserId];
+  const myWins = gameState?.roundsWon?.[effectiveUserId] || 0;
+
+  const opponentUserId = opponent?.userId || '';
+  const opponentMarks = gameState?.playerMarks?.[opponentUserId] || [];
+  const opponentProgress = gameState?.playerProgress?.[opponentUserId];
+  const opponentWins = gameState?.roundsWon?.[opponentUserId] || 0;
+
+  // Penalty countdown
+  const now = Date.now();
+  const penaltyUntil = gameState?.falseBingoPenaltyUntil?.[effectiveUserId] || 0;
+  const penaltySeconds = Math.max(0, Math.ceil((penaltyUntil - now) / 1000));
+
+  const winningIndices = gameState?.phase === 'ROUND_OVER' || gameState?.phase === 'FINISHED'
+    ? (lastBingoConditionWon?.winningIndices || lastBingoClaimResult?.winningIndices)
+    : undefined;
+
+  return (
+    <div className="min-h-screen bg-[#070913] text-white flex flex-col justify-between relative overflow-x-hidden select-none">
+      {/* Dynamic Background Effects */}
+      <div
+        className="fixed inset-0 bg-cover bg-center opacity-15 pointer-events-none transition-all duration-700"
+        style={{ backgroundImage: `url(${currentTheme.bgUrl})` }}
+      />
+      <div className="fixed inset-0 bg-gradient-to-b from-[#070913]/90 via-[#070913]/95 to-[#070913] pointer-events-none" />
+
+      {/* Audio listeners for remote audio streams */}
+      {videoGridParticipants.map(
+        p => p.stream && !p.isSelf && <RemoteAudioPlayer key={p.userId} stream={p.stream} />
+      )}
+
+      {/* Floating Reaction Bubbles */}
+      <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
+        {floatingReactions.map(r => (
+          <div
+            key={r.id}
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 text-4xl animate-bounce"
+            style={{
+              left: `${45 + (r.timestamp % 15)}%`,
+              animationDuration: '1.2s'
+            }}
+          >
+            {r.emoji}
+          </div>
+        ))}
+      </div>
+
+      {/* Top Navigation Bar */}
+      <header className="relative z-20 px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-white/10 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleLeave}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Leave</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold text-indigo-300 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+              {room?.roomCode}
+            </span>
+            {gameState && gameState.targetRounds > 1 && (
+              <span className="text-xs font-bold text-pink-300 bg-pink-500/10 px-2 py-0.5 rounded-full border border-pink-500/20">
+                Round {gameState.currentRound}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Video Call Show Button (if minimized or closed) */}
-        {isPipClosed && (
-          <button
-            onClick={() => setIsPipClosed(false)}
-            className="px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 shadow text-xs font-semibold flex items-center gap-1.5 transition"
-            title="Open Floating Video Call"
-          >
-            <Video className="w-3.5 h-3.5 text-rose-400" />
-            <span>Show Call</span>
-          </button>
-        )}
-
+        {/* Right Header Options */}
         <div className="flex items-center gap-2">
-          {/* Audio Mic Toggle */}
-          <button
-            type="button"
-            onClick={toggleMic}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isMicMuted
-                ? 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
-                : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
-            }`}
-            title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
-          >
-            {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </button>
-
-          {/* Camera Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              toggleCamera();
-              if (isPipClosed) setIsPipClosed(false);
-            }}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isCameraOn
-                ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
-                : 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
-            }`}
-            title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
-          >
-            {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-          </button>
-
-          {/* Chat Drawer Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className={`relative w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isChatOpen
-                ? 'bg-rose-600 border-rose-500 text-white'
-                : 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
-            }`}
-            title="Toggle Match Chat"
-          >
-            <MessageSquare className="w-4 h-4" />
-            {chatMessages.length > 0 && !isChatOpen && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[9px] font-black flex items-center justify-center text-white">
-                {chatMessages.length}
-              </span>
-            )}
-          </button>
-
-          {/* Theme Switcher Button */}
+          {/* Theme Palette Button */}
           <button
             type="button"
             onClick={() => setShowThemeModal(true)}
-            className="w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center justify-center shadow-xs"
-            title="Change Theme Wallpaper"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition"
+            title="Change Theme"
           >
-            <Palette className="w-4 h-4 text-amber-300" />
+            <Palette className="w-4 h-4" />
           </button>
 
-          {/* Game History */}
+          {/* Sound / Voice Caller Toggle */}
           <button
             type="button"
-            onClick={() => setShowHistoryModal(true)}
-            className="w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center justify-center shadow-xs"
-            title="Scoreboard & History"
+            onClick={() => setDuelConfig(prev => ({ ...prev, voiceCaller: !prev.voiceCaller }))}
+            className={`p-2 rounded-xl border transition ${
+              duelConfig.voiceCaller
+                ? 'bg-indigo-600/30 border-indigo-400 text-indigo-300'
+                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+            }`}
+            title="Voice Caller"
           >
-            <Trophy className="w-4 h-4 text-yellow-400" />
-          </button>
-
-          {/* Settings Modal */}
-          <button
-            type="button"
-            onClick={() => setShowSettingsModal(true)}
-            className="w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center justify-center shadow-xs"
-            title="Room Settings"
-          >
-            <Settings className="w-4 h-4" />
+            {duelConfig.voiceCaller ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
         </div>
       </header>
 
-      {/* MOVEABLE FLOATING VIDEO CALL WINDOW */}
-      {!isPipClosed && (
-        <div
-          ref={pipRef}
-          onMouseDown={handlePipDragStart}
-          onTouchStart={handlePipDragStart}
-          style={
-            pipPosition
-              ? { left: `${pipPosition.x}px`, top: `${pipPosition.y}px` }
-              : { left: '32px', top: '140px' }
-          }
-          className={`fixed z-40 select-none bg-[#140f22]/95 border border-white/20 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-shadow ${
-            isDraggingPip
-              ? 'cursor-grabbing ring-2 ring-rose-500/60 shadow-[0_25px_60px_rgba(244,63,94,0.35)] scale-[1.02]'
-              : 'cursor-grab hover:border-white/30'
-          } ${isPipMinimized ? 'px-3 py-2' : 'p-2.5 sm:p-3'}`}
-        >
-          {/* Top Bar: Drag Grip + In-Call Controls */}
-          <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-white/10 touch-none">
-            <div className="flex items-center gap-1.5 text-zinc-300 pointer-events-none">
-              <GripHorizontal className="w-4 h-4 text-rose-400/80" />
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-white">
-                Call ({callParticipants.length}/2)
-              </span>
-            </div>
+      {/* Main Duel Content Area */}
+      <main className="relative z-10 flex-1 max-w-4xl w-full mx-auto px-4 py-4 sm:py-6 flex flex-col justify-between gap-4">
+        {/* 1. Visual Number Caller (numbers 1-25) */}
+        <BingoDuelNumberCaller
+          currentNumber={gameState?.currentNumber || null}
+          currentNumberWord={gameState?.currentNumberWord || null}
+          lastCalledNumbers={gameState?.lastCalledNumbers || []}
+          calledNumbersCount={gameState?.calledNumbers?.length || 0}
+          remainingCount={gameState?.callQueue?.length || 0}
+          isPaused={Boolean(gameState?.callingPaused)}
+          isHost={isHost}
+          voiceCallerEnabled={Boolean(duelConfig.voiceCaller)}
+          onToggleVoiceCaller={() => setDuelConfig(p => ({ ...p, voiceCaller: !p.voiceCaller }))}
+          onTogglePause={toggleBingoPause}
+          onCallNextManually={callNextBingoNumber}
+          isManualMode={duelConfig.autoCallSpeed === 0}
+        />
 
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleMic();
-                }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
-                  isMicMuted
-                    ? 'bg-rose-950/80 border-rose-500/60 text-rose-300 hover:bg-rose-900'
-                    : 'bg-emerald-950/80 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900 ring-1 ring-emerald-400/40'
-                }`}
-                title={isMicMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 animate-pulse" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleCamera();
-                }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
-                  isCameraOn
-                    ? 'bg-emerald-950/80 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900 ring-1 ring-emerald-400/40'
-                    : 'bg-rose-950/80 border-rose-500/60 text-rose-300 hover:bg-rose-900'
-                }`}
-                title={isCameraOn ? 'Turn Off Cam' : 'Turn On Cam'}
-              >
-                {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPipMinimized(!isPipMinimized);
-                }}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center transition"
-                title={isPipMinimized ? 'Expand' : 'Minimize'}
-              >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPipClosed(true);
-                }}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-rose-500/30 text-zinc-400 hover:text-rose-200 flex items-center justify-center transition"
-                title="Hide Call Box"
-              >
-                <CloseIcon className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Video Feeds Grid */}
-          {!isPipMinimized && (
-            <div className="flex items-center gap-2 pt-1">
-              {callParticipants.map(participant => (
-                <div
-                  key={participant.userId}
-                  className="relative w-28 sm:w-32 h-20 sm:h-22 rounded-2xl bg-black/70 border border-white/15 overflow-hidden flex items-center justify-center shadow-inner group"
-                >
-                  {participant.stream && participant.isCameraOn ? (
-                    <VideoAvatar
-                      stream={participant.stream}
-                      isSelf={participant.isSelf}
-                      displayName={participant.displayName}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-center p-2">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-black text-xs flex items-center justify-center mb-1 shadow">
-                        {participant.displayName.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-[10px] text-zinc-300 font-bold truncate max-w-[90px]">
-                        {participant.displayName}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-bold text-white/90 drop-shadow pointer-events-none">
-                    <span className="truncate max-w-[65px]">{participant.displayName}</span>
-                    <span className="shrink-0">{!participant.isMuted ? '🟢' : '🔴'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MAIN GAME ARENA (ONLY SELF TICKET IS SHOWN) */}
-      <main className="flex-1 flex flex-col justify-start p-3 sm:p-6 z-10 max-w-[1400px] mx-auto w-full space-y-4">
-        
-        {/* TOP OPPONENT DUEL STATUS BAR */}
-        <div className="w-full bg-[#140f22]/85 border border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-xl backdrop-blur-xl flex items-center justify-between gap-4">
-          {/* Self Player Badge */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center font-black text-rose-300 text-sm overflow-hidden shadow-sm shrink-0">
-              {me?.avatarUrl ? (
-                <img src={me.avatarUrl} alt={me.displayName} className="w-full h-full object-cover" />
-              ) : (
-                me?.displayName?.charAt(0).toUpperCase() || 'Y'
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs sm:text-sm font-black text-white truncate max-w-[110px] sm:max-w-[160px]">
-                  {me?.displayName || 'You'}
-                </span>
-                <span className="px-1.5 py-0.2 rounded-md bg-rose-500/20 text-[#ff3864] text-[9px] font-black uppercase">
-                  YOU
-                </span>
-              </div>
-              <span className="text-xs text-rose-400 font-mono font-bold">
-                Score: {myScore} pts
-              </span>
-            </div>
-          </div>
-
-          {/* VS Center Badge */}
-          <div className="flex flex-col items-center">
-            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-black tracking-widest text-amber-300 shadow-xs">
-              VS
-            </span>
-            <span className="text-[10px] text-zinc-400 font-mono mt-0.5">
-              1v1 Tambola Duel
-            </span>
-          </div>
-
-          {/* Opponent Player Badge */}
-          <div className="flex items-center gap-3 min-w-0 justify-end">
-            <div className="text-right min-w-0">
-              <div className="flex items-center justify-end gap-1.5">
-                <span className="text-xs sm:text-sm font-black text-white truncate max-w-[110px] sm:max-w-[160px]">
-                  {opponent ? opponent.displayName : 'Opponent'}
-                </span>
-                {opponent && opponentCompletedCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-black">
-                    {opponentCompletedCount} claims
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-cyan-400 font-mono font-bold">
-                Score: {opponentScore} pts
-              </span>
-            </div>
-            <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center font-black text-cyan-300 text-sm overflow-hidden shadow-sm shrink-0">
-              {opponent?.avatarUrl ? (
-                <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
-              ) : (
-                opponent?.displayName?.charAt(0).toUpperCase() || 'O'
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* CENTER ARENA: SELF TICKET + BALL CALLER */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* LEFT: MY TICKET & MY PROGRESS (ONLY SELF TICKET) */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="rounded-3xl bg-[#140f22]/90 border border-white/15 shadow-2xl backdrop-blur-2xl p-4 sm:p-6 transition-all">
-              <BingoTicket
-                ticket={myTicket}
-                mode={roomConfig.mode}
-                playerName={me?.displayName || 'You'}
-                avatarUrl={me?.avatarUrl}
-                score={myScore}
-                isHost={isHost}
-                isMe={true}
-                calledNumbers={gameState?.calledNumbers || []}
-                markedNumbers={myMarked}
-                onToggleMark={(n) => markBingoNumber(n)}
-                accentColor="rose"
-              />
-            </div>
-
-            <WinningProgress
-              progress={myProgress}
-              playerName={me?.displayName || 'You'}
-            />
-          </div>
-
-          {/* RIGHT: BALL CALLER + CLAIM BUTTON + EMOJIS */}
-          <div className="lg:col-span-5 flex flex-col items-center space-y-5">
-            <div className="w-full rounded-3xl bg-[#140f22]/90 border border-white/15 shadow-2xl backdrop-blur-2xl p-5 sm:p-6 flex flex-col items-center">
-              <BingoCaller
-                currentNumber={currentNum}
-                currentNumberWord={currentWord}
-                lastCalledNumbers={lastCalled}
-                remainingCount={remaining}
-                totalNumbers={roomConfig.mode === '75-ball' ? 75 : 90}
-                isAutoCall={roomConfig.autoCall}
-                callingSpeed={roomConfig.callingSpeed}
-                isHost={isHost}
-                onCallNext={callNextBingoNumber}
-              />
-
-              {/* Big Glowing Claim Bingo Button */}
-              <div className="w-full pt-4 flex justify-center">
-                <ClaimBingoButton
-                  conditionProgress={myProgress}
-                  claimedConditions={gameState?.claimedConditions || {}}
-                  onClaim={(c) => claimBingo(c)}
-                  penaltyUntil={gameState?.penaltyUntil?.[me?.userId || '']}
-                  lastClaimResult={lastBingoClaimResult}
-                />
-              </div>
-            </div>
-
-            {/* Quick Emoji Reactions Bar */}
-            <div className="w-full p-3 rounded-2xl bg-[#140f22]/80 border border-white/10 backdrop-blur-xl shadow-lg flex items-center justify-between gap-1 overflow-x-auto">
-              {QUICK_REACTION_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => sendReaction(emoji)}
-                  className="p-1.5 text-lg hover:scale-130 transition transform active:scale-95 cursor-pointer"
-                  title={`Send ${emoji}`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Bottom Social Controls Dock */}
-        <div className="pt-2 pb-2">
-          <BingoBottomDock
-            isMuted={isMicMuted}
-            isCameraOn={isCameraOn}
-            unreadChatCount={chatMessages.length}
-            onToggleMic={toggleMic}
-            onToggleCamera={toggleCamera}
-            onToggleChat={() => setIsChatOpen(!isChatOpen)}
-            onSendReaction={(emoji) => sendReaction(emoji)}
-            onOpenSettings={() => setShowSettingsModal(true)}
+        {/* 2. Player Duel Status Header: You vs Opponent */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <BingoPlayerDuelCard
+            displayName={me?.displayName || 'You'}
+            avatarUrl={me?.avatarUrl}
+            userId={effectiveUserId}
+            isMe={true}
+            marksCount={myMarks.length}
+            progress={myProgress}
+            roundsWon={myWins}
+            targetRounds={gameState?.targetRounds || 1}
+            isHost={isHost}
+          />
+          <BingoPlayerDuelCard
+            displayName={opponent?.displayName || 'Opponent'}
+            avatarUrl={opponent?.avatarUrl}
+            userId={opponentUserId}
+            isMe={false}
+            marksCount={opponentMarks.length}
+            progress={opponentProgress}
+            roundsWon={opponentWins}
+            targetRounds={gameState?.targetRounds || 1}
+            isHost={!isHost}
           />
         </div>
 
+        {/* 3. Authoritative 5x5 Bingo Board */}
+        <div className="my-auto py-2">
+          {myBoard.length > 0 ? (
+            <BingoDuelBoard
+              board={myBoard}
+              playerMarks={myMarks}
+              calledNumbers={gameState?.calledNumbers || []}
+              winningIndices={winningIndices}
+              onCellClick={(num) => markBingoNumber(num)}
+              disabled={isFinished || isRoundOver}
+            />
+          ) : (
+            <div className="text-center p-8 bg-slate-900/50 rounded-3xl border border-white/10">
+              <span className="text-sm text-slate-400">Loading your 5×5 duel board...</span>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Action Claim Button */}
+        <div className="pt-2">
+          <BingoDuelClaimButton
+            onClaim={() => claimBingo('bingo')}
+            isCompleted={Boolean(myProgress?.isCompleted)}
+            penaltySeconds={penaltySeconds}
+            patternName={myProgress?.completedPatternName || duelConfig.pattern}
+            disabled={isFinished || isRoundOver}
+          />
+        </div>
       </main>
 
-      {/* Side Chat Drawer */}
+      {/* Claim Toast Feedback */}
+      {claimToast && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 duration-200">
+          <div
+            className={`px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 border font-bold text-xs sm:text-sm backdrop-blur-xl ${
+              claimToast.valid
+                ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200'
+                : 'bg-rose-950/90 border-rose-500/50 text-rose-200'
+            }`}
+          >
+            {claimToast.valid ? (
+              <Check className="w-4 h-4 text-emerald-400" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+            )}
+            <span>{claimToast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Floating WebRTC PIP Call Window (Draggable) */}
+      {!isPipClosed && pipPosition && (
+        <div
+          ref={dragStartRef as any}
+          style={{ transform: `translate3d(${pipPosition.x}px, ${pipPosition.y}px, 0)` }}
+          className={`fixed top-0 left-0 z-40 transition-shadow ${
+            isDraggingPip ? 'cursor-grabbing shadow-2xl' : 'cursor-grab'
+          }`}
+        >
+          <div className="bg-[#0b0d17]/95 border border-indigo-500/30 rounded-2xl p-2 backdrop-blur-xl shadow-2xl w-48 sm:w-56">
+            {/* Header / Drag Handle */}
+            <div
+              onMouseDown={handlePipMouseDown}
+              onTouchStart={handlePipMouseDown}
+              className="flex items-center justify-between px-2 py-1 mb-1.5 border-b border-white/5 select-none"
+            >
+              <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-300">
+                <GripHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                <span>Call Window</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setIsPipMinimized(p => !p)}
+                  className="p-0.5 hover:text-white text-slate-400"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPipClosed(true)}
+                  className="p-0.5 hover:text-white text-slate-400"
+                >
+                  <CloseIcon className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* Video Streams */}
+            {!isPipMinimized && (
+              <div className="grid grid-cols-2 gap-1.5">
+                {callParticipants.slice(0, 2).map(p => (
+                  <div key={p.userId} className="relative aspect-video rounded-xl overflow-hidden bg-black/60 border border-white/5">
+                    {p.stream && p.isCameraOn ? (
+                      <video
+                        ref={v => {
+                          if (v && p.stream && v.srcObject !== p.stream) {
+                            v.srcObject = p.stream;
+                          }
+                        }}
+                        autoPlay
+                        playsInline
+                        muted={p.isSelf}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 p-1">
+                        <img
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.userId}`}
+                          alt={p.displayName}
+                          className="w-7 h-7 rounded-full object-cover border border-white/20"
+                        />
+                        <span className="text-[9px] text-slate-400 truncate max-w-[60px] mt-1 font-semibold">
+                          {p.displayName}
+                        </span>
+                      </div>
+                    )}
+                    {p.isMuted && (
+                      <div className="absolute bottom-1 right-1 p-0.5 rounded-full bg-rose-500/80 text-white">
+                        <MicOff className="w-2.5 h-2.5" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Floating Control Dock */}
+      <footer className="relative z-30 pb-4 pt-2">
+        <BingoBottomDock
+          isMuted={isMicMuted}
+          isCameraOn={isCameraOn}
+          unreadChatCount={chatMessages.length}
+          onToggleMic={toggleMic}
+          onToggleCamera={toggleCamera}
+          onToggleChat={() => setIsChatOpen(p => !p)}
+          onSendReaction={sendReaction}
+          onOpenSettings={() => {}}
+        />
+      </footer>
+
+      {/* Chat Drawer */}
       <BingoChatDrawer
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
         messages={chatMessages}
         myUserId={effectiveUserId}
-        onSendMessage={(text) => sendChat(text)}
+        onSendMessage={sendChat}
       />
 
-      {/* Victory Celebration Modal */}
-      {isFinished && (
-        <BingoVictory
-          conditionWon={lastBingoConditionWon}
-          isHousefull={Boolean(gameState?.claimedConditions?.housefull)}
-          winnerDisplayName={gameState?.winnerDisplayName || gameState?.gameSummary?.winnerDisplayName || 'Winner'}
-          winnerUserId={gameState?.winnerUserId || ''}
-          myUserId={effectiveUserId}
-          finalScores={gameState?.scores || gameState?.gameSummary?.finalScores || {}}
-          roundsWon={gameState?.gameSummary?.roundsWon || []}
-          rematchStatus={rematchStatus}
+      {/* Round & Match Victory Modal */}
+      {(isRoundOver || isFinished) && gameState && (
+        <BingoDuelWinModal
+          isMatchOver={gameState.phase === 'FINISHED'}
+          isRoundOver={gameState.phase === 'ROUND_OVER'}
+          winnerDisplayName={
+            gameState.winnerDisplayName ||
+            lastBingoConditionWon?.displayName ||
+            'Player'
+          }
+          isWinnerMe={
+            (gameState.winnerUserId || lastBingoConditionWon?.userId) === effectiveUserId
+          }
+          currentRound={gameState.currentRound}
+          targetRounds={gameState.targetRounds}
+          myWins={myWins}
+          opponentWins={opponentWins}
+          roundHistory={gameState.roundHistory}
+          isHost={isHost}
+          onNextRound={startBingoNextRound}
           onRematch={rematch}
-          onBackToPlan={() => router.push('/plans')}
-          onBackToLobby={() => router.push('/games')}
+          onLeave={handleLeave}
+          rematchStatus={rematchStatus}
         />
       )}
 
       {/* Theme Selector Modal */}
       {showThemeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl p-6 bg-[#161220] border border-white/20 text-white shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-amber-300" />
-                <h3 className="font-bold text-base">Select Arena Theme</h3>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-slate-900 border border-white/10 rounded-3xl p-5 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Palette className="w-4 h-4 text-indigo-400" />
+                Select Board Theme
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowThemeModal(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition"
+                className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-white/10"
               >
-                <CloseIcon className="w-5 h-5" />
+                <CloseIcon className="w-4 h-4" />
               </button>
             </div>
-
-            <div className="grid grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto p-1">
-              {THEMES.map((theme) => (
-                <div
-                  key={theme.id}
+            <div className="grid grid-cols-2 gap-3">
+              {THEMES.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
                   onClick={() => {
-                    setActiveTheme(theme.id);
+                    setActiveTheme(t.id);
                     setShowThemeModal(false);
                   }}
-                  className={`group relative rounded-2xl overflow-hidden border p-3 cursor-pointer transition flex flex-col justify-between h-28 ${
-                    activeTheme === theme.id
-                      ? 'border-rose-500 ring-2 ring-rose-500/40'
-                      : 'border-white/15 hover:border-white/30'
+                  className={`p-3 rounded-2xl border text-left flex flex-col gap-2 transition ${
+                    activeTheme === t.id
+                      ? 'border-indigo-400 bg-indigo-500/20'
+                      : 'border-white/10 bg-white/5 hover:bg-white/10'
                   }`}
                 >
-                  <img
-                    src={theme.bgUrl}
-                    alt={theme.name}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
+                  <div
+                    className="w-full h-12 rounded-xl bg-cover bg-center border border-white/10"
+                    style={{ backgroundImage: `url(${t.bgUrl})` }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0e0c18] via-[#0e0c18]/60 to-transparent" />
-                  <div className="relative z-10 flex justify-end">
-                    {activeTheme === theme.id && (
-                      <span className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-white">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    )}
-                  </div>
-                  <span className="relative z-10 text-xs font-bold text-white leading-tight">
-                    {theme.name}
-                  </span>
-                </div>
+                  <span className="text-xs font-bold text-white truncate">{t.name}</span>
+                </button>
               ))}
             </div>
           </div>
         </div>
       )}
-
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <BingoRoomSettings
-          config={roomConfig}
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-          onSave={(cfg) => {
-            setRoomConfig(cfg);
-            updateBingoConfig(cfg);
-          }}
-          isHost={isHost}
-        />
-      )}
-
-      {/* Game History Modal */}
-      {showHistoryModal && (
-        <BingoGameHistory
-          isOpen={showHistoryModal}
-          onClose={() => setShowHistoryModal(false)}
-          winnerDisplayName={gameState?.winnerDisplayName}
-          finalScores={gameState?.scores}
-          roundsWon={gameState?.gameSummary?.roundsWon || Object.values(gameState?.claimedConditions || {}).map((c: any) => ({
-            condition: c.condition,
-            winnerName: c.claimedByDisplayName,
-            points: c.points
-          }))}
-          players={players.map(p => ({ userId: p.userId, displayName: p.displayName }))}
-        />
-      )}
     </div>
   );
 }
 
-export default function BingoPage() {
+export default function BingoDuelPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#080a12] flex flex-col items-center justify-center text-white space-y-3">
-          <div className="w-10 h-10 border-3 border-rose-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold text-zinc-400">Loading Bingo Duel...</span>
+        <div className="min-h-screen bg-[#070913] flex items-center justify-center text-white">
+          <div className="flex items-center gap-3">
+            <span className="w-3 h-3 rounded-full bg-indigo-500 animate-ping" />
+            <span className="text-sm font-bold text-slate-300">Loading Bingo Duel...</span>
+          </div>
         </div>
       }
     >
-      <BingoGameContent />
+      <BingoDuelGameContent />
     </Suspense>
   );
 }

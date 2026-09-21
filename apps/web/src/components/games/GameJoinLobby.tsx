@@ -30,7 +30,7 @@ import { AppSidebar } from '../layout/AppSidebar';
 import { GameFriendSelectorDrawer } from './GameFriendSelectorDrawer';
 
 export interface GameJoinLobbyProps {
-  gameType: 'bingo' | 'doodle-duel' | 'four-in-a-row' | 'tic-tac-toe' | 'ludo';
+  gameType: 'bingo' | 'doodle-duel' | 'four-in-a-row' | 'tic-tac-toe' | 'ludo' | 'tambola';
   eyebrow: string;
   titlePrimary: string;
   titleSecondary: string;

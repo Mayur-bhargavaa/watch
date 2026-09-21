@@ -24,9 +24,9 @@ export const BingoLobby: React.FC<{
       router.push('/login');
       return;
     }
-    const res = await createGameRoomWithPartner('bingo');
+    const res = await createGameRoomWithPartner('tambola');
     if (res?.room?.roomCode) {
-      router.push(`/games/bingo?room=${res.room.roomCode}`);
+      router.push(`/games/tambola?room=${res.room.roomCode}`);
     }
   };
 
@@ -157,11 +157,11 @@ export const BingoLobby: React.FC<{
 
   return (
     <GameJoinLobby
-      gameType="bingo"
-      eyebrow="MARK • CALL • CLAIM DUEL"
-      titlePrimary="Bingo"
-      titleSecondary="Duel"
-      description="Classic 90-ball Tambola & 75-ball Bingo with real-time server calling, synchronized tickets, and live reactions."
+      gameType="tambola"
+      eyebrow="CLASSIC SOCIAL HOUSIE"
+      titlePrimary="Tambola"
+      titleSecondary="Party"
+      description="Classic 90-ball Tambola & Housie with real-time server calling, synchronized 3×9 tickets, and live reactions."
       rightGraphic={rightGraphic}
       createModalOptions={createOptions}
       onCreateCustomRoom={handleCreateCustomBingoRoom}
