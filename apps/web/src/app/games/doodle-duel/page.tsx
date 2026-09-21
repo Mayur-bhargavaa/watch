@@ -23,7 +23,6 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
 import { VideoAvatar } from '../../../components/games/LudoGame';
-import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { getStoredSession, UserSession } from '../../../lib/api';
 import { DrawingCanvas } from '../../../components/games/doodle/DrawingCanvas';
 import { DrawingToolbar } from '../../../components/games/doodle/DrawingToolbar';
@@ -305,14 +304,7 @@ function DoodleDuelGameContent() {
   const isGuesserSpeaking = Boolean(guesserParticipant?.isSpeaking);
 
   if (!roomCodeParam) {
-    return (
-      <div className="flex w-screen h-screen overflow-hidden">
-        <AppSidebar activeNav="games" />
-        <div className="flex-1 overflow-y-auto">
-          <DoodlePreRoomLobby />
-        </div>
-      </div>
-    );
+    return <DoodlePreRoomLobby />;
   }
 
   return (
