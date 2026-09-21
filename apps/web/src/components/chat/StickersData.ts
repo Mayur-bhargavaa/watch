@@ -720,3 +720,8 @@ export function formatStickerMessage(stickerIdOrUrl: string, caption?: string): 
 export function formatDrawStickerMessage(svgPathsString: string, caption: string = 'HAND-DRAWN ✨'): string {
   return `[draw:${svgPathsString}|${caption}]`;
 }
+
+export function serializeStickerMessage(sticker: any): string {
+  if (typeof sticker === 'string') return sticker;
+  return formatStickerMessage(sticker?.id || sticker?.gifUrl || sticker?.name || '', sticker?.name);
+}

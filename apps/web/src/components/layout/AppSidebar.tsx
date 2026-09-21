@@ -13,7 +13,11 @@ import {
   Sun,
   Moon,
   LogOut,
-  X
+  X,
+  MessageCircle,
+  Home,
+  Bell,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -22,6 +26,7 @@ import {
   getFriendRequests,
   UserSession
 } from '../../lib/api';
+import { ChatStore } from '../../lib/chatStore';
 
 // Bitmoji avatar helper
 function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string {
@@ -36,13 +41,17 @@ function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string
 }
 
 export type SidebarNavItem =
+  | 'home'
   | 'dashboard'
   | 'watchlist'
   | 'friends'
   | 'plans'
   | 'rooms'
   | 'games'
-  | 'profile';
+  | 'chat'
+  | 'notifications'
+  | 'profile'
+  | 'settings';
 
 interface AppSidebarProps {
   activeNav?: SidebarNavItem;
@@ -100,6 +109,19 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   }, [incomingRequestsCount]);
 
 
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+
+  // Subscribe to ChatStore for unread messages badge and load existing friends
+  useEffect(() => {
+    const updateCount = () => {
+      setUnreadChatCount(ChatStore.getUnreadTotalCount());
+    };
+    updateCount();
+    ChatStore.syncWithExistingFriends();
+    const unsub = ChatStore.subscribe(updateCount);
+    return () => unsub();
+  }, []);
+
   // Sync if prop updates
   useEffect(() => {
     if (incomingRequestsCount !== undefined) {
@@ -110,18 +132,22 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   // Determine current active item
   const currentActive: SidebarNavItem =
     activeNav ||
-    (pathname === '/dashboard' || pathname === '/'
+    (pathname === '/'
+      ? 'home'
+      : pathname === '/dashboard'
       ? 'dashboard'
-      : pathname === '/watchlist'
-      ? 'watchlist'
+      : pathname.startsWith('/chat')
+      ? 'chat'
       : pathname === '/friends'
       ? 'friends'
       : pathname.startsWith('/plans')
       ? 'plans'
-      : pathname === '/rooms'
-      ? 'rooms'
       : pathname.startsWith('/games')
       ? 'games'
+      : pathname === '/watchlist'
+      ? 'watchlist'
+      : pathname === '/rooms'
+      ? 'rooms'
       : pathname === '/profile'
       ? 'profile'
       : 'dashboard');
@@ -165,165 +191,190 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           )}
         </div>
 
-        {/* Navigation Sections */}
-        <div className="space-y-6 pt-2">
-          {/* Section 1: MENU */}
-          <div className="space-y-1.5">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
-              Menu
-            </div>
+        {/* Main Navigation (Clean WhatsApp + Snapchat style) */}
+        <div className="space-y-1 pt-2">
+          {/* Home */}
+          <Link
+            href="/"
+            onClick={onMobileClose}
+            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+              currentActive === 'home'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <Home
+              className={`w-4 h-4 shrink-0 ${
+                currentActive === 'home'
+                  ? 'text-[#ee1d49]'
+                  : 'text-slate-400 dark:text-zinc-400'
+              }`}
+            />
+            <span>Home</span>
+          </Link>
 
-            {/* Browse Cinema */}
-            <Link
-              href="/dashboard"
-              onClick={onMobileClose}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+          {/* Browse Cinema */}
+          <Link
+            href="/dashboard"
+            onClick={onMobileClose}
+            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+              currentActive === 'dashboard'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <Film
+              className={`w-4 h-4 shrink-0 ${
                 currentActive === 'dashboard'
-                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
-                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+                  ? 'text-[#ee1d49]'
+                  : 'text-slate-400 dark:text-zinc-400'
               }`}
-            >
-              <Film
-                className={`w-4 h-4 shrink-0 ${
-                  currentActive === 'dashboard'
-                    ? 'text-[#ee1d49]'
-                    : 'text-slate-400 dark:text-zinc-400'
-                }`}
-              />
-              <span>Browse Cinema</span>
-            </Link>
+            />
+            <span>Browse Cinema</span>
+          </Link>
 
-            {/* Watchlist */}
-            <Link
-              href="/watchlist"
-              onClick={onMobileClose}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-                currentActive === 'watchlist'
-                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
-                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <Heart
+          {/* Friends */}
+          <Link
+            href="/friends"
+            onClick={onMobileClose}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+              currentActive === 'friends'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <Flame
                 className={`w-4 h-4 shrink-0 ${
-                  currentActive === 'watchlist'
+                  currentActive === 'friends'
                     ? 'text-[#ee1d49] fill-[#ee1d49]/20'
                     : 'text-slate-400 dark:text-zinc-400'
                 }`}
               />
-              <span>Watchlist</span>
-            </Link>
-          </div>
-
-          {/* Section 2: SOCIAL */}
-          <div className="space-y-1.5">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 px-3 mb-2">
-              Social
+              <span className="truncate whitespace-nowrap">Friends</span>
             </div>
-
-            {/* Friends & Streaks */}
-            <Link
-              href="/friends"
-              onClick={onMobileClose}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-                currentActive === 'friends'
-                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
-                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <div className="flex items-center space-x-3 min-w-0">
-                <Flame
-                  className={`w-4 h-4 shrink-0 ${
-                    currentActive === 'friends'
-                      ? 'text-[#ee1d49] fill-[#ee1d49]/20'
-                      : 'text-slate-400 dark:text-zinc-400'
-                  }`}
-                />
-                <span className="truncate whitespace-nowrap">Friends & Streaks</span>
-              </div>
-              {pendingRequests > 0 ? (
-                <span className="px-1.5 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none animate-pulse">
-                  {pendingRequests}
-                </span>
-              ) : (
-                <span className="text-sm shrink-0 leading-none pl-2">🔥</span>
-              )}
-            </Link>
-
-            {/* Plans */}
-            <Link
-              href="/plans"
-              onClick={onMobileClose}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-                currentActive === 'plans'
-                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
-                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <div className="flex items-center space-x-3 min-w-0">
-                <Calendar
-                  className={`w-4 h-4 shrink-0 ${
-                    currentActive === 'plans'
-                      ? 'text-[#ee1d49]'
-                      : 'text-slate-400 dark:text-zinc-400'
-                  }`}
-                />
-                <span className="truncate whitespace-nowrap">Plans</span>
-              </div>
-              <span className="text-[9px] bg-rose-500/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
-                NEW
+            {pendingRequests > 0 ? (
+              <span className="px-1.5 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none animate-pulse">
+                {pendingRequests}
               </span>
-            </Link>
+            ) : (
+              <span className="text-sm shrink-0 leading-none pl-2">🔥</span>
+            )}
+          </Link>
 
-            {/* My Rooms */}
-            <Link
-              href="/rooms"
-              onClick={onMobileClose}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-                currentActive === 'rooms'
-                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
-                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <Users
+          {/* Plans */}
+          <Link
+            href="/plans"
+            onClick={onMobileClose}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+              currentActive === 'plans'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <Calendar
                 className={`w-4 h-4 shrink-0 ${
-                  currentActive === 'rooms'
+                  currentActive === 'plans'
                     ? 'text-[#ee1d49]'
                     : 'text-slate-400 dark:text-zinc-400'
                 }`}
               />
-              <span>My Rooms</span>
-            </Link>
+              <span className="truncate whitespace-nowrap">Plans</span>
+            </div>
+            <span className="text-[9px] bg-rose-500/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
+              NEW
+            </span>
+          </Link>
 
-            {/* Game Lobby */}
-            <Link
-              href="/games"
-              onClick={onMobileClose}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-                currentActive === 'games'
-                  ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
-                  : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
-              }`}
-            >
-              <div className="flex items-center space-x-3 min-w-0">
-                <Gamepad2
-                  className={`w-4 h-4 shrink-0 ${
-                    currentActive === 'games'
-                      ? 'text-[#ee1d49]'
-                      : 'text-slate-400 dark:text-zinc-400'
-                  }`}
-                />
-                <span className="truncate whitespace-nowrap">Game Lobby</span>
-              </div>
-              <span className="text-[9px] bg-[#ee1d49]/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
-                PLAY
+          {/* Games */}
+          <Link
+            href="/games"
+            onClick={onMobileClose}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+              currentActive === 'games'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <Gamepad2
+                className={`w-4 h-4 shrink-0 ${
+                  currentActive === 'games'
+                    ? 'text-[#ee1d49]'
+                    : 'text-slate-400 dark:text-zinc-400'
+                }`}
+              />
+              <span className="truncate whitespace-nowrap">Games</span>
+            </div>
+            <span className="text-[9px] bg-[#ee1d49]/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
+              PLAY
+            </span>
+          </Link>
+
+          {/* Chat — FIRST-CLASS SOCIAL FEATURE */}
+          <Link
+            href="/chat"
+            onClick={onMobileClose}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+              currentActive === 'chat'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <div className="flex items-center space-x-3 min-w-0">
+              <MessageCircle
+                className={`w-4 h-4 shrink-0 ${
+                  currentActive === 'chat'
+                    ? 'text-[#ee1d49] fill-[#ee1d49]/20'
+                    : 'text-slate-400 dark:text-zinc-400'
+                }`}
+              />
+              <span className="truncate whitespace-nowrap font-bold">Chat</span>
+            </div>
+            {unreadChatCount > 0 ? (
+              <span className="px-2 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none shadow-sm shadow-[#ee1d49]/40 animate-pulse">
+                {unreadChatCount}
               </span>
-            </Link>
-          </div>
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Live chat active" />
+            )}
+          </Link>
         </div>
       </div>
 
-      {/* Sidebar Footer: Theme toggle & User profile card */}
-      <div className="space-y-4 pt-4 border-t border-slate-200/80 dark:border-white/[0.06]">
+      {/* Sidebar Footer: Notifications, Profile, Settings, & User card */}
+      <div className="space-y-3 pt-4 border-t border-slate-200/80 dark:border-white/[0.06]">
+        {/* Quick Links: Notifications, Settings */}
+        <div className="space-y-0.5">
+          <Link
+            href="/friends?tab=requests"
+            onClick={onMobileClose}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${
+              currentActive === 'notifications'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.06]'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-white/[0.03]'
+            }`}
+          >
+            <div className="flex items-center space-x-2.5">
+              <Bell className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
+              <span>Notifications</span>
+            </div>
+            {pendingRequests > 0 && (
+              <span className="w-2 h-2 rounded-full bg-[#ee1d49]" />
+            )}
+          </Link>
+
+          <Link
+            href="/profile"
+            onClick={onMobileClose}
+            className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-white/[0.03] transition cursor-pointer"
+          >
+            <SettingsIcon className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
+            <span>Settings</span>
+          </Link>
+        </div>
+
         {/* Light / Dark Mode toggle */}
         <button
           type="button"
