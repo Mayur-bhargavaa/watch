@@ -222,8 +222,8 @@ export default function GameLobbyPage() {
       game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       game.subtext.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
-    if (filterCategory === '2-players') return game.players.includes('2 Players');
-    if (filterCategory === 'party') return game.players.includes('2-4') || game.players.includes('2-6');
+    if (filterCategory === '2-players') return game.players.includes('2 Players') || game.category === 'duel';
+    if (filterCategory === 'party') return game.category === 'party' || game.players.includes('2-4') || game.players.includes('2–20') || game.players.includes('2-20') || game.players.includes('2-6');
     return true;
   });
 

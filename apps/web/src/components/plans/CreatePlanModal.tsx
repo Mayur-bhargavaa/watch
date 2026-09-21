@@ -102,6 +102,13 @@ const GAME_CATALOG = [
     url: '/games/bingo'
   },
   {
+    gameId: 'tambola',
+    title: 'Tambola',
+    icon: '🎟️',
+    players: '2-20 Players',
+    url: '/games/tambola'
+  },
+  {
     gameId: 'doodle-duel',
     title: 'Doodle Duel',
     icon: '🎨',

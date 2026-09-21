@@ -55,6 +55,30 @@ export const GAMES_CATALOG: GameItem[] = [
     description: 'Fast-paced 3x3 tactical duel. Place Xs and Os, block opponent lines, and claim victory with live audio/video reactions.'
   },
   {
+    id: 'bingo',
+    title: 'BINGO DUEL',
+    subtext: '1–25 Rapid Number Duel',
+    badge: '🔥 Live 2-Player',
+    badgeColor: 'bg-indigo-600 text-white shadow-indigo-600/30',
+    category: 'Pattern Duel',
+    players: '2 Players',
+    icon: '🎯',
+    artwork: '/images/card-bingo-duel.png',
+    description: 'Fast-paced 5x5 board using numbers 1 to 25. Complete your chosen pattern and shout Bingo before your opponent!'
+  },
+  {
+    id: 'tambola',
+    title: 'TAMBOLA',
+    subtext: 'Classic 90-Ball Housie',
+    badge: '🔥 Live Party',
+    badgeColor: 'bg-cyan-600 text-white shadow-cyan-600/30',
+    category: 'Social Party',
+    players: '2–20 Players',
+    icon: '🎟️',
+    artwork: '/images/card-bingo-duel.png',
+    description: 'Traditional 90-ball Housie with real-time automatic calling, synchronized 3x9 tickets, and multi-condition claims.'
+  },
+  {
     id: 'moduko',
     title: 'MODUKO',
     subtext: 'Logic & Sudoku Puzzles',
@@ -218,6 +242,14 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
     }
     if (game.id === 'tic-tac-toe' || game.id === 'tictactoe') {
       router.push('/games/tic-tac-toe');
+      return;
+    }
+    if (game.id === 'bingo') {
+      router.push('/games/bingo');
+      return;
+    }
+    if (game.id === 'tambola') {
+      router.push('/games/tambola');
       return;
     }
 
