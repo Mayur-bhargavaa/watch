@@ -22,4 +22,5 @@ __exportStar(require("./provider.js"), exports);
 __exportStar(require("./bingo.js"), exports);
 __exportStar(require("./bingoDuel.js"), exports);
 __exportStar(require("./doodle.js"), exports);
+__exportStar(require("./chess.js"), exports);
 //# sourceMappingURL=index.js.map

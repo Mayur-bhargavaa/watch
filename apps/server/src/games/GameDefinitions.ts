@@ -90,5 +90,17 @@ export const GAME_DEFINITIONS: Record<string, GameDefinition> = {
       3: ['red', 'blue', 'green'],
       4: ['red', 'blue', 'green', 'yellow']
     }
+  },
+  chess: {
+    id: 'chess',
+    name: 'Chess',
+    minPlayers: 2,
+    maxPlayers: 2,
+    playerOptions: [2],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'yellow'] // White & Black internally
+    }
   }
 };

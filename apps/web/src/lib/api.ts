@@ -573,6 +573,8 @@ export function getGameRoute(gameType?: string, roomCode?: string): string {
     basePath = '/games/four-in-a-row';
   } else if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) {
     basePath = '/games/doodle-duel';
+  } else if (lower.includes('chess') || code.startsWith('CHESS-')) {
+    basePath = '/games/chess';
   } else if (lower.includes('ludo') || code.startsWith('LUDO-')) {
     basePath = '/games/ludo';
   }
@@ -587,6 +589,7 @@ export function getGameTitle(gameType?: string, roomCode?: string): string {
   if (lower.includes('tic') || code.startsWith('TIC-')) return 'Tic-Tac-Toe';
   if (lower.includes('four') || lower.includes('connect') || code.startsWith('FOUR-')) return 'Four in a Row';
   if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) return 'Doodle Duel';
+  if (lower.includes('chess') || code.startsWith('CHESS-')) return 'Chess';
   return 'Ludo';
 }
 

@@ -17,6 +17,8 @@ import { TicTacToeEngine } from './TicTacToeEngine.js';
 import { BingoEngine, DEFAULT_BINGO_CONFIG } from './BingoEngine.js';
 import { BingoDuelEngine, DEFAULT_BINGO_DUEL_CONFIG } from './BingoDuelEngine.js';
 import { DoodleDuelEngine, DEFAULT_DOODLE_CONFIG, DOODLE_WORDS } from './DoodleDuelEngine.js';
+import { ChessEngine } from './ChessEngine.js';
+import { DEFAULT_CHESS_CONFIG, ChessGameState } from '@synccinema/common';
 
 interface ConnectedGameClient {
   socket: WebSocket;
@@ -46,6 +48,8 @@ export class GameRoomManager {
   private bingoTimers = new Map<string, NodeJS.Timeout>();
   // roomId -> doodle timer
   private doodleTimers = new Map<string, NodeJS.Timeout>();
+  // roomId -> chess clock ticker timer
+  private chessTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(db: DatabaseService) {
     this.db = db;
@@ -66,6 +70,8 @@ export class GameRoomManager {
       prefix = 'BINGO';
     } else if (gameType.toLowerCase().includes('doodle')) {
       prefix = 'DOODLE';
+    } else if (gameType.toLowerCase().includes('chess')) {
+      prefix = 'CHESS';
     } else {
       prefix = gameType.toUpperCase();
     }
@@ -226,7 +232,7 @@ export class GameRoomManager {
 
     // Check if room is now full of real human players
     if (room.players.length === room.maxPlayers) {
-      if (room.gameType === 'bingo' || room.gameType === 'doodle-duel') {
+      if (room.gameType === 'bingo' || room.gameType === 'doodle-duel' || room.gameType === 'chess') {
         if (room.gameType === 'doodle-duel' && !room.gameState) {
           const playerConfigs = room.players.map(p => ({
             userId: p.userId,
@@ -303,6 +309,17 @@ export class GameRoomManager {
       this.stopDoodleTimer(room.id);
       const config = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
       initialState = DoodleDuelEngine.createInitialState(playerConfigs, config);
+    } else if (room.gameType === 'chess') {
+      this.stopChessClock(room.id);
+      const config = (room as any).chessConfig || DEFAULT_CHESS_CONFIG;
+      const p1 = playerConfigs[0];
+      const p2 = playerConfigs[1];
+      initialState = ChessEngine.initGameState(
+        room.id,
+        { id: p1.userId, displayName: p1.displayName },
+        { id: p2.userId, displayName: p2.displayName },
+        config
+      );
     } else {
       initialState = LudoEngine.createInitialState(playerConfigs, room.maxPlayers as any);
     }
@@ -336,6 +353,8 @@ export class GameRoomManager {
       }
     } else if (room.gameType === 'tambola' && initialState.config?.autoCall) {
       this.startBingoAutoCall(room.id, initialState.config.callingSpeed);
+    } else if (room.gameType === 'chess') {
+      this.startChessClock(room.id);
     }
   }
 
@@ -1445,6 +1464,273 @@ export class GameRoomManager {
     });
   }
 
+  // =========================================================================
+  // CHESS MULTIPLAYER ENGINE INTEGRATION & CLOCK TICKERS
+  // =========================================================================
+
+  public startChessClock(roomId: string): void {
+    this.stopChessClock(roomId);
+
+    const timer = setInterval(() => {
+      const room = this.db.getGameRoomById(roomId);
+      if (!room || room.status !== 'PLAYING' || !room.gameState || room.gameType !== 'chess') {
+        this.stopChessClock(roomId);
+        return;
+      }
+
+      const state = room.gameState as ChessGameState;
+      if (state.status !== 'ACTIVE' && state.status !== 'CHECK') {
+        this.stopChessClock(roomId);
+        return;
+      }
+
+      const activeColor = state.turn;
+      const activePlayer = activeColor === 'w' ? state.whitePlayer : state.blackPlayer;
+      activePlayer.timeRemainingMs = Math.max(0, activePlayer.timeRemainingMs - 1000);
+
+      if (activePlayer.timeRemainingMs <= 0) {
+        const res = ChessEngine.handleTimeout(state, activeColor);
+        room.gameState = res.state;
+        this.stopChessClock(roomId);
+        const now = new Date().toISOString();
+        this.db.updateGameRoomStatus(roomId, 'FINISHED', undefined, now);
+        this.db.updateGameRoomState(roomId, res.state);
+
+        this.broadcast(roomId, {
+          type: 'chess:game_over',
+          roomId,
+          payload: {
+            gameState: res.state,
+            winnerUserId: res.state.winnerUserId,
+            winnerColor: res.state.winnerColor,
+            reason: res.state.winnerReason
+          }
+        });
+      } else {
+        // Broadcast periodic clock tick
+        this.broadcast(roomId, {
+          type: 'chess:clock_tick',
+          roomId,
+          payload: {
+            whiteTimeMs: state.whitePlayer.timeRemainingMs,
+            blackTimeMs: state.blackPlayer.timeRemainingMs,
+            turn: state.turn
+          }
+        });
+      }
+    }, 1000);
+
+    this.chessTimers.set(roomId, timer);
+  }
+
+  public stopChessClock(roomId: string): void {
+    const timer = this.chessTimers.get(roomId);
+    if (timer) {
+      clearInterval(timer);
+      this.chessTimers.delete(roomId);
+    }
+  }
+
+  public handleChessStart(roomId: string, userId: string, config?: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.players.length < 2) return;
+    if (room.hostUserId !== userId) return;
+
+    this.stopChessClock(roomId);
+    const chessConfig = config || (room as any).chessConfig || DEFAULT_CHESS_CONFIG;
+    const p1 = room.players[0];
+    const p2 = room.players[1];
+
+    const state = ChessEngine.initGameState(
+      roomId,
+      { id: p1.userId, displayName: p1.displayName, avatarUrl: p1.avatarUrl },
+      { id: p2.userId, displayName: p2.displayName, avatarUrl: p2.avatarUrl },
+      chessConfig
+    );
+
+    const now = new Date().toISOString();
+    this.db.updateGameRoomStatus(roomId, 'PLAYING', now);
+    this.db.updateGameRoomState(roomId, state);
+
+    room.status = 'PLAYING';
+    room.gameState = state;
+    room.startedAt = now;
+
+    this.startChessClock(roomId);
+
+    this.broadcast(roomId, {
+      type: 'chess:started',
+      roomId,
+      payload: { room, gameState: state, message: 'Chess match started! White to move.' }
+    });
+  }
+
+  public handleChessMove(roomId: string, userId: string, from: string, to: string, promotion?: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.status !== 'PLAYING' || !room.gameState || room.gameType !== 'chess') return;
+
+    const res = ChessEngine.makeMove(room.gameState as ChessGameState, userId, from, to, promotion);
+    if (!res.success) {
+      const client = this.userClients.get(userId);
+      if (client) {
+        client.socket.send(JSON.stringify({
+          type: 'chess:move_rejected',
+          roomId,
+          payload: { message: res.message }
+        }));
+      }
+      return;
+    }
+
+    room.gameState = res.state;
+    this.db.updateGameRoomState(roomId, res.state);
+
+    if (res.state.status === 'CHECKMATE' || res.state.status === 'STALEMATE' || res.state.status === 'DRAW' || res.state.status === 'TIMEOUT') {
+      this.stopChessClock(roomId);
+      const now = new Date().toISOString();
+      this.db.updateGameRoomStatus(roomId, 'FINISHED', undefined, now);
+      this.broadcast(roomId, {
+        type: 'chess:game_over',
+        roomId,
+        payload: {
+          gameState: res.state,
+          winnerUserId: res.state.winnerUserId,
+          winnerColor: res.state.winnerColor,
+          reason: res.state.winnerReason
+        }
+      });
+    }
+
+    this.broadcast(roomId, {
+      type: 'chess:move_accepted',
+      roomId,
+      payload: {
+        move: res.move,
+        gameState: res.state
+      }
+    });
+  }
+
+  public handleChessResign(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'chess') return;
+
+    const nextState = ChessEngine.resign(room.gameState as ChessGameState, userId);
+    room.gameState = nextState;
+    this.stopChessClock(roomId);
+    const now = new Date().toISOString();
+    this.db.updateGameRoomStatus(roomId, 'FINISHED', undefined, now);
+    this.db.updateGameRoomState(roomId, nextState);
+
+    this.broadcast(roomId, {
+      type: 'chess:game_over',
+      roomId,
+      payload: {
+        gameState: nextState,
+        winnerUserId: nextState.winnerUserId,
+        winnerColor: nextState.winnerColor,
+        reason: 'Resignation'
+      }
+    });
+  }
+
+  public handleChessOfferDraw(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'chess') return;
+
+    const res = ChessEngine.offerDraw(room.gameState as ChessGameState, userId);
+    if (res.success) {
+      this.db.updateGameRoomState(roomId, res.state);
+      this.broadcast(roomId, {
+        type: 'chess:draw_offered',
+        roomId,
+        payload: {
+          fromUserId: userId,
+          fromDisplayName: userId === res.state.whitePlayer.userId ? res.state.whitePlayer.displayName : res.state.blackPlayer.displayName
+        }
+      });
+    }
+  }
+
+  public handleChessDrawResponse(roomId: string, userId: string, accept: boolean): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'chess') return;
+
+    const nextState = ChessEngine.respondDraw(room.gameState as ChessGameState, userId, accept);
+    room.gameState = nextState;
+    this.db.updateGameRoomState(roomId, nextState);
+
+    if (accept) {
+      this.stopChessClock(roomId);
+      const now = new Date().toISOString();
+      this.db.updateGameRoomStatus(roomId, 'FINISHED', undefined, now);
+      this.broadcast(roomId, {
+        type: 'chess:game_over',
+        roomId,
+        payload: {
+          gameState: nextState,
+          drawReason: 'agreement',
+          reason: 'Mutual Agreement'
+        }
+      });
+    } else {
+      this.broadcast(roomId, {
+        type: 'chess:draw_declined',
+        roomId,
+        payload: { userId }
+      });
+    }
+  }
+
+  public handleChessRequestTakeback(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'chess') return;
+
+    const res = ChessEngine.requestTakeback(room.gameState as ChessGameState, userId);
+    if (res.success) {
+      this.db.updateGameRoomState(roomId, res.state);
+      this.broadcast(roomId, {
+        type: 'chess:takeback_requested',
+        roomId,
+        payload: {
+          fromUserId: userId,
+          fromDisplayName: userId === res.state.whitePlayer.userId ? res.state.whitePlayer.displayName : res.state.blackPlayer.displayName
+        }
+      });
+    }
+  }
+
+  public handleChessTakebackResponse(roomId: string, userId: string, accept: boolean): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'chess') return;
+
+    const nextState = ChessEngine.respondTakeback(room.gameState as ChessGameState, userId, accept);
+    room.gameState = nextState;
+    this.db.updateGameRoomState(roomId, nextState);
+
+    this.broadcast(roomId, {
+      type: 'chess:takeback_responded',
+      roomId,
+      payload: { accept, gameState: nextState }
+    });
+  }
+
+  public handleChessConfigUpdate(roomId: string, userId: string, config: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.hostUserId !== userId) return;
+
+    (room as any).chessConfig = { ...((room as any).chessConfig || DEFAULT_CHESS_CONFIG), ...config };
+    if (room.gameState) {
+      room.gameState.config = { ...room.gameState.config, ...config };
+      this.db.updateGameRoomState(roomId, room.gameState);
+    }
+
+    this.broadcast(roomId, {
+      type: 'chess:config_updated',
+      roomId,
+      payload: { config: (room as any).chessConfig, gameState: room.gameState }
+    });
+  }
 
   /**
    * Registers a WebSocket connection to a game room
@@ -1671,6 +1957,38 @@ export class GameRoomManager {
         this.handleDoodleConfigUpdate(client.roomId, client.userId, msg.payload?.config);
         break;
 
+      case 'chess:start':
+        this.handleChessStart(client.roomId, client.userId, msg.payload?.config);
+        break;
+
+      case 'chess:move':
+        this.handleChessMove(client.roomId, client.userId, msg.payload?.from, msg.payload?.to, msg.payload?.promotion);
+        break;
+
+      case 'chess:resign':
+        this.handleChessResign(client.roomId, client.userId);
+        break;
+
+      case 'chess:offer_draw':
+        this.handleChessOfferDraw(client.roomId, client.userId);
+        break;
+
+      case 'chess:draw_response':
+        this.handleChessDrawResponse(client.roomId, client.userId, Boolean(msg.payload?.accept));
+        break;
+
+      case 'chess:request_takeback':
+        this.handleChessRequestTakeback(client.roomId, client.userId);
+        break;
+
+      case 'chess:takeback_response':
+        this.handleChessTakebackResponse(client.roomId, client.userId, Boolean(msg.payload?.accept));
+        break;
+
+      case 'chess:config_update':
+        this.handleChessConfigUpdate(client.roomId, client.userId, msg.payload?.config);
+        break;
+
       case 'game:chat': {
         const now = Date.now();
         if (client.lastChatMessageTime && now - client.lastChatMessageTime < 350) {
@@ -1864,6 +2182,15 @@ export class GameRoomManager {
           room.gameState.winnerDisplayName = winner.displayName;
           room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
           this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
+        } else if (room.gameType === 'chess' && room.gameState) {
+          this.stopChessClock(room.id);
+          room.gameState.status = 'ABANDONED';
+          room.gameState.winnerUserId = winner.userId;
+          room.gameState.winnerDisplayName = winner.displayName;
+          room.gameState.winnerColor = winner.userId === room.gameState.whitePlayer.userId ? 'w' : 'b';
+          room.gameState.winnerReason = 'Opponent Left';
+          room.gameState.statusMessage = `${client.displayName} left the game. You win! 🏆`;
+          this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
         }
       }
     }
@@ -1958,6 +2285,15 @@ export class GameRoomManager {
             room.gameState.winnerUserId = winner.userId;
             room.gameState.winnerDisplayName = winner.displayName;
             room.gameState.statusMessage = `${client.displayName} left the game. You are the winner! 🏆`;
+            this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
+          } else if (room.gameType === 'chess' && room.gameState) {
+            this.stopChessClock(room.id);
+            room.gameState.status = 'ABANDONED';
+            room.gameState.winnerUserId = winner.userId;
+            room.gameState.winnerDisplayName = winner.displayName;
+            room.gameState.winnerColor = winner.userId === room.gameState.whitePlayer.userId ? 'w' : 'b';
+            room.gameState.winnerReason = 'Opponent Left';
+            room.gameState.statusMessage = `${client.displayName} left the game. You win! 🏆`;
             this.db.updateGameRoomState(room.id, room.gameState, 0, winner.seat);
           }
 

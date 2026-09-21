@@ -147,6 +147,11 @@ export function useGameRoom(roomCode: string | null) {
   const [lastBingoConditionWon, setLastBingoConditionWon] = useState<any | null>(null);
   const [lastDoodleStroke, setLastDoodleStroke] = useState<DoodleStroke | null>(null);
   const [lastDoodleGuess, setLastDoodleGuess] = useState<DoodleGuess | null>(null);
+  const [lastChessMove, setLastChessMove] = useState<any | null>(null);
+  const [chessMoveError, setChessMoveError] = useState<string | null>(null);
+  const [chessDrawOffer, setChessDrawOffer] = useState<{ fromUserId: string; fromDisplayName: string } | null>(null);
+  const [chessTakebackRequest, setChessTakebackRequest] = useState<{ fromUserId: string; fromDisplayName: string } | null>(null);
+  const [chessClockTick, setChessClockTick] = useState<{ whiteTimeMs: number; blackTimeMs: number; turn: 'w' | 'b' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<{
     userId: string;
@@ -798,6 +803,73 @@ export function useGameRoom(roomCode: string | null) {
         break;
       }
 
+      case 'chess:started': {
+        const { room: updatedRoom, gameState: nextState } = msg.payload || {};
+        if (updatedRoom) setRoom(updatedRoom);
+        if (nextState) setGameState(nextState);
+        break;
+      }
+
+      case 'chess:move_accepted': {
+        const { move, gameState: nextState } = msg.payload || {};
+        if (move) setLastChessMove(move);
+        if (nextState) setGameState(nextState);
+        setChessMoveError(null);
+        break;
+      }
+
+      case 'chess:move_rejected': {
+        setChessMoveError(msg.payload?.message || 'Illegal move');
+        break;
+      }
+
+      case 'chess:game_over': {
+        const { gameState: nextState } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        setRoom(prev => prev ? { ...prev, status: 'FINISHED', gameState: nextState } : prev);
+        break;
+      }
+
+      case 'chess:clock_tick': {
+        setChessClockTick(msg.payload);
+        setGameState((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            whitePlayer: { ...prev.whitePlayer, timeRemainingMs: msg.payload.whiteTimeMs },
+            blackPlayer: { ...prev.blackPlayer, timeRemainingMs: msg.payload.blackTimeMs },
+            turn: msg.payload.turn
+          };
+        });
+        break;
+      }
+
+      case 'chess:draw_offered': {
+        setChessDrawOffer(msg.payload);
+        break;
+      }
+
+      case 'chess:draw_declined': {
+        setChessDrawOffer(null);
+        break;
+      }
+
+      case 'chess:takeback_requested': {
+        setChessTakebackRequest(msg.payload);
+        break;
+      }
+
+      case 'chess:takeback_responded': {
+        setChessTakebackRequest(null);
+        if (msg.payload?.gameState) setGameState(msg.payload.gameState);
+        break;
+      }
+
+      case 'chess:config_updated': {
+        if (msg.payload?.gameState) setGameState(msg.payload.gameState);
+        break;
+      }
+
       case 'game:chat_message': {
         const chat = msg.payload;
         if (!chat) break;
@@ -1287,6 +1359,88 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const startChessGame = useCallback((config?: any) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:start',
+        payload: { config }
+      })
+    );
+  }, []);
+
+  const makeChessMove = useCallback((from: string, to: string, promotion?: 'q' | 'r' | 'b' | 'n') => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:move',
+        payload: { from, to, promotion }
+      })
+    );
+  }, []);
+
+  const resignChess = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:resign',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const offerChessDraw = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:offer_draw',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const respondChessDraw = useCallback((accept: boolean) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:draw_response',
+        payload: { accept }
+      })
+    );
+    setChessDrawOffer(null);
+  }, []);
+
+  const requestChessTakeback = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:request_takeback',
+        payload: {}
+      })
+    );
+  }, []);
+
+  const respondChessTakeback = useCallback((accept: boolean) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:takeback_response',
+        payload: { accept }
+      })
+    );
+    setChessTakebackRequest(null);
+  }, []);
+
+  const updateChessConfig = useCallback((config: any) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chess:config_update',
+        payload: { config }
+      })
+    );
+  }, []);
+
   // Periodic cleanup of stale typing indicators (> 3.5s)
   useEffect(() => {
     const timer = setInterval(() => {
@@ -1357,6 +1511,20 @@ export function useGameRoom(roomCode: string | null) {
     sendDoodleGuess,
     requestDoodleHint,
     updateDoodleConfig,
+    lastChessMove,
+    chessMoveError,
+    clearChessMoveError: () => setChessMoveError(null),
+    chessDrawOffer,
+    chessTakebackRequest,
+    chessClockTick,
+    startChessGame,
+    makeChessMove,
+    resignChess,
+    offerChessDraw,
+    respondChessDraw,
+    requestChessTakeback,
+    respondChessTakeback,
+    updateChessConfig,
     sendChat,
     sendReaction,
     sendNudge,

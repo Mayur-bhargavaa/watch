@@ -220,7 +220,7 @@ export interface LudoGameState {
     statusMessage: string;
     consecutiveSixes: number;
 }
-export type GameType = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'bingo' | 'doodle-duel' | 'tambola';
+export type GameType = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'bingo' | 'doodle-duel' | 'tambola' | 'chess';
 export type FourInARowDisc = 'R' | 'Y' | null;
 export interface FourInARowGameState {
     board: FourInARowDisc[][];

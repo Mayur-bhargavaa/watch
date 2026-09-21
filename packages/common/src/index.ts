@@ -6,3 +6,4 @@ export * from './provider.js';
 export * from './bingo.js';
 export * from './bingoDuel.js';
 export * from './doodle.js';
+export * from './chess.js';

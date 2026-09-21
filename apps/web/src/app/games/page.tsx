@@ -120,15 +120,15 @@ const GAMES_DATA: GameCardData[] = [
     isComingSoon: true
   },
   {
-    id: 'chess-arena',
-    title: 'Chess Arena',
-    subtext: 'Tactical Mind Duel & Fast Clocks.',
+    id: 'chess',
+    title: 'Chess',
+    subtext: 'Classic 2-player strategy. Standard 8×8 rules.',
     players: '2 Players',
-    gradient: 'from-[#475569] via-[#334155] to-[#0f172a]',
+    gradient: 'from-[#b45309] via-[#78350f] to-[#1c1917]',
     image: '/images/card-chess-arena.png',
+    route: '/games/chess',
     watermark: 'crown',
-    category: 'duel',
-    isComingSoon: true
+    category: 'duel'
   },
   {
     id: 'co-op-sketch',
