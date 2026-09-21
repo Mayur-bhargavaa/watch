@@ -61,62 +61,71 @@ export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
         </div>
       )}
 
-      {/* Dock Bar */}
+      {/* Dock Bar matching Mockup: Rounded-full pill dock with vertical layout: icon + text label */}
       <div
-        className={`flex items-center gap-2 backdrop-blur-lg px-4 py-2 rounded-full border shadow-2xl transition-colors ${
+        className={`flex items-center gap-1 sm:gap-2 backdrop-blur-xl px-5 py-2 rounded-full border shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-colors ${
           isDark
-            ? 'bg-[#0e101a]/90 border-white/10 text-zinc-300'
-            : 'bg-white/95 border-slate-200 text-slate-700 shadow-xl'
+            ? 'bg-[#111625]/90 border-white/10 text-zinc-300'
+            : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-slate-100'
         }`}
       >
         {/* Mic Toggle */}
         <button
           type="button"
           onClick={onToggleMic}
-          className={`p-2.5 rounded-full transition active:scale-95 ${
-            isMuted
-              ? 'bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 ring-1 ring-rose-500/40'
-              : isDark
-              ? 'bg-white/10 text-emerald-400 hover:bg-white/15'
-              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'
-          }`}
+          className="flex flex-col items-center justify-center px-2.5 py-1 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition active:scale-95 group"
           title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
         >
-          {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          <div
+            className={`w-9 h-9 rounded-2xl flex items-center justify-center transition ${
+              isMuted
+                ? 'bg-rose-50 text-rose-500 dark:bg-rose-500/20'
+                : 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-200'
+            }`}
+          >
+            {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </div>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+            Mic
+          </span>
         </button>
 
         {/* Camera Toggle */}
         <button
           type="button"
           onClick={onToggleCamera}
-          className={`p-2.5 rounded-full transition active:scale-95 ${
-            !isCameraOn
-              ? 'bg-rose-500/20 text-rose-500 hover:bg-rose-500/30 ring-1 ring-rose-500/40'
-              : isDark
-              ? 'bg-white/10 text-emerald-400 hover:bg-white/15'
-              : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'
-          }`}
+          className="flex flex-col items-center justify-center px-2.5 py-1 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition active:scale-95 group"
           title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
         >
-          {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+          <div
+            className={`w-9 h-9 rounded-2xl flex items-center justify-center transition ${
+              !isCameraOn
+                ? 'bg-rose-50 text-rose-500 dark:bg-rose-500/20'
+                : 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-200'
+            }`}
+          >
+            {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+          </div>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+            Camera
+          </span>
         </button>
-
-        <div className={`w-[1px] h-5 mx-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
 
         {/* Chat Drawer Toggle */}
         <button
           type="button"
           onClick={onToggleChat}
-          className={`relative p-2.5 rounded-full transition active:scale-95 ${
-            isDark
-              ? 'bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900'
-          }`}
+          className="relative flex flex-col items-center justify-center px-2.5 py-1 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition active:scale-95 group"
           title="Open Chat"
         >
-          <MessageCircle className="w-4 h-4" />
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-200 transition">
+            <MessageCircle className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+            Chat
+          </span>
           {unreadChatCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow">
+            <span className="absolute top-1 right-2 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[8px] font-bold flex items-center justify-center">
               {unreadChatCount}
             </span>
           )}
@@ -126,45 +135,31 @@ export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
         <button
           type="button"
           onClick={() => setShowReactions(!showReactions)}
-          className={`p-2.5 rounded-full transition active:scale-95 ${
-            showReactions
-              ? 'bg-rose-500/20 text-rose-500'
-              : isDark
-              ? 'bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900'
-          }`}
+          className="flex flex-col items-center justify-center px-2.5 py-1 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition active:scale-95 group"
           title="Send Reaction"
         >
-          <Smile className="w-4 h-4" />
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-200 transition">
+            <Smile className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+            Reactions
+          </span>
         </button>
 
-        <div className={`w-[1px] h-5 mx-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
-
-        {/* Room Settings */}
+        {/* More / Settings */}
         <button
           type="button"
           onClick={onOpenSettings}
-          className={`p-2.5 rounded-full transition active:scale-95 ${
-            isDark
-              ? 'bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900'
-          }`}
+          className="flex flex-col items-center justify-center px-2.5 py-1 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/5 transition active:scale-95 group"
           title="Room Settings & Themes"
         >
-          <Settings className="w-4 h-4" />
+          <div className="w-9 h-9 rounded-2xl flex items-center justify-center bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-200 transition">
+            <Settings className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-1">
+            More
+          </span>
         </button>
-
-        {/* Leave */}
-        {onLeave && (
-          <button
-            type="button"
-            onClick={onLeave}
-            className="p-2.5 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 transition active:scale-95"
-            title="Leave Game"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        )}
       </div>
     </div>
   );

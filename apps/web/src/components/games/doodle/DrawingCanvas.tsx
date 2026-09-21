@@ -10,10 +10,15 @@ interface DrawingCanvasProps {
   currentColor: string;
   currentBrushSize: number;
   onStrokeComplete?: (stroke: DoodleStroke) => void;
+  onUndo?: () => void;
+  onClear?: () => void;
+  canUndo?: boolean;
   disabled?: boolean;
+  isDark?: boolean;
 }
 
-const CANVAS_BG_COLOR = '#0c101c';
+const CANVAS_BG_LIGHT = '#FFFFFF';
+const CANVAS_BG_DARK = '#141927';
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   isDrawer,
@@ -22,7 +27,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   currentColor,
   currentBrushSize,
   onStrokeComplete,
-  disabled = false
+  onUndo,
+  onClear,
+  canUndo = false,
+  disabled = false,
+  isDark = false
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -33,6 +42,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     width: 800,
     height: 600
   });
+
+  const canvasBg = isDark ? CANVAS_BG_DARK : CANVAS_BG_LIGHT;
 
   // Resize canvas according to container
   useEffect(() => {
@@ -68,7 +79,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ro.disconnect();
       window.removeEventListener('resize', updateSize);
     };
-  }, []);
+  }, [canvasBg]);
 
   // Helper to render all strokes to canvas
   const renderAllStrokes = useCallback(
@@ -79,19 +90,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       if (!ctx) return;
 
       // Fill canvas background
-      ctx.fillStyle = CANVAS_BG_COLOR;
+      ctx.fillStyle = canvasBg;
       ctx.fillRect(0, 0, w, h);
-
-      // Subtle artistic dot grid
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
-      const step = 28;
-      for (let x = step; x < w; x += step) {
-        for (let y = step; y < h; y += step) {
-          ctx.beginPath();
-          ctx.arc(x, y, 1, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
 
       const drawStrokeOnCtx = (stroke: {
         points: DoodlePoint[];
@@ -106,10 +106,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.lineWidth = stroke.size;
-        ctx.strokeStyle = stroke.isEraser ? CANVAS_BG_COLOR : stroke.color;
+        ctx.strokeStyle = stroke.isEraser ? canvasBg : stroke.color;
 
         if (pts.length === 1) {
-          ctx.fillStyle = stroke.isEraser ? CANVAS_BG_COLOR : stroke.color;
+          ctx.fillStyle = stroke.isEraser ? canvasBg : stroke.color;
           ctx.beginPath();
           ctx.arc(pts[0].x * w, pts[0].y * h, stroke.size / 2, 0, Math.PI * 2);
           ctx.fill();
@@ -147,7 +147,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         });
       }
     },
-    [currentColor, currentBrushSize, currentTool]
+    [currentColor, currentBrushSize, currentTool, canvasBg]
   );
 
   // Re-render when strokes change or active points update
@@ -216,10 +216,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   };
 
+  const hasStrokes = strokes.length > 0 || activePoints.length > 0;
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full min-h-[300px] flex items-center justify-center rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#0c101c]"
+      className={`relative w-full h-full min-h-[360px] flex items-center justify-center rounded-[28px] overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.06)] border transition-colors ${
+        isDark
+          ? 'bg-[#141927] border-white/10'
+          : 'bg-white border-slate-200/80 shadow-slate-100'
+      }`}
       style={{ touchAction: 'none' }}
     >
       <canvas
@@ -234,9 +240,104 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         style={{ touchAction: 'none' }}
       />
 
-      {/* Floating Mode Watermark for Guesser */}
+      {/* Top Right Floating Canvas Controls: Undo, Redo, Clear */}
+      {isDrawer && !disabled && (
+        <div className="absolute top-4 right-4 flex items-center gap-1.5 z-20">
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo"
+            className={`w-9 h-9 rounded-full flex items-center justify-center border transition active:scale-90 ${
+              canUndo
+                ? isDark
+                  ? 'bg-white/10 hover:bg-white/15 border-white/10 text-zinc-200'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm'
+                : isDark
+                ? 'opacity-30 cursor-not-allowed text-zinc-500 border-transparent'
+                : 'opacity-30 cursor-not-allowed text-slate-300 border-transparent'
+            }`}
+          >
+            <span className="text-sm">↺</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={true}
+            title="Redo"
+            className={`w-9 h-9 rounded-full flex items-center justify-center border transition opacity-30 cursor-not-allowed ${
+              isDark
+                ? 'text-zinc-500 border-transparent'
+                : 'text-slate-300 border-transparent'
+            }`}
+          >
+            <span className="text-sm">↻</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClear}
+            disabled={!canUndo}
+            title="Clear"
+            className={`flex items-center gap-1.5 px-3 h-9 rounded-full border text-xs font-semibold transition active:scale-95 ${
+              canUndo
+                ? isDark
+                  ? 'bg-white/10 hover:bg-white/15 border-white/10 text-zinc-200'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm'
+                : isDark
+                ? 'opacity-30 cursor-not-allowed text-zinc-500 border-transparent'
+                : 'opacity-30 cursor-not-allowed text-slate-300 border-transparent'
+            }`}
+          >
+            <span className="text-xs">🗑</span>
+            <span>Clear</span>
+          </button>
+        </div>
+      )}
+
+      {/* Center Empty State Watermark matching Mockup: Pencil icon + "Start drawing... Bring your idea to life!" */}
+      {!hasStrokes && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-10">
+          <div
+            className={`w-14 h-14 rounded-full flex items-center justify-center border mb-3 transition-colors ${
+              isDark
+                ? 'bg-white/5 border-white/10 text-zinc-400'
+                : 'bg-slate-50/80 border-slate-200 text-slate-400'
+            }`}
+          >
+            <svg
+              className="w-6 h-6 rotate-[-45deg]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l7-7 3 3-7 7-3-3z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2 2l7.586 7.586" />
+              <circle cx="11" cy="11" r="2" />
+            </svg>
+          </div>
+          <span
+            className={`text-base font-bold mb-1 ${
+              isDark ? 'text-zinc-300' : 'text-slate-700'
+            }`}
+          >
+            Start drawing...
+          </span>
+          <span
+            className={`text-xs ${
+              isDark ? 'text-zinc-500' : 'text-slate-400'
+            }`}
+          >
+            Bring your idea to life!
+          </span>
+        </div>
+      )}
+
+      {/* Floating Live Drawing badge for Guesser */}
       {!isDrawer && (
-        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] font-bold text-zinc-400 flex items-center gap-1.5 pointer-events-none select-none">
+        <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] font-bold text-zinc-300 flex items-center gap-1.5 pointer-events-none select-none">
           <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
           <span>LIVE DRAWING</span>
         </div>
