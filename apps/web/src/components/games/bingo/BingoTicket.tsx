@@ -128,7 +128,19 @@ export const BingoTicket: React.FC<BingoTicketProps> = ({
                 }
 
                 const isCalled = num !== null && calledSet.has(num);
-                const isMarked = num !== null && (markedSet.has(num) || (isCalled && isMe));
+                const isSelected = num !== null && markedSet.has(num);
+
+                let cellClass = 'bg-white/[0.03] border-white/[0.08] text-zinc-200 hover:bg-white/[0.08] hover:border-white/20';
+
+                if (isSelected) {
+                  // Number we selected (Marked by player)
+                  cellClass = accentColor === 'rose'
+                    ? 'bg-[#ee1d49] border-[#ee1d49] text-white shadow-[0_0_15px_rgba(238,29,73,0.55)] scale-95 ring-2 ring-rose-400/50'
+                    : 'bg-violet-600 border-violet-500 text-white shadow-[0_0_15px_rgba(124,58,237,0.55)] scale-95 ring-2 ring-violet-400/50';
+                } else if (isCalled) {
+                  // Number we got (Called by caller, waiting to be selected)
+                  cellClass = 'bg-amber-500/25 border-amber-400 text-amber-200 shadow-[0_0_15px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/60 animate-pulse hover:bg-amber-500/35 hover:scale-105';
+                }
 
                 return (
                   <button
@@ -136,20 +148,18 @@ export const BingoTicket: React.FC<BingoTicketProps> = ({
                     type="button"
                     disabled={!isMe || num === null}
                     onClick={() => num !== null && onToggleMark?.(num)}
-                    className={`aspect-square rounded-2xl border flex items-center justify-center font-mono text-xs sm:text-base font-black transition-all duration-150 relative select-none cursor-pointer ${
-                      isMarked
-                        ? accentColor === 'rose'
-                          ? 'bg-[#ee1d49] border-[#ee1d49] text-white shadow-[0_0_15px_rgba(238,29,73,0.5)] scale-95'
-                          : 'bg-violet-600 border-violet-500 text-white shadow-[0_0_15px_rgba(124,58,237,0.5)] scale-95'
-                        : isCalled
-                        ? 'bg-rose-500/15 border-rose-500/50 text-rose-300 animate-pulse'
-                        : 'bg-white/[0.03] border-white/[0.08] text-zinc-200 hover:bg-white/[0.08]'
-                    }`}
+                    className={`aspect-square rounded-2xl border flex items-center justify-center font-mono text-xs sm:text-base font-black transition-all duration-150 relative select-none cursor-pointer ${cellClass}`}
                   >
                     {num}
-                    {isMarked && (
-                      <div className="absolute top-1 right-1">
+                    {isSelected && (
+                      <div className="absolute top-1 right-1 text-white">
                         <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </div>
+                    )}
+                    {!isSelected && isCalled && (
+                      <div className="absolute top-1 right-1 flex items-center justify-center pointer-events-none">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)] animate-ping" />
+                        <span className="absolute w-2 h-2 rounded-full bg-amber-400" />
                       </div>
                     )}
                   </button>
@@ -175,7 +185,19 @@ export const BingoTicket: React.FC<BingoTicketProps> = ({
                   }
 
                   const isCalled = calledSet.has(num);
-                  const isMarked = markedSet.has(num) || (isCalled && isMe);
+                  const isSelected = markedSet.has(num);
+
+                  let cellClass = 'bg-white/[0.04] border-white/[0.08] text-zinc-100 hover:bg-white/[0.08] hover:border-white/20';
+
+                  if (isSelected) {
+                    // Number we selected (Marked by player)
+                    cellClass = accentColor === 'rose'
+                      ? 'bg-[#ee1d49] border-[#ee1d49] text-white shadow-[0_0_14px_rgba(238,29,73,0.55)] scale-95 ring-2 ring-rose-400/50'
+                      : 'bg-violet-600 border-violet-500 text-white shadow-[0_0_14px_rgba(124,58,237,0.55)] scale-95 ring-2 ring-violet-400/50';
+                  } else if (isCalled) {
+                    // Number we got (Called by caller, waiting to be selected)
+                    cellClass = 'bg-amber-500/25 border-amber-400 text-amber-200 shadow-[0_0_14px_rgba(245,158,11,0.5)] ring-2 ring-amber-400/60 animate-pulse hover:bg-amber-500/35 hover:scale-105';
+                  }
 
                   return (
                     <button
@@ -183,20 +205,18 @@ export const BingoTicket: React.FC<BingoTicketProps> = ({
                       type="button"
                       disabled={!isMe}
                       onClick={() => onToggleMark?.(num)}
-                      className={`aspect-square rounded-xl sm:rounded-2xl border flex items-center justify-center font-mono text-[11px] sm:text-sm md:text-base font-black transition-all duration-150 relative select-none cursor-pointer ${
-                        isMarked
-                          ? accentColor === 'rose'
-                            ? 'bg-[#ee1d49] border-[#ee1d49] text-white shadow-[0_0_12px_rgba(238,29,73,0.5)] scale-95'
-                            : 'bg-violet-600 border-violet-500 text-white shadow-[0_0_12px_rgba(124,58,237,0.5)] scale-95'
-                          : isCalled
-                          ? 'bg-rose-500/15 border-rose-500/50 text-rose-300 animate-pulse'
-                          : 'bg-white/[0.04] border-white/[0.08] text-zinc-100 hover:bg-white/[0.08] hover:border-white/20'
-                      }`}
+                      className={`aspect-square rounded-xl sm:rounded-2xl border flex items-center justify-center font-mono text-[11px] sm:text-sm md:text-base font-black transition-all duration-150 relative select-none cursor-pointer ${cellClass}`}
                     >
                       {num}
-                      {isMarked && (
-                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1">
+                      {isSelected && (
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 text-white">
                           <Check className="w-2 h-2 sm:w-2.5 sm:h-2.5 stroke-[3]" />
+                        </div>
+                      )}
+                      {!isSelected && isCalled && (
+                        <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 flex items-center justify-center pointer-events-none">
+                          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)] animate-ping" />
+                          <span className="absolute w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-amber-400" />
                         </div>
                       )}
                     </button>
@@ -209,14 +229,21 @@ export const BingoTicket: React.FC<BingoTicketProps> = ({
       </div>
 
       {/* Ticket Footer Legend */}
-      <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/[0.06] text-[10px] text-zinc-400">
+      <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-white/[0.06] text-[10px]">
+        {/* Selected / Marked numbers */}
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-[#ee1d49]" />
-          <span>Marked ({ticket.cells.flat().filter(n => n !== null && (markedSet.has(n) || (calledSet.has(n) && isMe))).length})</span>
+          <div className="w-2.5 h-2.5 rounded-full bg-[#ee1d49] shadow-[0_0_8px_rgba(238,29,73,0.7)]" />
+          <span className="text-zinc-200 font-semibold">
+            Selected ({ticket.cells.flat().filter(n => n !== null && markedSet.has(n)).length})
+          </span>
         </div>
+
+        {/* Got / Called numbers */}
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-rose-500/50 animate-pulse" />
-          <span>Called ({ticket.cells.flat().filter(n => n !== null && calledSet.has(n)).length})</span>
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] animate-pulse" />
+          <span className="text-amber-300 font-semibold">
+            Called / Got ({ticket.cells.flat().filter(n => n !== null && calledSet.has(n)).length})
+          </span>
         </div>
       </div>
     </div>
