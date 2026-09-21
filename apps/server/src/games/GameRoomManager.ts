@@ -832,16 +832,13 @@ export class GameRoomManager {
       room.gameState = state;
       this.db.updateGameRoomState(room.id, state);
 
-      const isCountdownPhase = state.phase === 'ROUND_INTRO' || state.phase === 'WORD_CHOICE' || state.phase === 'ROUND_RESULT';
-      if (phaseChanged || isCountdownPhase || state.timeRemaining % 5 === 0 || state.timeRemaining <= 10) {
-        this.broadcastDoodleState(roomId);
-      }
+      // Broadcast doodle state on every second so timer counts down smoothly and never freezes
+      this.broadcastDoodleState(roomId);
 
       if (state.phase === 'FINISHED') {
         this.stopDoodleTimer(roomId);
         const now = new Date().toISOString();
         this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
-        this.broadcastDoodleState(roomId);
       }
     } catch (err) {
       console.error('Error in tickDoodleTimer:', err);
@@ -1244,6 +1241,11 @@ export class GameRoomManager {
         roomId,
         payload: { userId: user.id, displayName: user.displayName, room: currentRoom }
       });
+
+      // Ensure doodle timer is actively running if match is in progress (e.g. after server restart)
+      if (currentRoom.gameType === 'doodle-duel' && currentRoom.status === 'PLAYING' && !this.doodleTimers.has(roomId)) {
+        this.startDoodleTimer(roomId);
+      }
     }
 
     // Handle WebSocket messages
