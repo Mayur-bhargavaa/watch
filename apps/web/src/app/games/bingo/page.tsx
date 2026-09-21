@@ -222,6 +222,9 @@ function BingoDuelGameContent() {
     timestamp: number;
   } | null>(null);
 
+  // Custom 5x5 Board Setup Modal State
+  const [showSetupModal, setShowSetupModal] = useState(false);
+
   // Load user session & partner
   useEffect(() => {
     const s = getStoredSession();
@@ -280,6 +283,7 @@ function BingoDuelGameContent() {
     claimBingo,
     markBingoNumber,
     updateBingoConfig,
+    setBingoBoard,
     sendChat,
     sendReaction,
     sendLeave,
@@ -324,6 +328,57 @@ function BingoDuelGameContent() {
   const isRoundOver = gameState?.phase === 'ROUND_OVER';
   const isFinished = room && (room.status === 'FINISHED' || gameState?.phase === 'FINISHED');
 
+  const myBoard = gameState?.boards?.[effectiveUserId] || [];
+  const myMarks = gameState?.playerMarks?.[effectiveUserId] || [];
+  const myProgress = gameState?.playerProgress?.[effectiveUserId];
+  const myWins = gameState?.roundsWon?.[effectiveUserId] || 0;
+
+  const opponentUserId = opponent?.userId || '';
+  const opponentMarks = gameState?.playerMarks?.[opponentUserId] || [];
+  const opponentProgress = gameState?.playerProgress?.[opponentUserId];
+  const opponentWins = gameState?.roundsWon?.[opponentUserId] || 0;
+
+  // Penalty countdown
+  const now = Date.now();
+  const penaltyUntil = gameState?.falseBingoPenaltyUntil?.[effectiveUserId] || 0;
+  const penaltySeconds = Math.max(0, Math.ceil((penaltyUntil - now) / 1000));
+
+  const winningIndices = gameState?.phase === 'ROUND_OVER' || gameState?.phase === 'FINISHED'
+    ? (lastBingoConditionWon?.winningIndices || lastBingoClaimResult?.winningIndices)
+    : undefined;
+
+  // Strict Number Marking validation
+  const handleCellClick = (num: number) => {
+    if (isFinished || isRoundOver) return;
+    const isDrawn = gameState?.calledNumbers?.includes(num);
+    if (!isDrawn) {
+      setClaimToast({
+        valid: false,
+        message: `⚠️ Number ${num} has not been drawn yet! Wait for it to be called.`,
+        timestamp: Date.now()
+      });
+      setTimeout(() => {
+        setClaimToast(curr => (curr?.message?.includes(`Number ${num}`) ? null : curr));
+      }, 3500);
+      return;
+    }
+    const alreadyMarked = myMarks.includes(num);
+    if (alreadyMarked) return;
+    markBingoNumber(num);
+  };
+
+  // Custom 5x5 Board saving handler
+  const handleSaveCustomBoard = (customBoard: number[][]) => {
+    setBingoBoard(customBoard);
+    setShowSetupModal(false);
+    setClaimToast({
+      valid: true,
+      message: '✓ Custom 5×5 Board locked and saved!',
+      timestamp: Date.now()
+    });
+    setTimeout(() => setClaimToast(null), 3500);
+  };
+
   // Web Speech API Voice Caller for Bingo Duel
   const lastSpokenNumberRef = useRef<number | null>(null);
   useEffect(() => {
@@ -345,6 +400,52 @@ function BingoDuelGameContent() {
       }
     }
   }, [isPlaying, duelConfig.voiceCaller, lastBingoCall?.number]);
+
+  // Web Speech API Voice Announcement on Line Completion (B - I - N - G - O)
+  const lastSpokenLineCountRef = useRef<number>(0);
+  const myCompletedLines = gameState?.playerProgress?.[effectiveUserId]?.completedLines || [];
+  const currentLinesCount = myCompletedLines.length;
+
+  useEffect(() => {
+    if (!isPlaying) {
+      lastSpokenLineCountRef.current = 0;
+      return;
+    }
+    if (currentLinesCount > lastSpokenLineCountRef.current) {
+      const letters = ['B', 'I', 'N', 'G', 'O'];
+      const currentLetter = letters[Math.min(currentLinesCount - 1, 4)];
+      lastSpokenLineCountRef.current = currentLinesCount;
+
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          const phrase =
+            currentLinesCount >= 5
+              ? 'BINGO! BINGO! You completed all 5 lines!'
+              : `Line completed! Letter ${currentLetter}!`;
+          const utterance = new SpeechSynthesisUtterance(phrase);
+          utterance.rate = 1.05;
+          utterance.pitch = 1.2;
+          window.speechSynthesis.speak(utterance);
+        } catch {
+          // ignore speech synthesis errors
+        }
+      }
+
+      setClaimToast({
+        valid: true,
+        message:
+          currentLinesCount >= 5
+            ? '🎉 B-I-N-G-O COMPLETE! Claim your victory now!'
+            : `✨ Line completed! Letter [${currentLetter}] unlocked!`,
+        timestamp: Date.now()
+      });
+      setTimeout(() => {
+        setClaimToast(curr =>
+          curr?.message.includes(currentLetter) || curr?.message.includes('B-I-N-G-O') ? null : curr
+        );
+      }, 4000);
+    }
+  }, [isPlaying, currentLinesCount, effectiveUserId]);
 
   // WebRTC Floating PIP Call Window Setup
   const webRTCMembers = useMemo(() => {
@@ -737,6 +838,8 @@ function BingoDuelGameContent() {
             partner={partner}
             onPingPartner={handlePingPartner}
             isPingingPartner={isPingingPartner}
+            onOpenBoardCustomizer={() => setShowSetupModal(true)}
+            isBoardCustomized={Boolean(gameState?.boardsReady?.[effectiveUserId])}
           />
         </main>
 
@@ -756,6 +859,27 @@ function BingoDuelGameContent() {
             }
           }}
         />
+
+        {/* Custom 5x5 Board Setup Modal in Waiting Room */}
+        {showSetupModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="w-full max-w-md">
+              <BingoDuelBoard
+                board={myBoard.length === 5 ? myBoard : []}
+                playerMarks={[]}
+                calledNumbers={[]}
+                onCellClick={() => {}}
+                isSetupMode={true}
+                onSaveBoard={handleSaveCustomBoard}
+                onCancelSetup={() => setShowSetupModal(false)}
+                onValidationToast={msg => {
+                  setClaimToast({ valid: false, message: msg, timestamp: Date.now() });
+                  setTimeout(() => setClaimToast(null), 3500);
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* General Alert Modal */}
         {alertModalState && (
@@ -779,25 +903,6 @@ function BingoDuelGameContent() {
   }
 
   // 3. IN GAME OR FINISHED -> Main Arena Layout (Matching Ludo 3-column UI)
-  const myBoard = gameState?.boards?.[effectiveUserId] || [];
-  const myMarks = gameState?.playerMarks?.[effectiveUserId] || [];
-  const myProgress = gameState?.playerProgress?.[effectiveUserId];
-  const myWins = gameState?.roundsWon?.[effectiveUserId] || 0;
-
-  const opponentUserId = opponent?.userId || '';
-  const opponentMarks = gameState?.playerMarks?.[opponentUserId] || [];
-  const opponentProgress = gameState?.playerProgress?.[opponentUserId];
-  const opponentWins = gameState?.roundsWon?.[opponentUserId] || 0;
-
-  // Penalty countdown
-  const now = Date.now();
-  const penaltyUntil = gameState?.falseBingoPenaltyUntil?.[effectiveUserId] || 0;
-  const penaltySeconds = Math.max(0, Math.ceil((penaltyUntil - now) / 1000));
-
-  const winningIndices = gameState?.phase === 'ROUND_OVER' || gameState?.phase === 'FINISHED'
-    ? (lastBingoConditionWon?.winningIndices || lastBingoClaimResult?.winningIndices)
-    : undefined;
-
   return (
     <div className="min-h-screen bg-[#070913] text-white flex flex-col justify-between relative overflow-x-hidden select-none">
       {/* Dynamic Background Effects */}
@@ -1185,16 +1290,34 @@ function BingoDuelGameContent() {
             </div>
 
             {/* 3. Authoritative 5x5 Bingo Board */}
-            <div className="w-full my-auto py-2">
+            <div className="w-full my-auto py-2 flex flex-col items-center gap-2">
               {myBoard.length > 0 ? (
-                <BingoDuelBoard
-                  board={myBoard}
-                  playerMarks={myMarks}
-                  calledNumbers={gameState?.calledNumbers || []}
-                  winningIndices={winningIndices}
-                  onCellClick={(num) => markBingoNumber(num)}
-                  disabled={isFinished || isRoundOver}
-                />
+                <>
+                  <BingoDuelBoard
+                    board={myBoard}
+                    playerMarks={myMarks}
+                    calledNumbers={gameState?.calledNumbers || []}
+                    completedLines={myProgress?.completedLines || []}
+                    bingoLetters={myProgress?.bingoLetters || []}
+                    winningIndices={winningIndices}
+                    onCellClick={handleCellClick}
+                    disabled={isFinished || isRoundOver}
+                    onValidationToast={(msg) => {
+                      setClaimToast({ valid: false, message: msg, timestamp: Date.now() });
+                      setTimeout(() => setClaimToast(null), 3500);
+                    }}
+                  />
+
+                  {gameState?.calledNumbers?.length === 0 && !isFinished && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSetupModal(true)}
+                      className="mt-1 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-indigo-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <span>🎯 Customize Board Matrix (1–25)</span>
+                    </button>
+                  )}
+                </>
               ) : (
                 <div className="text-center p-8 bg-slate-900/50 rounded-3xl border border-white/10">
                   <span className="text-sm text-slate-400">Loading your 5×5 duel board...</span>
@@ -1435,6 +1558,27 @@ function BingoDuelGameContent() {
               <AlertTriangle className="w-4 h-4 text-rose-400" />
             )}
             <span>{claimToast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Custom 5x5 Board Setup Modal */}
+      {showSetupModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-md">
+            <BingoDuelBoard
+              board={myBoard.length === 5 ? myBoard : []}
+              playerMarks={[]}
+              calledNumbers={[]}
+              onCellClick={() => {}}
+              isSetupMode={true}
+              onSaveBoard={handleSaveCustomBoard}
+              onCancelSetup={() => setShowSetupModal(false)}
+              onValidationToast={msg => {
+                setClaimToast({ valid: false, message: msg, timestamp: Date.now() });
+                setTimeout(() => setClaimToast(null), 3500);
+              }}
+            />
           </div>
         </div>
       )}

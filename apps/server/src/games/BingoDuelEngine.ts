@@ -4,7 +4,8 @@ import {
   BingoDuelConfig,
   BingoDuelGameState,
   BingoDuelPatternProgress,
-  BingoDuelRoundSummary
+  BingoDuelRoundSummary,
+  BingoDuelCompletedLine
 } from '@synccinema/common';
 
 const NUMBER_WORDS: Record<number, string> = {
@@ -16,7 +17,7 @@ const NUMBER_WORDS: Record<number, string> = {
 };
 
 export const DEFAULT_BINGO_DUEL_CONFIG: BingoDuelConfig = {
-  pattern: 'xPattern',
+  pattern: 'fiveLines',
   mode: 'classic',
   autoCallSpeed: 5000, // 5 seconds
   voiceCaller: true,
@@ -73,6 +74,89 @@ export class BingoDuelEngine {
 
     // Helper: is cell [r, c] marked
     const isMarked = (r: number, c: number) => markedSet.has(board[r][c]);
+
+    // Authentic Indian/School 5-Lines B-I-N-G-O evaluation (Rows, Columns, Diagonals)
+    if (pattern === 'fiveLines') {
+      const completedLines: BingoDuelCompletedLine[] = [];
+      const allMatchedIndices: [number, number][] = [];
+      const addIndices = (coords: [number, number][]) => {
+        coords.forEach(([r, c]) => {
+          if (!allMatchedIndices.some(([ar, ac]) => ar === r && ac === c)) {
+            allMatchedIndices.push([r, c]);
+          }
+        });
+      };
+
+      // 1. Check 5 Horizontal Rows
+      for (let r = 0; r < 5; r++) {
+        const rowCoords: [number, number][] = [[r, 0], [r, 1], [r, 2], [r, 3], [r, 4]];
+        if (rowCoords.every(([row, col]) => isMarked(row, col))) {
+          completedLines.push({
+            id: `row-${r}`,
+            type: 'row',
+            index: r,
+            name: `Row ${r + 1}`,
+            indices: rowCoords
+          });
+          addIndices(rowCoords);
+        }
+      }
+
+      // 2. Check 5 Vertical Columns
+      for (let c = 0; c < 5; c++) {
+        const colCoords: [number, number][] = [[0, c], [1, c], [2, c], [3, c], [4, c]];
+        if (colCoords.every(([row, col]) => isMarked(row, col))) {
+          completedLines.push({
+            id: `col-${c}`,
+            type: 'col',
+            index: c,
+            name: `Column ${c + 1}`,
+            indices: colCoords
+          });
+          addIndices(colCoords);
+        }
+      }
+
+      // 3. Check Main Diagonal (top-left to bottom-right)
+      const mainDiagCoords: [number, number][] = [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]];
+      if (mainDiagCoords.every(([row, col]) => isMarked(row, col))) {
+        completedLines.push({
+          id: 'diag-main',
+          type: 'diag',
+          index: 0,
+          name: 'Main Diagonal',
+          indices: mainDiagCoords
+        });
+        addIndices(mainDiagCoords);
+      }
+
+      // 4. Check Anti Diagonal (top-right to bottom-left)
+      const antiDiagCoords: [number, number][] = [[0, 4], [1, 3], [2, 2], [3, 1], [4, 0]];
+      if (antiDiagCoords.every(([row, col]) => isMarked(row, col))) {
+        completedLines.push({
+          id: 'diag-anti',
+          type: 'diag',
+          index: 1,
+          name: 'Anti Diagonal',
+          indices: antiDiagCoords
+        });
+        addIndices(antiDiagCoords);
+      }
+
+      const totalLinesCompleted = completedLines.length;
+      const letters = ['B', 'I', 'N', 'G', 'O'].slice(0, Math.min(5, totalLinesCompleted));
+      const isCompleted = totalLinesCompleted >= 5;
+
+      return {
+        current: Math.min(5, totalLinesCompleted),
+        total: 5,
+        isCompleted,
+        completedPatternName: isCompleted ? 'BINGO (5 Lines)!' : `${totalLinesCompleted} / 5 Lines`,
+        matchedIndices: allMatchedIndices,
+        completedLines,
+        bingoLetters: letters
+      };
+    }
 
     if (pattern === 'firstRow') {
       const coords: [number, number][] = [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]];
@@ -290,12 +374,16 @@ export class BingoDuelEngine {
     else if (fullConfig.mode === 'bestOf5') targetRounds = 3;
 
     const boards: Record<string, number[][]> = {};
+    const boardsReady: Record<string, boolean> = {};
     const playerMarks: Record<string, number[]> = {};
     const playerProgress: Record<string, BingoDuelPatternProgress> = {};
     const roundsWon: Record<string, number> = {};
 
     playerUserIds.forEach(userId => {
+      // Initialize with a default generated board so it is always populated,
+      // but user can re-arrange/fill until match starts or lock in.
       boards[userId] = this.generateBoard();
+      boardsReady[userId] = true; // default ready, can be customized
       playerMarks[userId] = [];
       playerProgress[userId] = { current: 0, total: 5, isCompleted: false };
       roundsWon[userId] = 0;
@@ -307,6 +395,7 @@ export class BingoDuelEngine {
       roomId,
       config: fullConfig,
       boards,
+      boardsReady,
       callQueue,
       calledNumbers: [],
       currentNumber: null,
@@ -326,6 +415,53 @@ export class BingoDuelEngine {
       startedAt: Date.now(),
       statusMessage: 'Game started! Calling numbers 1–25...'
     };
+  }
+
+  /**
+   * Allows a player to set their custom 5x5 board (1-25 unique numbers)
+   */
+  public static setPlayerBoard(
+    state: BingoDuelGameState,
+    userId: string,
+    customBoard: number[][]
+  ): { state: BingoDuelGameState; success: boolean; message: string } {
+    // Validate custom board is 5x5 containing unique numbers 1..25
+    if (!Array.isArray(customBoard) || customBoard.length !== 5) {
+      return { state, success: false, message: 'Board must be a 5x5 grid.' };
+    }
+
+    const flat = customBoard.flat();
+    if (flat.length !== 25) {
+      return { state, success: false, message: 'Board must contain exactly 25 numbers.' };
+    }
+
+    const seen = new Set<number>();
+    for (const n of flat) {
+      if (typeof n !== 'number' || n < 1 || n > 25 || seen.has(n)) {
+        return {
+          state,
+          success: false,
+          message: 'Board must contain all numbers from 1 to 25 without duplicates.'
+        };
+      }
+      seen.add(n);
+    }
+
+    state.boards[userId] = customBoard;
+    if (!state.boardsReady) state.boardsReady = {};
+    state.boardsReady[userId] = true;
+
+    // Reset marks and recalculate progress with existing called numbers
+    const list = state.playerMarks[userId] || [];
+    state.playerProgress[userId] = this.evaluatePattern(
+      customBoard,
+      state.config.pattern,
+      list,
+      state.calledNumbers,
+      state.config.customPattern
+    );
+
+    return { state, success: true, message: '5×5 Board successfully saved and locked!' };
   }
 
   /**

@@ -1,4 +1,5 @@
 export type BingoDuelPattern =
+  | 'fiveLines'
   | 'firstRow'
   | 'middleRow'
   | 'lastRow'
@@ -13,6 +14,14 @@ export type BingoDuelPattern =
 
 export type BingoDuelMode = 'quick' | 'classic' | 'bestOf3' | 'bestOf5' | 'custom';
 
+export interface BingoDuelCompletedLine {
+  id: string; // 'row-0', 'col-2', 'diag-main', 'diag-anti'
+  type: 'row' | 'col' | 'diag';
+  index: number;
+  name: string;
+  indices: [number, number][]; // 5 coordinates
+}
+
 export interface BingoDuelConfig {
   pattern: BingoDuelPattern;
   customPattern?: boolean[][]; // 5x5 grid (row, col)
@@ -24,7 +33,7 @@ export interface BingoDuelConfig {
 }
 
 export const DEFAULT_BINGO_DUEL_CONFIG: BingoDuelConfig = {
-  pattern: 'xPattern',
+  pattern: 'fiveLines',
   mode: 'classic',
   autoCallSpeed: 5000,
   voiceCaller: true,
@@ -38,6 +47,8 @@ export interface BingoDuelPatternProgress {
   isCompleted: boolean;
   completedPatternName?: string;
   matchedIndices?: [number, number][]; // [row, col] coords that satisfy the pattern
+  completedLines?: BingoDuelCompletedLine[]; // specific lines completed (up to 5 for B-I-N-G-O)
+  bingoLetters?: string[]; // e.g. ['B', 'I', 'N', 'G', 'O']
 }
 
 export interface BingoDuelRoundSummary {
@@ -53,6 +64,7 @@ export interface BingoDuelGameState {
   roomId: string;
   config: BingoDuelConfig;
   boards: Record<string, number[][]>; // userId -> 5x5 grid of numbers 1-25
+  boardsReady?: Record<string, boolean>; // userId -> whether user locked their 5x5 board
   callQueue: number[]; // remaining numbers to call (subset of 1..25)
   calledNumbers: number[]; // numbers already announced in order
   currentNumber: number | null;
@@ -60,7 +72,7 @@ export interface BingoDuelGameState {
   lastCalledNumbers: number[]; // up to last 5 called numbers
   playerMarks: Record<string, number[]>; // userId -> numbers marked by user
   playerProgress: Record<string, BingoDuelPatternProgress>; // userId -> pattern progress
-  phase: 'CONFIGURING' | 'PLAYING' | 'ROUND_OVER' | 'FINISHED';
+  phase: 'SETUP' | 'CONFIGURING' | 'PLAYING' | 'ROUND_OVER' | 'FINISHED';
   currentRound: number;
   targetRounds: number; // 1 for quick/classic, 2 for bestOf3, 3 for bestOf5
   roundsWon: Record<string, number>; // userId -> count of won rounds

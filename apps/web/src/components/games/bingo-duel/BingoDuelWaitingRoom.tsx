@@ -44,9 +44,12 @@ interface BingoDuelWaitingRoomProps {
   } | null;
   onPingPartner?: () => void;
   isPingingPartner?: boolean;
+  onOpenBoardCustomizer?: () => void;
+  isBoardCustomized?: boolean;
 }
 
 const PATTERNS: { id: BingoDuelPattern; label: string; desc: string; iconText: string }[] = [
+  { id: 'fiveLines', label: '5 Lines (B-I-N-G-O)', desc: 'Any 5 lines (rows/cols/diags) to win', iconText: '5★' },
   { id: 'firstRow', label: 'First Row', desc: 'Top horizontal row', iconText: '━' },
   { id: 'middleRow', label: 'Middle Row', desc: 'Center horizontal row', iconText: '━' },
   { id: 'lastRow', label: 'Last Row', desc: 'Bottom horizontal row', iconText: '━' },
@@ -92,7 +95,9 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
   onSelectPartner,
   partner,
   onPingPartner,
-  isPingingPartner
+  isPingingPartner,
+  onOpenBoardCustomizer,
+  isBoardCustomized
 }) => {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -440,6 +445,40 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
             </div>
           )}
         </div>
+
+        {/* Board Customizer Button / Status */}
+        {onOpenBoardCustomizer && (
+          <div className="w-full bg-[#161220]/70 border border-white/10 rounded-2xl p-3 flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5 text-left">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
+                isBoardCustomized
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  : 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+              }`}>
+                {isBoardCustomized ? '✓' : '5×5'}
+              </div>
+              <div>
+                <span className="text-xs font-bold text-white block">
+                  {isBoardCustomized ? 'Board Custom 1–25 Ready' : 'Customize 5×5 Board'}
+                </span>
+                <span className="text-[10px] text-zinc-400 block">
+                  {isBoardCustomized ? 'Numbers 1–25 locked' : 'Fill numbers 1–25 yourself'}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenBoardCustomizer}
+              className={`py-2 px-3.5 rounded-xl font-semibold text-xs transition border flex items-center gap-1.5 cursor-pointer ${
+                isBoardCustomized
+                  ? 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
+                  : 'bg-indigo-600/40 hover:bg-indigo-600/60 border-indigo-500/40 text-indigo-200'
+              }`}
+            >
+              <span>{isBoardCustomized ? 'Edit Board' : 'Build Board'}</span>
+            </button>
+          </div>
+        )}
 
         {/* Start Game CTA / Status */}
         {isHost ? (

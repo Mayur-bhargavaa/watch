@@ -1027,6 +1027,29 @@ export class GameRoomManager {
     }
   }
 
+  public handleBingoSetBoard(roomId: string, userId: string, board: number[][]): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState || room.gameType !== 'bingo') return;
+
+    const { state, success, message } = BingoDuelEngine.setPlayerBoard(room.gameState, userId, board);
+    if (success) {
+      room.gameState = state;
+      this.db.updateGameRoomState(room.id, state);
+
+      this.broadcast(room.id, {
+        type: 'bingo:board_updated',
+        roomId: room.id,
+        payload: {
+          userId,
+          board,
+          playerProgress: state.playerProgress[userId],
+          gameState: state,
+          message
+        }
+      });
+    }
+  }
+
   public handleBingoConfigUpdate(roomId: string, userId: string, partialConfig: any): void {
     const room = this.db.getGameRoomById(roomId);
     if (!room) return;
@@ -1601,6 +1624,10 @@ export class GameRoomManager {
       case 'bingo:mark':
       case 'tambola:mark':
         this.handleBingoMark(client.roomId, client.userId, Number(msg.payload?.number));
+        break;
+
+      case 'bingo:set_board':
+        this.handleBingoSetBoard(client.roomId, client.userId, msg.payload?.board);
         break;
 
       case 'bingo:config_update':

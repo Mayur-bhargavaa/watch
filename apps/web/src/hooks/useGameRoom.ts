@@ -700,6 +700,12 @@ export function useGameRoom(roomCode: string | null) {
         break;
       }
 
+      case 'bingo:board_updated': {
+        const { gameState: nextState } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        break;
+      }
+
       case 'doodle:state_sync':
       case 'doodle:role_selected': {
         const nextState = msg.payload?.gameState;
@@ -1151,6 +1157,16 @@ export function useGameRoom(roomCode: string | null) {
     );
   }, []);
 
+  const setBingoBoard = useCallback((board: number[][]) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'bingo:set_board',
+        payload: { board }
+      })
+    );
+  }, []);
+
   const selectDoodleRole = useCallback((drawerUserId: string) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
@@ -1331,6 +1347,7 @@ export function useGameRoom(roomCode: string | null) {
     claimBingo,
     markBingoNumber,
     updateBingoConfig,
+    setBingoBoard,
     selectDoodleRole,
     startDoodleGame,
     chooseDoodleWord,
