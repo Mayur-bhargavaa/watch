@@ -279,6 +279,8 @@ export class DoodleDuelEngine {
     state.roundWinnerDisplayName = null;
     state.roundPointsEarned = 0;
     state.timeRemaining = 3; // 3-second countdown
+    state.timeLeftSeconds = 3;
+    state.currentRound = state.round;
     state.statusMessage = 'Get ready to draw!';
     return state;
   }
@@ -297,6 +299,7 @@ export class DoodleDuelEngine {
       difficulty: c.difficulty
     }));
     state.timeRemaining = 15; // 15 seconds to pick word
+    state.timeLeftSeconds = 15;
     state.statusMessage = 'Drawer is choosing a secret word...';
 
     return { state, choices };
@@ -314,6 +317,8 @@ export class DoodleDuelEngine {
     state.hintAvailable = false;
     state.hintUsed = false;
     state.timeRemaining = state.config.drawTime || 60;
+    state.timeLeftSeconds = state.timeRemaining;
+    state.currentRound = state.round;
     state.strokes = [];
     state.guesses = [];
     state.statusMessage = 'Round in progress! Guesser, what is it?';
@@ -376,6 +381,7 @@ export class DoodleDuelEngine {
         pointsEarned: points
       };
       state.roundHistory.push(roundSummary);
+      state.lastRoundSummary = roundSummary;
 
       return { isCorrect: true, state, points, completed: true };
     }
@@ -396,6 +402,7 @@ export class DoodleDuelEngine {
     }
 
     state.timeRemaining = Math.max(0, state.timeRemaining - 1);
+    state.timeLeftSeconds = state.timeRemaining;
 
     // Check hint availability in drawing phase after 30 seconds
     if (state.phase === 'DRAWING' && !state.hintAvailable && state.timeRemaining <= (state.config.drawTime - 30)) {
@@ -411,10 +418,16 @@ export class DoodleDuelEngine {
 
       if (state.phase === 'WORD_CHOICE') {
         // Drawer didn't pick word in time -> pick first option automatically
-        const word = (state.wordChoices && state.wordChoices[0]) || '🚀 Rocket';
-        const rawWord = word.replace(/^[^\w\s]+\s*/, '');
+        const firstChoice = state.wordChoices && state.wordChoices[0];
+        let wordStr = 'Rocket';
+        if (typeof firstChoice === 'string') {
+          wordStr = firstChoice;
+        } else if (firstChoice && typeof firstChoice === 'object' && (firstChoice as any).word) {
+          wordStr = (firstChoice as any).word;
+        }
+        const rawWord = wordStr.replace(/^[^\w\s]+\s*/, '').trim();
         const wordItem = DOODLE_WORDS.find(w => w.word.toLowerCase() === rawWord.toLowerCase()) || {
-          word: rawWord,
+          word: rawWord || 'Rocket',
           emoji: '🚀',
           category: 'Objects',
           difficulty: 'easy' as const,

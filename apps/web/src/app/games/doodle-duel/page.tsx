@@ -10,8 +10,11 @@ import {
   Sparkles,
   Trophy,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Sun,
+  Moon
 } from 'lucide-react';
+import { useTheme } from '../../../context/ThemeContext';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { getStoredSession, UserSession } from '../../../lib/api';
 import { DrawingCanvas } from '../../../components/games/doodle/DrawingCanvas';
@@ -122,6 +125,9 @@ function DoodleDuelGameContent() {
     }
   }, [lastDoodleGuess, soundEnabled]);
 
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const isDark = resolvedTheme !== 'light';
+
   // Determine roles
   const isDrawer = Boolean(dState && dState.drawerUserId === currentUserId);
   const isGuesser = Boolean(dState && dState.guesserUserId === currentUserId);
@@ -153,10 +159,16 @@ function DoodleDuelGameContent() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#080a12] text-white flex flex-col justify-between overflow-x-hidden select-none font-sans">
+    <div className={`relative min-h-screen flex flex-col justify-between overflow-x-hidden select-none font-sans transition-colors duration-300 ${
+      isDark ? 'bg-[#080a12] text-white' : 'bg-[#f8fafc] text-slate-900'
+    }`}>
       {/* Background Cinematic Gradients */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-gradient-to-br from-rose-600/10 via-purple-600/5 to-transparent blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[600px] h-[400px] bg-gradient-to-tl from-violet-600/10 via-blue-600/5 to-transparent blur-3xl pointer-events-none" />
+      <div className={`absolute top-0 left-1/4 w-[600px] h-[400px] blur-3xl pointer-events-none transition-opacity ${
+        isDark ? 'bg-gradient-to-br from-rose-600/10 via-purple-600/5 to-transparent' : 'bg-gradient-to-br from-rose-400/10 via-purple-400/5 to-transparent'
+      }`} />
+      <div className={`absolute bottom-0 right-1/4 w-[600px] h-[400px] blur-3xl pointer-events-none transition-opacity ${
+        isDark ? 'bg-gradient-to-tl from-violet-600/10 via-blue-600/5 to-transparent' : 'bg-gradient-to-tl from-violet-400/10 via-blue-400/5 to-transparent'
+      }`} />
 
       {/* Floating Reaction Emojis */}
       <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
@@ -179,27 +191,33 @@ function DoodleDuelGameContent() {
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/40 backdrop-blur-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4 duration-200">
           <Trophy className="w-6 h-6 text-amber-400" />
           <div className="text-left">
-            <span className="text-sm font-black text-white block">Opponent Forfeited!</span>
-            <span className="text-xs text-amber-200">{opponentLeftWin.message}</span>
+            <span className={`text-sm font-black block ${isDark ? 'text-white' : 'text-slate-900'}`}>Opponent Forfeited!</span>
+            <span className="text-xs text-amber-500 font-medium">{opponentLeftWin.message}</span>
           </div>
         </div>
       )}
 
       {/* Top Header Bar (Matching Ludo Arena standard) */}
-      <header className="relative z-20 w-full px-4 sm:px-8 py-3.5 flex items-center justify-between border-b border-white/10 bg-[#080a12]/80 backdrop-blur-md">
+      <header className={`relative z-20 w-full px-4 sm:px-8 py-3.5 flex items-center justify-between border-b backdrop-blur-md transition-colors duration-300 ${
+        isDark ? 'border-white/10 bg-[#080a12]/80 text-white' : 'border-slate-200 bg-white/85 text-slate-900 shadow-xs'
+      }`}>
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={handleLeave}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer active:scale-95 border border-white/10"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer active:scale-95 ${
+              isDark
+                ? 'bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border-white/10'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border-slate-200'
+            }`}
             title="Back to Games"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Games</span>
           </button>
 
-          <div className="text-xs sm:text-sm font-semibold tracking-tight text-zinc-400">
-            <span>Watch.</span> <span className="text-zinc-600">/</span> <span>Game Lobby</span> <span className="text-zinc-600">/</span> <span className="text-[#ee1d49] font-bold">Doodle Duel</span>
+          <div className={`text-xs sm:text-sm font-semibold tracking-tight ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <span>Watch.</span> <span className="opacity-40">/</span> <span>Game Lobby</span> <span className="opacity-40">/</span> <span className="text-[#ee1d49] font-bold">Doodle Duel</span>
           </div>
         </div>
 
@@ -213,15 +231,32 @@ function DoodleDuelGameContent() {
           />
         )}
 
-        {/* Right Settings */}
+        {/* Right Actions: Theme Toggle & Settings */}
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={toggleTheme}
+            className={`p-2 rounded-xl border transition active:scale-95 cursor-pointer ${
+              isDark
+                ? 'bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300 hover:text-white'
+                : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 hover:text-slate-900'
+            }`}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowSettingsModal(true)}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white transition active:scale-95 cursor-pointer"
+            className={`p-2 rounded-xl border transition active:scale-95 cursor-pointer ${
+              isDark
+                ? 'bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300 hover:text-white'
+                : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700 hover:text-slate-900'
+            }`}
             title="Settings & Rules"
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       </header>
@@ -258,13 +293,15 @@ function DoodleDuelGameContent() {
             {/* Left Zone: Drawer Info & Secret Word */}
             <div className="lg:w-64 flex flex-col gap-3 shrink-0">
               {/* Drawer Card */}
-              <div className="p-4 rounded-2xl bg-[#111625]/90 border border-white/10 shadow-xl flex flex-col gap-3">
+              <div className={`p-4 rounded-2xl border shadow-xl flex flex-col gap-3 transition-colors ${
+                isDark ? 'bg-[#111625]/90 border-white/10' : 'bg-white/95 border-slate-200 shadow-md text-slate-900'
+              }`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-500 flex items-center gap-1">
                     <Palette className="w-3.5 h-3.5" /> Drawer
                   </span>
                   {isDrawer && (
-                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300">
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-500">
                       YOU
                     </span>
                   )}
@@ -275,10 +312,10 @@ function DoodleDuelGameContent() {
                     {dState.drawerDisplayName?.charAt(0).toUpperCase()}
                   </div>
                   <div className="overflow-hidden">
-                    <span className="text-sm font-black text-white truncate block">
+                    <span className={`text-sm font-black truncate block ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {dState.drawerDisplayName}
                     </span>
-                    <span className="text-xs font-mono font-bold text-rose-400">
+                    <span className="text-xs font-mono font-bold text-rose-500">
                       {dState.scores[dState.drawerUserId] || 0} pts
                     </span>
                   </div>
@@ -287,16 +324,18 @@ function DoodleDuelGameContent() {
                 {/* Secret Word Display for Drawer */}
                 {isDrawer && dState.secretWord ? (
                   <div className="mt-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex flex-col items-center text-center">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
                       Your Secret Word
                     </span>
-                    <span className="text-lg font-black uppercase tracking-wider text-white mt-0.5">
+                    <span className={`text-lg font-black uppercase tracking-wider mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {dState.secretWord}
                     </span>
                   </div>
                 ) : (
-                  <div className="mt-2 p-3 rounded-xl bg-white/[0.03] border border-white/5 text-center">
-                    <span className="text-[11px] font-medium text-zinc-400">
+                  <div className={`mt-2 p-3 rounded-xl border text-center ${
+                    isDark ? 'bg-white/[0.03] border-white/5' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <span className={`text-[11px] font-medium ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
                       {dState.drawerDisplayName} is drawing the secret word!
                     </span>
                   </div>
@@ -304,13 +343,15 @@ function DoodleDuelGameContent() {
               </div>
 
               {/* Guesser Summary Card */}
-              <div className="p-4 rounded-2xl bg-[#111625]/90 border border-white/10 shadow-xl flex flex-col gap-3">
+              <div className={`p-4 rounded-2xl border shadow-xl flex flex-col gap-3 transition-colors ${
+                isDark ? 'bg-[#111625]/90 border-white/10' : 'bg-white/95 border-slate-200 shadow-md text-slate-900'
+              }`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-violet-400 flex items-center gap-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-violet-500 flex items-center gap-1">
                     <Brain className="w-3.5 h-3.5" /> Guesser
                   </span>
                   {isGuesser && (
-                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300">
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-500">
                       YOU
                     </span>
                   )}
@@ -321,10 +362,10 @@ function DoodleDuelGameContent() {
                     {dState.guesserDisplayName?.charAt(0).toUpperCase()}
                   </div>
                   <div className="overflow-hidden">
-                    <span className="text-sm font-black text-white truncate block">
+                    <span className={`text-sm font-black truncate block ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {dState.guesserDisplayName}
                     </span>
-                    <span className="text-xs font-mono font-bold text-violet-400">
+                    <span className="text-xs font-mono font-bold text-violet-500">
                       {dState.scores[dState.guesserUserId] || 0} pts
                     </span>
                   </div>
