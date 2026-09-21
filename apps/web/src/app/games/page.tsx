@@ -4,20 +4,18 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  Gamepad2,
-  Sparkles,
+  Search,
+  Plus,
   Users,
-  Play,
-  Heart,
   Bell,
+  ChevronDown,
+  ArrowRight,
+  Menu,
   Sun,
   Moon,
-  Menu,
-  ChevronRight,
-  Flame,
-  ShieldCheck,
-  Trophy,
-  ArrowRight
+  Sparkles,
+  Gamepad2,
+  Check
 } from 'lucide-react';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,147 +24,75 @@ import {
   getUserPartner,
   pingPartner,
   UserSession,
-  FriendWithStreak,
-  getFriendsWithStreaks
+  FriendWithStreak
 } from '../../lib/api';
 import { GameFriendSelectorDrawer } from '../../components/games/GameFriendSelectorDrawer';
 import { AddFriendModal } from '../../components/streaks/AddFriendModal';
-import { getRandomRoast } from '../../lib/roastMessages';
 
-export interface GameItem {
+interface GameCardData {
   id: string;
   title: string;
   subtext: string;
-  badge?: string;
-  badgeColor?: string;
-  category: string;
   players: string;
-  icon: string;
-  route?: string;
-  artwork: string;
-  description: string;
-  featured?: boolean;
+  gradient: string;
+  image: string;
+  route: string;
+  watermark: 'crown' | 'sparkle';
+  category: 'party' | 'duel';
 }
 
-const GAMES_CATALOG: GameItem[] = [
+const GAMES_DATA: GameCardData[] = [
   {
     id: 'ludo',
-    title: 'LUDO PARTY',
-    subtext: 'Classic 4-Player Board & Video Chat',
-    badge: '🔥 Live Multiplayer',
-    badgeColor: 'bg-[#ee1d49] text-white shadow-lg shadow-[#ee1d49]/30',
-    category: 'Board Game',
+    title: 'Ludo Party',
+    subtext: 'Roll. Move. Capture. Win W/together.',
     players: '2-4 Players',
-    icon: '🎲',
+    gradient: 'from-[#ff456e] via-[#dc1947] to-[#7f0b27]',
+    image: '/images/card-ludo-dice.png',
     route: '/games/ludo',
-    featured: true,
-    artwork: 'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=600&h=400&fit=crop&q=80',
-    description: 'Roll dice, capture opponent tokens, and race home with friends in real-time with zero bots and live floating video call.'
+    watermark: 'crown',
+    category: 'party'
   },
   {
     id: 'bingo',
-    title: 'BINGO DUEL',
-    subtext: 'Classic Tambola & 75-Ball Duel',
-    badge: '🔥 Live 2-Player',
-    badgeColor: 'bg-gradient-to-r from-rose-600 via-[#ee1d49] to-pink-600 text-white shadow-lg shadow-rose-600/30',
-    category: 'Tambola / Housie',
+    title: 'Bingo Duel',
+    subtext: 'Classic Tambola. Modern twist.',
     players: '2 Players',
-    icon: '🎱',
+    gradient: 'from-[#2e74ff] via-[#1a4ec8] to-[#0e1d52]',
+    image: '/images/card-bingo-duel.png',
     route: '/games/bingo',
-    featured: true,
-    artwork: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&h=400&fit=crop&q=80',
-    description: 'Private 2-player real-time Tambola & 75-ball Bingo. Unique tickets, auto/manual calling, custom patterns, and instant win validation.'
+    watermark: 'sparkle',
+    category: 'duel'
   },
   {
     id: 'doodle-duel',
-    title: 'DOODLE DUEL',
-    subtext: 'Fast 2-Player Draw & Guess Showdown',
-    badge: '🔥 Live 2-Player',
-    badgeColor: 'bg-gradient-to-r from-violet-600 via-purple-600 to-rose-600 text-white shadow-lg shadow-purple-600/30',
-    category: 'Draw & Guess',
+    title: 'Doodle Duel',
+    subtext: 'Draw it. Guess it. Switch.',
     players: '2 Players',
-    icon: '🎨',
+    gradient: 'from-[#8755f8] via-[#6523c9] to-[#360966]',
+    image: '/images/card-doodle-duel.png',
     route: '/games/doodle-duel',
-    featured: true,
-    artwork: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&h=400&fit=crop&q=80',
-    description: 'Private 2-player real-time draw & guess duel. Automatic role alternation every round, secret word choices, live canvas synchronization, and speed bonuses.'
-  },
-  {
-    id: 'four-in-a-row',
-    title: 'FOUR IN A ROW',
-    subtext: 'Vertical Disc Duel & Live Reactions',
-    badge: '🔥 Live 2-Player',
-    badgeColor: 'bg-[#6355ff] text-white shadow-lg shadow-indigo-600/30',
-    category: 'Strategy Duel',
-    players: '2 Players',
-    icon: '🔴',
-    route: '/games/four-in-a-row',
-    featured: true,
-    artwork: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&h=400&fit=crop&q=80',
-    description: 'Connect 4 discs horizontally, vertically, or diagonally. Fast-paced mind duel with turn timers and custom chips.'
+    watermark: 'sparkle',
+    category: 'duel'
   },
   {
     id: 'tic-tac-toe',
-    title: 'TIC TAC TOE',
-    subtext: 'Neon 3-in-a-Row Quick Duel',
-    badge: '🔥 Live 2-Player',
-    badgeColor: 'bg-rose-600 text-white shadow-lg shadow-rose-600/30',
-    category: 'Strategy Duel',
+    title: 'Tic Tac Toe',
+    subtext: 'Quick games. Big fun.',
     players: '2 Players',
-    icon: '❌',
+    gradient: 'from-[#e5a463] via-[#bc7533] to-[#6b3a16]',
+    image: '/images/card-tictactoe.png',
     route: '/games/tic-tac-toe',
-    featured: true,
-    artwork: 'https://images.unsplash.com/photo-1668901382969-8c73e450a1f5?w=600&h=400&fit=crop&q=80',
-    description: 'Fast-paced 3x3 tactical duel. Place Xs and Os, block opponent lines, and claim victory with live audio/video reactions.'
-  },
-  {
-    id: 'trivia',
-    title: 'CINEMA TRIVIA',
-    subtext: '15s Rapid Movie & Pop Quiz',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-zinc-800/80 text-zinc-300 border border-white/10',
-    category: 'Movie Quiz',
-    players: '2-6 Players',
-    icon: '🎬',
-    artwork: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&h=400&fit=crop&q=80',
-    description: 'Rapid-fire movie trivia covering Hollywood blockbusters, MCU, Oscar winners, and iconic film dialogue.'
-  },
-  {
-    id: 'pictionary',
-    title: 'CO-OP SKETCH',
-    subtext: 'Live Draw & Guess Together',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-zinc-800/80 text-zinc-300 border border-white/10',
-    category: 'Live Sketch',
-    players: '2-6 Players',
-    icon: '🎨',
-    artwork: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&h=400&fit=crop&q=80',
-    description: 'Synchronized live sketch canvas where one player draws movie scenes while friends guess in real-time.'
-  },
-  {
-    id: 'chess',
-    title: 'CHESS CINEMA',
-    subtext: 'Grandmaster Tactics & Clocks',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-zinc-800/80 text-zinc-300 border border-white/10',
-    category: 'Classic Strategy',
-    players: '2 Players',
-    icon: '♟️',
-    artwork: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=600&h=400&fit=crop&q=80',
-    description: 'Classic chess with live move highlighting, turn clocks, checkmate validation, and spectator commentary.'
-  },
-  {
-    id: 'reflex',
-    title: 'REFLEX DUEL',
-    subtext: 'Millisecond Reaction Party',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-zinc-800/80 text-zinc-300 border border-white/10',
-    category: 'Speed Duel',
-    players: 'Up to 6',
-    icon: '⚡',
-    artwork: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&h=400&fit=crop&q=80',
-    description: 'High-stakes party reaction game. Tap on green flashes to top the lobby reflex leaderboard.'
+    watermark: 'sparkle',
+    category: 'duel'
   }
+];
+
+const SOCIAL_AVATARS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face'
 ];
 
 export default function GameLobbyPage() {
@@ -184,15 +110,17 @@ export default function GameLobbyPage() {
   } | null>(null);
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isPinging, setIsPinging] = useState(false);
-  const [pingStatus, setPingStatus] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<'all' | '2-players' | 'party'>('all');
+  const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
-  // Friend selector drawers
+  // Friend / Room Modals
   const [isFriendDrawerOpen, setIsFriendDrawerOpen] = useState(false);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [selectedGameForPartner, setSelectedGameForPartner] = useState<string>('/games/ludo');
+  const [notificationToast, setNotificationToast] = useState<string | null>(null);
 
-  // Load session & partner
   useEffect(() => {
     const s = getStoredSession();
     if (s && s.token) {
@@ -206,28 +134,6 @@ export default function GameLobbyPage() {
         .catch(() => {});
     }
   }, []);
-
-  const handlePingPartner = async () => {
-    if (!session?.token || !partner) return;
-    setIsPinging(true);
-    const roast = getRandomRoast('game');
-    try {
-      await pingPartner({
-        targetCode: partner.partnerCode,
-        fromCode: session.user.partnerCode,
-        fromName: session.user.displayName,
-        gameType: 'games',
-        customMessage: roast.body
-      });
-      setPingStatus(`Sent roast to ${partner.displayName}! 🎲 "${roast.body}"`);
-      setTimeout(() => setPingStatus(null), 5000);
-    } catch {
-      setPingStatus('Failed to send ping');
-      setTimeout(() => setPingStatus(null), 3000);
-    } finally {
-      setIsPinging(false);
-    }
-  };
 
   const handleSelectFriend = (friend: FriendWithStreak) => {
     if (friend.friendUser) {
@@ -247,11 +153,28 @@ export default function GameLobbyPage() {
     router.push(selectedGameForPartner);
   };
 
+  const handleStayUpdated = () => {
+    setNotificationToast('🔔 Subscribed! You will be notified when new party games drop.');
+    setTimeout(() => setNotificationToast(null), 4000);
+  };
+
+  const filteredGames = GAMES_DATA.filter((game) => {
+    const matchesSearch =
+      game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      game.subtext.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    if (filterCategory === '2-players') return game.players.includes('2 Players');
+    if (filterCategory === 'party') return game.players.includes('2-4');
+    return true;
+  });
+
   return (
-    <div className={`min-h-screen flex transition-colors duration-150 ${
-      isDark ? 'bg-[#0d0e15] text-white' : 'bg-slate-50 text-slate-900'
-    }`}>
-      {/* Centralized AppSidebar */}
+    <div
+      className={`min-h-screen flex transition-colors duration-150 font-sans ${
+        isDark ? 'bg-[#090a10] text-white' : 'bg-[#f7f8fa] text-slate-900'
+      }`}
+    >
+      {/* Platform Sidebar */}
       <AppSidebar
         activeNav="games"
         isMobileOpen={isMobileSidebarOpen}
@@ -261,7 +184,7 @@ export default function GameLobbyPage() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 min-h-screen overflow-y-auto">
         {/* Mobile Header Bar */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/[0.06] bg-white/80 dark:bg-[#130e1b]/80 backdrop-blur-md sticky top-0 z-20">
+        <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/[0.06] bg-white/80 dark:bg-[#0c0d14]/80 backdrop-blur-md sticky top-0 z-20">
           <div className="flex items-center space-x-3">
             <button
               type="button"
@@ -270,14 +193,9 @@ export default function GameLobbyPage() {
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#ee1d49] to-[#ff3b68] flex items-center justify-center text-white font-black text-sm shadow-sm">
-                <Gamepad2 className="w-4 h-4" />
-              </div>
-              <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
-                Game Lobby<span className="text-[#ee1d49]">.</span>
-              </span>
-            </div>
+            <span className="text-base font-black tracking-tight text-slate-900 dark:text-white">
+              Games<span className="text-[#ff3864]">.</span>
+            </span>
           </div>
 
           <button
@@ -289,245 +207,355 @@ export default function GameLobbyPage() {
           </button>
         </div>
 
-        {/* Page Container */}
-        <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
-          {/* Header Banner */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/[0.06]">
-            <div className="flex items-center space-x-3.5">
-              <div className="p-3 rounded-2xl bg-[#ee1d49]/10 border border-[#ee1d49]/20 text-[#ee1d49]">
-                <Gamepad2 className="w-7 h-7" />
+        {/* Page Inner Container */}
+        <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full space-y-7 animate-fadeIn">
+          {/* Notification Toast */}
+          {notificationToast && (
+            <div className="fixed top-5 right-5 z-50 bg-[#ff3864] text-white px-5 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce">
+              <span>{notificationToast}</span>
+            </div>
+          )}
+
+          {/* 1. TOP DARK HERO CARD */}
+          <div className="relative rounded-[32px] sm:rounded-[36px] overflow-hidden bg-[#0c0d14] border border-white/10 text-white min-h-[380px] sm:min-h-[420px] flex flex-col justify-between p-6 sm:p-10 lg:p-12 shadow-2xl">
+            {/* Background Image: Gaming controller on couch with popcorn */}
+            <div className="absolute inset-0 pointer-events-none z-0">
+              <img
+                src="/images/games-hero-banner.jpg"
+                alt="Games hit different together"
+                className="w-full h-full object-cover object-right lg:object-center opacity-70"
+              />
+              {/* Dark gradient overlay for text readability on left */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#090a10] via-[#090a10]/85 sm:via-[#090a10]/65 to-transparent" />
+              {/* Bottom vignette */}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#090a10]/80 via-transparent to-transparent" />
+            </div>
+
+            {/* Top Row: PLAY TOGETHER category & Action buttons */}
+            <div className="relative z-10 flex items-center justify-between gap-4">
+              <div className="text-[11px] sm:text-xs font-bold tracking-[0.25em] text-zinc-400 uppercase select-none">
+                PLAY TOGETHER
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Search Bar / Button */}
+                {searchOpen ? (
+                  <div className="flex items-center bg-black/60 border border-white/20 rounded-full px-3 py-1.5 backdrop-blur-md">
+                    <Search className="w-3.5 h-3.5 text-zinc-400 mr-2" />
+                    <input
+                      type="text"
+                      placeholder="Search games..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="bg-transparent text-xs text-white placeholder-zinc-500 focus:outline-none w-32 sm:w-44"
+                      autoFocus
+                      onBlur={() => !searchQuery && setSearchOpen(false)}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSearchOpen(true)}
+                    className="w-10 h-10 rounded-full bg-black/40 hover:bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-white cursor-pointer transition active:scale-95"
+                    title="Search games"
+                  >
+                    <Search className="w-4 h-4 text-zinc-200" />
+                  </button>
+                )}
+
+                {/* + Create Room Pill */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedGameForPartner('/games/ludo');
+                    setIsFriendDrawerOpen(true);
+                  }}
+                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#ff3864] to-[#ff2a55] hover:opacity-95 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-500/30 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>Create Room</span>
+                </button>
+
+                {/* User Avatar Circle with Chevron Dropdown */}
+                <div
+                  onClick={() => {
+                    setSelectedGameForPartner('/games/ludo');
+                    setIsFriendDrawerOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 pl-1 cursor-pointer group"
+                  title="Your Profile / Friends"
+                >
+                  <div className="w-9 h-9 rounded-full ring-2 ring-white/20 overflow-hidden bg-zinc-800 flex items-center justify-center text-white text-xs font-bold shadow-md">
+                    {session?.user?.avatarUrl ? (
+                      <img
+                        src={session.user.avatarUrl}
+                        alt="User"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face"
+                        alt="User"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-zinc-400 group-hover:text-white transition" />
+                </div>
+              </div>
+            </div>
+
+            {/* Middle Row: Big Headline & Subtitle */}
+            <div className="relative z-10 my-auto py-6 sm:py-8 max-w-xl">
+              <h1 className="text-4xl sm:text-5xl lg:text-[54px] font-black text-white tracking-tight leading-[1.08]">
+                Games hit different{' '}
+                <span className="text-[#ff3864] drop-shadow-[0_2px_12px_rgba(255,56,100,0.5)]">
+                  together.
+                </span>
+              </h1>
+              <p className="text-sm sm:text-base text-zinc-300 font-normal mt-3.5 tracking-normal">
+                Real games. Real people. No bots, ever.
+              </p>
+            </div>
+
+            {/* Bottom Row: 12K+ friends & Cursive Script Watermark */}
+            <div className="relative z-10 flex items-end justify-between">
+              {/* Stacked Social Avatars */}
+              <div className="flex items-center gap-3">
+                <div className="flex -space-x-2.5 overflow-hidden py-1">
+                  {SOCIAL_AVATARS.map((url, idx) => (
+                    <img
+                      key={idx}
+                      src={url}
+                      alt="Player"
+                      className="inline-block h-8 w-8 sm:h-9 sm:w-9 rounded-full ring-2 ring-[#0c0d14] object-cover"
+                    />
+                  ))}
+                </div>
+                <span className="text-xs sm:text-sm font-semibold text-zinc-200">
+                  12K+ friends are playing
+                </span>
+              </div>
+
+              {/* Artistic Cursive Handwriting Watermark */}
+              <div className="hidden sm:block select-none pointer-events-none text-right">
+                <p
+                  className="italic text-2xl sm:text-3xl text-white/50 leading-tight transform rotate-[-6deg]"
+                  style={{ fontFamily: "'Caveat', cursive, 'Brush Script MT', sans-serif" }}
+                >
+                  Play<br />
+                  Laugh<br />
+                  Repeat <span className="text-[#ff3864]">♡</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. SECTION HEADER: "Our Games" & "All Games ⌵" Dropdown */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                Our Games
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5 font-normal">
+                Simple games. Stronger connections.
+              </p>
+            </div>
+
+            {/* Filter Dropdown Pill */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsFilterDropdownOpen(!isFilterDropdownOpen)}
+                className="px-4 py-2 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 backdrop-blur-sm text-xs font-semibold text-slate-700 dark:text-zinc-200 flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+              >
+                <span>
+                  {filterCategory === 'all'
+                    ? 'All Games'
+                    : filterCategory === '2-players'
+                    ? '2 Players'
+                    : '2-4 Players'}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+              </button>
+
+              {isFilterDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-[#141522] border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl py-1.5 z-30 animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterCategory('all');
+                      setIsFilterDropdownOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-white/5 ${
+                      filterCategory === 'all' ? 'text-[#ff3864]' : 'text-slate-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span>All Games</span>
+                    {filterCategory === 'all' && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterCategory('2-players');
+                      setIsFilterDropdownOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-white/5 ${
+                      filterCategory === '2-players' ? 'text-[#ff3864]' : 'text-slate-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span>2 Players</span>
+                    {filterCategory === '2-players' && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterCategory('party');
+                      setIsFilterDropdownOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-white/5 ${
+                      filterCategory === 'party' ? 'text-[#ff3864]' : 'text-slate-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span>2-4 Players</span>
+                    {filterCategory === 'party' && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. FOUR GAME CARDS GRID */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+            {filteredGames.map((game) => (
+              <div
+                key={game.id}
+                onClick={() => router.push(game.route)}
+                className={`group relative rounded-[28px] sm:rounded-[32px] bg-gradient-to-b ${game.gradient} p-6 sm:p-7 text-white flex flex-col justify-between min-h-[460px] sm:min-h-[480px] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer select-none overflow-hidden`}
+              >
+                {/* Top Row: Player count pill & Watermark icon */}
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className="bg-black/25 backdrop-blur-md border border-white/10 px-3.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 text-white/95 shadow-sm">
+                    <Users className="w-3 h-3 text-white/80" />
+                    <span>{game.players}</span>
+                  </div>
+
+                  {/* Watermark icon on top-right */}
+                  <div className="opacity-30 group-hover:opacity-50 transition-opacity">
+                    {game.watermark === 'crown' ? (
+                      /* Crown line-art */
+                      <svg
+                        className="w-8 h-8 text-white stroke-current fill-none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 18h18M4 18l2-10 5 5 5-5 2 10H4z" />
+                        <circle cx="6" cy="7" r="1" />
+                        <circle cx="11" cy="12" r="1" />
+                        <circle cx="16" cy="7" r="1" />
+                      </svg>
+                    ) : (
+                      /* Starburst / sparkle rays */
+                      <svg
+                        className="w-8 h-8 text-white stroke-current fill-none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="12" y1="2" x2="12" y2="7" />
+                        <line x1="12" y1="17" x2="12" y2="22" />
+                        <line x1="2" y1="12" x2="7" y2="12" />
+                        <line x1="17" y1="12" x2="22" y2="12" />
+                        <line x1="4.93" y1="4.93" x2="8.46" y2="8.46" />
+                        <line x1="15.54" y1="15.54" x2="19.07" y2="19.07" />
+                        <line x1="4.93" y1="19.07" x2="8.46" y2="15.54" />
+                        <line x1="15.54" y1="8.46" x2="19.07" y2="4.93" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+
+                {/* Center 3D Artwork */}
+                <div className="relative z-10 my-auto flex items-center justify-center py-4">
+                  <div className="w-48 h-48 sm:w-52 sm:h-52 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+                    <img
+                      src={game.image}
+                      alt={game.title}
+                      className="max-h-full max-w-full object-contain drop-shadow-[0_20px_25px_rgba(0,0,0,0.45)]"
+                    />
+                  </div>
+                </div>
+
+                {/* Bottom Row: Game Title, Subtext & Action */}
+                <div className="relative z-10 space-y-4">
+                  <div>
+                    <h3 className="text-2xl font-bold tracking-tight text-white">
+                      {game.title}
+                    </h3>
+                    <p className="text-xs text-white/80 font-normal mt-1 leading-relaxed">
+                      {game.subtext}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-xs sm:text-sm font-bold text-white group-hover:underline underline-offset-4 tracking-wide">
+                      Play Now
+                    </span>
+
+                    <div className="w-10 h-10 rounded-full bg-white/20 group-hover:bg-white/35 backdrop-blur-md border border-white/25 flex items-center justify-center text-white transition-all transform group-hover:translate-x-1 shadow-sm">
+                      <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 4. BOTTOM BANNER: "More games coming soon..." */}
+          <div className="rounded-[24px] sm:rounded-[28px] bg-[#fff0f4] dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/30 p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden shadow-sm">
+            {/* Left: Icon and Text */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#ff3864]/10 text-[#ff3864] flex items-center justify-center shrink-0">
+                <Users className="w-6 h-6" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                    Party Game Lobby
-                  </h1>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ee1d49]/10 text-[#ee1d49] border border-[#ee1d49]/20">
-                    ZERO BOTS
-                  </span>
-                </div>
+                <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                  More games coming soon...
+                </h4>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5">
-                  Play synchronized multiplayer party games with friends while on video call.
+                  New ways to play, connect and create memories together.
                 </p>
               </div>
             </div>
 
-            {/* Quick Friend Selector Button */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedGameForPartner('/games/ludo');
-                  setIsFriendDrawerOpen(true);
-                }}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-zinc-200 text-xs font-bold rounded-xl border border-slate-200 dark:border-white/10 transition active:scale-95 flex items-center gap-2 cursor-pointer"
+            {/* Center: Handwriting Cursive Watermark */}
+            <div className="hidden lg:block select-none pointer-events-none text-center">
+              <p
+                className="italic text-lg text-rose-400/90 dark:text-rose-300/80 leading-tight transform rotate-[-4deg]"
+                style={{ fontFamily: "'Caveat', cursive, 'Brush Script MT', sans-serif" }}
               >
-                <Users className="w-3.5 h-3.5 text-[#ee1d49]" />
-                <span>Select Opponent</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Quick Partner Duel Highlight Banner */}
-          {partner && (
-            <div className={`p-4 sm:p-5 rounded-3xl border transition shadow-sm ${
-              isDark
-                ? 'bg-gradient-to-r from-[#18121f] via-[#151122] to-[#120d18] border-white/10'
-                : 'bg-gradient-to-r from-[#fff5f7] via-[#fdf7f9] to-[#fff] border-[#fde4eb]'
-            }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                  <div className="relative shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#ee1d49] to-[#f43f5e] text-white flex items-center justify-center font-black text-base shadow-sm ring-2 ring-white dark:ring-white/10 overflow-hidden">
-                      {partner.avatarUrl ? (
-                        <img src={partner.avatarUrl} alt={partner.displayName} className="w-full h-full object-cover" />
-                      ) : (
-                        (partner.displayName || 'P').charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white dark:bg-zinc-900 ring-1 ring-white/50">
-                      <span className={`h-2.5 w-2.5 rounded-full ${partner.online ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'}`} />
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase">
-                        Current Partner
-                      </span>
-                      <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49]" />
-                      <span className="text-[10px] font-mono text-zinc-400">
-                        #{partner.partnerCode}
-                      </span>
-                    </div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                      {partner.displayName}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400">
-                      {partner.online ? '🟢 Online • Ready for instant matches' : '⚪ Offline • Ping them to come online'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={handlePingPartner}
-                    disabled={isPinging}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 ${
-                      isDark
-                        ? 'border-white/10 bg-white/5 hover:bg-white/10 text-rose-300'
-                        : 'border-rose-200 bg-white hover:bg-rose-50 text-rose-600'
-                    }`}
-                  >
-                    <Bell className={`w-3.5 h-3.5 ${isPinging ? 'animate-bounce' : ''}`} />
-                    <span>{isPinging ? 'Pinging...' : 'Ping'}</span>
-                  </button>
-
-                  <Link
-                    href="/games/ludo"
-                    className="px-4 py-2 bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-bold rounded-xl shadow-md shadow-[#ee1d49]/25 transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>Play Ludo</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-
-                  <Link
-                    href="/games/four-in-a-row"
-                    className="px-4 py-2 bg-[#6355ff] hover:bg-[#5244e8] text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-600/25 transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>Play Four in a Row</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-
-              {pingStatus && (
-                <div className="mt-3 pt-2.5 border-t border-rose-200/60 dark:border-white/10 text-xs font-semibold text-rose-500">
-                  {pingStatus}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Featured Live Multiplayer Games Grid */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-[#ee1d49]" />
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Live Multiplayer Arena
-                </h2>
-              </div>
-              <span className="text-xs text-slate-500 dark:text-zinc-400">
-                100% Real Players • No Bots
-              </span>
+                Same People<br />
+                New Games <span className="text-[#ff3864]">♡</span>
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {GAMES_CATALOG.filter((g) => g.featured).map((game) => (
-                <div
-                  key={game.id}
-                  onClick={() => game.route && router.push(game.route)}
-                  className={`group relative rounded-3xl border overflow-hidden p-6 sm:p-7 flex flex-col justify-between transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl select-none ${
-                    isDark
-                      ? 'bg-[#141521] border-white/10 hover:border-[#ee1d49]/60 hover:shadow-[#ee1d49]/10'
-                      : 'bg-white border-slate-200/90 hover:border-[#ee1d49]/60 hover:shadow-[#ee1d49]/15'
-                  }`}
-                >
-                  {/* Right side artwork blend */}
-                  <div className="absolute right-0 top-0 bottom-0 w-[55%] pointer-events-none overflow-hidden flex items-center justify-end">
-                    <img
-                      src={game.artwork}
-                      alt={game.title}
-                      className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-500 opacity-60 dark:opacity-40 group-hover:opacity-80"
-                    />
-                    <div className={`absolute inset-0 bg-gradient-to-r ${
-                      isDark
-                        ? 'from-[#141521] via-[#141521]/80 to-transparent'
-                        : 'from-white via-white/80 to-transparent'
-                    }`} />
-                  </div>
-
-                  {/* Top Row: Badge & Category */}
-                  <div className="relative z-10 flex items-center justify-between mb-6">
-                    <span className={`px-3 py-1 rounded-xl text-xs font-bold tracking-wide shadow-xs ${game.badgeColor}`}>
-                      {game.badge}
-                    </span>
-                    <span className="text-xs font-bold text-slate-400 dark:text-zinc-500">
-                      {game.players}
-                    </span>
-                  </div>
-
-                  {/* Bottom Area: Info & Action */}
-                  <div className="relative z-10 space-y-2 max-w-[70%]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{game.icon}</span>
-                      <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-slate-900 dark:text-white group-hover:text-[#ee1d49] transition-colors">
-                        {game.title}
-                      </h3>
-                    </div>
-                    <p className="text-xs sm:text-sm text-slate-600 dark:text-zinc-300 line-clamp-2 leading-relaxed">
-                      {game.description}
-                    </p>
-
-                    <div className="pt-3 flex items-center gap-2 text-[#ee1d49] font-bold text-xs group-hover:translate-x-1 transition-transform">
-                      <span>Enter Arena</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Coming Soon Party Arcade Grid */}
-          <div className="space-y-4 pt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  Upcoming Party Arcade
-                </h2>
-              </div>
-              <span className="text-xs text-slate-500 dark:text-zinc-400">
-                In Development
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {GAMES_CATALOG.filter((g) => !g.featured).map((game) => (
-                <div
-                  key={game.id}
-                  className={`group relative rounded-2xl border overflow-hidden p-5 flex flex-col justify-between transition-all select-none opacity-80 hover:opacity-100 ${
-                    isDark
-                      ? 'bg-[#12131b] border-white/5'
-                      : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xl">{game.icon}</span>
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                      Coming Soon
-                    </span>
-                  </div>
-
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                      {game.title}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 line-clamp-2">
-                      {game.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Right: Stay Updated Button */}
+            <button
+              type="button"
+              onClick={handleStayUpdated}
+              className="px-5 py-2.5 rounded-full bg-white dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-white/15 border border-rose-200 dark:border-white/10 text-slate-800 dark:text-white text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer self-start md:self-auto"
+            >
+              <Bell className="w-4 h-4 text-[#ff3864]" />
+              <span>Stay Updated</span>
+            </button>
           </div>
         </div>
       </main>
 
-      {/* Game Friend / Opponent Selector Drawer */}
+      {/* Opponent Selector Drawer */}
       <GameFriendSelectorDrawer
         isOpen={isFriendDrawerOpen}
         onClose={() => setIsFriendDrawerOpen(false)}
