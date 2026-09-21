@@ -403,14 +403,14 @@ export class ChessEngine {
    */
   public static hasInsufficientMaterialForMate(chess: Chess, color: ChessColor): boolean {
     const board = chess.board().flat();
-    const pieces = board.filter(p => p && p.color === color);
+    const pieces = board.filter((p: any) => p && p.color === color);
 
     // Bare king
     if (pieces.length <= 1) return true;
 
     // King + 1 minor piece (Knight or Bishop)
     if (pieces.length === 2) {
-      const minor = pieces.find(p => p && p.type !== 'k');
+      const minor = pieces.find((p: any) => p && p.type !== 'k');
       if (minor && (minor.type === 'b' || minor.type === 'n')) {
         return true;
       }
@@ -418,7 +418,7 @@ export class ChessEngine {
 
     // King + 2 Knights (cannot force mate against lone king)
     if (pieces.length === 3) {
-      const knights = pieces.filter(p => p && p.type === 'n');
+      const knights = pieces.filter((p: any) => p && p.type === 'n');
       if (knights.length === 2) return true;
     }
 
