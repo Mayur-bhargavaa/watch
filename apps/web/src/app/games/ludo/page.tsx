@@ -78,7 +78,9 @@ import {
   playWithPartner,
   recordFriendStreak,
   WS_BASE,
-  UserSession
+  UserSession,
+  getGameRoute,
+  getGameTitle
 } from '../../../lib/api';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { LudoGame, VideoAvatar } from '../../../components/games/LudoGame';
@@ -147,6 +149,22 @@ function LudoPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomParam = searchParams.get('room');
+
+  // Immediate prefix check: if the room code belongs to another game, route instantly
+  useEffect(() => {
+    if (roomParam) {
+      const code = roomParam.trim().toUpperCase();
+      if (code.startsWith('BINGO-')) {
+        router.replace(`/games/bingo?room=${encodeURIComponent(roomParam)}`);
+      } else if (code.startsWith('TIC-')) {
+        router.replace(`/games/tic-tac-toe?room=${encodeURIComponent(roomParam)}`);
+      } else if (code.startsWith('FOUR-')) {
+        router.replace(`/games/four-in-a-row?room=${encodeURIComponent(roomParam)}`);
+      } else if (code.startsWith('DOODLE-')) {
+        router.replace(`/games/doodle-duel?room=${encodeURIComponent(roomParam)}`);
+      }
+    }
+  }, [roomParam, router]);
 
   // Session & User Identity
   const [session, setSession] = useState<UserSession | null>(null);
@@ -400,6 +418,13 @@ function LudoPageContent() {
     registerCameraListener,
     registerVoiceListener
   } = useGameRoom(roomParam);
+
+  // Authoritative redirect if room belongs to another game type
+  useEffect(() => {
+    if (room?.gameType && room.gameType !== 'ludo' && room.roomCode) {
+      router.replace(getGameRoute(room.gameType, room.roomCode));
+    }
+  }, [room?.gameType, room?.roomCode, router]);
 
   // Authoritative theme sync across room players
   useEffect(() => {
@@ -972,6 +997,24 @@ function LudoPageContent() {
 
   const disconnectedOpponentName = opponentPlayer?.displayName || disconnectedPlayer?.displayName || 'Partner';
 
+  // Guard against rendering Ludo UI if the room belongs to another game
+  if (roomParam) {
+    const code = roomParam.trim().toUpperCase();
+    if (code.startsWith('BINGO-') || code.startsWith('TIC-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-') || (room?.gameType && room.gameType !== 'ludo')) {
+      return (
+        <div className="min-h-screen bg-[#07070d] flex items-center justify-center text-white p-4">
+          <div className="flex flex-col items-center gap-3 p-8 rounded-3xl bg-white/[0.04] border border-white/10 backdrop-blur-xl max-w-sm text-center shadow-2xl">
+            <div className="w-10 h-10 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-bold text-white">
+              Opening {room?.gameType ? getGameTitle(room.gameType, room.roomCode) : 'Game Arena'}...
+            </p>
+            <p className="text-xs text-zinc-400">Taking you directly to the game</p>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className={`flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
       roomParam ? 'min-h-screen overflow-y-auto' : 'h-screen w-screen overflow-hidden'
@@ -1377,7 +1420,7 @@ function LudoPageContent() {
           message={
             <div className="space-y-2 text-center">
               <p className="text-white font-medium">
-                <span className="text-rose-300 font-bold">{incomingInvite.fromDisplayName}</span> invited you to play Ludo together!
+                <span className="text-rose-300 font-bold">{incomingInvite.fromDisplayName}</span> invited you to play {getGameTitle(incomingInvite.gameType, incomingInvite.roomCode)} together!
               </p>
               <div className="inline-block px-3 py-1 rounded-xl bg-rose-500/15 border border-rose-500/30 font-mono text-xs text-rose-200">
                 Room: {incomingInvite.roomCode}
@@ -1389,8 +1432,9 @@ function LudoPageContent() {
           cancelText="Dismiss"
           onConfirm={() => {
             const code = incomingInvite.roomCode;
+            const targetRoute = getGameRoute(incomingInvite.gameType, code);
             setIncomingInvite(null);
-            router.push(`/games/ludo?room=${code}`);
+            router.push(targetRoute);
           }}
         />
       )}

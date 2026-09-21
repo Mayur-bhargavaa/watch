@@ -70,7 +70,9 @@ import {
   invitePartnerToGame,
   sendHeartbeat,
   recordFriendStreak,
-  UserSession
+  UserSession,
+  getGameRoute,
+  getGameTitle
 } from '../../../lib/api';
 import { useGameRoom, DiscDropEvent } from '../../../hooks/useGameRoom';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
@@ -314,6 +316,20 @@ function FourInARowContent() {
     registerCameraListener,
     registerVoiceListener
   } = useGameRoom(roomParam);
+
+  // Cross-game redirect guard
+  useEffect(() => {
+    if (roomParam) {
+      const code = roomParam.trim().toUpperCase();
+      if (!code.startsWith('FOUR-') && (code.startsWith('BINGO-') || code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('DOODLE-'))) {
+        router.replace(getGameRoute(undefined, roomParam));
+        return;
+      }
+    }
+    if (room?.gameType && room.gameType !== 'four-in-a-row' && room?.roomCode) {
+      router.replace(getGameRoute(room.gameType, room.roomCode));
+    }
+  }, [roomParam, room?.gameType, room?.roomCode, router]);
 
   // Derive active players
   const hostPlayer = useMemo(() => {

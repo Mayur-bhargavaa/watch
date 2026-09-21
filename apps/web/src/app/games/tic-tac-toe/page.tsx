@@ -70,7 +70,9 @@ import {
   sendHeartbeat,
   recordFriendStreak,
   UserSession,
-  FriendWithStreak
+  FriendWithStreak,
+  getGameRoute,
+  getGameTitle
 } from '../../../lib/api';
 import { useGameRoom, TicTacToeCellMarkEvent } from '../../../hooks/useGameRoom';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
@@ -344,15 +346,19 @@ function TicTacToeContent() {
     registerVoiceListener
   } = useGameRoom(roomParam || null);
 
-  // If the room joined belongs to a different game type (e.g. Ludo or Four-In-A-Row), redirect to the appropriate game page
+  // If the room joined belongs to a different game type, redirect to the appropriate game page
   useEffect(() => {
-    if (!room?.gameType || !room?.roomCode) return;
-    if (room.gameType === 'ludo') {
-      router.replace(`/games/ludo?room=${encodeURIComponent(room.roomCode)}`);
-    } else if (room.gameType === 'four-in-a-row') {
-      router.replace(`/games/four-in-a-row?room=${encodeURIComponent(room.roomCode)}`);
+    if (roomParam) {
+      const code = roomParam.trim().toUpperCase();
+      if (!code.startsWith('TIC-') && (code.startsWith('BINGO-') || code.startsWith('LUDO-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-'))) {
+        router.replace(getGameRoute(undefined, roomParam));
+        return;
+      }
     }
-  }, [room?.gameType, room?.roomCode, router]);
+    if (room?.gameType && room.gameType !== 'tic-tac-toe' && room?.roomCode) {
+      router.replace(getGameRoute(room.gameType, room.roomCode));
+    }
+  }, [roomParam, room?.gameType, room?.roomCode, router]);
 
   const effectiveUserId = myUserId || session?.user?.id || '';
 

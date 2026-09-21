@@ -30,7 +30,7 @@ import { useGameRoom } from '../../../hooks/useGameRoom';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
 import { VideoAvatar } from '../../../components/games/LudoGame';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
-import { getStoredSession, UserSession, createGameRoomWithPartner } from '../../../lib/api';
+import { getStoredSession, UserSession, createGameRoomWithPartner, getGameRoute, getGameTitle } from '../../../lib/api';
 import { BingoLobby } from '../../../components/games/bingo/BingoLobby';
 import { BingoWaitingRoom } from '../../../components/games/bingo/BingoWaitingRoom';
 import { BingoCaller } from '../../../components/games/bingo/BingoCaller';
@@ -226,6 +226,20 @@ function BingoGameContent() {
     registerCameraListener,
     registerVoiceListener
   } = useGameRoom(roomCodeParam);
+
+  // Cross-game redirect guard
+  useEffect(() => {
+    if (roomCodeParam) {
+      const code = roomCodeParam.trim().toUpperCase();
+      if (!code.startsWith('BINGO-') && (code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-'))) {
+        router.replace(getGameRoute(undefined, roomCodeParam));
+        return;
+      }
+    }
+    if (room?.gameType && room.gameType !== 'bingo' && room?.roomCode) {
+      router.replace(getGameRoute(room.gameType, room.roomCode));
+    }
+  }, [roomCodeParam, room?.gameType, room?.roomCode, router]);
 
   const effectiveUserId = myUserId || session?.user.id || '';
 

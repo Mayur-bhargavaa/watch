@@ -23,7 +23,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
 import { VideoAvatar } from '../../../components/games/LudoGame';
-import { getStoredSession, UserSession } from '../../../lib/api';
+import { getStoredSession, UserSession, getGameRoute, getGameTitle } from '../../../lib/api';
 import { DrawingCanvas } from '../../../components/games/doodle/DrawingCanvas';
 import { DrawingToolbar } from '../../../components/games/doodle/DrawingToolbar';
 import { SecretWordPicker } from '../../../components/games/doodle/SecretWordPicker';
@@ -151,6 +151,20 @@ function DoodleDuelGameContent() {
     rematchStatus,
     opponentLeftWin
   } = useGameRoom(roomCodeParam);
+
+  // Cross-game redirect guard
+  useEffect(() => {
+    if (roomCodeParam) {
+      const code = roomCodeParam.trim().toUpperCase();
+      if (!code.startsWith('DOODLE-') && (code.startsWith('BINGO-') || code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('FOUR-'))) {
+        router.replace(getGameRoute(undefined, roomCodeParam));
+        return;
+      }
+    }
+    if (room?.gameType && room.gameType !== 'doodle-duel' && room?.roomCode) {
+      router.replace(getGameRoute(room.gameType, room.roomCode));
+    }
+  }, [roomCodeParam, room?.gameType, room?.roomCode, router]);
 
   const currentUserId = myUserId || session?.user.id || '';
   const dState = gameState as DoodleGameState | null;

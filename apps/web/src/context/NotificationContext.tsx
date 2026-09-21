@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredSession, UserSession } from '../lib/api';
+import { getStoredSession, UserSession, getGameRoute, getGameTitle } from '../lib/api';
 import { getRandomRoast, RoastCategory } from '../lib/roastMessages';
 
 export interface AppNotification {
@@ -323,10 +323,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             if (data.type === 'partner:ping') {
               const payload = data.payload || {};
               const sender = payload.fromName || 'Your Partner';
-              const gameType = payload.gameType || 'ludo';
-              const targetUrl = payload.roomCode
-                ? `/games/${gameType === 'four-in-a-row' ? 'four-in-a-row' : 'ludo'}?room=${payload.roomCode}`
-                : `/games/${gameType === 'four-in-a-row' ? 'four-in-a-row' : 'ludo'}`;
+              const targetUrl = getGameRoute(payload.gameType, payload.roomCode);
 
               const roast = payload.customMessage
                 ? { title: `${sender} Nudged You! 💬`, body: payload.customMessage, emoji: '💬' }
@@ -346,13 +343,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             if (data.type === 'partner:game_invite') {
               const payload = data.payload || {};
               const sender = payload.fromDisplayName || 'Your Partner';
-              const gameType = payload.gameType || 'ludo';
-              const roomCode = payload.roomCode;
-              const targetUrl = `/games/${gameType === 'four-in-a-row' ? 'four-in-a-row' : 'ludo'}?room=${roomCode}`;
+              const targetUrl = getGameRoute(payload.gameType, payload.roomCode);
+              const titleGame = getGameTitle(payload.gameType, payload.roomCode);
 
               const roast = getRandomRoast('game', sender);
               pushNotification({
-                title: `🎮 ${sender} challenged you to ${gameType === 'four-in-a-row' ? 'Four in a Row' : 'Ludo'}!`,
+                title: `🎮 ${sender} challenged you to ${titleGame}!`,
                 body: roast.body,
                 emoji: '🎲',
                 category: 'game',

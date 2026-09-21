@@ -558,6 +558,35 @@ export async function joinGameRoomByCode(code: string): Promise<{ room: GameRoom
   return joinGameRoom(s.token, code);
 }
 
+export function getGameRoute(gameType?: string, roomCode?: string): string {
+  const lower = (gameType || '').toLowerCase();
+  const code = (roomCode || '').toUpperCase();
+
+  let basePath = '/games/ludo';
+  if (lower.includes('bingo') || lower.includes('tambola') || code.startsWith('BINGO-')) {
+    basePath = '/games/bingo';
+  } else if (lower.includes('tic') || code.startsWith('TIC-')) {
+    basePath = '/games/tic-tac-toe';
+  } else if (lower.includes('four') || lower.includes('connect') || code.startsWith('FOUR-')) {
+    basePath = '/games/four-in-a-row';
+  } else if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) {
+    basePath = '/games/doodle-duel';
+  } else if (lower.includes('ludo') || code.startsWith('LUDO-')) {
+    basePath = '/games/ludo';
+  }
+  return roomCode ? `${basePath}?room=${encodeURIComponent(roomCode)}` : basePath;
+}
+
+export function getGameTitle(gameType?: string, roomCode?: string): string {
+  const lower = (gameType || '').toLowerCase();
+  const code = (roomCode || '').toUpperCase();
+  if (lower.includes('bingo') || lower.includes('tambola') || code.startsWith('BINGO-')) return 'Bingo Duel';
+  if (lower.includes('tic') || code.startsWith('TIC-')) return 'Tic-Tac-Toe';
+  if (lower.includes('four') || lower.includes('connect') || code.startsWith('FOUR-')) return 'Four in a Row';
+  if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) return 'Doodle Duel';
+  return 'Ludo';
+}
+
 // =====================================================================
 // Snapchat-Style Friends & Daily Streaks (🔥) API
 // =====================================================================
