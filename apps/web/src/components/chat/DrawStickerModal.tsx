@@ -204,8 +204,12 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 bg-black/70 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div
+        onClick={(e) => e.stopPropagation()}
         className={`relative w-full max-w-sm sm:max-w-md border-2 rounded-3xl p-4 sm:p-5 shadow-2xl flex flex-col gap-3.5 select-none transition-colors ${
           isDark
             ? 'bg-gradient-to-b from-[#1b1222] to-[#0d0a14] border-rose-500/40 text-white shadow-[0_25px_70px_rgba(0,0,0,0.9)]'

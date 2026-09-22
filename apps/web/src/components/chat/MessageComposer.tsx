@@ -86,6 +86,55 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const attachMenuRef = useRef<HTMLDivElement | null>(null);
+  const stickerPickerRef = useRef<HTMLDivElement | null>(null);
+
+  const toggleAttachMenu = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setShowStickerPicker(false);
+    setShowAttachMenu((prev) => !prev);
+  };
+
+  const toggleStickerPicker = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setShowAttachMenu(false);
+    setShowStickerPicker((prev) => !prev);
+  };
+
+  const closeAllMenus = () => {
+    setShowAttachMenu(false);
+    setShowStickerPicker(false);
+  };
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (
+        showAttachMenu &&
+        attachMenuRef.current &&
+        !attachMenuRef.current.contains(target)
+      ) {
+        setShowAttachMenu(false);
+      }
+      if (
+        showStickerPicker &&
+        stickerPickerRef.current &&
+        !stickerPickerRef.current.contains(target)
+      ) {
+        setShowStickerPicker(false);
+      }
+    };
+
+    if (showAttachMenu || showStickerPicker) {
+      document.addEventListener('mousedown', handleDocumentClick);
+      document.addEventListener('touchstart', handleDocumentClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('touchstart', handleDocumentClick);
+    };
+  }, [showAttachMenu, showStickerPicker]);
 
   // Handle textarea autosize
   useEffect(() => {
@@ -390,10 +439,10 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         /* Normal Typing Mode */
         <div className="flex items-end gap-1.5 sm:gap-2">
           {/* Action Menu [ + ] */}
-          <div className="relative">
+          <div className="relative" ref={attachMenuRef}>
             <button
               type="button"
-              onClick={() => setShowAttachMenu((prev) => !prev)}
+              onClick={toggleAttachMenu}
               className={`p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer ${
                 showAttachMenu ? 'rotate-45 bg-slate-100 dark:bg-zinc-800' : ''
               }`}
@@ -404,79 +453,87 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
             {/* Attach Drawer Popup */}
             {showAttachMenu && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="absolute bottom-12 left-0 w-52 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-xl border border-slate-200/80 dark:border-zinc-800 z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttachMenu(false);
-                    setShowPlanPrompt(true);
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowAttachMenu(false)}
+                />
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute bottom-12 left-0 w-52 p-1.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-xl border border-slate-200/80 dark:border-zinc-800 z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95"
                 >
-                  <Calendar className="w-4 h-4 text-[#ee1d49]" />
-                  <span>Create Watch Plan</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeAllMenus();
+                      setShowPlanPrompt(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
+                  >
+                    <Calendar className="w-4 h-4 text-[#ee1d49]" />
+                    <span>Create Watch Plan</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttachMenu(false);
-                    setShowGamePrompt(true);
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
-                >
-                  <Gamepad2 className="w-4 h-4 text-amber-500" />
-                  <span>Invite to Game</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeAllMenus();
+                      setShowGamePrompt(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
+                  >
+                    <Gamepad2 className="w-4 h-4 text-amber-500" />
+                    <span>Invite to Game</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttachMenu(false);
-                    setShowMoviePrompt(true);
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
-                >
-                  <Film className="w-4 h-4 text-indigo-500" />
-                  <span>Share Movie</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeAllMenus();
+                      setShowMoviePrompt(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
+                  >
+                    <Film className="w-4 h-4 text-indigo-500" />
+                    <span>Share Movie</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttachMenu(false);
-                    setShowDrawSticker(true);
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
-                >
-                  <span className="text-sm">🎨</span>
-                  <span>Draw Sticker</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeAllMenus();
+                      setShowDrawSticker(true);
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
+                  >
+                    <span className="text-sm">🎨</span>
+                    <span>Draw Sticker</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttachMenu(false);
-                    fileInputRef.current?.click();
-                  }}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
-                >
-                  <ImageIcon className="w-4 h-4 text-emerald-500" />
-                  <span>Attach Image</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeAllMenus();
+                      fileInputRef.current?.click();
+                    }}
+                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition text-left cursor-pointer"
+                  >
+                    <ImageIcon className="w-4 h-4 text-emerald-500" />
+                    <span>Attach Image</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
 
           {/* Emoji / Sticker Button */}
-          <div className="relative">
+          <div className="relative" ref={stickerPickerRef}>
             <button
               type="button"
-              onClick={() => setShowStickerPicker((prev) => !prev)}
-              className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+              onClick={toggleStickerPicker}
+              className={`p-2.5 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer ${
+                showStickerPicker ? 'bg-slate-100 dark:bg-zinc-800 text-[#ee1d49]' : ''
+              }`}
               title="Stickers & Emojis"
             >
               <Smile className="w-5 h-5" />
@@ -488,7 +545,10 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                   className="fixed inset-0 z-40"
                   onClick={() => setShowStickerPicker(false)}
                 />
-                <div className="absolute bottom-14 left-0 z-50">
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute bottom-14 left-0 z-50"
+                >
                   <StickerPicker
                     onSelectSticker={(sticker) => {
                       if (/^\p{Extended_Pictographic}+$/u.test(sticker.trim())) {
@@ -501,7 +561,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                       setShowStickerPicker(false);
                     }}
                     onOpenDrawModal={() => {
-                      setShowStickerPicker(false);
+                      closeAllMenus();
                       setShowDrawSticker(true);
                     }}
                     onClose={() => setShowStickerPicker(false)}
@@ -516,6 +576,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             <textarea
               ref={textareaRef}
               value={text}
+              onFocus={closeAllMenus}
+              onClick={closeAllMenus}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
               placeholder={pendingImage ? "Add a caption (optional)..." : "Type a message..."}
@@ -555,8 +617,14 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       {/* View Once Browser Disclaimer Modal */}
       {showViewOnceModal && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-6 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 text-center animate-in fade-in zoom-in-95 duration-150">
+          <div
+            className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => setShowViewOnceModal(false)}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-6 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 text-center animate-in fade-in zoom-in-95 duration-150"
+            >
               <div className="w-14 h-14 rounded-full bg-rose-500/10 dark:bg-rose-500/20 text-[#ee1d49] mx-auto flex items-center justify-center font-black text-xl border-2 border-[#ee1d49]">
                 1
               </div>
@@ -601,9 +669,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       {/* Quick Plan Modal */}
       {showPlanPrompt && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => setShowPlanPrompt(false)}
+          >
             <form
               onSubmit={handleCreatePlan}
+              onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 animate-in fade-in zoom-in-95 duration-150"
             >
               <div className="flex items-center justify-between">
@@ -684,9 +756,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       {/* Quick Game Modal */}
       {showGamePrompt && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => setShowGamePrompt(false)}
+          >
             <form
               onSubmit={handleCreateGame}
+              onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 animate-in fade-in zoom-in-95 duration-150"
             >
               <div className="flex items-center justify-between">
@@ -754,9 +830,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       {/* Quick Movie Modal */}
       {showMoviePrompt && (
         <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+            onClick={() => setShowMoviePrompt(false)}
+          >
             <form
               onSubmit={handleCreateMovie}
+              onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 animate-in fade-in zoom-in-95 duration-150"
             >
               <div className="flex items-center justify-between">
