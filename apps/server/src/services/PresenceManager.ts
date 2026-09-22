@@ -56,12 +56,20 @@ export class PresenceManager {
         const deliveredMsgs = this.db.markDirectMessagesAsDelivered(user.id);
         if (Array.isArray(deliveredMsgs) && deliveredMsgs.length > 0) {
           for (const d of deliveredMsgs) {
-            this.sendToUser(d.senderId, {
-              type: 'chat:status_update',
-              messageId: d.id,
-              conversationId: d.conversationId,
-              status: 'delivered'
+            // Deliver the message to this user
+            this.sendToUser(user.id, {
+              type: 'chat:message',
+              message: d
             });
+            // Update sender that message reached the device
+            if (d.senderId) {
+              this.sendToUser(d.senderId, {
+                type: 'chat:status_update',
+                messageId: d.id,
+                conversationId: d.conversationId,
+                status: 'delivered'
+              });
+            }
           }
         }
       } catch (err) {
@@ -91,10 +99,26 @@ export class PresenceManager {
             }
           }
 
-          const isRecipientOnline = recipientId ? this.isUserOnline(recipientId) : false;
-          const status = isRecipientOnline ? 'delivered' : 'sent';
           const canonicalConvId = recipientId ? toCanonicalConvId(user.id, recipientId) : chatMsg.conversationId;
 
+          // Attempt direct delivery to recipient sockets
+          let isDelivered = false;
+          if (recipientId) {
+            isDelivered = this.sendToUser(recipientId, {
+              type: 'chat:message',
+              message: {
+                ...chatMsg,
+                conversationId: canonicalConvId,
+                senderId: user.id,
+                senderName: chatMsg.senderName || user.displayName,
+                recipientId,
+                status: 'delivered',
+                createdAt: chatMsg.createdAt || new Date().toISOString()
+              }
+            });
+          }
+
+          const status = isDelivered ? 'delivered' : 'sent';
           const finalMsg = {
             ...chatMsg,
             conversationId: canonicalConvId,
@@ -111,14 +135,6 @@ export class PresenceManager {
             } catch (e) {
               console.error('Failed to persist direct message:', e);
             }
-          }
-
-          // Deliver directly to recipient if online
-          if (recipientId && isRecipientOnline) {
-            this.sendToUser(recipientId, {
-              type: 'chat:message',
-              message: finalMsg
-            });
           }
 
           // Acknowledge back to sender with updated status (sent or delivered)

@@ -1368,11 +1368,12 @@ export class DatabaseService {
     this.db.prepare(`UPDATE direct_chat_messages SET status = ? WHERE id = ?`).run(status, messageId);
   }
 
-  markDirectMessagesAsDelivered(recipientId: string): { id: string; conversationId: string; senderId: string }[] {
+  markDirectMessagesAsDelivered(recipientId: string): any[] {
     const messages = this.db.prepare(`
-      SELECT id, conversation_id as conversationId, sender_id as senderId
+      SELECT *
       FROM direct_chat_messages
       WHERE recipient_id = ? AND status = 'sent' AND is_deleted = 0
+      ORDER BY created_at ASC
     `).all(recipientId) as any[];
 
     if (messages.length > 0) {
@@ -1382,7 +1383,21 @@ export class DatabaseService {
         WHERE recipient_id = ? AND status = 'sent' AND is_deleted = 0
       `).run(recipientId);
     }
-    return messages;
+    return messages.map((r) => ({
+      id: r.id,
+      conversationId: r.conversation_id,
+      senderId: r.sender_id,
+      senderName: r.sender_name,
+      senderAvatar: r.sender_avatar,
+      recipientId: r.recipient_id,
+      type: r.type,
+      content: r.content,
+      mediaUrl: r.media_url,
+      metadata: r.metadata ? (() => { try { return JSON.parse(r.metadata); } catch { return undefined; } })() : undefined,
+      replyTo: r.reply_to ? (() => { try { return JSON.parse(r.reply_to); } catch { return undefined; } })() : undefined,
+      status: 'delivered',
+      createdAt: r.created_at
+    }));
   }
 
   markDirectMessagesAsRead(conversationId: string, readerUserId: string): { id: string; senderId: string }[] {

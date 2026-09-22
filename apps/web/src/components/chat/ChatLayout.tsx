@@ -25,10 +25,16 @@ import { ModalPortal } from './ModalPortal';
 import { useCall } from '@/context/CallContext';
 
 export const ChatLayout: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
-  const currentUserId = session?.user?.id || 'current-user';
+  const [session, setSession] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      return getStoredSession();
+    }
+    return null;
+  });
+  const currentUserId = session?.user?.id || (typeof window !== 'undefined' ? getStoredSession()?.user?.id : '') || 'current-user';
 
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [users, setUsers] = useState<Record<string, ChatUser>>({});
   const [requests, setRequests] = useState<ChatMessageRequest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -52,6 +58,12 @@ export const ChatLayout: React.FC = () => {
       setConversations(ChatStore.getConversations());
       setUsers(ChatStore.getUsers());
       setRequests(ChatStore.getRequests());
+      setActiveConversationId((curActive) => {
+        if (curActive) {
+          setMessages(ChatStore.getMessages(curActive));
+        }
+        return curActive;
+      });
     };
 
     updateFromStore();
@@ -61,7 +73,23 @@ export const ChatLayout: React.FC = () => {
     };
   }, []);
 
-  // Default to first conversation on larger screens if none selected
+  // Update messages whenever active conversation changes
+  useEffect(() => {
+    if (activeConversationId) {
+      setMessages(ChatStore.getMessages(activeConversationId));
+    } else {
+      setMessages([]);
+    }
+  }, [activeConversationId]);
+
+  // Fix poisoned activeConversationId with 'current-user'
+  useEffect(() => {
+    if (activeConversationId && activeConversationId.includes('current-user') && currentUserId && currentUserId !== 'current-user') {
+      const fixedId = activeConversationId.replace('current-user', currentUserId);
+      setActiveConversationId(fixedId);
+    }
+  }, [activeConversationId, currentUserId]);
+
   // Default to first conversation on larger screens if none selected
   useEffect(() => {
     if (!activeConversationId && conversations.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768) {
@@ -69,7 +97,7 @@ export const ChatLayout: React.FC = () => {
       const targetOther = firstConv.participants?.find((p) => p && p.id !== currentUserId) || firstConv.participants?.[0];
       const { otherUserId } = extractParticipantIdsFromConvId(firstConv.id, currentUserId);
       const friendId = targetOther?.id || otherUserId;
-      const canonicalId = (currentUserId && friendId && firstConv.type === 'direct')
+      const canonicalId = (currentUserId && currentUserId !== 'current-user' && friendId && firstConv.type === 'direct')
         ? toCanonicalConvId(currentUserId, friendId)
         : firstConv.id;
       setActiveConversationId(canonicalId);
@@ -166,6 +194,7 @@ export const ChatLayout: React.FC = () => {
         : undefined,
     });
 
+    setMessages(ChatStore.getMessages(activeConversationId));
     setReplyingTo(null);
   };
 
@@ -187,6 +216,7 @@ export const ChatLayout: React.FC = () => {
         },
       },
     });
+    setMessages(ChatStore.getMessages(activeConversationId));
   };
 
   const handleSendPlan = (plan: ChatPlanPayload) => {
@@ -200,6 +230,7 @@ export const ChatLayout: React.FC = () => {
       type: 'plan',
       metadata: { plan },
     });
+    setMessages(ChatStore.getMessages(activeConversationId));
   };
 
   const handleSendGame = (game: ChatGamePayload) => {
@@ -213,6 +244,7 @@ export const ChatLayout: React.FC = () => {
       type: 'game_invite',
       metadata: { game },
     });
+    setMessages(ChatStore.getMessages(activeConversationId));
   };
 
   const handleSendMovie = (movie: ChatMoviePayload) => {
@@ -226,6 +258,7 @@ export const ChatLayout: React.FC = () => {
       type: 'movie_share',
       metadata: { movie },
     });
+    setMessages(ChatStore.getMessages(activeConversationId));
   };
 
   const handleReact = (messageId: string, emoji: string) => {
@@ -317,9 +350,7 @@ export const ChatLayout: React.FC = () => {
             {/* Messages Scroll Area */}
             <MessageList
               key={activeConversationId || activeConversation?.id || 'chat-list'}
-              messages={
-                ChatStore.getMessages(activeConversationId || activeConversation?.id || '')
-              }
+              messages={messages}
               currentUserId={currentUserId}
               onReply={(msg) => setReplyingTo(msg)}
               onForward={(msg) => setForwardingMessage(msg)}

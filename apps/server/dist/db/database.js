@@ -978,7 +978,6 @@ export class DatabaseService {
             conversation_id = ?
             OR conversation_id = ?
             OR conversation_id = ?
-            OR conversation_id = ?
             OR (sender_id = ? AND recipient_id = ?)
             OR (sender_id = ? AND recipient_id = ?)
           )
@@ -987,7 +986,6 @@ export class DatabaseService {
                 conversationId,
                 canonicalId,
                 `conv_${otherId}`,
-                `conv_${currentUserId}`,
                 currentUserId,
                 otherId,
                 otherId,
@@ -1029,14 +1027,12 @@ export class DatabaseService {
         WHERE is_deleted = 0
           AND (
             conversation_id = ?
-            OR conversation_id = ?
-            ${otherId ? `OR (sender_id = ? OR recipient_id = ?)` : ''}
+            ${otherId && currentUserId ? `OR conversation_id = ? OR (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)` : ''}
           )
       `;
             const baseParams = [
                 conversationId,
-                otherId && currentUserId ? toCanonicalConvId(currentUserId, otherId) : conversationId,
-                ...(otherId ? [otherId, otherId] : [])
+                ...(otherId && currentUserId ? [toCanonicalConvId(currentUserId, otherId), currentUserId, otherId, otherId, currentUserId] : [])
             ];
             if (after) {
                 rows = this.db.prepare(`
@@ -1100,9 +1096,10 @@ export class DatabaseService {
     }
     markDirectMessagesAsDelivered(recipientId) {
         const messages = this.db.prepare(`
-      SELECT id, conversation_id as conversationId, sender_id as senderId
+      SELECT *
       FROM direct_chat_messages
       WHERE recipient_id = ? AND status = 'sent' AND is_deleted = 0
+      ORDER BY created_at ASC
     `).all(recipientId);
         if (messages.length > 0) {
             this.db.prepare(`
@@ -1111,7 +1108,31 @@ export class DatabaseService {
         WHERE recipient_id = ? AND status = 'sent' AND is_deleted = 0
       `).run(recipientId);
         }
-        return messages;
+        return messages.map((r) => ({
+            id: r.id,
+            conversationId: r.conversation_id,
+            senderId: r.sender_id,
+            senderName: r.sender_name,
+            senderAvatar: r.sender_avatar,
+            recipientId: r.recipient_id,
+            type: r.type,
+            content: r.content,
+            mediaUrl: r.media_url,
+            metadata: r.metadata ? (() => { try {
+                return JSON.parse(r.metadata);
+            }
+            catch {
+                return undefined;
+            } })() : undefined,
+            replyTo: r.reply_to ? (() => { try {
+                return JSON.parse(r.reply_to);
+            }
+            catch {
+                return undefined;
+            } })() : undefined,
+            status: 'delivered',
+            createdAt: r.created_at
+        }));
     }
     markDirectMessagesAsRead(conversationId, readerUserId) {
         const { userIds, otherUserId } = extractParticipantIdsFromConvId(conversationId, readerUserId);

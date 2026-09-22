@@ -90,6 +90,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
   // Load notifications from local storage on mount + bootstrap Chrome notifications
   useEffect(() => {
@@ -336,27 +337,38 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             // Handle Direct Chat Messages
             if (data.type === 'chat:message' && data.message) {
-              ChatStore.receiveIncomingMessage(data.message);
-              const sender = data.message.senderName || 'A friend';
-              const isChatPage = typeof window !== 'undefined' && window.location.pathname === '/chat';
-              if (!isChatPage || (typeof document !== 'undefined' && document.hidden)) {
-                pushNotification({
-                  title: `💬 ${sender}`,
-                  body:
-                    data.message.type === 'image'
-                      ? '📷 Sent a photo'
-                      : data.message.type === 'sticker'
-                      ? '🎨 Sent a sticker'
-                      : data.message.type === 'voice'
-                      ? '🎤 Sent a voice message'
-                      : data.message.content || 'Sent a message',
-                  emoji: '💬',
-                  category: 'system',
-                  link: '/chat',
-                  fromName: sender
-                });
-              } else {
-                playChimeSound();
+              const msg = data.message;
+              ChatStore.receiveIncomingMessage(msg);
+
+              const isSeen = msg.id && seenMessageIdsRef.current.has(msg.id);
+              if (msg.id && !isSeen) {
+                seenMessageIdsRef.current.add(msg.id);
+                if (seenMessageIdsRef.current.size > 200) {
+                  const first = seenMessageIdsRef.current.values().next().value;
+                  if (first) seenMessageIdsRef.current.delete(first);
+                }
+
+                const sender = msg.senderName || 'A friend';
+                const isChatPage = typeof window !== 'undefined' && window.location.pathname === '/chat';
+                if (!isChatPage || (typeof document !== 'undefined' && document.hidden)) {
+                  pushNotification({
+                    title: `💬 ${sender}`,
+                    body:
+                      msg.type === 'image'
+                        ? '📷 Sent a photo'
+                        : msg.type === 'sticker'
+                        ? '🎨 Sent a sticker'
+                        : msg.type === 'voice'
+                        ? '🎤 Sent a voice message'
+                        : msg.content || 'Sent a message',
+                    emoji: '💬',
+                    category: 'system',
+                    link: '/chat',
+                    fromName: sender
+                  });
+                } else {
+                  playChimeSound();
+                }
               }
             }
 
