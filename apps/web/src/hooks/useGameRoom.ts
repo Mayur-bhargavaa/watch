@@ -119,7 +119,29 @@ function playNudgeChime() {
   }
 }
 
-export function useGameRoom(roomCode: string | null) {
+function deduceGameTypeFromContext(roomCode?: string | null): string | undefined {
+  if (typeof window !== 'undefined') {
+    const path = window.location.pathname.toLowerCase();
+    if (path.includes('/games/bingo')) return 'bingo';
+    if (path.includes('/games/chess')) return 'chess';
+    if (path.includes('/games/doodle')) return 'doodle-duel';
+    if (path.includes('/games/tic-tac-toe') || path.includes('/games/tictactoe')) return 'tic-tac-toe';
+    if (path.includes('/games/four-in-a-row') || path.includes('/games/connect4')) return 'four-in-a-row';
+    if (path.includes('/games/tambola')) return 'tambola';
+    if (path.includes('/games/ludo')) return 'ludo';
+  }
+  const code = (roomCode || '').toUpperCase();
+  if (code.startsWith('BINGO-')) return 'bingo';
+  if (code.startsWith('CHESS-')) return 'chess';
+  if (code.startsWith('DOODLE-')) return 'doodle-duel';
+  if (code.startsWith('TIC-')) return 'tic-tac-toe';
+  if (code.startsWith('FOUR-')) return 'four-in-a-row';
+  if (code.startsWith('TAMBOLA-')) return 'tambola';
+  if (code.startsWith('LUDO-')) return 'ludo';
+  return undefined;
+}
+
+export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   const [room, setRoom] = useState<GameRoom | null>(null);
   const [roomTheme, setRoomTheme] = useState<string>('romantic');
   const [gameState, setGameState] = useState<any>(null);
@@ -233,10 +255,20 @@ export function useGameRoom(roomCode: string | null) {
 
       // Build websocket URL
       let wsUrl = `${WS_BASE}/ws/games/${encodeURIComponent(roomCode.toUpperCase())}`;
+      const effectiveGame = gameTypeHint || deduceGameTypeFromContext(roomCode);
+      const params = new URLSearchParams();
+      if (effectiveGame) {
+        params.set('gameType', effectiveGame);
+      }
       if (session.token) {
-        wsUrl += `?token=${encodeURIComponent(session.token)}`;
+        params.set('token', session.token);
       } else {
-        wsUrl += `?guestId=${session.user.id}&guestName=${encodeURIComponent(session.user.displayName)}`;
+        params.set('guestId', session.user.id);
+        params.set('guestName', session.user.displayName);
+      }
+      const qs = params.toString();
+      if (qs) {
+        wsUrl += `?${qs}`;
       }
 
       const socket = new WebSocket(wsUrl);

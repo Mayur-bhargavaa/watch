@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { DatabaseService } from './db/database.js';
 import { RoomSyncManager } from './sync/RoomSyncManager.js';
 import { GameRoomManager } from './games/GameRoomManager.js';
+import { GAME_DEFINITIONS } from './games/GameDefinitions.js';
 import { PresenceManager } from './services/PresenceManager.js';
 import { detectProviderFromUrl } from '@synccinema/common';
 import { mongoLogger } from './services/mongoLogger.js';
@@ -21,6 +22,8 @@ function resolveGameType(raw) {
         return 'tic-tac-toe';
     if (lower.includes('four') || lower.includes('connect'))
         return 'four-in-a-row';
+    if (lower.includes('chess'))
+        return 'chess';
     return 'ludo';
 }
 function getGameBasePath(gameType) {
@@ -34,6 +37,8 @@ function getGameBasePath(gameType) {
         return '/games/tic-tac-toe';
     if (gameType === 'four-in-a-row')
         return '/games/four-in-a-row';
+    if (gameType === 'chess')
+        return '/games/chess';
     return '/games/ludo';
 }
 const JWT_SECRET = process.env.JWT_SECRET || 'synccinema-development-super-secret-key-32chars!';
@@ -844,7 +849,11 @@ export async function createServer(dbPath = './synccinema.db') {
         const user = await getRequestUser(request);
         const body = (request.body || {});
         const gameType = resolveGameType(body.gameType);
-        const maxPlayers = gameType === 'ludo' ? (Number(body.maxPlayers) || 2) : 2;
+        const def = GAME_DEFINITIONS[gameType];
+        let maxPlayers = Number(body.maxPlayers) || (def?.playerOptions ? def.playerOptions[0] : 2);
+        if (def && !def.playerOptions.includes(maxPlayers)) {
+            maxPlayers = def.playerOptions.includes(Number(body.maxPlayers)) ? Number(body.maxPlayers) : def.playerOptions[0];
+        }
         const gameBasePath = getGameBasePath(gameType);
         try {
             const room = gameRoomManager.createGameRoom({
@@ -867,9 +876,10 @@ export async function createServer(dbPath = './synccinema.db') {
     // Get Game Room details by temporary room code
     app.get('/api/games/rooms/:code', async (request, reply) => {
         const { code } = request.params;
-        const room = db.getGameRoomByCode(code);
+        const cleanCode = (code || '').trim().toUpperCase();
+        const room = db.getGameRoomByCode(cleanCode);
         if (!room) {
-            return reply.code(404).send({ error: `Game room "${code}" not found or expired` });
+            return reply.code(404).send({ error: `Game room "${cleanCode}" not found or expired` });
         }
         return {
             room,
@@ -880,9 +890,10 @@ export async function createServer(dbPath = './synccinema.db') {
     // Join Game Room by temporary room code
     app.post('/api/games/rooms/:code/join', async (request, reply) => {
         const { code } = request.params;
+        const cleanCode = (code || '').trim().toUpperCase();
         const user = await getRequestUser(request);
         try {
-            const room = gameRoomManager.joinRoom(code, user);
+            const room = gameRoomManager.joinRoom(cleanCode, user);
             return {
                 success: true,
                 room,
@@ -1210,19 +1221,12 @@ export async function createServer(dbPath = './synccinema.db') {
     app.get('/ws/games/:code', { websocket: true }, (connection, req) => {
         const ws = connection.socket || connection;
         const { code } = req.params;
-        const room = gameRoomManager.getRoomByCode(code.toUpperCase());
-        if (!room) {
-            ws.send(JSON.stringify({
-                type: 'error:notification',
-                payload: { code: 'GAME_ROOM_NOT_FOUND', message: 'Game room does not exist' }
-            }));
-            ws.close();
-            return;
-        }
+        const cleanCode = (code || '').trim().toUpperCase();
         const url = new URL(req.url, `http://${req.headers.host}`);
         const token = url.searchParams.get('token');
         const guestName = url.searchParams.get('guestName');
         const guestIdParam = url.searchParams.get('guestId');
+        const requestedGameType = url.searchParams.get('gameType');
         let user;
         if (token) {
             try {
@@ -1252,6 +1256,33 @@ export async function createServer(dbPath = './synccinema.db') {
                 avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
             };
             db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, true);
+        }
+        let room = gameRoomManager.getRoomByCode(cleanCode);
+        // If room does not exist in memory/db yet, auto-create it seamlessly
+        if (!room) {
+            try {
+                const resolvedGame = resolveGameType(requestedGameType || cleanCode);
+                const def = GAME_DEFINITIONS[resolvedGame];
+                const maxPlayers = resolvedGame === 'ludo' ? 4 : (resolvedGame === 'tambola' ? 20 : (def?.playerOptions[0] || 2));
+                room = gameRoomManager.createGameRoom({
+                    hostUser: user,
+                    gameType: resolvedGame,
+                    maxPlayers,
+                    customCode: cleanCode
+                });
+                console.log(`[GameRoom] Auto-created game room "${cleanCode}" for ${resolvedGame} hosted by ${user.displayName} (${user.id})`);
+            }
+            catch (err) {
+                console.error(`[GameRoom] Failed to auto-create room ${cleanCode}:`, err);
+            }
+        }
+        if (!room) {
+            ws.send(JSON.stringify({
+                type: 'error:notification',
+                payload: { code: 'GAME_ROOM_NOT_FOUND', message: 'Game room does not exist' }
+            }));
+            ws.close();
+            return;
         }
         gameRoomManager.registerClient(ws, room.id, user);
     });

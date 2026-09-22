@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Gamepad2, Users, Play, Crown } from 'lucide-react';
 import { ChatGamePayload } from '@/types/chat';
+import { getGameRoute, getGameTitle } from '@/lib/api';
 
 interface GameInviteMessageProps {
   game: ChatGamePayload;
@@ -14,21 +15,25 @@ const GAME_INFO: Record<string, { label: string; iconEmoji: string; gradient: st
   ludo: { label: 'Ludo Match', iconEmoji: '🎲', gradient: 'from-amber-500/15 to-orange-500/15 text-amber-500' },
   chess: { label: 'Chess Duel', iconEmoji: '♟️', gradient: 'from-indigo-500/15 to-purple-500/15 text-indigo-500' },
   bingo: { label: 'Bingo Party', iconEmoji: '🔢', gradient: 'from-emerald-500/15 to-teal-500/15 text-emerald-500' },
-  trivia: { label: 'Trivia Quiz', iconEmoji: '💡', gradient: 'from-blue-500/15 to-cyan-500/15 text-blue-500' },
   doodle: { label: 'Doodle Duel', iconEmoji: '🎨', gradient: 'from-pink-500/15 to-rose-500/15 text-pink-500' },
+  'doodle-duel': { label: 'Doodle Duel', iconEmoji: '🎨', gradient: 'from-pink-500/15 to-rose-500/15 text-pink-500' },
   tictactoe: { label: 'Tic-Tac-Toe', iconEmoji: '⭕', gradient: 'from-violet-500/15 to-fuchsia-500/15 text-violet-500' },
+  'tic-tac-toe': { label: 'Tic-Tac-Toe', iconEmoji: '⭕', gradient: 'from-violet-500/15 to-fuchsia-500/15 text-violet-500' },
+  connect4: { label: 'Four in a Row', iconEmoji: '🔴', gradient: 'from-blue-500/15 to-cyan-500/15 text-blue-500' },
+  'four-in-a-row': { label: 'Four in a Row', iconEmoji: '🔴', gradient: 'from-blue-500/15 to-cyan-500/15 text-blue-500' },
+  tambola: { label: 'Tambola Party', iconEmoji: '🎟️', gradient: 'from-teal-500/15 to-emerald-500/15 text-teal-500' },
 };
 
 export const GameInviteMessage: React.FC<GameInviteMessageProps> = ({ game, isSender }) => {
-  const meta = GAME_INFO[game.gameType.toLowerCase()] || {
-    label: `${game.gameType} Game`,
+  const gameKey = (game.gameType || '').toLowerCase();
+  const meta = GAME_INFO[gameKey] || {
+    label: getGameTitle(gameKey),
     iconEmoji: '🎮',
     gradient: 'from-rose-500/15 to-pink-500/15 text-[#ee1d49]',
   };
 
-  const targetUrl = game.roomId
-    ? `/games/${game.gameType.toLowerCase()}?room=${encodeURIComponent(game.roomId)}`
-    : `/games/${game.gameType.toLowerCase()}`;
+  const roomCode = game.roomCode || game.roomId;
+  const targetUrl = getGameRoute(game.gameType, roomCode);
 
   return (
     <div

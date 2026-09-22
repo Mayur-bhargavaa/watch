@@ -22,6 +22,7 @@ import { serializeStickerMessage, STICKER_PACK } from './StickersData';
 import { ModalPortal } from './ModalPortal';
 import { uploadChatImage } from '@/lib/uploadMedia';
 import { formatReplySnippet } from './ChatReplyUI';
+import { createGameRoom, getGameTitle, getStoredSession, ensureSession } from '@/lib/api';
 
 interface PendingImage {
   file: File;
@@ -88,7 +89,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const [planDate, setPlanDate] = useState('This Friday');
   const [planTime, setPlanTime] = useState('9:00 PM');
 
-  const [selectedGame, setSelectedGame] = useState<'ludo' | 'chess' | 'bingo' | 'trivia' | 'doodle'>('ludo');
+  const [selectedGame, setSelectedGame] = useState<string>('ludo');
+  const [isCreatingGame, setIsCreatingGame] = useState(false);
 
   const [movieTitle, setMovieTitle] = useState('');
   const [movieGenres, setMovieGenres] = useState('Sci-Fi, Adventure');
@@ -509,20 +511,59 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     setShowPlanPrompt(false);
   };
 
-  const handleCreateGame = (e: React.FormEvent) => {
+  const handleCreateGame = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (onSendGame) {
-      const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
-      onSendGame({
-        gameType: selectedGame,
-        roomId: roomCode,
-        title: `${selectedGame.toUpperCase()} Challenge`,
-        playersCount: 1,
-        maxPlayers: selectedGame === 'chess' ? 2 : 4,
-        status: 'waiting',
-      });
+    if (isCreatingGame) return;
+    setIsCreatingGame(true);
+    try {
+      let session = getStoredSession();
+      if (!session) {
+        session = await ensureSession();
+      }
+
+      const rawType = selectedGame;
+      const cleanType = (rawType === 'doodle' ? 'doodle-duel' : (rawType === 'tictactoe' ? 'tic-tac-toe' : rawType)) as any;
+      const maxPlayers = cleanType === 'ludo' ? 4 : (cleanType === 'tambola' ? 20 : 2);
+
+      let roomCode = '';
+      try {
+        const res = await createGameRoom(session.token, cleanType, maxPlayers, false);
+        if (res?.room?.roomCode) {
+          roomCode = res.room.roomCode;
+        }
+      } catch (createErr) {
+        console.warn('Could not pre-create room via API, falling back to prefix room code:', createErr);
+      }
+
+      if (!roomCode) {
+        let prefix = 'LUDO';
+        if (cleanType.includes('bingo')) prefix = 'BINGO';
+        else if (cleanType.includes('chess')) prefix = 'CHESS';
+        else if (cleanType.includes('doodle')) prefix = 'DOODLE';
+        else if (cleanType.includes('tic')) prefix = 'TIC';
+        else if (cleanType.includes('four') || cleanType.includes('connect')) prefix = 'FOUR';
+        else if (cleanType.includes('tambola')) prefix = 'TAMBOLA';
+        roomCode = `${prefix}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      }
+
+      if (onSendGame) {
+        onSendGame({
+          gameType: cleanType,
+          roomCode: roomCode,
+          roomId: roomCode,
+          title: `${getGameTitle(cleanType)} Challenge`,
+          playersCount: 1,
+          maxPlayers: cleanType === 'ludo' ? 4 : (cleanType === 'tambola' ? 20 : 2),
+          hostName: session.user.displayName,
+          status: 'waiting',
+        });
+      }
+      setShowGamePrompt(false);
+    } catch (err: any) {
+      console.error('Failed to create game challenge:', err);
+    } finally {
+      setIsCreatingGame(false);
     }
-    setShowGamePrompt(false);
   };
 
   const handleCreateMovie = (e: React.FormEvent) => {
@@ -1046,16 +1087,18 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { id: 'ludo', label: '🎲 Ludo' },
-                    { id: 'chess', label: '♟️ Chess' },
-                    { id: 'bingo', label: '🔢 Bingo' },
-                    { id: 'trivia', label: '💡 Trivia' },
-                    { id: 'doodle', label: '🎨 Doodle' },
+                    { id: 'ludo', label: '🎲 Ludo Party' },
+                    { id: 'bingo', label: '🔢 Bingo Duel' },
+                    { id: 'chess', label: '♟️ Chess Duel' },
+                    { id: 'doodle-duel', label: '🎨 Doodle Duel' },
+                    { id: 'tic-tac-toe', label: '⭕ Tic-Tac-Toe' },
+                    { id: 'four-in-a-row', label: '🔴 Four in a Row' },
+                    { id: 'tambola', label: '🎟️ Tambola' },
                   ].map((g) => (
                     <button
                       key={g.id}
                       type="button"
-                      onClick={() => setSelectedGame(g.id as any)}
+                      onClick={() => setSelectedGame(g.id)}
                       className={`py-2 px-3 rounded-xl text-xs font-semibold border transition text-left cursor-pointer ${
                         selectedGame === g.id
                           ? 'bg-rose-50 dark:bg-rose-950/40 border-[#ee1d49] text-[#ee1d49]'
@@ -1072,15 +1115,24 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowGamePrompt(false)}
-                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300 cursor-pointer"
+                  disabled={isCreatingGame}
+                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300 cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-xs cursor-pointer"
+                  disabled={isCreatingGame}
+                  className="flex-1 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
-                  Send Invite
+                  {isCreatingGame ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <span>Send Invite</span>
+                  )}
                 </button>
               </div>
             </form>
