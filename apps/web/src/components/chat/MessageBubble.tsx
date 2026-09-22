@@ -21,6 +21,37 @@ import { MovieShareMessage } from './MovieShareMessage';
 import { ReactionPicker } from './ReactionPicker';
 import { parseStickerMessage } from './StickersData';
 
+/**
+ * WhatsApp-style Emoji Count detector:
+ * 1 emoji  -> 52px (very big)
+ * 2 emojis -> 40px (medium-large)
+ * 3 emojis -> 32px (medium)
+ * 4+ or mixed with text -> normal text size (14px)
+ */
+function getEmojiOnlyInfo(content?: string): { isOnlyEmoji: boolean; count: number } {
+  if (!content) return { isOnlyEmoji: false, count: 0 };
+  const trimmed = content.trim();
+  if (!trimmed) return { isOnlyEmoji: false, count: 0 };
+
+  // Regex matching unicode emoji sequences, skin tones, ZWJ, flags
+  const emojiRegex = /^(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\p{Regional_Indicator}{2}|\uFE0F|\u200D)+$/u;
+  if (!emojiRegex.test(trimmed.replace(/\s+/g, ''))) {
+    return { isOnlyEmoji: false, count: 0 };
+  }
+
+  // Count grapheme clusters
+  try {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    const segments = [...segmenter.segment(trimmed)].map((s) => s.segment.trim()).filter(Boolean);
+    const isOnlyEmoji = segments.length > 0 && segments.every((s) => emojiRegex.test(s));
+    return { isOnlyEmoji, count: isOnlyEmoji ? segments.length : 0 };
+  } catch {
+    // Fallback if Intl.Segmenter is not supported
+    const chars = [...trimmed].filter((c) => c.trim().length > 0);
+    return { isOnlyEmoji: true, count: chars.length };
+  }
+}
+
 interface MessageBubbleProps {
   message: ChatMessage;
   isSender: boolean;
@@ -54,6 +85,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   });
 
   const sticker = parseStickerMessage(message.content);
+  const emojiInfo = getEmojiOnlyInfo(!sticker && !message.mediaUrl && message.type === 'text' ? message.content : undefined);
 
   // Group reactions
   const reactionGroups: { emoji: string; count: number; userIds: string[] }[] = [];
@@ -189,9 +221,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           </div>
         ) : (
-          /* Standard Card Bubble for Text / Voice / Plans / Games / Movies */
+          /* Standard Card Bubble for Text / Voice / Plans / Games / Movies / Emojis */
           <div
-            className={`relative px-4 py-2.5 rounded-2xl shadow-2xs transition-all ${
+            className={`relative transition-all ${
+              emojiInfo.isOnlyEmoji
+                ? 'px-3 py-1.5 rounded-3xl shadow-xs'
+                : 'px-4 py-2.5 rounded-2xl shadow-2xs'
+            } ${
               isSender
                 ? 'bg-[#ee1d49] text-white rounded-br-xs'
                 : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 border border-slate-100 dark:border-zinc-700/60 rounded-bl-xs'
@@ -210,7 +246,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               /* Movie Share Card */
               <MovieShareMessage movie={message.metadata.movie} isSender={isSender} />
             ) : (
-              /* Standard Text / Image */
+              /* Standard Text / Image / Big Emojis */
               <div>
                 {message.mediaUrl && (
                   <div className="mb-2 rounded-xl overflow-hidden max-h-72">
@@ -222,12 +258,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </div>
                 )}
                 {message.content && (
-                  <p className="text-[14px] leading-relaxed whitespace-pre-wrap wrap-break-word">
+                  <p
+                    className={`leading-tight whitespace-pre-wrap wrap-break-word ${
+                      emojiInfo.isOnlyEmoji
+                        ? emojiInfo.count === 1
+                          ? 'text-5xl sm:text-6xl py-1 select-none tracking-normal'
+                          : emojiInfo.count === 2
+                          ? 'text-3xl sm:text-4xl py-0.5 select-none tracking-wide'
+                          : emojiInfo.count === 3
+                          ? 'text-2xl sm:text-3xl py-0.5 select-none tracking-normal'
+                          : 'text-[15px] leading-relaxed'
+                        : 'text-[14px] leading-relaxed'
+                    }`}
+                  >
                     {message.content}
                   </p>
                 )}
               </div>
             )}
+
 
             {/* Timestamp & Status Checkmarks */}
             <div
