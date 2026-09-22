@@ -177,6 +177,63 @@ export async function updateUserProfile(updates: {
   return updatedSession.user;
 }
 
+export interface PartnerCodeStatus {
+  currentCode: string;
+  changesUsed: number;
+  changesRemaining: number;
+  maxChanges: number;
+  periodDays: number;
+  canChange: boolean;
+  nextAvailableAt: string | null;
+}
+
+export async function getPartnerCodeStatus(): Promise<PartnerCodeStatus> {
+  const current = getStoredSession();
+  if (!current?.token) throw new Error('Not authenticated');
+
+  const res = await fetch(`${API_BASE}/api/user/partner-code/status`, {
+    headers: {
+      Authorization: `Bearer ${current.token}`
+    }
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to fetch partner code status');
+  }
+  return res.json();
+}
+
+export async function changePartnerCode(newCode: string): Promise<{ success: boolean; partnerCode: string; changesRemaining: number }> {
+  const current = getStoredSession();
+  if (!current?.token) throw new Error('Not authenticated');
+
+  const res = await fetch(`${API_BASE}/api/user/partner-code`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${current.token}`
+    },
+    body: JSON.stringify({ newCode })
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to change username');
+  }
+
+  // Update stored session with new partnerCode
+  const updatedSession: UserSession = {
+    ...current,
+    user: {
+      ...current.user,
+      partnerCode: data.partnerCode
+    }
+  };
+  setStoredSession(updatedSession);
+
+  return data;
+}
+
 export async function ensureSession(preferredName?: string): Promise<UserSession> {
   const existing = getStoredSession();
   if (existing) return existing;

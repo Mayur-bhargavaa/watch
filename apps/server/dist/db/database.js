@@ -329,6 +329,19 @@ export class DatabaseService {
             this.db.exec("ALTER TABLE users ADD COLUMN viewing_vibe TEXT");
         }
         catch { }
+        try {
+            this.db.exec(`
+        CREATE TABLE IF NOT EXISTS username_change_history (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          old_code TEXT NOT NULL,
+          new_code TEXT NOT NULL,
+          changed_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_username_history_user ON username_change_history(user_id, changed_at);
+      `);
+        }
+        catch { }
         // Auto-migrate any partner_connections into friendships
         try {
             this.db.exec(`
@@ -1076,6 +1089,84 @@ export class DatabaseService {
             isAnonymous: Boolean(row.is_anonymous),
             partnerCode: row.partner_code,
             createdAt: row.created_at
+        };
+    }
+    getPartnerCodeStatus(userId) {
+        const userRow = this.db.prepare('SELECT partner_code FROM users WHERE id = ?').get(userId);
+        const currentCode = userRow?.partner_code || '';
+        // Calculate changes in the last 90 days
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+        const rows = this.db.prepare(`
+      SELECT changed_at
+      FROM username_change_history
+      WHERE user_id = ? AND changed_at >= ?
+      ORDER BY changed_at ASC
+    `).all(userId, ninetyDaysAgo);
+        const changesUsed = rows.length;
+        const maxChanges = 3;
+        const changesRemaining = Math.max(0, maxChanges - changesUsed);
+        const canChange = changesUsed < maxChanges;
+        let nextAvailableAt = null;
+        if (changesUsed >= maxChanges && rows.length > 0) {
+            const oldestChangeTime = new Date(rows[0].changed_at).getTime();
+            const unlockTime = oldestChangeTime + 90 * 24 * 60 * 60 * 1000;
+            nextAvailableAt = new Date(unlockTime).toISOString();
+        }
+        return {
+            currentCode,
+            changesUsed,
+            changesRemaining,
+            maxChanges,
+            periodDays: 90,
+            canChange,
+            nextAvailableAt
+        };
+    }
+    changePartnerCode(userId, requestedCode) {
+        const cleanCode = requestedCode.trim().toUpperCase();
+        // 1. Validation (alphanumeric, underscores, hyphens; 3-16 chars)
+        if (!cleanCode || cleanCode.length < 3 || cleanCode.length > 16) {
+            return { success: false, error: 'Username must be between 3 and 16 characters.' };
+        }
+        if (!/^[A-Z0-9_-]+$/.test(cleanCode)) {
+            return { success: false, error: 'Username can only contain letters, numbers, hyphens and underscores.' };
+        }
+        // 2. Check current status and rate limit (3 changes in 90 days)
+        const status = this.getPartnerCodeStatus(userId);
+        if (status.currentCode && status.currentCode.toUpperCase() === cleanCode) {
+            return { success: false, error: 'New username must be different from your current username.' };
+        }
+        if (!status.canChange) {
+            const nextDate = status.nextAvailableAt
+                ? new Date(status.nextAvailableAt).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                })
+                : 'in 90 days';
+            return {
+                success: false,
+                error: `You have reached the maximum limit of 3 changes in 90 days. You can change it again on ${nextDate}.`
+            };
+        }
+        // 3. Check uniqueness across all users (case-insensitive)
+        const existing = this.db.prepare('SELECT id FROM users WHERE partner_code = ? COLLATE NOCASE AND id != ?').get(cleanCode, userId);
+        if (existing) {
+            return { success: false, error: 'This username / partner code is already taken. Please choose another.' };
+        }
+        // 4. Update user's partner code
+        this.db.prepare('UPDATE users SET partner_code = ? WHERE id = ?').run(cleanCode, userId);
+        // 5. Insert into change history
+        this.db.prepare(`
+      INSERT INTO username_change_history (id, user_id, old_code, new_code, changed_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(nanoid(), userId, status.currentCode || '', cleanCode, new Date().toISOString());
+        const updatedStatus = this.getPartnerCodeStatus(userId);
+        return {
+            success: true,
+            partnerCode: cleanCode,
+            changesRemaining: updatedStatus.changesRemaining,
+            changesUsed: updatedStatus.changesUsed
         };
     }
     getPartner(userId) {

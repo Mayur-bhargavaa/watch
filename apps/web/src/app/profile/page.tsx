@@ -53,7 +53,9 @@ import {
   Video,
   Shield,
   Monitor,
-  Menu
+  Menu,
+  Edit3,
+  AlertTriangle
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { AppSidebar } from '../../components/layout/AppSidebar';
@@ -62,6 +64,9 @@ import {
   clearStoredSession,
   fetchCurrentUser,
   updateUserProfile,
+  getPartnerCodeStatus,
+  changePartnerCode,
+  PartnerCodeStatus,
   UserSession
 } from '../../lib/api';
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
@@ -229,6 +234,13 @@ function ProfileContent() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
+  // Partner Sync Code / Username Change State (3 times in 90 days limit)
+  const [partnerCodeStatus, setPartnerCodeStatus] = useState<PartnerCodeStatus | null>(null);
+  const [showChangeCodeModal, setShowChangeCodeModal] = useState<boolean>(false);
+  const [newPartnerCode, setNewPartnerCode] = useState<string>('');
+  const [isChangingCode, setIsChangingCode] = useState<boolean>(false);
+  const [changeCodeError, setChangeCodeError] = useState<string | null>(null);
+
   const activeVibe = useMemo(() => {
     return CINEMA_VIBES.find(v => v.id === selectedVibeId) || CINEMA_VIBES[0];
   }, [selectedVibeId]);
@@ -328,6 +340,10 @@ function ProfileContent() {
         }
       }
     });
+
+    getPartnerCodeStatus()
+      .then(status => setPartnerCodeStatus(status))
+      .catch(() => {});
   }, [router]);
 
   const handleCopyPartnerCode = () => {
@@ -335,6 +351,62 @@ function ProfileContent() {
     navigator.clipboard.writeText(session.user.partnerCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleOpenChangeCodeModal = () => {
+    setNewPartnerCode('');
+    setChangeCodeError(null);
+    setShowChangeCodeModal(true);
+    getPartnerCodeStatus()
+      .then(status => setPartnerCodeStatus(status))
+      .catch(() => {});
+  };
+
+  const handleConfirmChangeCode = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = newPartnerCode.trim().toUpperCase();
+    if (!clean) {
+      setChangeCodeError('Please enter a new username / partner sync code.');
+      return;
+    }
+    if (clean.length < 3 || clean.length > 16) {
+      setChangeCodeError('Username must be between 3 and 16 characters.');
+      return;
+    }
+    if (!/^[A-Z0-9_-]+$/.test(clean)) {
+      setChangeCodeError('Username can only contain letters, numbers, hyphens and underscores.');
+      return;
+    }
+    if (partnerCodeStatus?.currentCode && partnerCodeStatus.currentCode.toUpperCase() === clean) {
+      setChangeCodeError('New username must be different from your current one.');
+      return;
+    }
+
+    setIsChangingCode(true);
+    setChangeCodeError(null);
+
+    try {
+      const res = await changePartnerCode(clean);
+      setSession((prev) => (prev ? { ...prev, user: { ...prev.user, partnerCode: res.partnerCode } } : null));
+      setPartnerCodeStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              currentCode: res.partnerCode,
+              changesRemaining: res.changesRemaining,
+              changesUsed: prev.maxChanges - res.changesRemaining,
+              canChange: res.changesRemaining > 0
+            }
+          : null
+      );
+      setShowChangeCodeModal(false);
+      setSaveSuccess(`Username successfully updated to ${res.partnerCode}! (${res.changesRemaining} changes remaining in 90 days)`);
+      setTimeout(() => setSaveSuccess(null), 4000);
+    } catch (err: any) {
+      setChangeCodeError(err.message || 'Failed to update username');
+    } finally {
+      setIsChangingCode(false);
+    }
   };
 
   const handleSelectVibe = (id: string) => {
@@ -592,21 +664,43 @@ function ProfileContent() {
                 
                 {/* Partner Sync Code */}
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
-                    Partner Sync Code
-                  </label>
-                  <div className="flex items-center justify-between p-2.5 px-3 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
-                    <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
+                      Partner Sync Code
+                    </label>
+                    {partnerCodeStatus && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        partnerCodeStatus.canChange
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {partnerCodeStatus.changesRemaining}/3 left (90d)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between p-2 px-3 rounded-xl bg-slate-50 dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08]">
+                    <span className="font-mono text-xs font-black text-rose-600 dark:text-rose-400 tracking-wider">
                       {session.user.partnerCode || 'SYNC-VIP'}
                     </span>
-                    <button
-                      type="button"
-                      onClick={handleCopyPartnerCode}
-                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition"
-                      title="Copy Partner Code"
-                    >
-                      {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleCopyPartnerCode}
+                        className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
+                        title="Copy Partner Code"
+                      >
+                        {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenChangeCodeModal}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/50 text-[11px] font-bold transition cursor-pointer"
+                        title="Change username / partner sync code"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>Change</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1237,6 +1331,168 @@ function ProfileContent() {
           </div>
         )}
 
+
+        {/* Change Username / Partner Sync Code Modal */}
+        {showChangeCodeModal && (
+          <div
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setShowChangeCodeModal(false)}
+          >
+            <div
+              className="bg-white dark:bg-[#181922] border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-md shadow-2xl p-6 sm:p-7 flex flex-col gap-4 relative animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close X */}
+              <button
+                type="button"
+                onClick={() => setShowChangeCodeModal(false)}
+                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Title & Icon */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/10 dark:bg-rose-500/20 text-[#ee1d49] flex items-center justify-center">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Change Username
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    Partner Sync Code & Unique Handle
+                  </p>
+                </div>
+              </div>
+
+              {/* Required Warning Notice requested by user */}
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold leading-snug">
+                    You can change this 3 times in a period of 90 days.
+                  </p>
+                  <p className="text-[11px] text-amber-800/90 dark:text-amber-300/80 leading-relaxed">
+                    Once you change it, we cannot retrieve this username again and your old code may become available for others to claim.
+                  </p>
+                </div>
+              </div>
+
+              {/* Quota Tracker Badge */}
+              {partnerCodeStatus && (
+                <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-100/80 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.06] text-xs">
+                  <span className="text-slate-500 dark:text-zinc-400 font-medium">
+                    Changes in 90 days:
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      partnerCodeStatus.canChange
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                  >
+                    {partnerCodeStatus.changesUsed} of 3 used ({partnerCodeStatus.changesRemaining} left)
+                  </span>
+                </div>
+              )}
+
+              {/* Quota reached alert */}
+              {partnerCodeStatus && !partnerCodeStatus.canChange && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-700 dark:text-red-300 text-xs font-semibold">
+                  You have reached the maximum limit of 3 changes in 90 days.
+                  {partnerCodeStatus.nextAvailableAt && (
+                    <div className="text-[11px] mt-0.5 text-red-600 dark:text-red-400 font-normal">
+                      Next change will unlock on{' '}
+                      <span className="font-bold">
+                        {new Date(partnerCodeStatus.nextAvailableAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
+                      .
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Current Code */}
+              <div className="text-xs">
+                <span className="text-slate-400 dark:text-zinc-500 font-bold uppercase text-[10px] tracking-wider block mb-1">
+                  Current Username / Code
+                </span>
+                <div className="font-mono font-black text-rose-600 dark:text-rose-400 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#12131a] border border-slate-200 dark:border-white/[0.06] text-sm tracking-wider">
+                  {session?.user.partnerCode || partnerCodeStatus?.currentCode || '—'}
+                </div>
+              </div>
+
+              {/* Form Input for New Code (enabled only if canChange) */}
+              {partnerCodeStatus?.canChange !== false && (
+                <form onSubmit={handleConfirmChangeCode} className="space-y-3">
+                  <div>
+                    <label className="text-slate-400 dark:text-zinc-500 font-bold uppercase text-[10px] tracking-wider block mb-1">
+                      New Username (3-16 characters)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      maxLength={16}
+                      value={newPartnerCode}
+                      onChange={(e) => {
+                        setNewPartnerCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''));
+                        setChangeCodeError(null);
+                      }}
+                      placeholder="ENTER NEW USERNAME"
+                      className="w-full font-mono text-sm font-bold uppercase px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#12131a] border border-slate-300 dark:border-white/10 text-slate-900 dark:text-white focus:outline-none focus:border-[#ee1d49] transition placeholder:text-slate-400 dark:placeholder:text-zinc-600 tracking-wider"
+                    />
+                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-1">
+                      Choose your own custom name using letters, numbers, hyphens or underscores.
+                    </p>
+                  </div>
+
+                  {changeCodeError && (
+                    <div className="text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20">
+                      {changeCodeError}
+                    </div>
+                  )}
+
+                  {/* Action Buttons: "Change" vs "Stay with current one only" */}
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowChangeCodeModal(false)}
+                      className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/5 text-xs font-bold transition cursor-pointer text-center order-2 sm:order-1"
+                    >
+                      Stay with current one only
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isChangingCode || !newPartnerCode.trim() || newPartnerCode.trim().length < 3}
+                      className="flex-1 py-2.5 px-4 rounded-xl bg-[#ee1d49] hover:bg-[#d61840] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition shadow-lg shadow-rose-500/25 cursor-pointer text-center order-1 sm:order-2"
+                    >
+                      {isChangingCode ? 'Updating...' : 'Change'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* If quota reached: Action buttons with Close */}
+              {partnerCodeStatus?.canChange === false && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowChangeCodeModal(false)}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-white/15 text-xs font-bold transition cursor-pointer text-center"
+                  >
+                    Stay with current one only
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Settings Modal (Identical to Dashboard) */}
         {showSettingsModal && (

@@ -212,6 +212,35 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(401).send({ error: 'Unauthorized' });
         }
     });
+    // Get Partner Sync Code / Username change status & quota
+    app.get('/api/user/partner-code/status', async (request, reply) => {
+        try {
+            const user = await getRequestUser(request);
+            const status = db.getPartnerCodeStatus(user.id);
+            return { success: true, ...status };
+        }
+        catch {
+            return reply.code(401).send({ error: 'Unauthorized' });
+        }
+    });
+    // Change Partner Sync Code / Username with 3 times in 90 days rate-limit
+    app.put('/api/user/partner-code', async (request, reply) => {
+        try {
+            const user = await getRequestUser(request);
+            const body = (request.body || {});
+            if (!body.newCode) {
+                return reply.code(400).send({ success: false, error: 'New username / partner code is required.' });
+            }
+            const result = db.changePartnerCode(user.id, body.newCode);
+            if (!result.success) {
+                return reply.code(400).send({ success: false, error: result.error });
+            }
+            return { success: true, partnerCode: result.partnerCode, changesRemaining: result.changesRemaining };
+        }
+        catch {
+            return reply.code(401).send({ error: 'Unauthorized' });
+        }
+    });
     app.get('/api/user/rooms', async (request, reply) => {
         try {
             const payload = (await request.jwtVerify());
