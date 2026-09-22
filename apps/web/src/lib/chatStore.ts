@@ -719,7 +719,6 @@ export class ChatStore {
                 c.type === 'direct' &&
                 (c.id === canonicalConvId ||
                   c.id === `conv_${friend.id}` ||
-                  (myId && c.id === `conv_${myId}`) ||
                   c.participants.some((p) => p.id === friend.id))
             );
             if (!existing) {

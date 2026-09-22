@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Phone, Video } from 'lucide-react';
 import { getStoredSession } from '@/lib/api';
 import {
@@ -39,6 +39,13 @@ export const ChatLayout: React.FC = () => {
   const [requests, setRequests] = useState<ChatMessageRequest[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
+  // Ref keeps the latest activeConversationId accessible inside the subscription
+  // callback without needing it in the useEffect dependency array.
+  const activeConvRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeConvRef.current = activeConversationId;
+  }, [activeConversationId]);
+
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [forwardingMessage, setForwardingMessage] = useState<ChatMessage | null>(null);
   const [showProfileSheet, setShowProfileSheet] = useState(false);
@@ -58,12 +65,11 @@ export const ChatLayout: React.FC = () => {
       setConversations(ChatStore.getConversations());
       setUsers(ChatStore.getUsers());
       setRequests(ChatStore.getRequests());
-      setActiveConversationId((curActive) => {
-        if (curActive) {
-          setMessages(ChatStore.getMessages(curActive));
-        }
-        return curActive;
-      });
+      // Use the ref to get the CURRENT activeConversationId, not the stale closure value
+      const curActive = activeConvRef.current;
+      if (curActive) {
+        setMessages(ChatStore.getMessages(curActive));
+      }
     };
 
     updateFromStore();
