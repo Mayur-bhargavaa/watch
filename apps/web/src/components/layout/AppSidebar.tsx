@@ -213,24 +213,44 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             <span>Home</span>
           </Link>
 
-          {/* Browse Cinema */}
+          {/* Watchlist */}
           <Link
-            href="/dashboard"
+            href="/watchlist"
             onClick={onMobileClose}
             className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
-              currentActive === 'dashboard'
+              currentActive === 'watchlist'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
             }`}
           >
-            <Film
+            <Heart
               className={`w-4 h-4 shrink-0 ${
-                currentActive === 'dashboard'
+                currentActive === 'watchlist'
+                  ? 'text-[#ee1d49] fill-[#ee1d49]/20'
+                  : 'text-slate-400 dark:text-zinc-400'
+              }`}
+            />
+            <span>Watchlist</span>
+          </Link>
+
+          {/* My Rooms */}
+          <Link
+            href="/rooms"
+            onClick={onMobileClose}
+            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+              currentActive === 'rooms'
+                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
+                : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
+            }`}
+          >
+            <Users
+              className={`w-4 h-4 shrink-0 ${
+                currentActive === 'rooms'
                   ? 'text-[#ee1d49]'
                   : 'text-slate-400 dark:text-zinc-400'
               }`}
             />
-            <span>Browse Cinema</span>
+            <span>My Rooms</span>
           </Link>
 
           {/* Friends */}
@@ -343,28 +363,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         </div>
       </div>
 
-      {/* Sidebar Footer: Notifications, Profile, Settings, & User card */}
+      {/* Sidebar Footer: Profile, Settings, & User card */}
       <div className="space-y-3 pt-4 border-t border-slate-200/80 dark:border-white/[0.06]">
-        {/* Quick Links: Notifications, Settings */}
+        {/* Quick Links: Settings */}
         <div className="space-y-0.5">
-          <Link
-            href="/friends?tab=requests"
-            onClick={onMobileClose}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${
-              currentActive === 'notifications'
-                ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.06]'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-white/[0.03]'
-            }`}
-          >
-            <div className="flex items-center space-x-2.5">
-              <Bell className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
-              <span>Notifications</span>
-            </div>
-            {pendingRequests > 0 && (
-              <span className="w-2 h-2 rounded-full bg-[#ee1d49]" />
-            )}
-          </Link>
-
           <Link
             href="/profile"
             onClick={onMobileClose}

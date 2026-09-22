@@ -12,6 +12,8 @@ import {
   Trash2,
   Pin,
   MoreHorizontal,
+  X,
+  Eye,
 } from 'lucide-react';
 import { ChatMessage } from '@/types/chat';
 import { VoiceMessage } from './VoiceMessage';
@@ -20,6 +22,8 @@ import { GameInviteMessage } from './GameInviteMessage';
 import { MovieShareMessage } from './MovieShareMessage';
 import { ReactionPicker } from './ReactionPicker';
 import { parseStickerMessage } from './StickersData';
+import { ModalPortal } from './ModalPortal';
+import { ChatStore } from '@/lib/chatStore';
 
 /**
  * WhatsApp-style Emoji Count detector:
@@ -77,7 +81,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const [isViewOnceModalOpen, setIsViewOnceModalOpen] = useState(false);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
+
+  const handleOpenViewOnce = () => {
+    if (message.metadata?.viewOnceOpened) return;
+    setIsViewOnceModalOpen(true);
+  };
+
+  const handleCloseViewOnce = () => {
+    setIsViewOnceModalOpen(false);
+    if (!message.metadata?.viewOnceOpened) {
+      ChatStore.markViewOnceOpened(message.conversationId, message.id);
+    }
+  };
 
   const formattedTime = new Date(message.createdAt).toLocaleTimeString([], {
     hour: '2-digit',
@@ -245,6 +262,66 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             ) : (message.type === 'movie_share' || message.type === 'movie') && message.metadata?.movie ? (
               /* Movie Share Card */
               <MovieShareMessage movie={message.metadata.movie} isSender={isSender} />
+            ) : message.metadata?.isViewOnce ? (
+              /* WhatsApp-style View Once Photo Message */
+              <div className="py-0.5">
+                {message.metadata?.viewOnceOpened ? (
+                  /* Opened State - Cannot be opened again */
+                  <div className="flex items-center gap-2.5 py-1 px-1 select-none opacity-85">
+                    <div
+                      className={`w-7 h-7 rounded-full border border-dashed flex items-center justify-center text-xs font-bold ${
+                        isSender
+                          ? 'border-white/70 text-white/80'
+                          : 'border-slate-400 dark:border-zinc-500 text-slate-500 dark:text-zinc-400'
+                      }`}
+                    >
+                      1
+                    </div>
+                    <div className="flex flex-col">
+                      <span
+                        className={`font-semibold text-xs ${
+                          isSender ? 'text-white/90' : 'text-slate-700 dark:text-zinc-300'
+                        }`}
+                      >
+                        Opened
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Unopened State - Click to view */
+                  <button
+                    type="button"
+                    onClick={handleOpenViewOnce}
+                    className="flex items-center gap-2.5 py-1 px-1 text-left cursor-pointer group/viewonce select-none"
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-black transition-transform group-hover/viewonce:scale-110 shadow-xs ${
+                        isSender
+                          ? 'border-white bg-white/20 text-white'
+                          : 'border-[#ee1d49] bg-rose-500/15 text-[#ee1d49]'
+                      }`}
+                    >
+                      1
+                    </div>
+                    <div className="flex flex-col">
+                      <span
+                        className={`font-bold text-xs leading-tight ${
+                          isSender ? 'text-white' : 'text-slate-900 dark:text-white'
+                        }`}
+                      >
+                        Photo
+                      </span>
+                      <span
+                        className={`text-[10px] ${
+                          isSender ? 'text-white/75' : 'text-slate-500 dark:text-zinc-400'
+                        }`}
+                      >
+                        View once • Tap to open
+                      </span>
+                    </div>
+                  </button>
+                )}
+              </div>
             ) : (
               /* Standard Text / Image / Big Emojis */
               <div>
@@ -405,6 +482,74 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
       </div>
+
+      {/* Fullscreen View Once Lightbox Modal */}
+      {isViewOnceModalOpen && message.mediaUrl && (
+        <ModalPortal>
+          <div
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200"
+            onClick={handleCloseViewOnce}
+          >
+            {/* Top Header */}
+            <div
+              className="w-full max-w-3xl mx-auto flex items-center justify-between py-2 text-white border-b border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-full border-2 border-[#ee1d49] bg-[#ee1d49] text-white flex items-center justify-center text-xs font-black">
+                  1
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">View Once Photo</h4>
+                  <p className="text-[10px] text-zinc-400">
+                    Will be marked as Opened once closed
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseViewOnce}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                title="Close and mark opened"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Main Image */}
+            <div
+              className="flex-1 flex items-center justify-center py-4 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img
+                src={message.mediaUrl}
+                alt="View once photo"
+                className="max-h-[72vh] max-w-full rounded-2xl object-contain shadow-2xl select-none"
+              />
+            </div>
+
+            {/* Bottom Caption / Close Button */}
+            <div
+              className="w-full max-w-3xl mx-auto flex flex-col items-center gap-3 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {message.content && (
+                <p className="text-sm text-white/90 bg-white/10 px-4 py-2 rounded-2xl backdrop-blur-md max-w-lg">
+                  {message.content}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handleCloseViewOnce}
+                className="px-6 py-2 rounded-full bg-[#ee1d49] hover:bg-[#d61840] text-white text-xs font-bold shadow-lg shadow-rose-500/20 transition cursor-pointer"
+              >
+                Close photo
+              </button>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
     </div>
   );
 };

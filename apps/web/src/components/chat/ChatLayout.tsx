@@ -10,6 +10,7 @@ import {
   ChatGamePayload,
   ChatMoviePayload,
   ChatMessageRequest,
+  ChatMessageMetadata,
 } from '@/types/chat';
 import { ChatStore } from '@/lib/chatStore';
 import { ChatSidebar } from './ChatSidebar';
@@ -84,7 +85,8 @@ export const ChatLayout: React.FC = () => {
   const handleSendMessage = (
     content: string,
     type: 'text' | 'image' | 'sticker' | 'voice' = 'text',
-    mediaUrl?: string
+    mediaUrl?: string,
+    metadata?: ChatMessageMetadata
   ) => {
     if (!activeConversationId) return;
 
@@ -96,6 +98,7 @@ export const ChatLayout: React.FC = () => {
       content,
       type,
       mediaUrl,
+      metadata,
       replyTo: replyingTo
         ? {
             id: replyingTo.id,

@@ -835,6 +835,23 @@ export class ChatStore {
     }
   }
 
+  static markViewOnceOpened(conversationId: string, messageId: string): void {
+    const msgs = this.getMessages(conversationId);
+    const msg = msgs.find(m => m.id === messageId);
+    if (!msg) return;
+    if (!msg.metadata) msg.metadata = {};
+    msg.metadata.viewOnceOpened = true;
+    msg.metadata.viewOnceOpenedAt = new Date().toISOString();
+    this.saveMessages(conversationId, msgs);
+
+    const convs = this.getConversations();
+    const conv = convs.find(c => c.id === conversationId);
+    if (conv && conv.lastMessage?.id === messageId) {
+      conv.lastMessage = msg;
+      this.saveConversations(convs);
+    }
+  }
+
   static markConversationRead(conversationId: string): void {
     const convs = this.getConversations();
     const conv = convs.find(c => c.id === conversationId);

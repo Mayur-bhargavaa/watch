@@ -13,15 +13,28 @@ import {
   Image as ImageIcon,
   Square,
   Trash2,
+  Loader2,
 } from 'lucide-react';
-import { ChatMessage, ChatPlanPayload, ChatGamePayload, ChatMoviePayload } from '@/types/chat';
+import { ChatMessage, ChatPlanPayload, ChatGamePayload, ChatMoviePayload, ChatMessageMetadata } from '@/types/chat';
 import { StickerPicker } from './StickerPicker';
 import { DrawStickerModal } from './DrawStickerModal';
 import { serializeStickerMessage } from './StickersData';
 import { ModalPortal } from './ModalPortal';
+import { uploadChatImage } from '@/lib/uploadMedia';
+
+interface PendingImage {
+  file: File;
+  previewUrl: string;
+  isViewOnce: boolean;
+}
 
 interface MessageComposerProps {
-  onSendMessage: (content: string, type?: 'text' | 'image' | 'sticker' | 'voice', mediaUrl?: string) => void;
+  onSendMessage: (
+    content: string,
+    type?: 'text' | 'image' | 'sticker' | 'voice',
+    mediaUrl?: string,
+    metadata?: ChatMessageMetadata
+  ) => void;
   onSendVoice?: (duration: number, audioUrl?: string) => void;
   onSendPlan?: (plan: ChatPlanPayload) => void;
   onSendGame?: (game: ChatGamePayload) => void;
@@ -45,6 +58,11 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showDrawSticker, setShowDrawSticker] = useState(false);
+
+  // Pending image & View Once state
+  const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
+  const [showViewOnceModal, setShowViewOnceModal] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -84,7 +102,61 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     }
   };
 
-  const handleSend = () => {
+  const handleCancelPendingImage = () => {
+    if (pendingImage?.previewUrl) {
+      URL.revokeObjectURL(pendingImage.previewUrl);
+    }
+    setPendingImage(null);
+  };
+
+  const handleToggleViewOnce = () => {
+    if (!pendingImage) return;
+    if (!pendingImage.isViewOnce) {
+      // Show browser disclaimer modal first
+      setShowViewOnceModal(true);
+    } else {
+      setPendingImage((prev) => (prev ? { ...prev, isViewOnce: false } : null));
+    }
+  };
+
+  const handleConfirmViewOnce = () => {
+    setPendingImage((prev) => (prev ? { ...prev, isViewOnce: true } : null));
+    setShowViewOnceModal(false);
+  };
+
+  const handleSend = async () => {
+    if (isUploading) return;
+
+    if (pendingImage) {
+      try {
+        setIsUploading(true);
+        const uploadedUrl = await uploadChatImage(pendingImage.file);
+        const caption = text.trim();
+        onSendMessage(
+          caption,
+          'image',
+          uploadedUrl,
+          {
+            isViewOnce: pendingImage.isViewOnce,
+            viewOnceOpened: false,
+            fileName: pendingImage.file.name,
+            fileSize: `${(pendingImage.file.size / 1024).toFixed(0)} KB`,
+          }
+        );
+        handleCancelPendingImage();
+        setText('');
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+        if (onTyping) onTyping(false);
+      } catch (err) {
+        console.error('Failed to send image:', err);
+      } finally {
+        setIsUploading(false);
+      }
+      return;
+    }
+
     const trimmed = text.trim();
     if (!trimmed) return;
     onSendMessage(trimmed, 'text');
@@ -130,8 +202,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const fakeUrl = URL.createObjectURL(file);
-      onSendMessage(file.name, 'image', fakeUrl);
+      const previewUrl = URL.createObjectURL(file);
+      setPendingImage({
+        file,
+        previewUrl,
+        isViewOnce: false,
+      });
+      setShowAttachMenu(false);
+    }
+    if (e.target) {
+      e.target.value = '';
     }
   };
 
@@ -205,6 +285,64 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           >
             <X className="w-3.5 h-3.5" />
           </button>
+        </div>
+      )}
+
+      {/* Pending Image Preview Bar (before sending) */}
+      {pendingImage && (
+        <div className="flex items-center justify-between gap-3 px-3 py-2 mb-2.5 rounded-2xl bg-slate-100 dark:bg-zinc-800/95 border border-slate-200/80 dark:border-zinc-700/60 shadow-xs animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-black/10 shrink-0 border border-black/10 dark:border-white/10">
+              <img
+                src={pendingImage.previewUrl}
+                alt="Selected preview"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-800 dark:text-zinc-100 truncate max-w-[140px] sm:max-w-xs">
+                {pendingImage.file.name}
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                {(pendingImage.file.size / 1024).toFixed(0)} KB • Ready to send
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {/* WhatsApp-Style View Once Button (1) */}
+            <button
+              type="button"
+              onClick={handleToggleViewOnce}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+                pendingImage.isViewOnce
+                  ? 'bg-[#ee1d49] text-white shadow-xs shadow-[#ee1d49]/30 ring-2 ring-[#ee1d49]/40'
+                  : 'bg-white dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-600 hover:border-[#ee1d49]/50'
+              }`}
+              title={pendingImage.isViewOnce ? 'View once is enabled' : 'Set photo to view once'}
+            >
+              <div
+                className={`w-4 h-4 rounded-full border-1.5 flex items-center justify-center text-[10px] font-black ${
+                  pendingImage.isViewOnce ? 'border-white text-white' : 'border-current'
+                }`}
+              >
+                1
+              </div>
+              <span className="hidden xs:inline text-[11px]">
+                {pendingImage.isViewOnce ? 'View Once ON' : 'View Once'}
+              </span>
+            </button>
+
+            {/* Cancel / Remove Image */}
+            <button
+              type="button"
+              onClick={handleCancelPendingImage}
+              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-700 transition cursor-pointer"
+              title="Remove image"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -353,7 +491,6 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 <div className="absolute bottom-14 left-0 z-50">
                   <StickerPicker
                     onSelectSticker={(sticker) => {
-                      // If it's a standard unicode emoji, append to text input like WhatsApp
                       if (/^\p{Extended_Pictographic}+$/u.test(sticker.trim())) {
                         setText((prev) => prev + sticker);
                         textareaRef.current?.focus();
@@ -374,28 +511,33 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             )}
           </div>
 
-          {/* Text Input Area */}
+          {/* Text / Caption Input Area */}
           <div className="flex-1 relative flex items-center bg-slate-100/90 dark:bg-zinc-800/80 rounded-2xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-[#ee1d49]/30 transition">
             <textarea
               ref={textareaRef}
               value={text}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={pendingImage ? "Add a caption (optional)..." : "Type a message..."}
               rows={1}
               className="w-full bg-transparent border-0 resize-none outline-hidden text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 max-h-32 py-1 leading-normal"
             />
           </div>
 
           {/* Send or Voice Record Button */}
-          {text.trim() ? (
+          {text.trim() || pendingImage ? (
             <button
               type="button"
               onClick={handleSend}
-              className="p-2.5 rounded-xl bg-[#ee1d49] hover:bg-[#d61840] text-white shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-              title="Send message"
+              disabled={isUploading}
+              className="p-2.5 rounded-xl bg-[#ee1d49] hover:bg-[#d61840] disabled:opacity-60 text-white shadow-xs transition active:scale-95 cursor-pointer shrink-0"
+              title={pendingImage ? "Send photo" : "Send message"}
             >
-              <Send className="w-4 h-4" />
+              {isUploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </button>
           ) : (
             <button
@@ -408,6 +550,38 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             </button>
           )}
         </div>
+      )}
+
+      {/* View Once Browser Disclaimer Modal */}
+      {showViewOnceModal && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-6 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 text-center animate-in fade-in zoom-in-95 duration-150">
+              <div className="w-14 h-14 rounded-full bg-rose-500/10 dark:bg-rose-500/20 text-[#ee1d49] mx-auto flex items-center justify-center font-black text-xl border-2 border-[#ee1d49]">
+                1
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Photo Set to View Once
+                </h3>
+                <p className="text-xs leading-relaxed text-slate-600 dark:text-zinc-400 px-2">
+                  This is a browser-based approach and other users can still take screenshots or screen recordings, so please send images carefully.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmViewOnce}
+                  className="w-full py-2.5 rounded-2xl bg-[#ee1d49] hover:bg-[#d61840] text-white font-bold text-xs shadow-md shadow-rose-500/20 transition active:scale-98 cursor-pointer"
+                >
+                  Okay, I Understand
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
       )}
 
       {/* Draw Sticker Modal */}
