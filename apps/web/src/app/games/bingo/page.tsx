@@ -343,6 +343,14 @@ function BingoDuelGameContent() {
   const isFinished = room && (room.status === 'FINISHED' || gameState?.phase === 'FINISHED');
   const isPlayingOrFinished = Boolean(room && (isPlaying || isFinished || isRoundOver));
 
+  // Auto-start Bingo Duel as soon as 2 human players have joined
+  useEffect(() => {
+    if (isHost && isWaiting && room && players.length >= (room.maxPlayers || 2) && !isPlayingOrFinished) {
+      console.log('[Bingo] 2 human players joined! Auto-starting Bingo Duel...');
+      startBingoGame(duelConfig);
+    }
+  }, [isHost, isWaiting, room, players.length, isPlayingOrFinished, startBingoGame, duelConfig]);
+
   const myBoard = gameState?.boards?.[effectiveUserId] || [];
   const myMarks = gameState?.playerMarks?.[effectiveUserId] || [];
   const myProgress = gameState?.playerProgress?.[effectiveUserId];
@@ -916,64 +924,70 @@ function BingoDuelGameContent() {
           </div>
 
 
-        {/* Center: Room Code Badge & Show Video button */}
-        <div className="flex items-center gap-2">
-          <div className="px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-300 flex items-center gap-2 font-mono text-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Room: <strong className="text-white font-bold">{room?.roomCode}</strong></span>
+        {/* Center: Room Code Badge & Show Video button (ONLY WHEN IN ROOM) */}
+        {roomCodeParam && (
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-1 rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-300 flex items-center gap-2 font-mono text-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Room: <strong className="text-white font-bold">{room?.roomCode || roomCodeParam}</strong></span>
+            </div>
+            {isPipClosed && (
+              <button
+                onClick={() => setIsPipClosed(false)}
+                className="px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                title="Open Floating Video Call"
+              >
+                <Video className="w-3.5 h-3.5 text-rose-500" />
+                <span>Show Video</span>
+              </button>
+            )}
           </div>
-          {isPipClosed && (
-            <button
-              onClick={() => setIsPipClosed(false)}
-              className="px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-              title="Open Floating Video Call"
-            >
-              <Video className="w-3.5 h-3.5 text-rose-500" />
-              <span>Show Video</span>
-            </button>
-          )}
-        </div>
+        )}
 
-        {/* Right: Cam, Mic, Chat, Theme, Rules, Rematch, Settings */}
+        {/* Right: Cam, Mic, Chat (WHEN IN ROOM), Theme, Rules, Rematch (WHEN IN ROOM), Settings */}
         <div className="flex items-center gap-2">
-          {/* Audio / Mic Toggle */}
-          <button
-            onClick={toggleMic}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
-              isMicMuted
-                ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white'
-                : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
-            }`}
-            title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-          >
-            {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </button>
+          {roomCodeParam && (
+            <>
+              {/* Audio / Mic Toggle */}
+              <button
+                onClick={toggleMic}
+                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  isMicMuted
+                    ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white'
+                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
+                }`}
+                title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+              >
+                {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
 
-          {/* Video / Camera Toggle */}
-          <button
-            onClick={toggleCamera}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
-              isCameraOn
-                ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
-                : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white'
-            }`}
-            title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
-          >
-            {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-          </button>
+              {/* Video / Camera Toggle */}
+              <button
+                onClick={toggleCamera}
+                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  isCameraOn
+                    ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
+                    : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white'
+                }`}
+                title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+              >
+                {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+              </button>
 
-          {/* Chat Drawer Toggle */}
-          <button
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
-              isChatOpen
-                ? 'bg-rose-600 border-rose-500 text-white'
-                : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
-            }`}
-            title="Toggle Chat"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
+              {/* Chat Drawer Toggle */}
+              <button
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  isChatOpen
+                    ? 'bg-rose-600 border-rose-500 text-white'
+                    : 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
+                }`}
+                title="Toggle Chat"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            </>
+          )}
 
           {/* Theme Toggle (Light / Dark) */}
           <button
@@ -993,29 +1007,31 @@ function BingoDuelGameContent() {
             <HelpCircle className="w-4 h-4" />
           </button>
 
-          {/* Rematch / Restart Button */}
-          <button
-            onClick={() => {
-              if (gameState?.phase === 'FINISHED' || gameState?.phase === 'ROUND_OVER') {
-                rematch();
-              } else {
-                showAlert(
-                  'Restart Match?',
-                  'Would you like to reset the duel and request a rematch with your opponent?',
-                  'info',
-                  {
-                    confirmText: 'Request Rematch',
-                    cancelText: 'Cancel',
-                    onConfirm: () => rematch()
-                  }
-                );
-              }
-            }}
-            className="w-9 h-9 rounded-xl border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white transition flex items-center justify-center shadow-xs cursor-pointer"
-            title="Rematch / Restart"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          {/* Rematch / Restart Button (ONLY IN ROOM) */}
+          {roomCodeParam && (
+            <button
+              onClick={() => {
+                if (gameState?.phase === 'FINISHED' || gameState?.phase === 'ROUND_OVER') {
+                  rematch();
+                } else {
+                  showAlert(
+                    'Restart Match?',
+                    'Would you like to reset the duel and request a rematch with your opponent?',
+                    'info',
+                    {
+                      confirmText: 'Request Rematch',
+                      cancelText: 'Cancel',
+                      onConfirm: () => rematch()
+                    }
+                  );
+                }
+              }}
+              className="w-9 h-9 rounded-xl border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white transition flex items-center justify-center shadow-xs cursor-pointer"
+              title="Rematch / Restart"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Settings Button */}
           <button
@@ -1028,8 +1044,8 @@ function BingoDuelGameContent() {
         </div>
       </header>
 
-      {/* MOVEABLE FLOATING VIDEO CALL WINDOW (Exact match with Ludo) */}
-      {!isPipClosed && (
+      {/* MOVEABLE FLOATING VIDEO CALL WINDOW (ONLY WHEN IN ACTIVE ROOM) */}
+      {roomCodeParam && !isPipClosed && (
         <div
           ref={pipRef}
           onMouseDown={handlePipDragStart}

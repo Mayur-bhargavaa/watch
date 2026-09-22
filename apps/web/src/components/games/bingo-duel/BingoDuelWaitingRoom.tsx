@@ -258,25 +258,29 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
         </div>
 
         {/* Start Game CTA / Status */}
-        {isHost ? (
+        {isFull ? (
           <button
             type="button"
             onClick={onStartGame}
-            disabled={!isFull}
-            className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm sm:text-base shadow-xl transition flex items-center justify-center gap-2 ${
-              isFull
-                ? 'bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white shadow-[0_4px_20px_rgba(255,43,94,0.4)] active:scale-[0.98] cursor-pointer'
-                : 'bg-white/10 text-zinc-500 cursor-not-allowed border border-white/10'
-            }`}
+            className="w-full py-3.5 px-6 rounded-2xl font-bold text-sm sm:text-base shadow-xl transition flex items-center justify-center gap-2 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white shadow-[0_4px_20px_rgba(255,43,94,0.4)] animate-pulse active:scale-[0.98] cursor-pointer"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+            <span>2 PLAYERS JOINED • STARTING MATCH...</span>
+          </button>
+        ) : isHost ? (
+          <button
+            type="button"
+            disabled
+            className="w-full py-3.5 px-6 rounded-2xl font-bold text-sm sm:text-base transition flex items-center justify-center gap-2 bg-white/10 text-zinc-500 cursor-not-allowed border border-white/10"
           >
             <Play className="w-4 h-4 fill-current" />
-            <span>{isFull ? 'START BINGO DUEL' : 'WAITING FOR OPPONENT...'}</span>
+            <span>WAITING FOR OPPONENT...</span>
           </button>
         ) : (
           <div className="w-full py-3.5 px-6 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-center">
             <span className="text-xs sm:text-sm font-semibold text-rose-300 flex items-center justify-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              Waiting for host to start the match...
+              Waiting for opponent to join...
             </span>
           </div>
         )}

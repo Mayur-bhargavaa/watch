@@ -230,36 +230,9 @@ export class GameRoomManager {
       }
     });
 
-    // Check if room is now full of real human players
-    if (room.players.length === room.maxPlayers) {
-      if (room.gameType === 'bingo' || room.gameType === 'doodle-duel' || room.gameType === 'chess') {
-        if (room.gameType === 'doodle-duel' && !room.gameState) {
-          const playerConfigs = room.players.map(p => ({
-            userId: p.userId,
-            displayName: p.displayName,
-            seat: p.seat,
-            color: colors && colors[p.seat] ? colors[p.seat] : p.color
-          }));
-          const config = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
-          room.gameState = DoodleDuelEngine.createInitialState(playerConfigs, config);
-          const p1 = room.players[0];
-          const p2 = room.players[1];
-          if (p1 && p2) {
-            room.gameState.drawerUserId = p1.userId;
-            room.gameState.drawerDisplayName = p1.displayName;
-            room.gameState.guesserUserId = p2.userId;
-            room.gameState.guesserDisplayName = p2.displayName;
-          }
-          this.db.updateGameRoomState(room.id, room.gameState);
-        }
-        this.broadcast(room.id, {
-          type: 'game:lobby_ready',
-          roomId: room.id,
-          payload: { room }
-        });
-      } else {
-        this.startGame(room);
-      }
+    // Check if room is now full of real human players -> auto-start immediately without manual click
+    if (room.players.length >= room.maxPlayers) {
+      this.startGame(room);
     }
 
     return room;
@@ -1869,6 +1842,10 @@ export class GameRoomManager {
             payload: { code: 'JOIN_FAILED', message: e?.message || 'Failed to join game room' }
           }));
         }
+      }
+
+      if (room.status === 'WAITING' && room.players.length >= room.maxPlayers) {
+        this.startGame(room);
       }
 
       const currentRoom = this.db.getGameRoomById(roomId) || room;

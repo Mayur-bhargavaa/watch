@@ -638,8 +638,8 @@ function BingoGameContent() {
           </div>
         </div>
 
-        {/* Video Call Show Button (if minimized or closed) */}
-        {isPipClosed && (
+        {/* Video Call Show Button (if minimized or closed, ONLY WHEN IN ROOM) */}
+        {roomCodeParam && isPipClosed && (
           <button
             onClick={() => setIsPipClosed(false)}
             className="px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 shadow text-xs font-semibold flex items-center gap-1.5 transition"
@@ -651,55 +651,59 @@ function BingoGameContent() {
         )}
 
         <div className="flex items-center gap-2">
-          {/* Audio Mic Toggle */}
-          <button
-            type="button"
-            onClick={toggleMic}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isMicMuted
-                ? 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
-                : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
-            }`}
-            title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
-          >
-            {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </button>
+          {roomCodeParam && (
+            <>
+              {/* Audio Mic Toggle */}
+              <button
+                type="button"
+                onClick={toggleMic}
+                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+                  isMicMuted
+                    ? 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
+                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
+                }`}
+                title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
+              >
+                {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
 
-          {/* Camera Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              toggleCamera();
-              if (isPipClosed) setIsPipClosed(false);
-            }}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isCameraOn
-                ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
-                : 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
-            }`}
-            title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
-          >
-            {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-          </button>
+              {/* Camera Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  toggleCamera();
+                  if (isPipClosed) setIsPipClosed(false);
+                }}
+                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+                  isCameraOn
+                    ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
+                    : 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
+                }`}
+                title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+              >
+                {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+              </button>
 
-          {/* Chat Drawer Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className={`relative w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isChatOpen
-                ? 'bg-rose-600 border-rose-500 text-white'
-                : 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
-            }`}
-            title="Toggle Match Chat"
-          >
-            <MessageSquare className="w-4 h-4" />
-            {chatMessages.length > 0 && !isChatOpen && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[9px] font-black flex items-center justify-center text-white">
-                {chatMessages.length}
-              </span>
-            )}
-          </button>
+              {/* Chat Drawer Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className={`relative w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+                  isChatOpen
+                    ? 'bg-rose-600 border-rose-500 text-white'
+                    : 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
+                }`}
+                title="Toggle Match Chat"
+              >
+                <MessageSquare className="w-4 h-4" />
+                {chatMessages.length > 0 && !isChatOpen && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[9px] font-black flex items-center justify-center text-white">
+                    {chatMessages.length}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
 
           {/* Theme Switcher Button */}
           <button
@@ -733,8 +737,8 @@ function BingoGameContent() {
         </div>
       </header>
 
-      {/* MOVEABLE FLOATING VIDEO CALL WINDOW */}
-      {!isPipClosed && (
+      {/* MOVEABLE FLOATING VIDEO CALL WINDOW (ONLY IN ROOM) */}
+      {roomCodeParam && !isPipClosed && (
         <div
           ref={pipRef}
           onMouseDown={handlePipDragStart}
