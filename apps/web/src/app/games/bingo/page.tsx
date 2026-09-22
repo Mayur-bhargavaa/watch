@@ -79,6 +79,7 @@ import { BingoDuelBoard } from '../../../components/games/bingo-duel/BingoDuelBo
 import { BingoPlayerDuelCard } from '../../../components/games/bingo-duel/BingoPlayerDuelCard';
 import { BingoDuelClaimButton } from '../../../components/games/bingo-duel/BingoDuelClaimButton';
 import { BingoDuelWinModal } from '../../../components/games/bingo-duel/BingoDuelWinModal';
+import { BingoCozyArena } from '../../../components/games/bingo-duel/BingoCozyArena';
 import {
   BingoDuelConfig,
   BingoDuelGameState,
@@ -93,6 +94,11 @@ export interface BoardTheme {
 }
 
 const THEMES: BoardTheme[] = [
+  {
+    id: 'cozy-pastel',
+    name: 'Cozy Pastel Romance',
+    bgUrl: '/images/bingo_cozy_romantic_bg.jpg'
+  },
   {
     id: 'romantic',
     name: 'Romantic Candlelight',
@@ -153,8 +159,24 @@ function BingoDuelGameContent() {
   const [showFriendDrawer, setShowFriendDrawer] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState<string>('theam2');
+  const [selectedTheme, setSelectedTheme] = useState<string>('cozy-pastel');
   const [duelConfig, setDuelConfig] = useState<BingoDuelConfig>(DEFAULT_BINGO_DUEL_CONFIG);
+
+  // Quick Local Preview Mode for Testing Cozy UI
+  const isPreviewParam = searchParams.get('preview') === 'true';
+  const [isPreviewActive, setIsPreviewActive] = useState<boolean>(isPreviewParam);
+  const isPreview = isPreviewParam || isPreviewActive;
+
+  // Demo state for interactive preview
+  const demoBoard = useMemo(() => [
+    [1, 2, 3, 4, 5],
+    [6, 7, 8, 9, 10],
+    [11, 12, 13, 14, 15],
+    [16, 17, 18, 19, 20],
+    [21, 22, 23, 24, 25]
+  ], []);
+  const [demoP1Marks, setDemoP1Marks] = useState<number[]>([1, 9, 13, 22, 25]);
+  const [demoP2Marks, setDemoP2Marks] = useState<number[]>([5, 7, 16, 19]);
 
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -821,7 +843,7 @@ function BingoDuelGameContent() {
       isDark ? 'bg-[#111217] text-white' : 'bg-white text-zinc-900'
     }`}>
       {/* Active Match Background & Atmosphere */}
-      {roomCodeParam ? (
+      {roomCodeParam || isPreview ? (
         <div
           className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
           style={{ backgroundImage: `url('${currentTheme.bgUrl}')` }}
@@ -841,7 +863,7 @@ function BingoDuelGameContent() {
       )}
 
       {/* 1. CENTRALIZED APPSIDEBAR NAVIGATION (WHEN IN LOBBY) */}
-      {!roomCodeParam && (
+      {!roomCodeParam && !isPreview && (
         <AppSidebar
           activeNav="games"
         />
@@ -870,10 +892,11 @@ function BingoDuelGameContent() {
           ))}
         </div>
 
-        {/* TOP NAVIGATION BAR (Exact match with Ludo) */}
-        <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
-          isDark || isWaiting ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
-        }`}>
+        {/* TOP NAVIGATION BAR (LOBBY & WAITING ROOM ONLY) */}
+        {!((roomCodeParam && isPlayingOrFinished) || isPreview) && (
+          <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
+            isDark || isWaiting ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
+          }`}>
           {/* Left: Breadcrumbs or Leave Match */}
           <div className="flex items-center gap-3">
             {roomCodeParam ? (
@@ -1043,6 +1066,7 @@ function BingoDuelGameContent() {
           </button>
         </div>
       </header>
+      )}
 
       {/* MOVEABLE FLOATING VIDEO CALL WINDOW (ONLY WHEN IN ACTIVE ROOM) */}
       {roomCodeParam && !isPipClosed && (
@@ -1239,443 +1263,235 @@ function BingoDuelGameContent() {
           />
         )}
 
-        {/* ROOM VIEW: ACTIVE / FINISHED MATCH (Exact Layout from Reference Image) */}
-        {roomCodeParam && isPlayingOrFinished && (
-          <div className="w-full h-full flex flex-col lg:flex-row items-center lg:items-stretch justify-between gap-3 lg:gap-5 relative overflow-hidden">
-          {/* Left Column: Floating Room Code Card & Duel Info matching reference image */}
-          <div className="w-full lg:w-56 xl:w-60 shrink-0 flex flex-col gap-2.5 justify-start">
-            {/* Badge Card */}
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 border border-rose-500/30 shadow-lg backdrop-blur-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[9px] font-black text-[#ff8ca1] uppercase tracking-wider block">
-                    BINGO DUEL
-                  </span>
-                  <span className="text-lg font-mono font-black text-white tracking-wider">
-                    {room?.roomCode}
-                  </span>
-                </div>
-                <button
-                  onClick={handleCopyRoomCode}
-                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-rose-300 transition cursor-pointer border border-white/10"
-                  title="Copy Room Code"
-                >
-                  {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+        {/* ROOM VIEW: ACTIVE / FINISHED MATCH OR PREVIEW (Pixel-Perfect Cozy Arena) */}
+        {((roomCodeParam && isPlayingOrFinished) || isPreview) && (
+          <div className="w-full h-full flex flex-col relative overflow-y-auto overflow-x-hidden">
+            <BingoCozyArena
+              roomCode={room?.roomCode || (isPreview ? 'COZY-DEMO' : roomCodeParam || '')}
+              board={myBoard.length === 5 ? myBoard : demoBoard}
+              playerMarks={myMarks.length > 0 || !isPreview ? myMarks : demoP1Marks}
+              opponentMarks={opponentMarks.length > 0 || !isPreview ? opponentMarks : demoP2Marks}
+              currentNumber={gameState?.currentNumber ?? (isPreview ? 17 : null)}
+              calledNumbers={gameState?.calledNumbers ?? (isPreview ? [1, 5, 7, 9, 13, 16, 17, 19, 22, 25] : [])}
+              completedLines={myProgress?.completedLines ?? (isPreview ? [{ id: 'diag-main', name: 'Diagonal 1', type: 'diag', index: 0, indices: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]] }] : [])}
+              winningIndices={winningIndices}
+              isMyTurn={isPreview ? true : isMyTurn}
+              currentTurnDisplayName={isPreview ? 'You' : currentTurnDisplayName}
+              player1={{
+                displayName: me?.displayName || 'Player 1',
+                avatarUrl: me?.avatarUrl,
+                userId: effectiveUserId || 'p1'
+              }}
+              player2={{
+                displayName: opponent?.displayName || 'Player 2',
+                avatarUrl: opponent?.avatarUrl,
+                userId: opponentUserId || 'p2'
+              }}
+              onCellClick={(num) => {
+                if (isPreview) {
+                  setDemoP1Marks(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]);
+                } else {
+                  handleCellClick(num);
+                }
+              }}
+              onReset={() => {
+                if (isPreview) {
+                  setDemoP1Marks([1, 9, 13, 22, 25]);
+                  setDemoP2Marks([5, 7, 16, 19]);
+                } else {
+                  rematch();
+                }
+              }}
+              onClaimBingo={() => claimBingo('bingo')}
+              canClaimBingo={Boolean(myProgress?.isCompleted)}
+              isFinished={Boolean(isFinished)}
+              isRoundOver={isRoundOver}
+              onOpenSettings={() => setShowSettingsModal(true)}
+              onToggleChat={() => setIsChatOpen(!isChatOpen)}
+              isChatOpen={isChatOpen}
+              unreadChatCount={chatMessages.length}
+              onLeave={isPreview ? () => setIsPreviewActive(false) : handleLeave}
+              leaveLabel={isPreview ? 'Exit Preview' : 'Leave Match'}
+            />
 
-              <div className="mt-2 pt-2 border-t border-white/10 space-y-1.5 text-[11px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Winning Target</span>
-                  <span className="font-extrabold text-[#ff8ca1]">5 Lines</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Calling Mode</span>
-                  <span className="font-extrabold text-white">Turn-by-Turn</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Numbers Left</span>
-                  <span className="font-mono font-black text-white bg-white/10 px-1.5 py-0.5 rounded">
-                    {25 - (gameState?.calledNumbers?.length || 0)} / 25
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400">Voice Announce</span>
-                  <span className="font-semibold text-emerald-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    Active
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Turn Indicator / Setup Phase Banner */}
-            {gameState?.phase === 'SETUP' ? (
-              <div className="p-3 rounded-2xl border transition-all backdrop-blur-xl bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]">
-                <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block">
-                  Game Setup
-                </span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff4d79] animate-pulse" />
-                  <span className="text-xs sm:text-sm font-extrabold text-white">
-                    {!gameState?.boardsReady?.[effectiveUserId]
-                      ? 'Step 1: Fill Your Board'
-                      : 'Waiting for Opponent...'}
-                  </span>
-                </div>
-                <p className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
-                  {!gameState?.boardsReady?.[effectiveUserId]
-                    ? 'Place numbers 1–25 on your 5×5 grid, then save!'
-                    : 'Opponent is filling their board. Game starts when both are ready.'}
-                </p>
-              </div>
-            ) : (
-              <div className={`p-3 rounded-2xl border transition-all backdrop-blur-xl ${
-                isMyTurn
-                  ? 'bg-gradient-to-br from-[#ff4d79]/20 to-[#ff758c]/10 border-[#ff6b8b] shadow-[0_10px_25px_rgba(255,77,121,0.25)]'
-                  : 'bg-[#180a14]/70 border-white/10'
-              }`}>
-                <span className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block">
-                  Active Player
-                </span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${isMyTurn ? 'bg-[#ff4d79] animate-ping' : 'bg-zinc-500'}`} />
-                  <span className="text-xs sm:text-sm font-extrabold text-white">
-                    {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}
-                  </span>
-                </div>
-                <p className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
-                  {isMyTurn
-                    ? 'Tap any uncalled number on your ticket to call it aloud!'
-                    : 'Wait for opponent to pick their next number.'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Center Column: Number Caller + Player Duel Cards + 5x5 Board + Claim Button */}
-          <div className="flex-1 w-full max-w-xl mx-auto flex flex-col items-center justify-between gap-1.5 h-full overflow-hidden">
-            {/* 1. Visual Number Caller (numbers 1-25) — hidden during SETUP phase */}
-            {gameState?.phase !== 'SETUP' && (
-              <BingoDuelNumberCaller
-                currentNumber={gameState?.currentNumber || null}
-                currentNumberWord={gameState?.currentNumberWord || null}
-                lastCalledNumbers={gameState?.lastCalledNumbers || []}
-                calledNumbersCount={gameState?.calledNumbers?.length || 0}
-                remainingCount={25 - (gameState?.calledNumbers?.length || 0)}
-                isPaused={Boolean(gameState?.callingPaused)}
-                isHost={isHost}
-                voiceCallerEnabled={Boolean(duelConfig.voiceCaller)}
-                onToggleVoiceCaller={() => setDuelConfig(p => ({ ...p, voiceCaller: !p.voiceCaller }))}
-                currentTurnDisplayName={currentTurnDisplayName}
-                isMyTurn={isMyTurn}
-              />
-            )}
-
-            {/* 2. Player Duel Status Header: You vs Opponent */}
-            <div className="w-full grid grid-cols-2 gap-2">
-              <BingoPlayerDuelCard
-                displayName={me?.displayName || 'You'}
-                avatarUrl={me?.avatarUrl}
-                userId={effectiveUserId}
-                isMe={true}
-                isTurn={isMyTurn}
-                marksCount={myMarks.length}
-                progress={myProgress}
-                roundsWon={myWins}
-                targetRounds={gameState?.targetRounds || 1}
-                isHost={isHost}
-              />
-              <BingoPlayerDuelCard
-                displayName={opponent?.displayName || 'Opponent'}
-                avatarUrl={opponent?.avatarUrl}
-                userId={opponentUserId}
-                isMe={false}
-                isTurn={!isMyTurn && Boolean(opponentUserId)}
-                marksCount={opponentMarks.length}
-                progress={opponentProgress}
-                roundsWon={opponentWins}
-                targetRounds={gameState?.targetRounds || 1}
-                isHost={!isHost}
-              />
-            </div>
-
-            {/* 3. Authoritative 5x5 Bingo Board (inline setup during SETUP phase) */}
-            <div className="w-full my-auto flex flex-col items-center justify-center">
-              {gameState?.phase === 'SETUP' && !gameState?.boardsReady?.[effectiveUserId] ? (
-                /* Step 1: Player hasn't saved their board yet — show inline setup */
-                <div className="w-full max-w-sm mx-auto">
-                  <div className="text-center mb-1">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#ff4d79]/20 to-[#ff758c]/10 border border-[#ff6b8b]/30 text-[#ff8ca1] text-[10px] font-black uppercase tracking-wider">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff4d79] animate-pulse" />
-                      Step 1 — Fill Your Board
-                    </span>
-                  </div>
-                  <BingoDuelBoard
-                    board={[]}
-                    playerMarks={[]}
-                    calledNumbers={[]}
-                    onCellClick={() => {}}
-                    isSetupMode={true}
-                    onSaveBoard={handleSaveCustomBoard}
-                    onCancelSetup={() => {}}
-                    onValidationToast={(msg) => {
-                      setClaimToast({ valid: false, message: msg, timestamp: Date.now() });
-                      setTimeout(() => setClaimToast(null), 3500);
-                    }}
-                  />
-                </div>
-              ) : gameState?.phase === 'SETUP' && gameState?.boardsReady?.[effectiveUserId] ? (
-                /* Step 1b: Player saved their board but opponent hasn't — show waiting */
-                <div className="w-full max-w-sm mx-auto flex flex-col items-center gap-2">
-                  <div className="text-center p-5 bg-gradient-to-br from-[#2a1222]/90 to-[#180a14]/90 rounded-2xl border border-rose-500/30 shadow-xl backdrop-blur-xl">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#ff4d79] to-[#ff758c] flex items-center justify-center mx-auto mb-2.5 shadow-md shadow-rose-950/40">
-                      <span className="text-xl">✅</span>
+            {/* Slide-Over Drawer: Game Chat with Stickers, Reactions, & Drawing */}
+            {roomCodeParam && isChatOpen && (
+              <div className="fixed right-4 top-20 bottom-6 w-80 max-w-[90vw] z-50 bg-[#1c0c16]/95 border border-rose-500/30 rounded-3xl p-3 shadow-2xl flex flex-col backdrop-blur-2xl animate-in slide-in-from-right duration-200">
+                {/* Header */}
+                <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-rose-950/40">
+                      <MessageSquare className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="text-base font-black text-white mb-1">Your Board is Ready!</h3>
-                    <p className="text-xs text-zinc-400 mb-3">Waiting for opponent to fill their board...</p>
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#ff4d79] animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-[#ff758c] animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 rounded-full bg-[#ff8ca1] animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <div>
+                      <h3 className="text-sm font-black text-white leading-none">Game Chat</h3>
+                      <p className="text-[10px] text-rose-300/70 mt-0.5 font-medium">Live table messages & stickers</p>
                     </div>
                   </div>
-                </div>
-              ) : myBoard.length > 0 ? (
-                <>
-                  <BingoDuelBoard
-                    board={myBoard}
-                    playerMarks={myMarks}
-                    calledNumbers={gameState?.calledNumbers || []}
-                    completedLines={myProgress?.completedLines || []}
-                    bingoLetters={myProgress?.bingoLetters || []}
-                    winningIndices={winningIndices}
-                    onCellClick={handleCellClick}
-                    disabled={isFinished || isRoundOver}
-                    onValidationToast={(msg) => {
-                      setClaimToast({ valid: false, message: msg, timestamp: Date.now() });
-                      setTimeout(() => setClaimToast(null), 3500);
-                    }}
-                  />
 
-                  {gameState?.calledNumbers?.length === 0 && !isFinished && (
-                    <button
-                      type="button"
-                      onClick={() => setShowSetupModal(true)}
-                      className="mt-1 px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[#ff8ca1] hover:text-white text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer"
-                    >
-                      <span>🎯 Customize Board Matrix (1–25)</span>
-                    </button>
-                  )}
-                </>
-              ) : (
-                <div className="text-center p-6 bg-slate-900/50 rounded-2xl border border-white/10">
-                  <span className="text-xs text-slate-400">Loading your 5×5 duel board...</span>
-                </div>
-              )}
-            </div>
-
-            {/* 4. Action Claim Button — hidden during SETUP phase */}
-            {gameState?.phase !== 'SETUP' && (
-              <div className="w-full pt-0.5">
-                <BingoDuelClaimButton
-                  onClaim={() => claimBingo('bingo')}
-                  isCompleted={Boolean(myProgress?.isCompleted)}
-                  penaltySeconds={penaltySeconds}
-                  patternName={myProgress?.completedPatternName || duelConfig.pattern}
-                  disabled={isFinished || isRoundOver}
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Right Column: Full Game Chat with Stickers, Reactions, & Drawing (Matching Ludo) */}
-          {isChatOpen && (
-            <div className="w-full lg:w-72 xl:w-80 shrink-0 bg-[#1c0c16]/65 border border-rose-500/25 rounded-2xl p-3 shadow-xl flex flex-col h-full max-h-[calc(100vh-5.5rem)] backdrop-blur-xl relative">
-              {/* Header */}
-              <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-rose-950/40">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-white leading-none">Game Chat</h3>
-                    <p className="text-[10px] text-rose-300/70 mt-0.5 font-medium">Live table messages & stickers</p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setIsChatOpen(false)}
-                  className="p-1.5 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
-                  title="Close Chat"
-                >
-                  <CloseIcon className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Chat Stream */}
-              <div
-                ref={chatContainerRef}
-                onScroll={handleChatScroll}
-                className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs scrollbar-none"
-              >
-                {chatMessages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12">
-                    <Heart className="w-8 h-8 mb-2 text-rose-500/40" />
-                    <p className="text-xs font-medium">Say something sweet or cheer a number!</p>
-                  </div>
-                ) : (
-                  chatMessages.map(m => {
-                    const isMe = m.userId === session?.user?.id || m.userId === effectiveUserId;
-                    const isSticker = parseStickerMessage(m.content);
-                    const isHighlighted = highlightedMsgId === m.id;
-                    return (
-                      <div
-                        key={m.id}
-                        id={`bingo-chat-msg-${m.id}`}
-                        className={`group relative flex items-start gap-2.5 rounded-2xl p-1.5 my-0.5 transition-all duration-300 ${
-                          isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
-                        }`}
-                      >
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
-                          {m.userName[0]?.toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[11px] font-bold text-rose-200 truncate">
-                              {isMe ? `${m.userName} (You)` : m.userName}
-                            </span>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                              <span className="text-[9px] text-zinc-400 font-mono">
-                                {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setReplyingTo({ id: m.id, userName: m.userName, content: m.content });
-                                  chatInputRef.current?.focus({ preventScroll: true });
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
-                                title="Reply to this message"
-                              >
-                                <CornerUpLeft className="w-3 h-3 text-rose-300" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {m.replyTo && (
-                            <ChatReplyQuote
-                              replyTo={m.replyTo}
-                              onJumpToMessage={handleJumpToMessage}
-                              accentColor="rose"
-                            />
-                          )}
-
-                          {isSticker ? (
-                            <StickerMessageView content={m.content} />
-                          ) : (
-                            <div className="p-2 rounded-2xl bg-white/10 border border-white/10 text-rose-100 text-xs break-words">
-                              {m.content}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={chatBottomRef} />
-              </div>
-
-              {/* Quick Reactions & Quick Chat Phrases */}
-              <div className="pt-2 pb-1 space-y-2 border-t border-rose-500/20">
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {['❤️', '😂', '🔥', '👏', '🎉', '🎲', '🥳', '🥺', '👍', '✨'].map(emoji => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => sendReaction(emoji)}
-                      className="w-8 h-8 rounded-xl bg-white/5 hover:bg-rose-500/20 active:scale-95 transition-all text-base shrink-0 border border-white/10 hover:border-rose-400/40 flex items-center justify-center shadow-sm cursor-pointer"
-                      title={`React with ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {['Good Luck! 🍀', 'Nice Mark! 👏', 'Bingo soon! 🔥', 'GG! 🏆', 'Hurry Up! ⏰', 'Oops! 🙈'].map(text => (
-                    <button
-                      key={text}
-                      type="button"
-                      onClick={() => {
-                        sendChat(text, replyingTo);
-                        setReplyingTo(null);
-                      }}
-                      className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-rose-500/20 active:scale-95 text-rose-200 hover:text-white text-[11px] font-semibold border border-white/10 hover:border-rose-400/40 whitespace-nowrap transition-all shrink-0 shadow-sm cursor-pointer"
-                    >
-                      {text}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Chat Input Bar */}
-              <div className="relative pt-1">
-                {showStickerPicker && (
-                  <div className="absolute bottom-12 right-0 z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <StickerPicker
-                      onSelectSticker={(stickerIdOrUrl, caption) => {
-                        const now = Date.now();
-                        if (now - lastStickerSentRef.current < 500) return;
-                        lastStickerSentRef.current = now;
-                        sendChat(formatStickerMessage(stickerIdOrUrl, caption), replyingTo);
-                        setShowStickerPicker(false);
-                        setReplyingTo(null);
-                      }}
-                      onOpenDrawModal={() => {
-                        setShowStickerPicker(false);
-                        setShowDrawModal(true);
-                      }}
-                      onClose={() => setShowStickerPicker(false)}
-                    />
-                  </div>
-                )}
-
-                {replyingTo && (
-                  <ChatReplyingBanner
-                    replyingTo={replyingTo}
-                    onCancel={() => setReplyingTo(null)}
-                    accentColor="rose"
-                  />
-                )}
-
-                <DrawStickerModal
-                  isOpen={showDrawModal}
-                  onClose={() => setShowDrawModal(false)}
-                  onSendDrawnSticker={(formattedMessage) => {
-                    const now = Date.now();
-                    if (now - lastStickerSentRef.current < 500) return;
-                    lastStickerSentRef.current = now;
-                    sendChat(formattedMessage, replyingTo);
-                    setReplyingTo(null);
-                  }}
-                />
-
-                <form onSubmit={handleSendChat} className="flex items-center gap-2">
-                  <div className="flex-1 relative flex items-center">
-                    <input
-                      ref={chatInputRef}
-                      type="text"
-                      value={chatInput}
-                      onChange={e => setChatInput(e.target.value)}
-                      placeholder="Type a message..."
-                      className="w-full pl-3 pr-8 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder-zinc-400 text-xs focus:outline-none focus:border-rose-500/60"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowStickerPicker(!showStickerPicker)}
-                      className="absolute right-2 text-zinc-400 hover:text-white transition cursor-pointer"
-                      title="Stickers"
-                    >
-                      <Sparkles className="w-4 h-4 text-pink-400" />
-                    </button>
-                  </div>
                   <button
-                    type="submit"
-                    className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm cursor-pointer"
-                    title="Send"
+                    onClick={() => setIsChatOpen(false)}
+                    className="p-1.5 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                    title="Close Chat"
                   >
-                    <Send className="w-4 h-4" />
+                    <CloseIcon className="w-4 h-4" />
                   </button>
-                </form>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+                </div>
 
-      {/* LOBBY VIEW (When not in an active room) */}
-      {!roomCodeParam && (
+                {/* Chat Stream */}
+                <div
+                  ref={chatContainerRef}
+                  onScroll={handleChatScroll}
+                  className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs scrollbar-none"
+                >
+                  {chatMessages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12">
+                      <Heart className="w-8 h-8 mb-2 text-rose-500/40" />
+                      <p className="text-xs font-medium">Say something sweet or cheer a number!</p>
+                    </div>
+                  ) : (
+                    chatMessages.map(m => {
+                      const isMe = m.userId === session?.user?.id || m.userId === effectiveUserId;
+                      const isSticker = parseStickerMessage(m.content);
+                      const isHighlighted = highlightedMsgId === m.id;
+                      return (
+                        <div
+                          key={m.id}
+                          id={`bingo-chat-msg-${m.id}`}
+                          className={`group relative flex items-start gap-2.5 rounded-2xl p-1.5 my-0.5 transition-all duration-300 ${
+                            isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
+                          }`}
+                        >
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
+                            {m.userName[0]?.toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[11px] font-bold text-rose-200 truncate">
+                                {isMe ? `${m.userName} (You)` : m.userName}
+                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                <span className="text-[9px] text-zinc-400 font-mono">
+                                  {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReplyingTo({ id: m.id, userName: m.userName, content: m.content });
+                                    chatInputRef.current?.focus({ preventScroll: true });
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                                  title="Reply to this message"
+                                >
+                                  <CornerUpLeft className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Reply Quote Banner */}
+                            {m.replyTo && (
+                              <ChatReplyQuote
+                                replyTo={m.replyTo}
+                                onJumpToMessage={handleJumpToMessage}
+                                accentColor="rose"
+                              />
+                            )}
+
+                            {/* Sticker or Text Content */}
+                            {isSticker ? (
+                              <div className="py-1">
+                                <StickerMessageView content={m.content} />
+                              </div>
+                            ) : (
+                              <p className="text-zinc-200 text-xs break-words leading-relaxed">
+                                {m.content}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={chatBottomRef} />
+                </div>
+
+                {/* Chat Input Bar */}
+                <div className="relative pt-1">
+                  {showStickerPicker && (
+                    <div className="absolute bottom-12 right-0 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <StickerPicker
+                        onSelectSticker={(stickerIdOrUrl, caption) => {
+                          const now = Date.now();
+                          if (now - lastStickerSentRef.current < 500) return;
+                          lastStickerSentRef.current = now;
+                          sendChat(formatStickerMessage(stickerIdOrUrl, caption), replyingTo);
+                          setShowStickerPicker(false);
+                          setReplyingTo(null);
+                        }}
+                        onOpenDrawModal={() => {
+                          setShowStickerPicker(false);
+                          setShowDrawModal(true);
+                        }}
+                        onClose={() => setShowStickerPicker(false)}
+                      />
+                    </div>
+                  )}
+
+                  {replyingTo && (
+                    <ChatReplyingBanner
+                      replyingTo={replyingTo}
+                      onCancel={() => setReplyingTo(null)}
+                      accentColor="rose"
+                    />
+                  )}
+
+                  <DrawStickerModal
+                    isOpen={showDrawModal}
+                    onClose={() => setShowDrawModal(false)}
+                    onSendDrawnSticker={(formattedMessage) => {
+                      const now = Date.now();
+                      if (now - lastStickerSentRef.current < 500) return;
+                      lastStickerSentRef.current = now;
+                      sendChat(formattedMessage, replyingTo);
+                      setReplyingTo(null);
+                    }}
+                  />
+
+                  <form onSubmit={handleSendChat} className="flex items-center gap-2">
+                    <div className="flex-1 relative flex items-center">
+                      <input
+                        ref={chatInputRef}
+                        type="text"
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
+                        placeholder="Type a message..."
+                        className="w-full pl-3 pr-8 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder-zinc-400 text-xs focus:outline-none focus:border-rose-500/60"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowStickerPicker(!showStickerPicker)}
+                        className="absolute right-2 text-zinc-400 hover:text-white transition cursor-pointer"
+                        title="Stickers"
+                      >
+                        <Sparkles className="w-4 h-4 text-pink-400" />
+                      </button>
+                    </div>
+                    <button
+                      type="submit"
+                      className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm cursor-pointer"
+                      title="Send"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* LOBBY VIEW (When not in an active room and not previewing) */}
+      {!roomCodeParam && !isPreview && (
         <div className={`w-full h-full flex flex-col justify-between relative z-10 select-none px-6 sm:px-10 lg:px-14 py-4 sm:py-6 overflow-hidden transition-colors duration-200 ${
           isDark ? 'bg-[#0c0d12] text-white' : 'bg-white text-zinc-900'
         }`}>
@@ -1921,6 +1737,32 @@ function BingoDuelGameContent() {
                     )}
                   </div>
                 )}
+
+                {/* Quick Local Preview Banner */}
+                <div className="mb-4 max-w-xl">
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewActive(true)}
+                    className="w-full py-3 px-5 rounded-[22px] bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#ec4899] hover:from-[#6d28d9] hover:to-[#db2777] text-white font-extrabold text-xs sm:text-sm shadow-[0_6px_20px_rgba(168,85,247,0.35)] flex items-center justify-between transition-all active:scale-[0.99] cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
+                      </div>
+                      <div className="text-left">
+                        <span className="block font-black text-white text-xs sm:text-sm leading-tight">
+                          Preview Clean Pastel Board UI
+                        </span>
+                        <span className="block text-[10px] text-purple-100 font-medium">
+                          Test the new cozy lavender 5×5 arena locally
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold bg-white/20 px-2.5 py-1 rounded-full group-hover:bg-white/30 transition">
+                      Try UI →
+                    </span>
+                  </button>
+                </div>
 
                 {/* Two Pastel Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 max-w-xl">
