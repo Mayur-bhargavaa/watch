@@ -456,34 +456,49 @@ export function useWebRTC({
         // Update video transceiver / track on all active peer connections
         const activeVideoTrack = stream?.getVideoTracks().find(t => t.readyState === 'live');
         if (activeVideoTrack) {
+          // Connect to any member who doesn't have a peer connection yet
+          members.forEach((m) => {
+            if (m.userId && m.userId !== myUserId && m.isConnected !== false) {
+              if (!userPeerConnectionsRef.current.has(m.userId)) {
+                initiateUserCall(m.userId, stream!);
+              }
+            }
+          });
+
           userPeerConnectionsRef.current.forEach((pc, peerId) => {
             const videoTransceiver = pc.getTransceivers().find(
               t => t.receiver.track.kind === 'video' || t.sender.track?.kind === 'video'
             );
+            let mustRenegotiate = false;
             if (videoTransceiver) {
               videoTransceiver.sender.replaceTrack(activeVideoTrack).catch(() => {});
               applySenderVideoBitrate(videoTransceiver.sender, 150_000, 20, 'maintain-framerate');
-              videoTransceiver.direction = 'sendrecv';
+              if (videoTransceiver.direction !== 'sendrecv') {
+                videoTransceiver.direction = 'sendrecv';
+                mustRenegotiate = true;
+              }
             } else {
               try {
                 pc.addTrack(activeVideoTrack, stream!);
+                mustRenegotiate = true;
               } catch {}
-              if (pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
-                makingOfferRef.current.set(peerId, true);
-                pc.createOffer()
-                  .then(offer => pc.setLocalDescription(offer))
-                  .then(() => {
-                    sendWebRTCSignal(peerId, {
-                      type: 'offer',
-                      sdp: pc.localDescription,
-                      streamKind: 'user'
-                    });
-                  })
-                  .catch(() => {})
-                  .finally(() => {
-                    makingOfferRef.current.set(peerId, false);
+            }
+
+            if (mustRenegotiate && pc.signalingState === 'stable' && !makingOfferRef.current.get(peerId)) {
+              makingOfferRef.current.set(peerId, true);
+              pc.createOffer()
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                  sendWebRTCSignal(peerId, {
+                    type: 'offer',
+                    sdp: pc.localDescription,
+                    streamKind: 'user'
                   });
-              }
+                })
+                .catch(() => {})
+                .finally(() => {
+                  makingOfferRef.current.set(peerId, false);
+                });
             }
           });
         }
@@ -1094,14 +1109,14 @@ export function useWebRTC({
       const hasLiveVideoTrack = Boolean(
         stream &&
         stream.getVideoTracks().length > 0 &&
-        stream.getVideoTracks().some(t => t.enabled && t.readyState === 'live' && !t.muted)
+        stream.getVideoTracks().some(t => t.enabled && t.readyState !== 'ended')
       );
-      const peerCameraOn = cameraFlag === true || (cameraFlag !== false && hasLiveVideoTrack);
+      const peerCameraOn = cameraFlag === true || hasLiveVideoTrack || (cameraFlag !== false && Boolean(stream && stream.getVideoTracks().length > 0));
       const peerMuted = remoteMuteStates.get(m.userId) ?? true;
 
       participants.push({
         userId: m.userId,
-        displayName: m.displayName || 'Partner',
+        displayName: m.displayName || (m as any).name || 'Partner',
         stream,
         isMuted: peerMuted,
         isSpeaking: false,
@@ -1118,7 +1133,7 @@ export function useWebRTC({
       const hasLiveVideoTrack = Boolean(
         stream &&
         stream.getVideoTracks().length > 0 &&
-        stream.getVideoTracks().some(t => t.enabled && t.readyState === 'live' && !t.muted)
+        stream.getVideoTracks().some(t => t.enabled && t.readyState !== 'ended')
       );
       participants.push({
         userId: peerId,
@@ -1127,7 +1142,7 @@ export function useWebRTC({
         isMuted: remoteMuteStates.get(peerId) ?? true,
         isSpeaking: false,
         isSelf: false,
-        isCameraOn: cameraFlag === true || hasLiveVideoTrack
+        isCameraOn: cameraFlag === true || hasLiveVideoTrack || Boolean(stream && stream.getVideoTracks().length > 0)
       });
     });
 

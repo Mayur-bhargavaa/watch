@@ -51,6 +51,17 @@ export interface BingoCozyArenaProps {
   onLeave?: () => void;
   leaveLabel?: string;
   toast?: { message: string; valid?: boolean } | null;
+  isOpponentLeft?: boolean;
+  onStartNewMatch?: () => void;
+  rematchStatus?: {
+    requesterId?: string;
+    requesterName?: string;
+    votedUserIds: string[];
+    votedCount: number;
+    totalNeeded: number;
+    allVoted: boolean;
+  } | null;
+  effectiveUserId?: string;
 }
 
 export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
@@ -78,7 +89,11 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
   unreadChatCount = 0,
   onLeave,
   leaveLabel,
-  toast
+  toast,
+  isOpponentLeft = false,
+  onStartNewMatch,
+  rematchStatus,
+  effectiveUserId
 }) => {
   // Audio Mute and Fullscreen states
   const [isSoundMuted, setIsSoundMuted] = useState(false);
@@ -168,14 +183,16 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
             <Crown className="w-6 h-6 sm:w-7 sm:h-7 fill-current" />
           </div>
 
-          {/* Title */}
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#ec4899] drop-shadow-[0_2px_12px_rgba(168,85,247,0.35)] pl-[0.25em]">
+          {/* Title: Clean B I N G O (no slash lines) */}
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black font-sans tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#ec4899] my-0.5 drop-shadow-[0_2px_12px_rgba(168,85,247,0.35)] select-none">
             B I N G O
           </h1>
 
           {/* Subtitle */}
-          <p className="text-[10px] sm:text-xs font-bold tracking-[0.22em] text-[#9333ea] mt-1 pl-[0.22em] uppercase">
-            SAME GAME <span className="text-[#ec4899]">♡</span> DIFFERENT HEARTS
+          <p className="text-[10px] sm:text-xs font-bold tracking-[0.22em] text-[#9333ea] mt-1 uppercase">
+            {completedLines && completedLines.length > 0
+              ? `${completedLines.length} OF 5 LINES CUT!`
+              : 'SAME GAME ♡ DIFFERENT HEARTS'}
           </p>
         </div>
 
@@ -266,6 +283,33 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Opponent Left Top Banner */}
+      {isOpponentLeft && (
+        <div className="w-full max-w-4xl mx-auto mb-3 px-5 py-3.5 rounded-2xl bg-white/95 border border-purple-200/90 shadow-[0_4px_20px_rgba(124,58,237,0.12)] flex items-center justify-between gap-3 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center text-lg text-purple-700 shrink-0 font-bold">
+              🚪
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-black text-slate-900">
+                Opponent left the room
+              </div>
+              <div className="text-[11px] sm:text-xs text-purple-700 font-medium">
+                The match has concluded. Start a new match to continue playing!
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onStartNewMatch || onLeave}
+            className="py-2 px-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-purple-600/20 flex items-center gap-1.5 transition active:scale-95 cursor-pointer shrink-0"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Start New Match</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. MAIN 3-COLUMN PLAYING ARENA */}
       <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 lg:gap-6 z-10 my-auto">
@@ -360,16 +404,45 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
         {/* CENTER COLUMN: 5x5 BINGO BOARD */}
         <div className="w-full max-w-[420px] sm:max-w-[440px] bg-white/95 backdrop-blur-md rounded-3xl p-5 sm:p-6 shadow-[0_10px_35px_rgba(124,58,237,0.12)] border border-purple-100/80 flex flex-col items-center">
           
-          {/* B - I - N - G - O Column Headers */}
+          {/* B - I - N - G - O Column Headers with Progressive Line Cuts */}
           <div className="w-full grid grid-cols-5 gap-2.5 sm:gap-3 mb-2 text-center">
-            {letters.map(letter => (
-              <div
-                key={`header-${letter}`}
-                className="font-black text-xl sm:text-2xl text-[#6366f1] drop-shadow-xs select-none"
-              >
-                {letter}
-              </div>
-            ))}
+            {letters.map((letter, idx) => {
+              const isCut = idx < (completedLines?.length || 0);
+              return (
+                <div
+                  key={`col-header-${letter}-${idx}`}
+                  className="relative flex items-center justify-center select-none"
+                >
+                  <span
+                    className={`font-black text-xl sm:text-2xl transition-all duration-300 ${
+                      isCut
+                        ? 'text-transparent bg-clip-text bg-gradient-to-r from-[#f43f5e] via-[#fb7185] to-[#f43f5e] scale-110 drop-shadow-[0_2px_10px_rgba(244,63,94,0.6)]'
+                        : 'text-[#6366f1] drop-shadow-xs'
+                    }`}
+                  >
+                    {letter}
+                  </span>
+
+                  {/* Cut / Strike-Through Laser Slash */}
+                  {isCut && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-in zoom-in-75 duration-300">
+                      <div className="relative w-[130%]">
+                        <div className="w-full h-[3.5px] sm:h-[4px] rounded-full bg-gradient-to-r from-white via-[#f43f5e] to-[#ec4899] rotate-[-22deg] shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
+                        <div className="absolute -left-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-[#f43f5e] shadow-[0_0_6px_rgba(244,63,94,0.9)]" />
+                        <div className="absolute -right-1 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-white border border-[#ec4899] shadow-[0_0_6px_rgba(236,72,153,0.9)]" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Star Sparkle */}
+                  {isCut && (
+                    <span className="absolute -top-2.5 text-[11px] text-amber-400 animate-bounce">
+                      ✦
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* 5x5 Matrix Board */}
@@ -441,11 +514,6 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
               preserveAspectRatio="none"
             >
               <defs>
-                <linearGradient id="laserGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="50%" stopColor="#ff4d79" />
-                  <stop offset="100%" stopColor="#ec4899" />
-                </linearGradient>
                 <filter id="laserGlow" x="-30%" y="-30%" width="160%" height="160%">
                   <feGaussianBlur stdDeviation="1.8" result="blur" />
                   <feMerge>
@@ -460,18 +528,30 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                   const y = (line.index + 0.5) * 20;
                   return (
                     <g key={line.id}>
+                      {/* Outer Glow */}
                       <line
                         x1="10"
                         y1={y}
                         x2="90"
                         y2={y}
-                        stroke="url(#laserGrad)"
-                        strokeWidth="3.2"
+                        stroke="#f43f5e"
+                        strokeWidth="5"
                         strokeLinecap="round"
+                        opacity="0.85"
                         filter="url(#laserGlow)"
                       />
-                      <circle cx="10" cy={y} r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
-                      <circle cx="90" cy={y} r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
+                      {/* Inner Bright Laser Core */}
+                      <line
+                        x1="10"
+                        y1={y}
+                        x2="90"
+                        y2={y}
+                        stroke="#ffffff"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="10" cy={y} r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
+                      <circle cx="90" cy={y} r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
                     </g>
                   );
                 }
@@ -480,18 +560,30 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                   const x = (line.index + 0.5) * 20;
                   return (
                     <g key={line.id}>
+                      {/* Outer Glow */}
                       <line
                         x1={x}
                         y1="10"
                         x2={x}
                         y2="90"
-                        stroke="url(#laserGrad)"
-                        strokeWidth="3.2"
+                        stroke="#f43f5e"
+                        strokeWidth="5"
                         strokeLinecap="round"
+                        opacity="0.85"
                         filter="url(#laserGlow)"
                       />
-                      <circle cx={x} cy="10" r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
-                      <circle cx={x} cy="90" r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
+                      {/* Inner Bright Laser Core */}
+                      <line
+                        x1={x}
+                        y1="10"
+                        x2={x}
+                        y2="90"
+                        stroke="#ffffff"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                      <circle cx={x} cy="10" r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
+                      <circle cx={x} cy="90" r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
                     </g>
                   );
                 }
@@ -499,18 +591,30 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                 if (line.id === 'diag-main' || (line.type === 'diag' && line.index === 0)) {
                   return (
                     <g key={line.id}>
+                      {/* Outer Glow */}
                       <line
                         x1="10"
                         y1="10"
                         x2="90"
                         y2="90"
-                        stroke="url(#laserGrad)"
-                        strokeWidth="3.2"
+                        stroke="#f43f5e"
+                        strokeWidth="5"
                         strokeLinecap="round"
+                        opacity="0.85"
                         filter="url(#laserGlow)"
                       />
-                      <circle cx="10" cy="10" r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
-                      <circle cx="90" cy="90" r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
+                      {/* Inner Bright Laser Core */}
+                      <line
+                        x1="10"
+                        y1="10"
+                        x2="90"
+                        y2="90"
+                        stroke="#ffffff"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="10" cy="10" r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
+                      <circle cx="90" cy="90" r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
                     </g>
                   );
                 }
@@ -518,18 +622,30 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                 if (line.id === 'diag-anti' || (line.type === 'diag' && line.index === 1)) {
                   return (
                     <g key={line.id}>
+                      {/* Outer Glow */}
                       <line
                         x1="90"
                         y1="10"
                         x2="10"
                         y2="90"
-                        stroke="url(#laserGrad)"
-                        strokeWidth="3.2"
+                        stroke="#f43f5e"
+                        strokeWidth="5"
                         strokeLinecap="round"
+                        opacity="0.85"
                         filter="url(#laserGlow)"
                       />
-                      <circle cx="90" cy="10" r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
-                      <circle cx="10" cy="90" r="3.2" fill="#ffffff" stroke="#ff4d79" strokeWidth="2" />
+                      {/* Inner Bright Laser Core */}
+                      <line
+                        x1="90"
+                        y1="10"
+                        x2="10"
+                        y2="90"
+                        stroke="#ffffff"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="90" cy="10" r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
+                      <circle cx="10" cy="90" r="3.5" fill="#ffffff" stroke="#f43f5e" strokeWidth="2.5" />
                     </g>
                   );
                 }
@@ -541,18 +657,52 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
 
           {/* Turn & Action Bar */}
           <div className="w-full flex items-center justify-between gap-3 mt-4 pt-3 border-t border-purple-100">
-            {/* Reset / Rematch Button */}
-            {onReset && (
+            {/* Reset / Rematch / Start New Match Button */}
+            {isOpponentLeft ? (
+              <button
+                type="button"
+                onClick={onStartNewMatch || onLeave}
+                className="py-2.5 px-4 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-purple-600/20 transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>New Match</span>
+              </button>
+            ) : onReset ? (
               <button
                 type="button"
                 onClick={onReset}
-                className="py-2.5 px-4 rounded-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm shadow-xs transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
-                title="Reset or Rematch"
+                disabled={Boolean(effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId))}
+                className={`py-2.5 px-4 rounded-full font-bold text-xs sm:text-sm shadow-xs transition flex items-center gap-1.5 active:scale-95 ${
+                  effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId)
+                    ? 'bg-purple-50 border border-purple-200 text-purple-600 opacity-80 cursor-not-allowed'
+                    : rematchStatus
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20 animate-pulse cursor-pointer'
+                      : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 cursor-pointer'
+                }`}
+                title={
+                  effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId)
+                    ? 'Rematch requested, waiting for opponent'
+                    : rematchStatus
+                      ? 'Opponent requested rematch, click to accept!'
+                      : 'Reset or Rematch'
+                }
               >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
+                <RotateCcw
+                  className={`w-3.5 h-3.5 ${
+                    effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId)
+                      ? 'animate-spin'
+                      : ''
+                  }`}
+                />
+                <span>
+                  {effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId)
+                    ? 'Rematch (1/2)'
+                    : rematchStatus
+                      ? '⚡ Accept Rematch'
+                      : 'Reset'}
+                </span>
               </button>
-            )}
+            ) : null}
 
             {/* Turn Status or Claim Button */}
             {canClaimBingo && onClaimBingo ? (
@@ -563,6 +713,15 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
               >
                 <Sparkles className="w-4 h-4 text-amber-200" />
                 <span>🎉 CLAIM BINGO!</span>
+              </button>
+            ) : isOpponentLeft ? (
+              <button
+                type="button"
+                onClick={onStartNewMatch || onLeave}
+                className="flex-1 py-2 px-4 rounded-full bg-purple-100 hover:bg-purple-200/80 border border-purple-200 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                <span>Opponent Left • Start New Match</span>
               </button>
             ) : (
               <div className="flex-1 py-2 px-3 rounded-full bg-purple-50/80 border border-purple-100 text-center">

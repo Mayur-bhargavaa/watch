@@ -79,6 +79,7 @@ import { BingoDuelBoard } from '../../../components/games/bingo-duel/BingoDuelBo
 import { BingoPlayerDuelCard } from '../../../components/games/bingo-duel/BingoPlayerDuelCard';
 import { BingoDuelClaimButton } from '../../../components/games/bingo-duel/BingoDuelClaimButton';
 import { BingoDuelWinModal } from '../../../components/games/bingo-duel/BingoDuelWinModal';
+import { BingoPartyPoppers } from '../../../components/games/bingo-duel/BingoPartyPoppers';
 import { BingoCozyArena } from '../../../components/games/bingo-duel/BingoCozyArena';
 import {
   BingoDuelConfig,
@@ -175,8 +176,35 @@ function BingoDuelGameContent() {
     [16, 17, 18, 19, 20],
     [21, 22, 23, 24, 25]
   ], []);
-  const [demoP1Marks, setDemoP1Marks] = useState<number[]>([1, 9, 13, 22, 25]);
-  const [demoP2Marks, setDemoP2Marks] = useState<number[]>([5, 7, 16, 19]);
+  const [demoP1Marks, setDemoP1Marks] = useState<number[]>([1, 2, 3, 4, 5]); // Starts with Row 1 to show 'B' cut
+  const [demoP2Marks, setDemoP2Marks] = useState<number[]>([7, 13, 19]);
+
+  // Dynamic line evaluation in demo preview
+  const demoCompletedLines = useMemo(() => {
+    const marksSet = new Set(demoP1Marks);
+    const isMarked = (r: number, c: number) => {
+      const val = demoBoard[r]?.[c];
+      return marksSet.has(val);
+    };
+    const lines: any[] = [];
+    for (let r = 0; r < 5; r++) {
+      if ([0, 1, 2, 3, 4].every(c => isMarked(r, c))) {
+        lines.push({ id: `row-${r}`, type: 'row', index: r, name: `Row ${r + 1}` });
+      }
+    }
+    for (let c = 0; c < 5; c++) {
+      if ([0, 1, 2, 3, 4].every(r => isMarked(r, c))) {
+        lines.push({ id: `col-${c}`, type: 'col', index: c, name: `Column ${c + 1}` });
+      }
+    }
+    if ([0, 1, 2, 3, 4].every(i => isMarked(i, i))) {
+      lines.push({ id: 'diag-main', type: 'diag', index: 0, name: 'Main Diagonal' });
+    }
+    if ([0, 1, 2, 3, 4].every(i => isMarked(i, 4 - i))) {
+      lines.push({ id: 'diag-anti', type: 'diag', index: 1, name: 'Anti Diagonal' });
+    }
+    return lines;
+  }, [demoBoard, demoP1Marks]);
 
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningRoom, setIsJoiningRoom] = useState(false);
@@ -330,6 +358,8 @@ function BingoDuelGameContent() {
     declineRematch,
     rematchDeclined,
     clearRematchDeclined,
+    opponentLeftWin,
+    clearOpponentLeftWin,
     sendWebRTCSignal,
     registerWebRTCListener,
     registerCameraListener,
@@ -385,6 +415,50 @@ function BingoDuelGameContent() {
   const opponentPicks = (gameState as any)?.playerPicks?.[opponentUserId] || [];
   const opponentProgress = gameState?.playerProgress?.[opponentUserId];
   const opponentWins = gameState?.roundsWon?.[opponentUserId] || 0;
+
+  // Check if opponent has left the duel room
+  const opponentIsConnected = opponent ? (opponent.isConnected !== false && (opponent as any).status !== 'LEFT') : false;
+  const isOpponentLeft = Boolean(
+    opponentLeftWin ||
+    rematchDeclined?.reason === 'opponent_left' ||
+    (roomCodeParam && (isPlayingOrFinished || isRoundOver || isFinished) && (!opponent || !opponentIsConnected))
+  );
+
+  // Party Poppers & 4-second Delayed Win Modal
+  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
+
+  // Force close win modal and party poppers immediately whenever returning to lobby
+  useEffect(() => {
+    if (!roomCodeParam && !isPreview) {
+      setShowDelayedWinModal(false);
+      setShowPartyPoppers(false);
+    }
+  }, [roomCodeParam, isPreview]);
+
+  useEffect(() => {
+    // If opponent has left, immediately show win modal with no delay
+    if (isOpponentLeft && (isRoundOver || isFinished || isPlayingOrFinished)) {
+      setShowPartyPoppers(true);
+      setShowDelayedWinModal(true);
+      return;
+    }
+
+    if (isRoundOver || isFinished || (isPreview && demoCompletedLines.length >= 5)) {
+      // 1. Fire party poppers immediately
+      setShowPartyPoppers(true);
+
+      // 2. Wait 4 seconds before presenting the victory/defeat modal
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 4000);
+
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
+    }
+  }, [isRoundOver, isFinished, isPlayingOrFinished, isPreview, demoCompletedLines.length, isOpponentLeft]);
 
   // Surface server error if any
   useEffect(() => {
@@ -530,13 +604,17 @@ function BingoDuelGameContent() {
 
   // WebRTC Floating PIP Call Window Setup
   const webRTCMembers = useMemo(() => {
-    return players.map(p => ({
+    const list = room?.players && room.players.length > 0 ? room.players : players;
+    return list.map(p => ({
       userId: p.userId,
+      displayName: p.displayName,
       name: p.displayName,
       avatarUrl: p.avatarUrl || null,
-      isHost: p.userId === room?.hostUserId
+      isHost: p.userId === room?.hostUserId,
+      isConnected: p.isConnected !== false,
+      joinedAt: ''
     }));
-  }, [players, room?.hostUserId]);
+  }, [room?.players, players, room?.hostUserId]);
 
   const {
     isCameraOn,
@@ -569,7 +647,7 @@ function BingoDuelGameContent() {
   useEffect(() => {
     if (typeof window !== 'undefined' && pipPosition === null) {
       if (window.innerWidth >= 1024) {
-        setPipPosition({ x: 32, y: 140 });
+        setPipPosition({ x: 28, y: Math.max(100, window.innerHeight - 205) });
       } else {
         setPipPosition({ x: 16, y: Math.max(100, window.innerHeight - 170) });
       }
@@ -687,22 +765,29 @@ function BingoDuelGameContent() {
     }
   }, [lastBingoClaimResult]);
 
-  // Handle leave room
-  const handleLeave = () => {
-    showAlert(
-      'Leave Match?',
-      'Are you sure you want to leave this Bingo Duel match? You will disconnect from the room.',
-      'warning',
-      {
-        confirmText: 'Leave Match',
-        cancelText: 'Stay & Play',
-        onConfirm: () => {
-          sendLeave();
-          router.push('/games/bingo');
-        }
-      }
-    );
-  };
+  // Handle leave room smoothly
+  const handleLeave = useCallback(() => {
+    try {
+      sendLeave();
+    } catch (e) {}
+    setShowDelayedWinModal(false);
+    setShowPartyPoppers(false);
+    setIsPreviewActive(false);
+    setShowCreateModal(false);
+    setShowJoinModal(false);
+    setShowSetupModal(false);
+    if (clearOpponentLeftWin) {
+      try { clearOpponentLeftWin(); } catch (e) {}
+    }
+    if (clearRematchDeclined) {
+      try { clearRematchDeclined(); } catch (e) {}
+    }
+    router.replace('/games/bingo');
+  }, [sendLeave, clearOpponentLeftWin, clearRematchDeclined, router]);
+
+  const handleStartNewMatch = useCallback(() => {
+    handleLeave();
+  }, [handleLeave]);
 
   const handleCreateRoom = async () => {
     if (!session?.token) {
@@ -1095,20 +1180,20 @@ function BingoDuelGameContent() {
           style={
             pipPosition
               ? { left: `${pipPosition.x}px`, top: `${pipPosition.y}px` }
-              : { left: '32px', top: '140px' }
+              : { left: '28px', top: 'calc(100vh - 205px)' }
           }
-          className={`fixed z-50 select-none bg-[#190d15]/95 border border-white/20 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-shadow ${
+          className={`fixed z-50 select-none bg-white/95 border border-purple-200/90 rounded-3xl shadow-[0_15px_45px_rgba(124,58,237,0.18)] backdrop-blur-2xl transition-shadow ${
             isDraggingPip
-              ? 'cursor-grabbing ring-2 ring-rose-500/60 shadow-[0_25px_60px_rgba(244,63,94,0.35)] scale-[1.02]'
-              : 'cursor-grab hover:border-white/30'
-          } ${isPipMinimized ? 'px-3 py-2' : 'p-2.5 sm:p-3'}`}
+              ? 'cursor-grabbing ring-2 ring-purple-500/60 shadow-[0_25px_60px_rgba(124,58,237,0.3)] scale-[1.02]'
+              : 'cursor-grab hover:border-purple-300'
+          } ${isPipMinimized ? 'px-3.5 py-2.5' : 'p-3'}`}
         >
-          {/* Top Bar: Drag Grip + In-Call Controls (Mic, Cam, Minimize, Close) */}
-          <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-white/10 touch-none">
-            <div className="flex items-center gap-1.5 text-zinc-300 pointer-events-none">
-              <GripHorizontal className="w-4 h-4 text-rose-400/80" />
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-white">
+          {/* Top Bar: Drag Grip + In-Call Controls (Mic, Cam, Chat, Minimize, Close) */}
+          <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-purple-100 touch-none">
+            <div className="flex items-center gap-1.5 text-slate-700 pointer-events-none">
+              <GripHorizontal className="w-4 h-4 text-purple-400" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-purple-950">
                 Call ({videoGridParticipants.length})
               </span>
             </div>
@@ -1121,10 +1206,10 @@ function BingoDuelGameContent() {
                   e.stopPropagation();
                   toggleMic();
                 }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
                   isMicMuted
-                    ? 'bg-rose-950/80 border-rose-500/60 text-rose-300 hover:bg-rose-900'
-                    : 'bg-emerald-950/80 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900 ring-1 ring-emerald-400/40'
+                    ? 'bg-rose-50 border-rose-200 text-rose-500 hover:bg-rose-100'
+                    : 'bg-emerald-50 border-emerald-300 text-emerald-600 hover:bg-emerald-100 ring-1 ring-emerald-300/60'
                 }`}
                 title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
               >
@@ -1138,14 +1223,31 @@ function BingoDuelGameContent() {
                   e.stopPropagation();
                   toggleCamera();
                 }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
                   isCameraOn
-                    ? 'bg-rose-950/80 border-rose-400/60 text-rose-300 hover:bg-rose-900 ring-1 ring-rose-400/40'
-                    : 'bg-white/10 border-white/20 text-zinc-300 hover:bg-white/20 hover:text-white'
+                    ? 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200 ring-1 ring-purple-400/40'
+                    : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'
                 }`}
                 title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
               >
                 {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* Chat Toggle Icon */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsChatOpen(!isChatOpen);
+                }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
+                  isChatOpen
+                    ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
+                    : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100'
+                }`}
+                title={isChatOpen ? 'Close Chat Box' : 'Open Chat Box'}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
               </button>
 
               {/* Minimize / Expand Icon */}
@@ -1155,7 +1257,7 @@ function BingoDuelGameContent() {
                   e.stopPropagation();
                   setIsPipMinimized(!isPipMinimized);
                 }}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
                 title={isPipMinimized ? 'Expand Video Tiles' : 'Minimize Video Tiles'}
               >
                 <Minus className="w-3 h-3" />
@@ -1168,7 +1270,7 @@ function BingoDuelGameContent() {
                   e.stopPropagation();
                   setIsPipClosed(true);
                 }}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                className="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
                 title="Hide Floating Call Window"
               >
                 <CloseIcon className="w-3 h-3" />
@@ -1179,40 +1281,60 @@ function BingoDuelGameContent() {
           {/* Video Boxes Side by Side */}
           {!isPipMinimized && (
             <div className="flex items-center gap-2.5 pt-1">
-              {videoGridParticipants.map(participant => (
-                <div
-                  key={participant.userId}
-                  className="relative w-28 sm:w-32 h-24 sm:h-26 rounded-2xl bg-black/60 border border-white/15 overflow-hidden flex flex-col items-center justify-center p-2 shadow-inner"
-                >
-                  {participant.isCameraOn && participant.stream ? (
-                    <VideoAvatar
-                      stream={participant.stream}
-                      isSelf={participant.isSelf}
-                      displayName={participant.displayName}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="relative">
-                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#ff2b5e] to-[#d6143c] text-white font-black text-base sm:text-lg flex items-center justify-center shadow-md">
-                          {participant.displayName?.[0]?.toUpperCase() || 'U'}
+              {videoGridParticipants.map(participant => {
+                const isSelfPlayer = participant.isSelf;
+                const hasLiveVideoTrack = Boolean(
+                  participant.stream &&
+                  participant.stream.getVideoTracks().length > 0 &&
+                  participant.stream.getVideoTracks().some(t => t.readyState !== 'ended')
+                );
+                const shouldShowVideo = Boolean(
+                  (participant.isCameraOn || hasLiveVideoTrack) &&
+                  participant.stream &&
+                  hasLiveVideoTrack
+                );
+
+                return (
+                  <div
+                    key={participant.userId}
+                    className="relative w-28 sm:w-32 h-24 sm:h-26 rounded-2xl bg-slate-50/80 border border-purple-100 overflow-hidden flex flex-col items-center justify-center p-2 shadow-inner"
+                  >
+                    {shouldShowVideo && participant.stream ? (
+                      <VideoAvatar
+                        stream={participant.stream}
+                        isSelf={participant.isSelf}
+                        displayName={participant.displayName}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="relative">
+                          <div
+                            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full text-white font-black text-base sm:text-lg flex items-center justify-center shadow-md ${
+                              isSelfPlayer
+                                ? 'bg-gradient-to-tr from-[#7c3aed] to-[#8b5cf6]'
+                                : 'bg-gradient-to-tr from-[#f43f5e] to-[#fb7185]'
+                            }`}
+                          >
+                            {participant.displayName?.[0]?.toUpperCase() || 'U'}
+                          </div>
+                          <span
+                            className={`w-4 h-4 rounded-full flex items-center justify-center absolute -bottom-0.5 -right-0.5 shadow-xs border border-white ${
+                              participant.isMuted
+                                ? 'bg-rose-500 text-white'
+                                : 'bg-emerald-500 text-white'
+                            }`}
+                          >
+                            {participant.isMuted ? <MicOff className="w-2.5 h-2.5" /> : <Mic className="w-2.5 h-2.5" />}
+                          </span>
                         </div>
-                        <span
-                          className={`w-4 h-4 rounded-full flex items-center justify-center absolute -bottom-0.5 -right-0.5 shadow-sm border border-[#190d15] ${
-                            participant.isMuted
-                              ? 'bg-rose-600 text-white'
-                              : 'bg-emerald-500 text-slate-950'
-                          }`}
-                        >
-                          {participant.isMuted ? <MicOff className="w-2.5 h-2.5" /> : <Mic className="w-2.5 h-2.5" />}
+                        <span className="text-[11px] font-bold text-slate-700 mt-1.5 truncate max-w-[80px]">
+                          {participant.isSelf ? 'You' : participant.displayName}
                         </span>
                       </div>
-                      <span className="text-[11px] font-bold text-white mt-1.5 truncate max-w-[80px]">
-                        {participant.isSelf ? 'You' : participant.displayName}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1291,7 +1413,7 @@ function BingoDuelGameContent() {
               opponentMarks={myPicks.length > 0 || opponentPicks.length > 0 ? opponentPicks : (opponentMarks.length > 0 ? opponentMarks : (isPreview ? demoP2Marks : []))}
               currentNumber={gameState?.currentNumber ?? (isPreview ? 17 : null)}
               calledNumbers={gameState?.calledNumbers ?? (isPreview ? [1, 5, 7, 9, 13, 16, 17, 19, 22, 25] : [])}
-              completedLines={myProgress?.completedLines ?? (isPreview ? [{ id: 'diag-main', name: 'Diagonal 1', type: 'diag', index: 0, indices: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]] }] : [])}
+              completedLines={isPreview ? demoCompletedLines : (myProgress?.completedLines ?? [])}
               winningIndices={winningIndices}
               isMyTurn={isPreview ? true : isMyTurn}
               currentTurnDisplayName={isPreview ? 'You' : currentTurnDisplayName}
@@ -1324,6 +1446,8 @@ function BingoDuelGameContent() {
               canClaimBingo={Boolean(myProgress?.isCompleted)}
               isFinished={Boolean(isFinished)}
               isRoundOver={isRoundOver}
+              isOpponentLeft={Boolean(isOpponentLeft)}
+              onStartNewMatch={handleStartNewMatch}
               toast={claimToast}
               onOpenSettings={() => setShowSettingsModal(true)}
               onToggleChat={() => setIsChatOpen(!isChatOpen)}
@@ -1331,26 +1455,28 @@ function BingoDuelGameContent() {
               unreadChatCount={chatMessages.length}
               onLeave={isPreview ? () => setIsPreviewActive(false) : handleLeave}
               leaveLabel={isPreview ? 'Exit Preview' : 'Leave Match'}
+              rematchStatus={rematchStatus}
+              effectiveUserId={effectiveUserId}
             />
 
             {/* Slide-Over Drawer: Game Chat with Stickers, Reactions, & Drawing */}
             {roomCodeParam && isChatOpen && (
-              <div className="fixed right-4 top-20 bottom-6 w-80 max-w-[90vw] z-50 bg-[#1c0c16]/95 border border-rose-500/30 rounded-3xl p-3 shadow-2xl flex flex-col backdrop-blur-2xl animate-in slide-in-from-right duration-200">
+              <div className="fixed right-4 top-20 bottom-6 w-80 max-w-[90vw] z-50 bg-white/95 border border-purple-200/90 rounded-3xl p-3.5 shadow-[0_20px_50px_rgba(124,58,237,0.22)] flex flex-col backdrop-blur-2xl animate-in slide-in-from-right duration-200">
                 {/* Header */}
-                <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between">
+                <div className="pb-3 border-b border-purple-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-rose-950/40">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center text-white shadow-md shadow-purple-600/30">
                       <MessageSquare className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-black text-white leading-none">Game Chat</h3>
-                      <p className="text-[10px] text-rose-300/70 mt-0.5 font-medium">Live table messages & stickers</p>
+                      <h3 className="text-sm font-black text-purple-950 leading-none">Game Chat</h3>
+                      <p className="text-[10px] text-purple-600/80 mt-0.5 font-medium">Live table messages & stickers</p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => setIsChatOpen(false)}
-                    className="p-1.5 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                    className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition cursor-pointer"
                     title="Close Chat"
                   >
                     <CloseIcon className="w-4 h-4" />
@@ -1364,8 +1490,8 @@ function BingoDuelGameContent() {
                   className="flex-1 overflow-y-auto space-y-3 py-2.5 px-2 text-xs scrollbar-none"
                 >
                   {chatMessages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12">
-                      <Heart className="w-8 h-8 mb-2 text-rose-500/40" />
+                    <div className="flex flex-col items-center justify-center h-full text-center text-purple-400/80 py-12">
+                      <Heart className="w-8 h-8 mb-2 text-pink-400/70" />
                       <p className="text-xs font-medium">Say something sweet or cheer a number!</p>
                     </div>
                   ) : (
@@ -1377,20 +1503,24 @@ function BingoDuelGameContent() {
                         <div
                           key={m.id}
                           id={`bingo-chat-msg-${m.id}`}
-                          className={`group relative flex items-start gap-2.5 rounded-2xl p-1.5 my-0.5 transition-all duration-300 ${
-                            isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
-                          }`}
+                          className={`group relative flex items-start gap-2.5 rounded-2xl p-2 my-0.5 transition-all duration-300 ${
+                            isHighlighted ? 'ring-2 ring-inset ring-purple-500/80 bg-purple-50 shadow-[0_0_15px_rgba(147,51,234,0.2)]' : ''
+                          } ${isMe ? 'bg-purple-50/70 border border-purple-100' : 'bg-rose-50/60 border border-rose-100'}`}
                         >
-                          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-pink-600 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
+                          <div
+                            className={`w-7 h-7 rounded-full text-white font-bold text-xs flex items-center justify-center shadow shrink-0 ${
+                              isMe ? 'bg-gradient-to-tr from-[#7c3aed] to-[#8b5cf6]' : 'bg-gradient-to-tr from-[#f43f5e] to-[#fb7185]'
+                            }`}
+                          >
                             {m.userName[0]?.toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[11px] font-bold text-rose-200 truncate">
+                              <span className={`text-[11px] font-bold truncate ${isMe ? 'text-purple-900' : 'text-rose-900'}`}>
                                 {isMe ? `${m.userName} (You)` : m.userName}
                               </span>
                               <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                                <span className="text-[9px] text-zinc-400 font-mono">
+                                <span className="text-[9px] text-slate-400 font-mono">
                                   {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                                 <button
@@ -1399,7 +1529,7 @@ function BingoDuelGameContent() {
                                     setReplyingTo({ id: m.id, userName: m.userName, content: m.content });
                                     chatInputRef.current?.focus({ preventScroll: true });
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-slate-400 hover:text-slate-700 hover:bg-white/60 transition cursor-pointer"
                                   title="Reply to this message"
                                 >
                                   <CornerUpLeft className="w-3 h-3" />
@@ -1422,7 +1552,7 @@ function BingoDuelGameContent() {
                                 <StickerMessageView content={m.content} />
                               </div>
                             ) : (
-                              <p className="text-zinc-200 text-xs break-words leading-relaxed">
+                              <p className="text-slate-800 text-xs break-words leading-relaxed">
                                 {m.content}
                               </p>
                             )}
@@ -1484,12 +1614,12 @@ function BingoDuelGameContent() {
                         value={chatInput}
                         onChange={e => setChatInput(e.target.value)}
                         placeholder="Type a message..."
-                        className="w-full pl-3 pr-8 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder-zinc-400 text-xs focus:outline-none focus:border-rose-500/60"
+                        className="w-full pl-3 pr-8 py-2 rounded-xl bg-slate-50 border border-purple-200 text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:border-purple-500 focus:bg-white transition"
                       />
                       <button
                         type="button"
                         onClick={() => setShowStickerPicker(!showStickerPicker)}
-                        className="absolute right-2 text-zinc-400 hover:text-white transition cursor-pointer"
+                        className="absolute right-2 text-purple-400 hover:text-purple-600 transition cursor-pointer"
                         title="Stickers"
                       >
                         <Sparkles className="w-4 h-4 text-pink-400" />
@@ -1497,7 +1627,7 @@ function BingoDuelGameContent() {
                     </div>
                     <button
                       type="submit"
-                      className="p-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white transition shadow-sm cursor-pointer"
+                      className="p-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white transition shadow-sm cursor-pointer active:scale-95"
                       title="Send"
                     >
                       <Send className="w-4 h-4" />
@@ -1756,32 +1886,6 @@ function BingoDuelGameContent() {
                     )}
                   </div>
                 )}
-
-                {/* Quick Local Preview Banner */}
-                <div className="mb-4 max-w-xl">
-                  <button
-                    type="button"
-                    onClick={() => setIsPreviewActive(true)}
-                    className="w-full py-3 px-5 rounded-[22px] bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#ec4899] hover:from-[#6d28d9] hover:to-[#db2777] text-white font-extrabold text-xs sm:text-sm shadow-[0_6px_20px_rgba(168,85,247,0.35)] flex items-center justify-between transition-all active:scale-[0.99] cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
-                      </div>
-                      <div className="text-left">
-                        <span className="block font-black text-white text-xs sm:text-sm leading-tight">
-                          Preview Clean Pastel Board UI
-                        </span>
-                        <span className="block text-[10px] text-purple-100 font-medium">
-                          Test the new cozy lavender 5×5 arena locally
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold bg-white/20 px-2.5 py-1 rounded-full group-hover:bg-white/30 transition">
-                      Try UI →
-                    </span>
-                  </button>
-                </div>
 
                 {/* Two Pastel Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 max-w-xl">
@@ -2116,29 +2220,48 @@ function BingoDuelGameContent() {
         </div>
       )}
 
-      {/* Round & Match Victory Modal */}
-      {(isRoundOver || isFinished) && gameState && (
+      {/* 1. Grand Party Poppers Celebration (Fires Immediately) */}
+      {showPartyPoppers && (
+        <BingoPartyPoppers />
+      )}
+
+      {/* 2. Round & Match Victory / Defeat Modal (Appears After 4s Delay or Immediately if Opponent Left) */}
+      {Boolean(roomCodeParam || isPreview) && showDelayedWinModal && (((isRoundOver || isFinished) && gameState) || isOpponentLeft || (isPreview && demoCompletedLines.length >= 5)) && (
         <BingoDuelWinModal
-          isMatchOver={gameState.phase === 'FINISHED'}
-          isRoundOver={gameState.phase === 'ROUND_OVER'}
+          isMatchOver={isPreview ? true : (gameState?.phase === 'FINISHED' || Boolean(isOpponentLeft))}
+          isRoundOver={isPreview ? false : (gameState?.phase === 'ROUND_OVER' && !isOpponentLeft)}
           winnerDisplayName={
-            gameState.winnerDisplayName ||
-            lastBingoConditionWon?.displayName ||
-            'Player'
+            isPreview
+              ? (me?.displayName || 'You')
+              : (isOpponentLeft ? (me?.displayName || 'You') : (gameState?.winnerDisplayName || lastBingoConditionWon?.displayName || 'Player'))
           }
           isWinnerMe={
-            (gameState.winnerUserId || lastBingoConditionWon?.userId) === effectiveUserId
+            isPreview
+              ? true
+              : (isOpponentLeft ? true : ((gameState?.winnerUserId || lastBingoConditionWon?.userId) === effectiveUserId))
           }
-          currentRound={gameState.currentRound}
-          targetRounds={gameState.targetRounds}
-          myWins={myWins}
+          isOpponentLeft={Boolean(isOpponentLeft)}
+          opponentDisplayName={opponent?.displayName || opponentLeftWin?.opponentDisplayName || 'Opponent'}
+          currentRound={gameState?.currentRound || 1}
+          targetRounds={gameState?.targetRounds || 1}
+          myWins={myWins || (isPreview ? 1 : (isOpponentLeft ? 1 : 0))}
           opponentWins={opponentWins}
-          roundHistory={gameState.roundHistory}
+          roundHistory={gameState?.roundHistory || []}
           isHost={isHost}
           onNextRound={startBingoNextRound}
-          onRematch={rematch}
-          onLeave={handleLeave}
+          onRematch={isPreview ? () => {
+            setDemoP1Marks([1, 2, 3, 4, 5]);
+            setShowDelayedWinModal(false);
+            setShowPartyPoppers(false);
+          } : rematch}
+          onStartNewMatch={handleStartNewMatch}
+          onLeave={isPreview ? () => {
+            setIsPreviewActive(false);
+            setShowDelayedWinModal(false);
+            setShowPartyPoppers(false);
+          } : handleLeave}
           rematchStatus={rematchStatus}
+          effectiveUserId={effectiveUserId}
         />
       )}
 
