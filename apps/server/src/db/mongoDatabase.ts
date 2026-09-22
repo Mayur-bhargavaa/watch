@@ -956,6 +956,18 @@ export class MongoDatabaseService {
     });
   }
 
+  async deleteUserData(userId: string): Promise<void> {
+    await this.usersCol.deleteOne({ _id: userId });
+    await this.directMessagesCol.deleteMany({
+      $or: [{ senderId: userId }, { recipientId: userId }]
+    });
+    await this.friendshipsCol.deleteMany({ userIds: userId });
+    await this.streaksCol.deleteMany({ userIds: userId });
+    await this.partnerConnectionsCol.deleteMany({
+      $or: [{ userId }, { partnerUserId: userId }]
+    });
+  }
+
   async close(): Promise<void> {
     if (this.client) {
       await this.client.close();

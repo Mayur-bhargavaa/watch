@@ -458,6 +458,7 @@ export async function createServer(dbPath = './synccinema.db') {
   // --- GDPR / Privacy Deletion ---
   app.delete('/api/privacy/data', async (request, reply) => {
     const user = await request.jwtVerify() as { id: string };
+    await mongoDb.deleteUserData(user.id);
     db.deleteUserData(user.id);
     return { success: true, message: 'All personal viewing and chat records permanently erased' };
   });
@@ -1272,7 +1273,7 @@ export async function createServer(dbPath = './synccinema.db') {
 
   // --- Plans Endpoints ---
   app.get('/api/plans', async (request, reply) => {
-    const plans = db.getPlans();
+    const plans = await mongoDb.getPlans();
     return { plans };
   });
 
@@ -1288,7 +1289,7 @@ export async function createServer(dbPath = './synccinema.db') {
     }
 
     const planId = body.id || `plan-${Date.now()}`;
-    const plan = db.createPlan({
+    const plan = await mongoDb.createPlan({
       ...body,
       id: planId,
       hostId: user?.id || body.hostId || 'u1'
@@ -1299,7 +1300,7 @@ export async function createServer(dbPath = './synccinema.db') {
 
   app.get('/api/plans/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const plan = db.getPlanById(id);
+    const plan = await mongoDb.getPlanById(id);
     if (!plan) {
       return reply.code(404).send({ error: 'Plan not found' });
     }
@@ -1309,7 +1310,7 @@ export async function createServer(dbPath = './synccinema.db') {
   app.put('/api/plans/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const updates = (request.body || {}) as any;
-    const plan = db.updatePlan(id, updates);
+    const plan = await mongoDb.updatePlan(id, updates);
     if (!plan) {
       return reply.code(404).send({ error: 'Plan not found' });
     }
@@ -1324,7 +1325,7 @@ export async function createServer(dbPath = './synccinema.db') {
       avatarUrl?: string;
       status: string;
     };
-    const plan = db.getPlanById(id);
+    const plan = await mongoDb.getPlanById(id);
     if (!plan) {
       return reply.code(404).send({ error: 'Plan not found' });
     }
@@ -1348,14 +1349,14 @@ export async function createServer(dbPath = './synccinema.db') {
       });
     }
 
-    const updated = db.updatePlan(id, { participants });
+    const updated = await mongoDb.updatePlan(id, { participants });
     return { success: true, plan: updated };
   });
 
   app.post('/api/plans/:id/vote', async (request, reply) => {
     const { id } = request.params as { id: string };
     const { optionId, userId } = (request.body || {}) as { optionId: string; userId: string };
-    const plan = db.getPlanById(id);
+    const plan = await mongoDb.getPlanById(id);
     if (!plan || !plan.voting) {
       return reply.code(404).send({ error: 'Plan or voting not found' });
     }
@@ -1372,7 +1373,7 @@ export async function createServer(dbPath = './synccinema.db') {
       }
     });
 
-    const updated = db.updatePlan(id, {
+    const updated = await mongoDb.updatePlan(id, {
       voting: { ...plan.voting, options }
     });
     return { success: true, plan: updated };
@@ -1381,7 +1382,7 @@ export async function createServer(dbPath = './synccinema.db') {
   app.post('/api/plans/:id/chat', async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = (request.body || {}) as any;
-    const plan = db.getPlanById(id);
+    const plan = await mongoDb.getPlanById(id);
     if (!plan) {
       return reply.code(404).send({ error: 'Plan not found' });
     }
@@ -1396,17 +1397,17 @@ export async function createServer(dbPath = './synccinema.db') {
     };
 
     const chatMessages = [...(plan.chatMessages || []), newMsg];
-    const updated = db.updatePlan(id, { chatMessages });
+    const updated = await mongoDb.updatePlan(id, { chatMessages });
     return { success: true, message: newMsg, plan: updated };
   });
 
   app.delete('/api/plans/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
-    const plan = db.getPlanById(id);
+    const plan = await mongoDb.getPlanById(id);
     if (!plan) {
       return reply.code(404).send({ error: 'Plan not found' });
     }
-    const deleted = db.deletePlan(id);
+    const deleted = await mongoDb.deletePlan(id);
     return { success: deleted, id };
   });
 
