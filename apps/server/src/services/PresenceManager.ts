@@ -16,7 +16,7 @@ export class PresenceManager {
    */
   public registerSocket(
     ws: WebSocket,
-    user: { id: string; displayName: string; partnerCode?: string }
+    user: { id: string; displayName: string; partnerCode?: string; avatarUrl?: string | null; photoUrl?: string | null; avatar?: string | null }
   ): void {
     if (!this.userSockets.has(user.id)) {
       this.userSockets.set(user.id, new Set());
@@ -149,6 +149,92 @@ export class PresenceManager {
             fromUserId: user.id,
             isTyping: Boolean(msg.isTyping)
           });
+        }
+
+        // --- Real-Time Call Signaling (Voice & Video) ---
+        if (msg.type === 'call:invite') {
+          const { callId, recipientId, callType, callerName, callerAvatar } = msg;
+          if (!recipientId) return;
+
+          const isOnline = this.isUserOnline(recipientId);
+          if (!isOnline) {
+            ws.send(
+              JSON.stringify({
+                type: 'call:ended',
+                callId,
+                recipientId,
+                reason: 'offline'
+              })
+            );
+            return;
+          }
+
+          // Route incoming call alert to recipient's active socket(s)
+          this.sendToUser(recipientId, {
+            type: 'call:incoming',
+            callId,
+            callerId: user.id,
+            callerName: callerName || user.displayName || 'User',
+            callerAvatar: callerAvatar || user.avatarUrl,
+            callType: callType || 'voice'
+          });
+
+          // Confirm to caller that recipient device is ringing
+          ws.send(
+            JSON.stringify({
+              type: 'call:ringing',
+              callId,
+              recipientId
+            })
+          );
+        }
+
+        if (msg.type === 'call:accept') {
+          const { callId, callerId } = msg;
+          if (callerId) {
+            this.sendToUser(callerId, {
+              type: 'call:accepted',
+              callId,
+              responderId: user.id,
+              responderName: user.displayName,
+              responderAvatar: user.avatarUrl
+            });
+          }
+        }
+
+        if (msg.type === 'call:reject') {
+          const { callId, callerId, reason } = msg;
+          if (callerId) {
+            this.sendToUser(callerId, {
+              type: 'call:ended',
+              callId,
+              responderId: user.id,
+              reason: reason || 'declined'
+            });
+          }
+        }
+
+        if (msg.type === 'call:end') {
+          const { callId, targetUserId, reason } = msg;
+          if (targetUserId) {
+            this.sendToUser(targetUserId, {
+              type: 'call:ended',
+              callId,
+              reason: reason || 'ended'
+            });
+          }
+        }
+
+        if (msg.type === 'call:signal') {
+          const { callId, targetUserId, signal } = msg;
+          if (targetUserId && signal) {
+            this.sendToUser(targetUserId, {
+              type: 'call:signal',
+              callId,
+              senderId: user.id,
+              signal
+            });
+          }
         }
       } catch (e) {}
     });

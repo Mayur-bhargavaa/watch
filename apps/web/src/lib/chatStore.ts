@@ -367,6 +367,14 @@ export class ChatStore {
     this.socketSender = sender;
   }
 
+  static sendRawSocket(msg: any): void {
+    if (this.socketSender) {
+      try {
+        this.socketSender(msg);
+      } catch {}
+    }
+  }
+
   private static getStorageKey(userId?: string): string {
     const s = getStoredSession();
     const uid = userId || s?.user?.id || 'guest';

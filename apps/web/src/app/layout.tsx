@@ -2,8 +2,10 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '../context/ThemeContext';
 import { NotificationProvider } from '../context/NotificationContext';
+import { CallProvider } from '../context/CallContext';
 import { NotificationToast } from '../components/notifications/NotificationToast';
 import { NotificationPermissionModal } from '../components/notifications/NotificationPermissionModal';
+import { ActiveCallOverlay } from '../components/chat/ActiveCallOverlay';
 
 export const metadata: Metadata = {
   title: 'Watch — Watch Together, Play Together',
@@ -43,9 +45,12 @@ export default function RootLayout({
       <body className="bg-slate-50 dark:bg-[#111217] text-zinc-900 dark:text-slate-100 min-h-screen antialiased selection:bg-rose-500 selection:text-white transition-colors duration-150">
         <ThemeProvider>
           <NotificationProvider>
-            {children}
-            <NotificationPermissionModal />
-            <NotificationToast />
+            <CallProvider>
+              {children}
+              <NotificationPermissionModal />
+              <NotificationToast />
+              <ActiveCallOverlay />
+            </CallProvider>
           </NotificationProvider>
         </ThemeProvider>
       </body>

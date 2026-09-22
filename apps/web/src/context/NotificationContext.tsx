@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getStoredSession, UserSession, getGameRoute, getGameTitle } from '../lib/api';
 import { getRandomRoast, RoastCategory } from '../lib/roastMessages';
 import { ChatStore } from '../lib/chatStore';
+import { CallSignaling } from '../lib/callSignaling';
 
 export interface AppNotification {
   id: string;
@@ -326,6 +327,12 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           try {
             const data = JSON.parse(event.data);
             if (!data || !data.type) return;
+
+            // Handle Real-Time Voice & Video Calling Signaling
+            if (typeof data.type === 'string' && data.type.startsWith('call:')) {
+              CallSignaling.dispatch(data);
+              return;
+            }
 
             // Handle Direct Chat Messages
             if (data.type === 'chat:message' && data.message) {

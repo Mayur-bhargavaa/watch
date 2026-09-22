@@ -130,6 +130,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     minute: '2-digit',
   });
 
+  const displayImageUrl =
+    message.mediaUrl ||
+    (typeof rawMeta?.mediaUrl === 'string' ? rawMeta.mediaUrl : '') ||
+    (typeof rawMeta?.imageUrl === 'string' ? rawMeta.imageUrl : '');
+
   const sticker = parseStickerMessage(message.content, message.mediaUrl, message.metadata) ||
     (message.type === 'sticker' && message.mediaUrl ? {
       id: message.id,
@@ -139,7 +144,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       tagline: 'STICKER',
       tags: ['sticker'],
     } : null);
-  const emojiInfo = getEmojiOnlyInfo(!sticker && !message.mediaUrl && message.type === 'text' ? message.content : undefined);
+  const emojiInfo = getEmojiOnlyInfo(!sticker && !displayImageUrl && message.type === 'text' ? message.content : undefined);
 
   // Group reactions
   const reactionGroups: { emoji: string; count: number; userIds: string[] }[] = [];
@@ -450,20 +455,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             ) : (
               /* Standard Text / Image / Big Emojis */
               <div>
-                {message.mediaUrl && (
+                {displayImageUrl && (
                   <div
-                    onClick={() => setIsImageViewerOpen(true)}
-                    className="mb-2 rounded-xl overflow-hidden max-h-72 cursor-pointer group/img relative shadow-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsImageViewerOpen(true);
+                    }}
+                    className="mb-2 rounded-xl overflow-hidden max-h-80 cursor-zoom-in group/img relative shadow-xs"
                     title="Click to view full screen"
                   >
                     <img
-                      src={message.mediaUrl}
+                      src={displayImageUrl}
                       alt="Media"
                       className="w-full h-full object-cover transition-transform duration-200 group-hover/img:scale-[1.02]"
                     />
-                    <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
-                      <span className="opacity-0 group-hover/img:opacity-100 transition-opacity px-2.5 py-1 rounded-full bg-black/60 text-white text-[11px] font-semibold backdrop-blur-xs flex items-center gap-1 shadow-md">
-                        <Maximize2 className="w-3 h-3" /> Full screen
+                    <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/25 transition-colors flex items-center justify-center pointer-events-none">
+                      <span className="opacity-0 group-hover/img:opacity-100 transition-opacity px-2.5 py-1 rounded-full bg-black/70 text-white text-[11px] font-semibold backdrop-blur-xs flex items-center gap-1 shadow-md">
+                        <Maximize2 className="w-3.5 h-3.5" /> Full screen
                       </span>
                     </div>
                   </div>
@@ -634,11 +642,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       </div>
 
       {/* Fullscreen Lightbox Modal for Regular Images */}
-      {isImageViewerOpen && message.mediaUrl && (
+      {isImageViewerOpen && displayImageUrl && (
         <FullScreenImageViewer
           isOpen={isImageViewerOpen}
           onClose={() => setIsImageViewerOpen(false)}
-          imageUrl={message.mediaUrl}
+          imageUrl={displayImageUrl}
           caption={message.content}
           senderName={message.senderName}
           timestamp={formattedTime}
@@ -647,11 +655,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       )}
 
       {/* Fullscreen View Once Lightbox Modal */}
-      {isViewOnceModalOpen && message.mediaUrl && (
+      {isViewOnceModalOpen && displayImageUrl && (
         <FullScreenImageViewer
           isOpen={isViewOnceModalOpen}
           onClose={handleCloseViewOnce}
-          imageUrl={message.mediaUrl}
+          imageUrl={displayImageUrl}
           caption={message.content}
           senderName={message.senderName}
           timestamp={formattedTime}

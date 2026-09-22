@@ -22,6 +22,7 @@ import { CreateGroupModal } from './CreateGroupModal';
 import { ChatSearchModal } from './ChatSearchModal';
 import { ForwardMessageModal } from './ForwardMessageModal';
 import { ModalPortal } from './ModalPortal';
+import { useCall } from '@/context/CallContext';
 
 export const ChatLayout: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -38,12 +39,8 @@ export const ChatLayout: React.FC = () => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
 
-  // Active call modal simulation
-  const [activeCall, setActiveCall] = useState<{
-    type: 'voice' | 'video';
-    user: ChatUser;
-    duration: number;
-  } | null>(null);
+  // Global Call Provider hook
+  const { startCall } = useCall();
 
   // Initialize store and subscribe
   useEffect(() => {
@@ -232,26 +229,14 @@ export const ChatLayout: React.FC = () => {
     ChatStore.declineRequest(requestId);
   };
 
-  // Call simulation timer
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    if (activeCall) {
-      timer = setInterval(() => {
-        setActiveCall((prev) => (prev ? { ...prev, duration: prev.duration + 1 } : null));
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [activeCall?.type]);
-
-  const startCall = (type: 'voice' | 'video') => {
+  const handleStartCall = (type: 'voice' | 'video') => {
     if (otherUser) {
-      setActiveCall({
-        type,
-        user: otherUser,
-        duration: 0,
-      });
+      startCall(
+        otherUser.id,
+        otherUser.displayName || otherUser.name || 'Friend',
+        otherUser.avatarUrl || otherUser.avatar,
+        type
+      );
     }
   };
 
@@ -292,8 +277,8 @@ export const ChatLayout: React.FC = () => {
               otherUser={otherUser}
               onBack={() => setActiveConversationId(null)}
               onToggleProfile={() => setShowProfileSheet((prev) => !prev)}
-              onStartVoiceCall={() => startCall('voice')}
-              onStartVideoCall={() => startCall('video')}
+              onStartVoiceCall={() => handleStartCall('voice')}
+              onStartVideoCall={() => handleStartCall('video')}
               onOpenSearch={() => setShowSearchModal(true)}
             />
 
@@ -358,8 +343,8 @@ export const ChatLayout: React.FC = () => {
           conversation={activeConversation}
           user={otherUser}
           onClose={() => setShowProfileSheet(false)}
-          onStartVoiceCall={() => startCall('voice')}
-          onStartVideoCall={() => startCall('video')}
+          onStartVoiceCall={() => handleStartCall('voice')}
+          onStartVideoCall={() => handleStartCall('video')}
           onOpenCreatePlan={() => {
             setShowProfileSheet(false);
           }}
@@ -404,68 +389,6 @@ export const ChatLayout: React.FC = () => {
           message={forwardingMessage}
           conversations={conversations}
         />
-      )}
-
-      {/* Live Active Call Overlay Modal */}
-      {activeCall && (
-        <ModalPortal>
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="w-full max-w-sm rounded-3xl bg-zinc-900 border border-zinc-800 p-6 flex flex-col items-center text-center shadow-2xl animate-in zoom-in-95">
-              <div className="relative mb-4">
-                <div className="w-24 h-24 rounded-full overflow-hidden bg-zinc-800 flex items-center justify-center font-bold text-3xl text-zinc-300 ring-4 ring-[#ee1d49]/30">
-                  {activeCall.user.avatar ? (
-                    <img
-                      src={activeCall.user.avatar}
-                      alt={activeCall.user.displayName || activeCall.user.name || 'User'}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    (activeCall.user.displayName || activeCall.user.name || 'U').slice(0, 1).toUpperCase()
-                  )}
-                </div>
-                <span className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-emerald-500 ring-4 ring-zinc-900 flex items-center justify-center">
-                  {activeCall.type === 'video' ? (
-                    <Video className="w-3 h-3 text-white" />
-                  ) : (
-                    <Phone className="w-3 h-3 text-white" />
-                  )}
-                </span>
-              </div>
-
-              <h3 className="text-lg font-bold text-white mb-1">
-                {activeCall.user.displayName || activeCall.user.name}
-              </h3>
-              <p className="text-xs text-emerald-400 font-semibold mb-6 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>
-                  Connected · {Math.floor(activeCall.duration / 60)}:
-                  {activeCall.duration % 60 < 10 ? '0' : ''}
-                  {activeCall.duration % 60}
-                </span>
-              </p>
-
-              {/* Simulated Video Placeholder */}
-              {activeCall.type === 'video' && (
-                <div className="w-full h-40 rounded-2xl bg-zinc-800/80 mb-6 flex items-center justify-center text-zinc-500 border border-zinc-700/60 overflow-hidden relative">
-                  <Video className="w-8 h-8 opacity-40 animate-pulse" />
-                  <span className="absolute bottom-2 left-2 text-[10px] bg-black/60 px-2 py-0.5 rounded-md text-white font-mono">
-                    HD · 1080p
-                  </span>
-                </div>
-              )}
-
-              {/* End Call Button */}
-              <button
-                type="button"
-                onClick={() => setActiveCall(null)}
-                className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg transition active:scale-95 cursor-pointer"
-                title="End Call"
-              >
-                <Phone className="w-6 h-6 rotate-[135deg]" />
-              </button>
-            </div>
-          </div>
-        </ModalPortal>
       )}
     </div>
   );
