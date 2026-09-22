@@ -246,8 +246,14 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       hasTerminalErrorRef.current = false;
       setConnectionStatus('CONNECTING');
       let session = getStoredSession();
-      if (!session) {
-        session = await ensureSession();
+      if (!session?.token || session.user?.isAnonymous) {
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname + window.location.search;
+          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+        }
+        setConnectionStatus('DISCONNECTED');
+        setError('Authentication required. Please sign in or create an account to play.');
+        return;
       }
 
       setMyUserId(session.user.id);
@@ -260,12 +266,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       if (effectiveGame) {
         params.set('gameType', effectiveGame);
       }
-      if (session.token) {
-        params.set('token', session.token);
-      } else {
-        params.set('guestId', session.user.id);
-        params.set('guestName', session.user.displayName);
-      }
+      params.set('token', session.token);
       const qs = params.toString();
       if (qs) {
         wsUrl += `?${qs}`;
@@ -295,9 +296,21 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         console.warn('Game WebSocket error:', e);
       };
 
-      socket.onclose = () => {
+      socket.onclose = (event: CloseEvent) => {
         if (isUnmountedRef.current) return;
         setConnectionStatus('DISCONNECTED');
+        if (event.code === 4001 || event.reason === 'AUTH_REQUIRED') {
+          hasTerminalErrorRef.current = true;
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+          }
+          if (typeof window !== 'undefined') {
+            const currentPath = window.location.pathname + window.location.search;
+            window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+          }
+          return;
+        }
         if (!hasTerminalErrorRef.current) {
           // Auto-reconnect after 2 seconds
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -963,6 +976,10 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         }
         setError(msg.payload?.message || 'Game room error');
         setConnectionStatus('DISCONNECTED');
+        if (msg.payload?.code === 'AUTH_REQUIRED' && typeof window !== 'undefined') {
+          const currentPath = window.location.pathname + window.location.search;
+          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+        }
         break;
       }
 

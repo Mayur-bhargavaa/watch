@@ -244,28 +244,23 @@ export function useRoomSocket(slug: string) {
   // Connect WebSocket
   const connect = useCallback(() => {
     if (!slug) return;
-    setState(s => ({ ...s, connectionStatus: s.room ? 'RECONNECTING' : 'CONNECTING' }));
 
     const session = getStoredSession();
-    let tokenParam = '';
-    if (session?.token) {
-      tokenParam = `token=${session.token}`;
-      setState(s => ({ ...s, myUserId: session.user.id }));
-    } else if (typeof window !== 'undefined') {
-      let storedGuestName = localStorage.getItem('synccinema_guest_name');
-      if (!storedGuestName) {
-        storedGuestName = `Viewer_${Math.floor(Math.random() * 9000 + 1000)}`;
-        localStorage.setItem('synccinema_guest_name', storedGuestName);
+    if (!session?.token || session.user?.isAnonymous) {
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname + window.location.search;
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
       }
-      let storedGuestId = localStorage.getItem('synccinema_guest_id');
-      if (!storedGuestId) {
-        storedGuestId = `guest_${Math.random().toString(36).substring(2, 10)}`;
-        localStorage.setItem('synccinema_guest_id', storedGuestId);
-      }
-      setState(s => ({ ...s, myUserId: s.myUserId || storedGuestId }));
-      tokenParam = `guestId=${encodeURIComponent(storedGuestId)}&guestName=${encodeURIComponent(storedGuestName)}`;
+      setState(s => ({
+        ...s,
+        connectionStatus: 'DISCONNECTED',
+        error: 'Authentication required. Please sign in to enter this cinema room.'
+      }));
+      return;
     }
-    const wsUrl = `${WS_BASE}/ws/rooms/${slug}?${tokenParam}`;
+
+    setState(s => ({ ...s, connectionStatus: s.room ? 'RECONNECTING' : 'CONNECTING', myUserId: session.user.id }));
+    const wsUrl = `${WS_BASE}/ws/rooms/${slug}?token=${session.token}`;
 
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
@@ -534,7 +529,14 @@ export function useRoomSocket(slug: string) {
           }
 
           case 'error:notification': {
-            setState(s => ({ ...s, error: msg.payload.message }));
+            setState(s => ({ ...s, error: msg.payload?.message }));
+            if (msg.payload?.code === 'AUTH_REQUIRED') {
+              isLeavingRef.current = true;
+              if (typeof window !== 'undefined') {
+                const currentPath = window.location.pathname + window.location.search;
+                window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+              }
+            }
             break;
           }
 
@@ -580,6 +582,15 @@ export function useRoomSocket(slug: string) {
 
     ws.onclose = (event: CloseEvent) => {
       setState(s => ({ ...s, connectionStatus: 'DISCONNECTED' }));
+      // Do NOT reconnect if auth required
+      if (event.code === 4001 || event.reason === 'AUTH_REQUIRED') {
+        isLeavingRef.current = true;
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname + window.location.search;
+          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+        }
+        return;
+      }
       // Do NOT reconnect if room capacity was reached or room ended or intentional leave
       if (event.code === 1008 || event.reason === 'ROOM_CAPACITY_REACHED') {
         isLeavingRef.current = true;

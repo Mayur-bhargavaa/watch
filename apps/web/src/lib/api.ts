@@ -276,23 +276,22 @@ export async function changePartnerCode(newCode: string): Promise<{ success: boo
   return data;
 }
 
-export async function ensureSession(preferredName?: string): Promise<UserSession> {
+export async function ensureSession(): Promise<UserSession> {
   const existing = getStoredSession();
-  if (existing) return existing;
-
-  const res = await fetch(`${API_BASE}/api/auth/guest`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName: preferredName })
-  });
-
-  if (!res.ok) {
-    throw new Error('Failed to create guest session');
+  if (existing && !existing.user?.isAnonymous) {
+    return existing;
   }
 
-  const session = (await res.json()) as UserSession;
-  setStoredSession(session);
-  return session;
+  // Clear any leftover guest or anonymous session
+  clearStoredSession();
+
+  // Redirect browser to login with return path
+  if (typeof window !== 'undefined') {
+    const currentPath = window.location.pathname + window.location.search;
+    window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+  }
+
+  throw new Error('Authentication required. Please sign in or create an account to continue.');
 }
 
 export async function createPartyRoom(params: {

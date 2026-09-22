@@ -1,14 +1,15 @@
 import { WebSocket } from 'ws';
 import { extractParticipantIdsFromConvId, toCanonicalConvId } from '../db/database.js';
+import { MongoDatabaseService } from '../db/mongoDatabase.js';
 
 export class PresenceManager {
-  private db?: any;
+  private db?: MongoDatabaseService;
   // userId -> Set of active WebSockets (one user could have multiple tabs/devices)
   private userSockets = new Map<string, Set<WebSocket>>();
   // userId -> timestamp (ms) of last activity/heartbeat
   private lastSeen = new Map<string, number>();
 
-  constructor(db?: any) {
+  constructor(db?: MongoDatabaseService) {
     this.db = db;
   }
 

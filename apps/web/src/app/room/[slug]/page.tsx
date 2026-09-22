@@ -339,6 +339,16 @@ export default function RoomPage() {
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<string>('default');
 
+  // Strict Auth Guard: redirect unauthenticated or anonymous users to login
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const session = getStoredSession();
+    if (!session?.token || session.user?.isAnonymous) {
+      const currentPath = window.location.pathname + window.location.search;
+      router.replace(`/login?redirect=${encodeURIComponent(currentPath)}`);
+    }
+  }, [router]);
+
   // 🛡️ Knock-to-Join & Waiting Room States
   const [isAdmitted, setIsAdmitted] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {

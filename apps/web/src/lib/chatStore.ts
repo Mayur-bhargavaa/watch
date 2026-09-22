@@ -79,325 +79,33 @@ export function toCanonicalConvId(userA: string, userB: string): string {
   return `conv_${[userA, userB].sort().join('_')}`;
 }
 
-// Initial Mock Seed Data reflecting user's social circle on Watch (fallback for guests)
-const DEFAULT_PARTICIPANTS: Record<string, ChatUser> = {
-  rahul: {
-    id: 'user_rahul',
-    displayName: 'Rahul Sharma',
-    username: '@rahul_s',
-    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    onlineStatus: 'ONLINE',
-    partnerCode: 'RAHUL99',
-    streakDays: 14,
-    moviesWatched: 8,
-    gamesPlayed: 14,
-    plansCount: 5,
-    friendsSince: 'September 2026',
-    isFriend: true
-  },
-  dhruv: {
-    id: 'user_dhruv',
-    displayName: 'Dhruv Verma',
-    username: '@dhruvv',
-    avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
-    onlineStatus: 'ONLINE',
-    partnerCode: 'DHRUV42',
-    streakDays: 9,
-    moviesWatched: 5,
-    gamesPlayed: 18,
-    plansCount: 3,
-    friendsSince: 'August 2026',
-    isFriend: true
-  },
-  mansi: {
-    id: 'user_mansi',
-    displayName: 'Mansi Gupta',
-    username: '@mansi_g',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    onlineStatus: 'AWAY',
-    lastSeen: '12 min ago',
-    partnerCode: 'MANSI07',
-    streakDays: 21,
-    moviesWatched: 12,
-    gamesPlayed: 7,
-    plansCount: 6,
-    friendsSince: 'July 2026',
-    isFriend: true
-  },
-  kunal: {
-    id: 'user_kunal',
-    displayName: 'Kunal Singhania',
-    username: '@kunal_s',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    onlineStatus: 'OFFLINE',
-    lastSeen: '2 hours ago',
-    partnerCode: 'KUNAL18',
-    streakDays: 0,
-    moviesWatched: 0,
-    gamesPlayed: 2,
-    plansCount: 0,
-    friendsSince: 'Pending',
-    isFriend: false
-  }
-};
+// All data in Chat is strictly real from MongoDB and WebSocket — no fake mock data
+const DEFAULT_PARTICIPANTS: Record<string, ChatUser> = {};
+const INITIAL_CONVERSATIONS: ChatConversation[] = [];
+const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {};
 
-const INITIAL_CONVERSATIONS: ChatConversation[] = [
-  {
-    id: 'conv_rahul',
-    type: 'direct',
-    name: 'Rahul Sharma',
-    avatarUrl: DEFAULT_PARTICIPANTS.rahul.avatarUrl,
-    participants: [DEFAULT_PARTICIPANTS.rahul],
-    unreadCount: 1,
-    updatedAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-    isPinned: true
-  },
-  {
-    id: 'conv_group_friday',
-    type: 'group',
-    name: '🍿 Friday Night Crew',
-    avatarUrl: null,
-    participants: [
-      DEFAULT_PARTICIPANTS.rahul,
-      DEFAULT_PARTICIPANTS.dhruv,
-      DEFAULT_PARTICIPANTS.mansi
-    ],
-    unreadCount: 2,
-    updatedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    isPinned: true
-  },
-  {
-    id: 'conv_dhruv',
-    type: 'direct',
-    name: 'Dhruv Verma',
-    avatarUrl: DEFAULT_PARTICIPANTS.dhruv.avatarUrl,
-    participants: [DEFAULT_PARTICIPANTS.dhruv],
-    unreadCount: 0,
-    updatedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'conv_mansi',
-    type: 'direct',
-    name: 'Mansi Gupta',
-    avatarUrl: DEFAULT_PARTICIPANTS.mansi.avatarUrl,
-    participants: [DEFAULT_PARTICIPANTS.mansi],
-    unreadCount: 0,
-    updatedAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
-  },
-  {
-    id: 'conv_kunal',
-    type: 'direct',
-    name: 'Kunal Singhania',
-    avatarUrl: DEFAULT_PARTICIPANTS.kunal.avatarUrl,
-    participants: [DEFAULT_PARTICIPANTS.kunal],
-    unreadCount: 1,
-    updatedAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-    isRequest: true
-  }
-];
+const MOCK_CONV_IDS = new Set(['conv_rahul', 'conv_group_friday', 'conv_dhruv', 'conv_mansi', 'conv_kunal']);
+const MOCK_USER_IDS = new Set(['user_rahul', 'user_dhruv', 'user_mansi', 'user_kunal', 'rahul', 'dhruv', 'mansi', 'kunal']);
+const MOCK_NAMES = new Set(['rahul sharma', 'dhruv verma', 'mansi gupta', 'kunal singhania', '🍿 friday night crew', 'friday night crew']);
 
-const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {
-  conv_rahul: [
-    {
-      id: 'msg_r_1',
-      conversationId: 'conv_rahul',
-      senderId: 'user_rahul',
-      senderName: 'Rahul Sharma',
-      senderAvatar: DEFAULT_PARTICIPANTS.rahul.avatarUrl,
-      type: 'text',
-      content: 'Bro are we watching Interstellar tonight? 🚀',
-      createdAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-      status: 'read'
-    },
-    {
-      id: 'msg_r_2',
-      conversationId: 'conv_rahul',
-      senderId: 'current_user',
-      senderName: 'You',
-      type: 'text',
-      content: 'Yep! 100% down for it 😂',
-      createdAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
-      status: 'read',
-      reactions: [{ emoji: '🔥', count: 1, userIds: ['user_rahul'] }]
-    },
-    {
-      id: 'msg_r_3',
-      conversationId: 'conv_rahul',
-      senderId: 'user_rahul',
-      senderName: 'Rahul Sharma',
-      senderAvatar: DEFAULT_PARTICIPANTS.rahul.avatarUrl,
-      type: 'movie',
-      content: 'Shared Interstellar (4K IMAX Experience)',
-      metadata: {
-        movie: {
-          title: 'Interstellar',
-          duration: '2h 49m',
-          year: '2014',
-          genres: ['Sci-Fi', 'Adventure', 'Drama'],
-          posterUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&auto=format&fit=crop&q=80',
-          streamUrl: 'https://www.youtube.com/watch?v=zSWdZVtXT7E'
-        }
-      },
-      createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-      status: 'read',
-      reactions: [{ emoji: '❤️', count: 1, userIds: ['current_user'] }]
-    },
-    {
-      id: 'msg_r_4',
-      conversationId: 'conv_rahul',
-      senderId: 'current_user',
-      senderName: 'You',
-      type: 'plan',
-      content: 'Created plan: Friday Movie Night',
-      metadata: {
-        plan: {
-          id: 'plan_friday_night',
-          title: '🍿 Friday Movie Night',
-          date: 'Tonight',
-          time: '9:00 PM',
-          movieTitle: 'Interstellar (4K IMAX)',
-          activity: 'Watch Together + Ludo after'
-        }
-      },
-      createdAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
-      status: 'read'
-    },
-    {
-      id: 'msg_r_5',
-      conversationId: 'conv_rahul',
-      senderId: 'user_rahul',
-      senderName: 'Rahul Sharma',
-      senderAvatar: DEFAULT_PARTICIPANTS.rahul.avatarUrl,
-      type: 'voice',
-      content: 'Voice note (0:12)',
-      metadata: {
-        voice: {
-          audioUrl: '/audio/voice_sample.mp3',
-          durationSeconds: 12,
-          waveform: [15, 30, 65, 80, 45, 90, 75, 50, 85, 95, 60, 40, 70, 55, 30, 20]
-        }
-      },
-      createdAt: new Date(Date.now() - 8 * 60 * 1000).toISOString(),
-      status: 'read'
-    },
-    {
-      id: 'msg_r_6',
-      conversationId: 'conv_rahul',
-      senderId: 'user_rahul',
-      senderName: 'Rahul Sharma',
-      senderAvatar: DEFAULT_PARTICIPANTS.rahul.avatarUrl,
-      type: 'text',
-      content: '9 PM sharp then! See you inside Cinema room! 🍿',
-      createdAt: new Date(Date.now() - 3 * 60 * 1000).toISOString(),
-      status: 'delivered'
-    }
-  ],
-  conv_group_friday: [
-    {
-      id: 'msg_g_1',
-      conversationId: 'conv_group_friday',
-      senderId: 'user_mansi',
-      senderName: 'Mansi Gupta',
-      senderAvatar: DEFAULT_PARTICIPANTS.mansi.avatarUrl,
-      type: 'text',
-      content: 'Hey crew! Who is up for games after movie tonight?',
-      createdAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
-      status: 'read'
-    },
-    {
-      id: 'msg_g_2',
-      conversationId: 'conv_group_friday',
-      senderId: 'user_dhruv',
-      senderName: 'Dhruv Verma',
-      senderAvatar: DEFAULT_PARTICIPANTS.dhruv.avatarUrl,
-      type: 'game',
-      content: 'Invited crew to Ludo Night',
-      metadata: {
-        game: {
-          gameType: 'ludo',
-          roomCode: 'LUDO-CREW',
-          title: 'Ludo Night Party',
-          mode: 'Classic 4-Player',
-          playersCount: '2–4 Players'
-        }
-      },
-      createdAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-      status: 'read',
-      reactions: [{ emoji: '🔥', count: 3, userIds: ['user_rahul', 'user_mansi', 'current_user'] }]
-    },
-    {
-      id: 'msg_g_3',
-      conversationId: 'conv_group_friday',
-      senderId: 'user_rahul',
-      senderName: 'Rahul Sharma',
-      senderAvatar: DEFAULT_PARTICIPANTS.rahul.avatarUrl,
-      type: 'text',
-      content: 'I’m definitely winning this time 😂',
-      createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-      status: 'delivered'
-    }
-  ],
-  conv_dhruv: [
-    {
-      id: 'msg_d_1',
-      conversationId: 'conv_dhruv',
-      senderId: 'user_dhruv',
-      senderName: 'Dhruv Verma',
-      senderAvatar: DEFAULT_PARTICIPANTS.dhruv.avatarUrl,
-      type: 'text',
-      content: 'Bro quick Chess match before dinner? ♟️',
-      createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-      status: 'read'
-    },
-    {
-      id: 'msg_d_2',
-      conversationId: 'conv_dhruv',
-      senderId: 'user_dhruv',
-      senderName: 'Dhruv Verma',
-      senderAvatar: DEFAULT_PARTICIPANTS.dhruv.avatarUrl,
-      type: 'game',
-      content: 'Chess Match Invitation',
-      metadata: {
-        game: {
-          gameType: 'chess',
-          roomCode: 'CHESS-789',
-          title: 'Blitz Chess Match',
-          mode: '10 min Rapid',
-          playersCount: '2 Players'
-        }
-      },
-      createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-      status: 'read'
-    }
-  ],
-  conv_mansi: [
-    {
-      id: 'msg_m_1',
-      conversationId: 'conv_mansi',
-      senderId: 'user_mansi',
-      senderName: 'Mansi Gupta',
-      senderAvatar: DEFAULT_PARTICIPANTS.mansi.avatarUrl,
-      type: 'text',
-      content: 'Loved the movie recommendation! See you at 9 ❤️',
-      createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      status: 'read',
-      reactions: [{ emoji: '❤️', count: 1, userIds: ['current_user'] }]
-    }
-  ],
-  conv_kunal: [
-    {
-      id: 'msg_k_1',
-      conversationId: 'conv_kunal',
-      senderId: 'user_kunal',
-      senderName: 'Kunal Singhania',
-      senderAvatar: DEFAULT_PARTICIPANTS.kunal.avatarUrl,
-      type: 'text',
-      content: 'Hey! Kunal from college here. Would love to watch movies together on Watch! 🍿',
-      createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-      status: 'delivered'
-    }
-  ]
-};
+export function isMockUser(u: any): boolean {
+  if (!u) return false;
+  if (u.id && MOCK_USER_IDS.has(String(u.id).toLowerCase())) return true;
+  const name = (u.displayName || u.name || '').trim().toLowerCase();
+  if (name && MOCK_NAMES.has(name)) return true;
+  return false;
+}
+
+export function isMockConversation(c: any): boolean {
+  if (!c) return false;
+  if (c.id && MOCK_CONV_IDS.has(String(c.id).toLowerCase())) return true;
+  const name = (c.name || c.title || '').trim().toLowerCase();
+  if (name && MOCK_NAMES.has(name)) return true;
+  if (Array.isArray(c.participants) && c.participants.length > 0) {
+    if (c.participants.every((p: any) => isMockUser(p))) return true;
+  }
+  return false;
+}
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
@@ -431,15 +139,42 @@ export class ChatStore {
     return `${STORAGE_PREFIX}${uid}`;
   }
 
+  static purgeMockData(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const storageKey = this.getStorageKey() + '_conversations';
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const clean = parsed.filter((c: any) => !isMockConversation(c));
+            localStorage.setItem(storageKey, JSON.stringify(clean));
+          }
+        } catch {}
+      }
+      localStorage.removeItem(`${STORAGE_PREFIX}guest_conversations`);
+      for (const id of MOCK_CONV_IDS) {
+        localStorage.removeItem(`${this.getStorageKey()}_msgs_${id}`);
+        localStorage.removeItem(`${STORAGE_PREFIX}guest_msgs_${id}`);
+      }
+    } catch {}
+  }
+
   static getConversations(): ChatConversation[] {
-    let convs: ChatConversation[] = INITIAL_CONVERSATIONS;
+    let convs: ChatConversation[] = [];
     if (typeof window !== 'undefined') {
       try {
-        const stored = localStorage.getItem(this.getStorageKey() + '_conversations');
+        const key = this.getStorageKey() + '_conversations';
+        const stored = localStorage.getItem(key);
         if (stored) {
-          convs = JSON.parse(stored);
-        } else {
-          this.saveConversations(INITIAL_CONVERSATIONS);
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            convs = parsed.filter((c: any) => !isMockConversation(c));
+            if (convs.length !== parsed.length) {
+              localStorage.setItem(key, JSON.stringify(convs));
+            }
+          }
         }
       } catch {}
     }
@@ -782,6 +517,7 @@ export class ChatStore {
 
   static initialize(): void {
     if (typeof window !== 'undefined') {
+      this.purgeMockData();
       const s = getStoredSession();
       const myId = s?.user?.id;
       if (myId) {
@@ -804,43 +540,17 @@ export class ChatStore {
   }
 
   static getUsers(): Record<string, ChatUser> {
-    const s = getStoredSession();
-    // For authenticated users, prioritize real friends
-    if (s?.token && Object.keys(realFriendsMap).length > 0) {
-      const userMap: Record<string, ChatUser> = { ...realFriendsMap };
-      const convs = this.getConversations();
-      for (const c of convs) {
-        for (const p of c.participants || []) {
-          if (p?.id && !userMap[p.id]) {
-            userMap[p.id] = {
-              ...p,
-              name: p.displayName || p.name || 'Friend',
-              avatar: p.avatarUrl || p.avatar || undefined,
-              isOnline: p.onlineStatus === 'ONLINE' || Boolean(p.isOnline)
-            };
-          }
-        }
-      }
-      return userMap;
-    }
-
-    // Fallback for demo or guest mode
     const userMap: Record<string, ChatUser> = {};
-    if (!s?.token) {
-      Object.values(DEFAULT_PARTICIPANTS).forEach((p) => {
-        userMap[p.id] = {
-          ...p,
-          name: p.displayName,
-          avatar: p.avatarUrl || undefined,
-          isOnline: p.onlineStatus === 'ONLINE'
-        };
-      });
+    for (const [id, u] of Object.entries(realFriendsMap)) {
+      if (!isMockUser(u)) {
+        userMap[id] = u;
+      }
     }
-
     const convs = this.getConversations();
     for (const c of convs) {
+      if (isMockConversation(c)) continue;
       for (const p of c.participants || []) {
-        if (p?.id && !userMap[p.id]) {
+        if (p?.id && !userMap[p.id] && !isMockUser(p)) {
           userMap[p.id] = {
             ...p,
             name: p.displayName || p.name || 'Friend',
@@ -854,24 +564,7 @@ export class ChatStore {
   }
 
   static getRequests(): ChatMessageRequest[] {
-    const s = getStoredSession();
-    if (s?.token) {
-      return realRequestsList;
-    }
-    const convs = this.getConversations();
-    return convs
-      .filter((c) => c.isRequest)
-      .map((c) => {
-        const other = c.participants[0] || { displayName: c.name, avatarUrl: c.avatarUrl };
-        return {
-          id: c.id,
-          senderId: other.id,
-          senderName: other.displayName || c.name,
-          senderAvatar: other.avatarUrl || undefined,
-          previewText: c.lastMessage?.content || 'Sent you a message request',
-          createdAt: c.updatedAt
-        };
-      });
+    return realRequestsList.filter(r => !isMockUser({ id: r.senderId, displayName: r.senderName }));
   }
 
   static getOrCreateDirectConversation(targetUser: ChatUser): ChatConversation {
@@ -1075,47 +768,7 @@ export class ChatStore {
         .catch(() => {});
     }
 
-    // Auto-echo response after 1.5s if talking to Rahul or Dhruv for realistic social feel
-    if (conversationId === 'conv_rahul') {
-      setTimeout(() => {
-        this.receiveSimulatedReply(
-          'conv_rahul',
-          DEFAULT_PARTICIPANTS.rahul,
-          type === 'plan' ? 'Got the plan invitation! Count me in 🔥' :
-          type === 'game' || type === 'game_invite' ? 'Accepting the challenge right now! 🎮' :
-          type === 'movie' || type === 'movie_share' ? 'Looks awesome! Loading it up now ✨' :
-          'Awesome! Watch makes it so smooth 👌'
-        );
-      }, 1400);
-    }
-
     return newMsg;
-  }
-
-  private static receiveSimulatedReply(conversationId: string, fromUser: ChatUser, text: string) {
-    const replyMsg: ChatMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      conversationId,
-      senderId: fromUser.id,
-      senderName: fromUser.displayName,
-      senderAvatar: fromUser.avatarUrl,
-      type: 'text',
-      content: text,
-      createdAt: new Date().toISOString(),
-      status: 'delivered'
-    };
-
-    const msgs = this.getMessages(conversationId);
-    msgs.push(replyMsg);
-    this.saveMessages(conversationId, msgs);
-
-    const convs = this.getConversations();
-    const idx = convs.findIndex(c => c.id === conversationId);
-    if (idx >= 0) {
-      convs[idx].lastMessage = replyMsg;
-      convs[idx].updatedAt = replyMsg.createdAt;
-      this.saveConversations(convs);
-    }
   }
 
   static addReaction(conversationId: string, messageId: string, emoji: string): void {

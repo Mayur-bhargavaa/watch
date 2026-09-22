@@ -79,34 +79,7 @@ export async function createServer(dbPath = './synccinema.db') {
 
   // --- Auth Routes ---
   app.post('/api/auth/guest', async (request, reply) => {
-    const body = (request.body || {}) as { displayName?: string };
-    const guestId = `guest_${nanoid(8)}`;
-    const displayName = body.displayName?.trim() || `MovieFan_${nanoid(4)}`;
-
-    const user = await mongoDb.createUser({
-      id: guestId,
-      displayName,
-      avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`,
-      isAnonymous: true,
-      createdAt: new Date().toISOString()
-    });
-    db.createUser({
-      id: guestId,
-      displayName,
-      avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`,
-      isAnonymous: true,
-      createdAt: new Date().toISOString()
-    });
-
-    const token = app.jwt.sign({
-      id: user.id,
-      displayName: user.displayName,
-      isAnonymous: true
-    });
-
-    await mongoLogger.logAuthLogin(user.id, 'guest@stitchbyte.local', user.displayName);
-
-    return { token, user };
+    return reply.code(403).send({ error: 'Guest access is disabled. Please sign in or create an account to access Watch.' });
   });
 
   // Check email endpoint for passwordless or adaptive login
@@ -135,16 +108,7 @@ export async function createServer(dbPath = './synccinema.db') {
     }
 
     const normalized = body.email.trim().toLowerCase();
-    let existing = await mongoDb.getUserByEmail(normalized);
-
-    // Fallback check in sqlite
-    if (!existing) {
-      const sqlUser = db.getUserByEmail(normalized);
-      if (sqlUser) {
-        await mongoDb.createUser(sqlUser.user, sqlUser.passwordHash);
-        existing = await mongoDb.getUserByEmail(normalized);
-      }
-    }
+    const existing = await mongoDb.getUserByEmail(normalized);
 
     if (!existing) {
       return reply.code(404).send({ error: 'No account found with this email. Please sign up to get started.' });
@@ -190,14 +154,7 @@ export async function createServer(dbPath = './synccinema.db') {
     }
 
     const normalized = body.email.trim().toLowerCase();
-    let existing = await mongoDb.getUserByEmail(normalized);
-    if (!existing) {
-      const sqlUser = db.getUserByEmail(normalized);
-      if (sqlUser) {
-        await mongoDb.createUser(sqlUser.user, sqlUser.passwordHash);
-        existing = await mongoDb.getUserByEmail(normalized);
-      }
-    }
+    const existing = await mongoDb.getUserByEmail(normalized);
 
     if (!existing) {
       return reply.code(404).send({ error: 'No account found with this email' });
@@ -264,7 +221,6 @@ export async function createServer(dbPath = './synccinema.db') {
     };
 
     const user = await mongoDb.createUser(userPayload, body.password);
-    db.createUser(userPayload, body.password);
 
     const token = app.jwt.sign({
       id: user.id,
@@ -281,10 +237,7 @@ export async function createServer(dbPath = './synccinema.db') {
   app.get('/api/auth/me', async (request, reply) => {
     try {
       const payload = (await request.jwtVerify()) as any;
-      let user = await mongoDb.getUserById(payload.id);
-      if (!user) {
-        user = db.getUserById(payload.id);
-      }
+      const user = await mongoDb.getUserById(payload.id);
       if (!user) {
         return reply.code(404).send({ error: 'User not found' });
       }
@@ -342,12 +295,7 @@ export async function createServer(dbPath = './synccinema.db') {
         age: calculatedAge
       };
 
-      let updated = await mongoDb.updateUser(payload.id, updateData);
-      db.updateUser(payload.id, updateData);
-
-      if (!updated) {
-        updated = db.getUserById(payload.id);
-      }
+      const updated = await mongoDb.updateUser(payload.id, updateData);
 
       if (!updated) {
         return reply.code(404).send({ error: 'User not found' });
@@ -379,7 +327,6 @@ export async function createServer(dbPath = './synccinema.db') {
         return reply.code(400).send({ success: false, error: 'New username / partner code is required.' });
       }
       const result = await mongoDb.changePartnerCode(user.id, body.newCode);
-      db.changePartnerCode(user.id, body.newCode);
       if (!result.success) {
         return reply.code(400).send({ success: false, error: result.error });
       }
@@ -404,6 +351,9 @@ export async function createServer(dbPath = './synccinema.db') {
     let user: any;
     try {
       user = await request.jwtVerify();
+      if (!user || user.isAnonymous) {
+        return reply.code(401).send({ error: 'Authentication required. Please sign in to create a room.' });
+      }
     } catch {
       return reply.code(401).send({ error: 'Authentication required. Please sign in to create a room.' });
     }
@@ -514,54 +464,30 @@ export async function createServer(dbPath = './synccinema.db') {
 
   // --- Helper to extract or provision User from request ---
   async function getRequestUser(request: any): Promise<User> {
-    try {
-      const decoded = await request.jwtVerify() as any;
-      let user = await mongoDb.getUserById(decoded.id);
-      if (!user) {
-        user = db.getUserById(decoded.id);
-      }
-      if (user) {
-        if (!user.partnerCode) {
-          user.partnerCode = await mongoDb.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email);
-        }
-        return user;
-      }
-      const partnerCode = await mongoDb.ensureUserPartnerCode(decoded.id, decoded.displayName, decoded.avatarUrl, decoded.isAnonymous, decoded.email);
-      user = await mongoDb.getUserById(decoded.id);
-      if (!user) {
-        user = db.getUserById(decoded.id);
-      }
-      if (user) return user;
-      return {
-        id: decoded.id,
-        displayName: decoded.displayName || 'Player',
-        avatarUrl: decoded.avatarUrl,
-        isAnonymous: Boolean(decoded.isAnonymous),
-        partnerCode,
-        createdAt: new Date().toISOString()
-      };
-    } catch {
-      const body = (request.body || {}) as any;
-      const query = (request.query || {}) as any;
-      const userId = body.userId || query.userId || `guest_${nanoid(8)}`;
-      const displayName = body.displayName || query.displayName || 'Player';
-      let user = await mongoDb.getUserById(userId);
-      if (!user) {
-        user = db.getUserById(userId);
-      }
-      if (!user) {
-        const userPayload = {
-          id: userId,
-          displayName,
-          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
-          isAnonymous: true,
-          createdAt: new Date().toISOString()
-        };
-        user = await mongoDb.createUser(userPayload);
-        db.createUser(userPayload);
+    const decoded = await request.jwtVerify() as any;
+    if (!decoded || decoded.isAnonymous) {
+      const err: any = new Error('Authentication required');
+      err.statusCode = 401;
+      throw err;
+    }
+    let user = await mongoDb.getUserById(decoded.id);
+    if (user) {
+      if (!user.partnerCode) {
+        user.partnerCode = await mongoDb.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, false, user.email);
       }
       return user;
     }
+    const partnerCode = await mongoDb.ensureUserPartnerCode(decoded.id, decoded.displayName, decoded.avatarUrl, false, decoded.email);
+    user = await mongoDb.getUserById(decoded.id);
+    if (user) return user;
+    return {
+      id: decoded.id,
+      displayName: decoded.displayName || 'User',
+      avatarUrl: decoded.avatarUrl,
+      isAnonymous: false,
+      partnerCode,
+      createdAt: new Date().toISOString()
+    };
   }
 
   // =====================================================================
@@ -579,13 +505,13 @@ export async function createServer(dbPath = './synccinema.db') {
   app.get('/api/user/me', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);
-    const partner = db.getPartner(user.id);
+    const partner = await mongoDb.getPartner(user.id);
     const partnerOnline = partner ? isUserOnline(partner.partnerUserId) : false;
 
     return {
       user: {
         ...user,
-        partnerCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email)
+        partnerCode: user.partnerCode || (await mongoDb.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email))
       },
       partner: partner ? {
         id: partner.partnerUser?.id || partner.partnerUserId,
@@ -601,7 +527,7 @@ export async function createServer(dbPath = './synccinema.db') {
   app.post('/api/user/heartbeat', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);
-    const partner = db.getPartner(user.id);
+    const partner = await mongoDb.getPartner(user.id);
     const partnerOnline = partner ? isUserOnline(partner.partnerUserId) : false;
 
     return {
@@ -622,7 +548,7 @@ export async function createServer(dbPath = './synccinema.db') {
   app.get('/api/user/partner', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);
-    const partner = db.getPartner(user.id);
+    const partner = await mongoDb.getPartner(user.id);
     if (!partner) {
       return { partner: null };
     }
@@ -645,7 +571,7 @@ export async function createServer(dbPath = './synccinema.db') {
     const body = (request.body || {}) as { partnerCode?: string; friendUserId?: string; userId?: string };
     let code = body.partnerCode;
     if (!code && (body.friendUserId || body.userId)) {
-      const targetUser = db.getUserById(body.friendUserId || body.userId!);
+      const targetUser = await mongoDb.getUserById(body.friendUserId || body.userId!);
       if (targetUser?.partnerCode) {
         code = targetUser.partnerCode;
       }
@@ -654,7 +580,7 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'Partner Code or Friend ID is required' });
     }
     try {
-      const partner = db.connectPartner(user.id, code);
+      const partner = await mongoDb.connectPartner(user.id, code);
       const isOnline = isUserOnline(partner.partnerUserId);
       return {
         success: true,
@@ -674,7 +600,7 @@ export async function createServer(dbPath = './synccinema.db') {
 
   app.delete('/api/user/partner', async (request, reply) => {
     const user = await getRequestUser(request);
-    db.disconnectPartner(user.id);
+    await mongoDb.disconnectPartner(user.id);
     return { success: true, message: 'Partner disconnected' };
   });
 
@@ -869,7 +795,6 @@ export async function createServer(dbPath = './synccinema.db') {
     };
 
     await mongoDb.saveDirectChatMessage(msg);
-    db.saveDirectChatMessage(msg);
 
     // Guarantee delivery to recipient sockets even if sender WebSocket was offline/reconnecting
     if (recipientId) {
@@ -890,7 +815,6 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'conversationId is required' });
     }
     const updatedMessages = await mongoDb.markDirectMessagesAsRead(body.conversationId, user.id);
-    db.markDirectMessagesAsRead(body.conversationId, user.id);
 
     if (body.senderId) {
       const canonicalConvId = `conv_${[user.id, body.senderId].sort().join('_')}`;
@@ -919,7 +843,7 @@ export async function createServer(dbPath = './synccinema.db') {
     if (!body.messageId) {
       return reply.code(400).send({ error: 'messageId is required' });
     }
-    const details = (await mongoDb.markDirectMessageViewOnceOpened(body.messageId)) || db.markDirectMessageViewOnceOpened(body.messageId);
+    const details = await mongoDb.markDirectMessageViewOnceOpened(body.messageId);
     if (details) {
       const targetUser = details.senderId === user.id ? details.recipientId : details.senderId;
       if (targetUser) {
@@ -942,7 +866,6 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'friendUserId is required' });
     }
     const result = await mongoDb.recordSessionBetweenUsers(user.id, body.friendUserId, body.minutes || 1);
-    db.recordSessionBetweenUsers(user.id, body.friendUserId, body.minutes || 1);
     return {
       success: true,
       status: result.status,
@@ -968,9 +891,9 @@ export async function createServer(dbPath = './synccinema.db') {
     let targetUser: any = null;
     const targetId = body.targetUserId || body.friendUserId;
     if (targetId) {
-      targetUser = db.getUserById(targetId);
+      targetUser = await mongoDb.getUserById(targetId);
     } else if (body.partnerCode) {
-      targetUser = db.getUserByPartnerCode(body.partnerCode);
+      targetUser = await mongoDb.getUserByPartnerCode(body.partnerCode);
     }
 
     let partnerUserId: string;
@@ -980,11 +903,11 @@ export async function createServer(dbPath = './synccinema.db') {
       // Also ensure connected in partner_connections so updated_at makes them primary
       try {
         if (targetUser.partnerCode) {
-          db.connectPartner(user.id, targetUser.partnerCode);
+          await mongoDb.connectPartner(user.id, targetUser.partnerCode);
         }
       } catch {}
     } else {
-      const partner = db.getPartner(user.id);
+      const partner = await mongoDb.getPartner(user.id);
       if (!partner) {
         return reply.code(400).send({ error: 'No partner or friend selected. Please choose a friend to play with.' });
       }
@@ -1074,7 +997,7 @@ export async function createServer(dbPath = './synccinema.db') {
 
     try {
       // If user has a partner who is waiting in a matching room, pair them together!
-      const partner = db.getPartner(user.id);
+      const partner = await mongoDb.getPartner(user.id);
       if (partner) {
         const partnerRoom = db.findUserWaitingGameRoom(partner.partnerUserId);
         if (
@@ -1144,7 +1067,7 @@ export async function createServer(dbPath = './synccinema.db') {
   app.get('/api/games/rooms/:code', async (request, reply) => {
     const { code } = request.params as { code: string };
     const cleanCode = (code || '').trim().toUpperCase();
-    const room = db.getGameRoomByCode(cleanCode);
+    const room = gameRoomManager.getRoomByCode(cleanCode) || db.getGameRoomByCode(cleanCode);
     if (!room) {
       return reply.code(404).send({ error: `Game room "${cleanCode}" not found or expired` });
     }
@@ -1175,7 +1098,7 @@ export async function createServer(dbPath = './synccinema.db') {
   // Invite Connected Partner to a Game Room
   app.post('/api/games/partner/invite', async (request, reply) => {
     const user = await getRequestUser(request);
-    const partner = db.getPartner(user.id);
+    const partner = await mongoDb.getPartner(user.id);
     if (!partner) {
       return reply.code(400).send({ error: 'No connected partner found to invite' });
     }
@@ -1200,7 +1123,7 @@ export async function createServer(dbPath = './synccinema.db') {
     const targetCode = (request.body as any)?.targetPartnerCode;
     let targetUserId = partner.partnerUserId;
     if (targetCode) {
-      const explicitUser = db.getUserByPartnerCode(targetCode);
+      const explicitUser = await mongoDb.getUserByPartnerCode(targetCode);
       if (explicitUser) {
         targetUserId = explicitUser.id;
       }
@@ -1240,7 +1163,7 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'Target partner code is required' });
     }
 
-    const targetUser = db.getUserByPartnerCode(body.targetCode.toUpperCase());
+    const targetUser = await mongoDb.getUserByPartnerCode(body.targetCode.toUpperCase());
     if (!targetUser) {
       return reply.code(404).send({ error: 'Partner code not found' });
     }
@@ -1277,12 +1200,12 @@ export async function createServer(dbPath = './synccinema.db') {
     };
   });
 
-  // Dedicated Live Nudge & Roast Endpoint
-  app.post('/api/notifications/nudge', async (request, reply) => {
+  // Partner Friendly Nudge Endpoint
+  app.post('/api/friends/nudge', async (request, reply) => {
     const user = await getRequestUser(request);
     const body = (request.body || {}) as {
       targetPartnerCode: string;
-      message?: string;
+      message: string;
       category?: string;
       link?: string;
     };
@@ -1291,7 +1214,7 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'Target partner code is required' });
     }
 
-    const targetUser = db.getUserByPartnerCode(body.targetPartnerCode.toUpperCase());
+    const targetUser = await mongoDb.getUserByPartnerCode(body.targetPartnerCode.toUpperCase());
     if (!targetUser) {
       return reply.code(404).send({ error: 'Target partner not found' });
     }
@@ -1331,7 +1254,7 @@ export async function createServer(dbPath = './synccinema.db') {
   // Legacy Partner Lookup compatibility
   app.get('/api/games/partner/:code', async (request, reply) => {
     const { code } = request.params as { code: string };
-    const targetUser = db.getUserByPartnerCode(code);
+    const targetUser = await mongoDb.getUserByPartnerCode(code);
     if (!targetUser) {
       return { found: false, online: false, partnerCode: code };
     }
@@ -1504,82 +1427,90 @@ export async function createServer(dbPath = './synccinema.db') {
       return;
     }
 
-    // Extract auth from query params: ?token=... or ?guestName=...&guestId=...
+    // Extract auth from query params: ?token=...
     const url = new URL(req.url, `http://${req.headers.host}`);
     const token = url.searchParams.get('token');
-    const guestName = url.searchParams.get('guestName');
-    const guestIdParam = url.searchParams.get('guestId');
+
+    if (!token) {
+      ws.send(
+        JSON.stringify({
+          type: 'error:notification',
+          payload: { code: 'AUTH_REQUIRED', message: 'Authentication required. Please sign in.' }
+        })
+      );
+      ws.close(4001, 'AUTH_REQUIRED');
+      return;
+    }
 
     let user: { id: string; displayName: string; avatarUrl?: string | null };
 
-    if (token) {
-      try {
-        const decoded = app.jwt.verify(token) as any;
-        user = {
-          id: decoded.id,
-          displayName: decoded.displayName,
-          avatarUrl: decoded.avatarUrl
-        };
-      } catch {
-        const guestId = guestIdParam || `guest_${nanoid(8)}`;
-        user = {
-          id: guestId,
-          displayName: guestName || `Guest_${nanoid(4)}`,
-          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
-        };
+    try {
+      const decoded = app.jwt.verify(token) as any;
+      if (!decoded || decoded.isAnonymous) {
+        throw new Error('Anonymous users not allowed');
       }
-    } else {
-      const guestId = guestIdParam || `guest_${nanoid(8)}`;
       user = {
-        id: guestId,
-        displayName: guestName || `Guest_${nanoid(4)}`,
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
+        id: decoded.id,
+        displayName: decoded.displayName,
+        avatarUrl: decoded.avatarUrl
       };
+    } catch {
+      ws.send(
+        JSON.stringify({
+          type: 'error:notification',
+          payload: { code: 'AUTH_REQUIRED', message: 'Authentication required. Please sign in.' }
+        })
+      );
+      ws.close(4001, 'AUTH_REQUIRED');
+      return;
     }
 
     syncManager.handleConnection(ws, room, user);
   });
 
   // --- Real-Time Game Room WebSocket Endpoint ---
-  app.get('/ws/games/:code', { websocket: true }, (connection: any, req) => {
+  app.get('/ws/games/:code', { websocket: true }, async (connection: any, req) => {
     const ws: any = connection.socket || connection;
     const { code } = req.params as { code: string };
     const cleanCode = (code || '').trim().toUpperCase();
 
     const url = new URL(req.url, `http://${req.headers.host}`);
     const token = url.searchParams.get('token');
-    const guestName = url.searchParams.get('guestName');
-    const guestIdParam = url.searchParams.get('guestId');
     const requestedGameType = url.searchParams.get('gameType');
+
+    if (!token) {
+      ws.send(
+        JSON.stringify({
+          type: 'error:notification',
+          payload: { code: 'AUTH_REQUIRED', message: 'Authentication required. Please sign in.' }
+        })
+      );
+      ws.close(4001, 'AUTH_REQUIRED');
+      return;
+    }
 
     let user: { id: string; displayName: string; avatarUrl?: string | null };
 
-    if (token) {
-      try {
-        const decoded = app.jwt.verify(token) as any;
-        user = {
-          id: decoded.id,
-          displayName: decoded.displayName || 'Player',
-          avatarUrl: decoded.avatarUrl
-        };
-        db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl || undefined, Boolean(decoded.isAnonymous), decoded.email);
-      } catch {
-        const guestId = guestIdParam || `guest_${nanoid(8)}`;
-        user = {
-          id: guestId,
-          displayName: guestName || `Guest_${nanoid(4)}`,
-          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
-        };
-        db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, true);
+    try {
+      const decoded = app.jwt.verify(token) as any;
+      if (!decoded || decoded.isAnonymous) {
+        throw new Error('Anonymous users not allowed');
       }
-    } else {
-      const guestId = guestIdParam || `guest_${nanoid(8)}`;
       user = {
-        id: guestId,
-        displayName: guestName || `Guest_${nanoid(4)}`,
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`
+        id: decoded.id,
+        displayName: decoded.displayName || 'Player',
+        avatarUrl: decoded.avatarUrl
       };
-      db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, true);
+      await mongoDb.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl || undefined, false, decoded.email);
+    } catch {
+      ws.send(
+        JSON.stringify({
+          type: 'error:notification',
+          payload: { code: 'AUTH_REQUIRED', message: 'Authentication required. Please sign in.' }
+        })
+      );
+      ws.close(4001, 'AUTH_REQUIRED');
+      return;
     }
 
     let room = gameRoomManager.getRoomByCode(cleanCode);

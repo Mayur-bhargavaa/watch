@@ -117,6 +117,10 @@ export class MongoDatabaseService {
     return this.db!.collection('username_change_history');
   }
 
+  get partnerConnectionsCol(): Collection<any> {
+    return this.db!.collection('partner_connections');
+  }
+
   // ==========================================
   // USERS
   // ==========================================
@@ -833,6 +837,114 @@ export class MongoDatabaseService {
   async deletePlan(id: string): Promise<boolean> {
     const res = await this.plansCol.deleteOne({ _id: id });
     return res.deletedCount > 0;
+  }
+
+  // ==========================================
+  // PARTNER CONNECTIONS
+  // ==========================================
+
+  async getPartner(userId: string): Promise<PartnerConnection | null> {
+    const conn = await this.partnerConnectionsCol
+      .find({ userId, status: 'ACCEPTED' })
+      .sort({ updatedAt: -1 })
+      .limit(1)
+      .next();
+
+    let partnerUserId: string | null = null;
+    let connId = '';
+    let createdAt = new Date().toISOString();
+    let updatedAt = new Date().toISOString();
+
+    if (conn) {
+      partnerUserId = conn.partnerUserId;
+      connId = conn.id || conn._id;
+      createdAt = conn.createdAt || createdAt;
+      updatedAt = conn.updatedAt || updatedAt;
+    } else {
+      // Fallback: check active friendships
+      const friendship = await this.friendshipsCol.findOne({
+        userIds: userId
+      });
+      if (friendship) {
+        partnerUserId = friendship.userId1 === userId ? friendship.userId2 : friendship.userId1;
+        connId = friendship._id || friendship.id;
+        createdAt = friendship.createdAt || createdAt;
+        updatedAt = friendship.createdAt || updatedAt;
+      }
+    }
+
+    if (!partnerUserId) return null;
+
+    const partnerUser = await this.getUserById(partnerUserId);
+    if (!partnerUser) return null;
+
+    return {
+      id: connId,
+      userId,
+      partnerUserId,
+      status: 'ACCEPTED',
+      partnerUser: {
+        id: partnerUser.id,
+        displayName: partnerUser.displayName,
+        avatarUrl: partnerUser.avatarUrl,
+        partnerCode: partnerUser.partnerCode || ''
+      },
+      createdAt,
+      updatedAt
+    };
+  }
+
+  async connectPartner(userId: string, targetPartnerCode: string): Promise<PartnerConnection> {
+    const targetUser = await this.getUserByPartnerCode(targetPartnerCode.toUpperCase().trim());
+    if (!targetUser) {
+      throw new Error('Partner Code not found. Please verify the code and try again.');
+    }
+    if (targetUser.id === userId) {
+      throw new Error('You cannot enter your own Partner Code.');
+    }
+
+    const now = new Date().toISOString();
+    const connId1 = `pconn_${nanoid(10)}`;
+    const connId2 = `pconn_${nanoid(10)}`;
+
+    await this.partnerConnectionsCol.updateOne(
+      { userId, partnerUserId: targetUser.id },
+      {
+        $set: { status: 'ACCEPTED', updatedAt: now },
+        $setOnInsert: { id: connId1, _id: connId1, userId, partnerUserId: targetUser.id, createdAt: now }
+      },
+      { upsert: true }
+    );
+
+    await this.partnerConnectionsCol.updateOne(
+      { userId: targetUser.id, partnerUserId: userId },
+      {
+        $set: { status: 'ACCEPTED', updatedAt: now },
+        $setOnInsert: { id: connId2, _id: connId2, userId: targetUser.id, partnerUserId: userId, createdAt: now }
+      },
+      { upsert: true }
+    );
+
+    return {
+      id: connId1,
+      userId,
+      partnerUserId: targetUser.id,
+      status: 'ACCEPTED',
+      partnerUser: {
+        id: targetUser.id,
+        displayName: targetUser.displayName,
+        avatarUrl: targetUser.avatarUrl,
+        partnerCode: targetUser.partnerCode || targetPartnerCode.toUpperCase()
+      },
+      createdAt: now,
+      updatedAt: now
+    };
+  }
+
+  async disconnectPartner(userId: string): Promise<void> {
+    await this.partnerConnectionsCol.deleteMany({
+      $or: [{ userId }, { partnerUserId: userId }]
+    });
   }
 
   async close(): Promise<void> {
