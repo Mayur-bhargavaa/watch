@@ -385,6 +385,7 @@ export async function createServer(dbPath = './synccinema.db') {
     // --- GDPR / Privacy Deletion ---
     app.delete('/api/privacy/data', async (request, reply) => {
         const user = await request.jwtVerify();
+        await mongoDb.deleteUserData(user.id);
         db.deleteUserData(user.id);
         return { success: true, message: 'All personal viewing and chat records permanently erased' };
     });
@@ -766,6 +767,45 @@ export async function createServer(dbPath = './synccinema.db') {
     // =====================================================================
     // Human-Only Game Rooms & Matchmaking Endpoints
     // =====================================================================
+    // Get active games of connected friends (Waiting in lobby or Playing)
+    app.get('/api/games/active-friends', async (request, reply) => {
+        try {
+            const user = await getRequestUser(request);
+            const friends = await mongoDb.getFriendsWithStreaks(user.id);
+            const activeFriends = [];
+            for (const f of friends) {
+                const friendId = f.friendUser.id;
+                const activeGame = gameRoomManager.getUserActiveGame(friendId);
+                if (activeGame) {
+                    const gameTitle = GAME_DEFINITIONS[activeGame.gameType]?.name || activeGame.gameType;
+                    activeFriends.push({
+                        friend: {
+                            id: f.friendUser.id,
+                            displayName: f.friendUser.displayName,
+                            avatarUrl: f.friendUser.avatarUrl,
+                            partnerCode: f.friendUser.partnerCode,
+                            isOnline: true
+                        },
+                        game: {
+                            roomId: activeGame.roomId,
+                            roomCode: activeGame.roomCode,
+                            gameType: activeGame.gameType,
+                            gameTitle,
+                            status: activeGame.status,
+                            playerCount: activeGame.playerCount,
+                            maxPlayers: activeGame.maxPlayers,
+                            isHost: activeGame.hostUserId === friendId,
+                            joinUrl: `/games/${activeGame.gameType === 'four-in-a-row' ? 'four-in-a-row' : activeGame.gameType}?room=${encodeURIComponent(activeGame.roomCode)}`
+                        }
+                    });
+                }
+            }
+            return { success: true, activeFriends };
+        }
+        catch (err) {
+            return reply.code(err.statusCode || 500).send({ error: err.message || 'Failed to fetch active friends in games' });
+        }
+    });
     // Play with Partner / Friend (Deterministic Smart Pairing)
     app.post('/api/games/partner/play', async (request, reply) => {
         const user = await getRequestUser(request);
@@ -1106,7 +1146,7 @@ export async function createServer(dbPath = './synccinema.db') {
     });
     // --- Plans Endpoints ---
     app.get('/api/plans', async (request, reply) => {
-        const plans = db.getPlans();
+        const plans = await mongoDb.getPlans();
         return { plans };
     });
     app.post('/api/plans', async (request, reply) => {
@@ -1120,7 +1160,7 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(400).send({ error: 'Title is required' });
         }
         const planId = body.id || `plan-${Date.now()}`;
-        const plan = db.createPlan({
+        const plan = await mongoDb.createPlan({
             ...body,
             id: planId,
             hostId: user?.id || body.hostId || 'u1'
@@ -1129,7 +1169,7 @@ export async function createServer(dbPath = './synccinema.db') {
     });
     app.get('/api/plans/:id', async (request, reply) => {
         const { id } = request.params;
-        const plan = db.getPlanById(id);
+        const plan = await mongoDb.getPlanById(id);
         if (!plan) {
             return reply.code(404).send({ error: 'Plan not found' });
         }
@@ -1138,7 +1178,7 @@ export async function createServer(dbPath = './synccinema.db') {
     app.put('/api/plans/:id', async (request, reply) => {
         const { id } = request.params;
         const updates = (request.body || {});
-        const plan = db.updatePlan(id, updates);
+        const plan = await mongoDb.updatePlan(id, updates);
         if (!plan) {
             return reply.code(404).send({ error: 'Plan not found' });
         }
@@ -1147,7 +1187,7 @@ export async function createServer(dbPath = './synccinema.db') {
     app.post('/api/plans/:id/rsvp', async (request, reply) => {
         const { id } = request.params;
         const body = (request.body || {});
-        const plan = db.getPlanById(id);
+        const plan = await mongoDb.getPlanById(id);
         if (!plan) {
             return reply.code(404).send({ error: 'Plan not found' });
         }
@@ -1170,13 +1210,13 @@ export async function createServer(dbPath = './synccinema.db') {
                 isHost: false
             });
         }
-        const updated = db.updatePlan(id, { participants });
+        const updated = await mongoDb.updatePlan(id, { participants });
         return { success: true, plan: updated };
     });
     app.post('/api/plans/:id/vote', async (request, reply) => {
         const { id } = request.params;
         const { optionId, userId } = (request.body || {});
-        const plan = db.getPlanById(id);
+        const plan = await mongoDb.getPlanById(id);
         if (!plan || !plan.voting) {
             return reply.code(404).send({ error: 'Plan or voting not found' });
         }
@@ -1192,7 +1232,7 @@ export async function createServer(dbPath = './synccinema.db') {
                 return { ...opt, votes: votes.filter((v) => v !== userId) };
             }
         });
-        const updated = db.updatePlan(id, {
+        const updated = await mongoDb.updatePlan(id, {
             voting: { ...plan.voting, options }
         });
         return { success: true, plan: updated };
@@ -1200,7 +1240,7 @@ export async function createServer(dbPath = './synccinema.db') {
     app.post('/api/plans/:id/chat', async (request, reply) => {
         const { id } = request.params;
         const body = (request.body || {});
-        const plan = db.getPlanById(id);
+        const plan = await mongoDb.getPlanById(id);
         if (!plan) {
             return reply.code(404).send({ error: 'Plan not found' });
         }
@@ -1213,16 +1253,16 @@ export async function createServer(dbPath = './synccinema.db') {
             createdAt: Date.now()
         };
         const chatMessages = [...(plan.chatMessages || []), newMsg];
-        const updated = db.updatePlan(id, { chatMessages });
+        const updated = await mongoDb.updatePlan(id, { chatMessages });
         return { success: true, message: newMsg, plan: updated };
     });
     app.delete('/api/plans/:id', async (request, reply) => {
         const { id } = request.params;
-        const plan = db.getPlanById(id);
+        const plan = await mongoDb.getPlanById(id);
         if (!plan) {
             return reply.code(404).send({ error: 'Plan not found' });
         }
-        const deleted = db.deletePlan(id);
+        const deleted = await mongoDb.deletePlan(id);
         return { success: deleted, id };
     });
     // --- Real-Time WebSocket Endpoint ---

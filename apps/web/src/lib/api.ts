@@ -1003,3 +1003,37 @@ export async function deleteApiPlan(planId: string, token?: string): Promise<{ s
   return res.json();
 }
 
+export interface ActiveFriendInGame {
+  friend: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    partnerCode?: string;
+    isOnline: boolean;
+  };
+  game: {
+    roomId: string;
+    roomCode: string;
+    gameType: string;
+    gameTitle: string;
+    status: 'WAITING' | 'PLAYING';
+    playerCount: number;
+    maxPlayers: number;
+    isHost: boolean;
+    joinUrl: string;
+  };
+}
+
+export async function getActiveFriendsInGames(token: string): Promise<{ success: boolean; activeFriends: ActiveFriendInGame[] }> {
+  const res = await fetch(`${API_BASE}/api/games/active-friends`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!res.ok) {
+    return { success: false, activeFriends: [] };
+  }
+  return res.json();
+}
+
+

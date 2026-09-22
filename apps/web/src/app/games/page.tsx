@@ -23,7 +23,9 @@ import {
   getStoredSession,
   getUserPartner,
   UserSession,
-  FriendWithStreak
+  FriendWithStreak,
+  ActiveFriendInGame,
+  getActiveFriendsInGames
 } from '../../lib/api';
 import { GameFriendSelectorDrawer } from '../../components/games/GameFriendSelectorDrawer';
 import { AddFriendModal } from '../../components/streaks/AddFriendModal';
@@ -176,6 +178,9 @@ export default function GameLobbyPage() {
   const [selectedGameForPartner, setSelectedGameForPartner] = useState<string>('/games/ludo');
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
 
+  // Active friends playing or waiting in games
+  const [activeFriends, setActiveFriends] = useState<ActiveFriendInGame[]>([]);
+
   useEffect(() => {
     const s = getStoredSession();
     if (s && s.token) {
@@ -189,6 +194,24 @@ export default function GameLobbyPage() {
         .catch(() => {});
     }
   }, []);
+
+  useEffect(() => {
+    if (!session?.token) return;
+
+    const fetchActiveFriends = () => {
+      getActiveFriendsInGames(session.token)
+        .then((res) => {
+          if (res.success && res.activeFriends) {
+            setActiveFriends(res.activeFriends);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchActiveFriends();
+    const interval = setInterval(fetchActiveFriends, 6000);
+    return () => clearInterval(interval);
+  }, [session?.token]);
 
   const handleSelectFriend = (friend: FriendWithStreak) => {
     if (friend.friendUser) {
@@ -370,6 +393,69 @@ export default function GameLobbyPage() {
             </div>
           </div>
 
+          {/* Active Friends Live Strip */}
+          {activeFriends.length > 0 && (
+            <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-amber-500/30 dark:border-amber-400/20 backdrop-blur-xl space-y-3 shadow-md animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-[#ff3864]"></span>
+                  </span>
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Friends in Games Right Now
+                  </h3>
+                  <span className="px-2 py-0.5 text-[10px] font-extrabold bg-[#ff3864]/15 text-[#ff3864] rounded-full">
+                    {activeFriends.length} Active
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activeFriends.map((af, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white/90 dark:bg-[#12131f] border border-slate-200/80 dark:border-white/10 shadow-xs hover:border-[#ff3864]/50 transition"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative shrink-0">
+                        <img
+                          src={af.friend.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${af.friend.id}`}
+                          alt={af.friend.displayName}
+                          className="w-10 h-10 rounded-xl object-cover ring-2 ring-emerald-500/40"
+                        />
+                        <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#12131f] ${
+                          af.game.status === 'WAITING' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                        }`} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {af.friend.displayName}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-700 dark:text-zinc-200">{af.game.gameTitle}</span>
+                          <span>•</span>
+                          <span className={af.game.status === 'WAITING' ? 'text-amber-500 font-bold' : 'text-emerald-500 font-bold'}>
+                            {af.game.status === 'WAITING' ? 'Waiting in Lobby' : 'Playing Now'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push(af.game.joinUrl)}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#ff3864] hover:bg-[#e02652] text-white text-xs font-bold shadow-xs active:scale-95 transition shrink-0 cursor-pointer flex items-center gap-1"
+                    >
+                      <span>Join</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 2. SECTION HEADER: "Our Games" & "All Games ⌵" Dropdown */}
           <div className="flex items-center justify-between pt-1">
             <div>
@@ -446,62 +532,101 @@ export default function GameLobbyPage() {
 
           {/* 3. GAME CARDS GRID (Includes Four in a Row & Coming Soon games) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
-            {filteredGames.map((game) => (
-              <div
-                key={game.id}
-                onClick={() => {
-                  if (game.isComingSoon) {
-                    handleStayUpdated(game.title);
-                  } else if (game.route) {
-                    router.push(game.route);
-                  }
-                }}
-                className={`group relative rounded-[28px] sm:rounded-[32px] bg-gradient-to-b ${game.gradient} p-6 sm:p-7 text-white flex flex-col justify-between min-h-[460px] sm:min-h-[480px] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer select-none overflow-hidden`}
-              >
-                {/* Top Row: Player count pill & Watermark icon */}
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="bg-black/25 backdrop-blur-md border border-white/10 px-3.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 text-white/95 shadow-sm">
-                    <Users className="w-3 h-3 text-white/80" />
-                    <span>{game.players}</span>
-                  </div>
+            {filteredGames.map((game) => {
+              const friendsInGame = activeFriends.filter(af => af.game.gameType === game.id);
+              const waitingFriend = friendsInGame.find(af => af.game.status === 'WAITING');
+              const activeFriend = waitingFriend || friendsInGame[0];
 
-                  {/* Watermark icon on top-right */}
-                  <div className="opacity-30 group-hover:opacity-50 transition-opacity">
-                    {game.watermark === 'crown' ? (
-                      /* Crown line-art */
-                      <svg
-                        className="w-8 h-8 text-white stroke-current fill-none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M3 18h18M4 18l2-10 5 5 5-5 2 10H4z" />
-                        <circle cx="6" cy="7" r="1" />
-                        <circle cx="11" cy="12" r="1" />
-                        <circle cx="16" cy="7" r="1" />
-                      </svg>
-                    ) : (
-                      /* Starburst / sparkle rays */
-                      <svg
-                        className="w-8 h-8 text-white stroke-current fill-none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="12" y1="2" x2="12" y2="7" />
-                        <line x1="12" y1="17" x2="12" y2="22" />
-                        <line x1="2" y1="12" x2="7" y2="12" />
-                        <line x1="17" y1="12" x2="22" y2="12" />
-                        <line x1="4.93" y1="4.93" x2="8.46" y2="8.46" />
-                        <line x1="15.54" y1="15.54" x2="19.07" y2="19.07" />
-                        <line x1="4.93" y1="19.07" x2="8.46" y2="15.54" />
-                        <line x1="15.54" y1="8.46" x2="19.07" y2="4.93" />
-                      </svg>
+              return (
+                <div
+                  key={game.id}
+                  onClick={() => {
+                    if (activeFriend) {
+                      router.push(activeFriend.game.joinUrl);
+                    } else if (game.isComingSoon) {
+                      handleStayUpdated(game.title);
+                    } else if (game.route) {
+                      router.push(game.route);
+                    }
+                  }}
+                  className={`group relative rounded-[28px] sm:rounded-[32px] bg-gradient-to-b ${game.gradient} p-6 sm:p-7 text-white flex flex-col justify-between min-h-[460px] sm:min-h-[480px] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer select-none overflow-hidden`}
+                >
+                  {/* Top Row: Player count pill & Watermark icon */}
+                  <div>
+                    <div className="relative z-10 flex items-center justify-between">
+                      <div className="bg-black/25 backdrop-blur-md border border-white/10 px-3.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 text-white/95 shadow-sm">
+                        <Users className="w-3 h-3 text-white/80" />
+                        <span>{game.players}</span>
+                      </div>
+
+                      {/* Watermark icon on top-right */}
+                      <div className="opacity-30 group-hover:opacity-50 transition-opacity">
+                        {game.watermark === 'crown' ? (
+                          /* Crown line-art */
+                          <svg
+                            className="w-8 h-8 text-white stroke-current fill-none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M3 18h18M4 18l2-10 5 5 5-5 2 10H4z" />
+                            <circle cx="6" cy="7" r="1" />
+                            <circle cx="11" cy="12" r="1" />
+                            <circle cx="16" cy="7" r="1" />
+                          </svg>
+                        ) : (
+                          /* Starburst / sparkle rays */
+                          <svg
+                            className="w-8 h-8 text-white stroke-current fill-none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <line x1="12" y1="2" x2="12" y2="7" />
+                            <line x1="12" y1="17" x2="12" y2="22" />
+                            <line x1="2" y1="12" x2="7" y2="12" />
+                            <line x1="17" y1="12" x2="22" y2="12" />
+                            <line x1="4.93" y1="4.93" x2="8.46" y2="8.46" />
+                            <line x1="15.54" y1="15.54" x2="19.07" y2="19.07" />
+                            <line x1="4.93" y1="19.07" x2="8.46" y2="15.54" />
+                            <line x1="15.54" y1="8.46" x2="19.07" y2="4.93" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Friend Active Presence Pill */}
+                    {activeFriend && (
+                      <div className="relative z-20 mt-2.5">
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(activeFriend.game.joinUrl);
+                          }}
+                          className={`px-3 py-1.5 rounded-2xl flex items-center justify-between gap-2 text-xs font-bold border backdrop-blur-md transition-all shadow-md hover:scale-105 active:scale-95 cursor-pointer ${
+                            activeFriend.game.status === 'WAITING'
+                              ? 'bg-amber-500/25 border-amber-300/50 text-amber-200'
+                              : 'bg-emerald-500/25 border-emerald-300/50 text-emerald-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              activeFriend.game.status === 'WAITING' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'
+                            }`} />
+                            <span className="truncate">
+                              <span className="text-white font-extrabold">{activeFriend.friend.displayName}</span>
+                              {activeFriend.game.status === 'WAITING' ? ' is waiting' : ' is playing'}
+                            </span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full bg-white text-slate-900 text-[10px] font-black shrink-0 shadow-xs">
+                            Join
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
 
                 {/* Center 3D Artwork */}
                 <div className="relative z-10 my-auto flex items-center justify-center py-4">
@@ -547,7 +672,8 @@ export default function GameLobbyPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* 4. BOTTOM BANNER: "More games coming soon..." */}

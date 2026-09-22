@@ -2351,6 +2351,19 @@ export class DatabaseService {
     return this.getGameRoomById(row.id);
   }
 
+  findUserActiveGameRoom(userId: string): GameRoom | null {
+    const row = this.db.prepare(`
+      SELECT gr.* FROM game_rooms gr
+      JOIN game_room_players grp ON grp.room_id = gr.id
+      WHERE grp.user_id = ? AND gr.status IN ('WAITING', 'PLAYING') AND grp.is_connected = 1
+      ORDER BY gr.created_at DESC
+      LIMIT 1
+    `).get(userId) as any;
+
+    if (!row) return null;
+    return this.getGameRoomById(row.id);
+  }
+
   getGameRoomPlayers(roomId: string): GameRoomPlayer[] {
     const rows = this.db.prepare(`
       SELECT * FROM game_room_players

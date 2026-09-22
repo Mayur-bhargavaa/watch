@@ -878,6 +878,67 @@ export async function createServer(dbPath = './synccinema.db') {
   // Human-Only Game Rooms & Matchmaking Endpoints
   // =====================================================================
 
+  // Get active games of connected friends (Waiting in lobby or Playing)
+  app.get('/api/games/active-friends', async (request, reply) => {
+    try {
+      const user = await getRequestUser(request);
+      const friends = await mongoDb.getFriendsWithStreaks(user.id);
+
+      const activeFriends: Array<{
+        friend: {
+          id: string;
+          displayName: string;
+          avatarUrl?: string | null;
+          partnerCode?: string;
+          isOnline: boolean;
+        };
+        game: {
+          roomId: string;
+          roomCode: string;
+          gameType: string;
+          gameTitle: string;
+          status: 'WAITING' | 'PLAYING';
+          playerCount: number;
+          maxPlayers: number;
+          isHost: boolean;
+          joinUrl: string;
+        };
+      }> = [];
+
+      for (const f of friends) {
+        const friendId = f.friendUser.id;
+        const activeGame = gameRoomManager.getUserActiveGame(friendId);
+        if (activeGame) {
+          const gameTitle = GAME_DEFINITIONS[activeGame.gameType]?.name || activeGame.gameType;
+          activeFriends.push({
+            friend: {
+              id: f.friendUser.id,
+              displayName: f.friendUser.displayName,
+              avatarUrl: f.friendUser.avatarUrl,
+              partnerCode: f.friendUser.partnerCode,
+              isOnline: true
+            },
+            game: {
+              roomId: activeGame.roomId,
+              roomCode: activeGame.roomCode,
+              gameType: activeGame.gameType,
+              gameTitle,
+              status: activeGame.status as 'WAITING' | 'PLAYING',
+              playerCount: activeGame.playerCount,
+              maxPlayers: activeGame.maxPlayers,
+              isHost: activeGame.hostUserId === friendId,
+              joinUrl: `/games/${activeGame.gameType === 'four-in-a-row' ? 'four-in-a-row' : activeGame.gameType}?room=${encodeURIComponent(activeGame.roomCode)}`
+            }
+          });
+        }
+      }
+
+      return { success: true, activeFriends };
+    } catch (err: any) {
+      return reply.code(err.statusCode || 500).send({ error: err.message || 'Failed to fetch active friends in games' });
+    }
+  });
+
   // Play with Partner / Friend (Deterministic Smart Pairing)
   app.post('/api/games/partner/play', async (request, reply) => {
     const user = await getRequestUser(request);

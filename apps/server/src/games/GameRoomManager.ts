@@ -92,6 +92,52 @@ export class GameRoomManager {
   }
 
   /**
+   * Returns active game information if a user is currently waiting or playing in a room.
+   */
+  public getUserActiveGame(userId: string): {
+    roomId: string;
+    roomCode: string;
+    gameType: GameType;
+    status: GameRoomStatus;
+    playerCount: number;
+    maxPlayers: number;
+    hostUserId: string;
+  } | null {
+    // 1. Check in-memory connected user
+    const client = this.userClients.get(userId);
+    if (client && client.roomId) {
+      const room = this.db.getGameRoomById(client.roomId);
+      if (room && (room.status === 'WAITING' || room.status === 'PLAYING')) {
+        return {
+          roomId: room.id,
+          roomCode: room.roomCode,
+          gameType: room.gameType,
+          status: room.status,
+          playerCount: room.players.length,
+          maxPlayers: room.maxPlayers,
+          hostUserId: room.hostUserId
+        };
+      }
+    }
+
+    // 2. Check database for active room where user is connected
+    const activeRoom = this.db.findUserActiveGameRoom(userId);
+    if (activeRoom) {
+      return {
+        roomId: activeRoom.id,
+        roomCode: activeRoom.roomCode,
+        gameType: activeRoom.gameType,
+        status: activeRoom.status,
+        playerCount: activeRoom.players.length,
+        maxPlayers: activeRoom.maxPlayers,
+        hostUserId: activeRoom.hostUserId
+      };
+    }
+
+    return null;
+  }
+
+  /**
    * Generates a crisp, memorable temporary room code (e.g. LUDO-8F72 or FOUR-9B21)
    */
   public generateRoomCode(gameType = 'LUDO'): string {
