@@ -55,14 +55,16 @@ export const MessageList: React.FC<MessageListProps> = ({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
-  // Auto scroll to bottom when messages change
+  // Auto scroll to bottom when messages change or latest message updates
   const scrollToBottom = (smooth = true) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   };
 
+  const lastMsgId = messages.length > 0 ? messages[messages.length - 1]?.id : '';
+
   useEffect(() => {
     scrollToBottom(false);
-  }, [messages.length]);
+  }, [messages.length, lastMsgId]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;

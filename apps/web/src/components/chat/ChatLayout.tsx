@@ -68,19 +68,20 @@ export const ChatLayout: React.FC = () => {
     }
   }, [conversations, activeConversationId]);
 
-  const activeConversation = conversations.find((c) =>
-    c.id === activeConversationId ||
-    (activeConversationId && activeConversationId.startsWith('conv_') && (
-      c.id.includes(activeConversationId.replace('conv_', '')) ||
-      c.participants?.some((p) => p && activeConversationId.includes(p.id))
-    ))
-  );
-
-  useEffect(() => {
-    if (activeConversation && activeConversation.id !== activeConversationId) {
-      setActiveConversationId(activeConversation.id);
+  const activeConversation = conversations.find((c) => {
+    if (c.id === activeConversationId) return true;
+    if (activeConversationId && activeConversationId.startsWith('conv_')) {
+      const stripped = activeConversationId.replace('conv_', '');
+      const parts = stripped.split('_');
+      if (parts.length >= 2 && c.participants?.some((p) => parts.includes(p.id))) {
+        return true;
+      }
+      if (parts.length === 1 && (c.id.includes(parts[0]) || c.participants?.some((p) => p.id === parts[0]))) {
+        return true;
+      }
     }
-  }, [activeConversation, activeConversationId]);
+    return false;
+  });
 
   const rawOtherUser = activeConversation?.participants?.find((p) => p && p.id !== currentUserId) || activeConversation?.participants?.[0];
   const otherUser = rawOtherUser ? (users[rawOtherUser.id] || rawOtherUser) : undefined;
@@ -100,21 +101,24 @@ export const ChatLayout: React.FC = () => {
     }
   }, [activeConversationId, otherUser?.id]);
 
-  // Periodic sync of remote messages for active conversation
+  // Periodic sync of remote messages for active conversation (fetch latest messages every 3s)
   useEffect(() => {
     if (!activeConversationId) return;
     const interval = setInterval(() => {
       ChatStore.fetchRemoteMessages(activeConversationId);
-    }, 4000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [activeConversationId]);
 
   // Mark conversation as read when opened
   const handleSelectConversation = (conv: ChatConversation) => {
-    setActiveConversationId(conv.id);
     const targetOther = conv.participants?.find((p) => p && p.id !== currentUserId) || conv.participants?.[0];
-    ChatStore.markAsRead(conv.id, targetOther?.id);
-    ChatStore.fetchRemoteMessages(conv.id);
+    const canonicalId = (currentUserId && targetOther?.id && conv.type === 'direct')
+      ? `conv_${[currentUserId, targetOther.id].sort().join('_')}`
+      : conv.id;
+    setActiveConversationId(canonicalId);
+    ChatStore.markAsRead(canonicalId, targetOther?.id);
+    ChatStore.fetchRemoteMessages(canonicalId);
   };
 
   const myName = session?.user?.displayName || 'You';
@@ -297,9 +301,7 @@ export const ChatLayout: React.FC = () => {
             {/* Messages Scroll Area */}
             <MessageList
               messages={
-                activeConversation?.messages && activeConversation.messages.length > 0
-                  ? activeConversation.messages
-                  : (activeConversation?.id ? ChatStore.getMessages(activeConversation.id) : (activeConversationId ? ChatStore.getMessages(activeConversationId) : []))
+                ChatStore.getMessages(activeConversationId || activeConversation?.id || '')
               }
               currentUserId={currentUserId}
               onReply={(msg) => setReplyingTo(msg)}

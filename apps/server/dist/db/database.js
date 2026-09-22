@@ -272,6 +272,15 @@ export class DatabaseService {
             this.db.exec("ALTER TABLE rooms ADD COLUMN activity_mode TEXT DEFAULT 'CINEMA'");
         }
         catch { }
+        // Normalize direct chat messages to canonical conversation IDs if legacy
+        try {
+            this.db.exec(`
+        UPDATE direct_chat_messages
+        SET conversation_id = 'conv_' || CASE WHEN sender_id < recipient_id THEN sender_id || '_' || recipient_id ELSE recipient_id || '_' || sender_id END
+        WHERE sender_id IS NOT NULL AND recipient_id IS NOT NULL AND recipient_id != '' AND conversation_id NOT LIKE 'conv_%_%';
+      `);
+        }
+        catch { }
         try {
             this.db.exec("ALTER TABLE rooms ADD COLUMN theme_id TEXT DEFAULT 'default'");
         }
@@ -892,13 +901,28 @@ export class DatabaseService {
     }
     // --- Watch Direct Chat Engine ---
     saveDirectChatMessage(msg) {
+        let recipientId = msg.recipientId;
+        let canonicalConvId = msg.conversationId;
+        if (!recipientId && msg.conversationId?.startsWith('conv_')) {
+            const stripped = msg.conversationId.replace('conv_', '');
+            const parts = stripped.split('_');
+            if (parts.length >= 2 && msg.senderId) {
+                recipientId = parts[0] === msg.senderId ? parts[1] : parts[0];
+            }
+            else if (parts.length === 1 && msg.senderId && parts[0] !== msg.senderId) {
+                recipientId = parts[0];
+            }
+        }
+        if (msg.senderId && recipientId) {
+            canonicalConvId = `conv_${[msg.senderId, recipientId].sort().join('_')}`;
+        }
         const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO direct_chat_messages (
         id, conversation_id, sender_id, sender_name, sender_avatar, recipient_id,
         type, content, media_url, metadata, reply_to, status, is_deleted, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
     `);
-        stmt.run(msg.id, msg.conversationId, msg.senderId, msg.senderName || null, msg.senderAvatar || null, msg.recipientId || null, msg.type || 'text', msg.content, msg.mediaUrl || null, msg.metadata ? JSON.stringify(msg.metadata) : null, msg.replyTo ? JSON.stringify(msg.replyTo) : null, msg.status || 'sent', msg.createdAt || new Date().toISOString());
+        stmt.run(msg.id, canonicalConvId, msg.senderId, msg.senderName || null, msg.senderAvatar || null, recipientId || null, msg.type || 'text', msg.content, msg.mediaUrl || null, msg.metadata ? JSON.stringify(msg.metadata) : null, msg.replyTo ? JSON.stringify(msg.replyTo) : null, msg.status || 'sent', msg.createdAt || new Date().toISOString());
     }
     getDirectChatMessages(conversationId, currentUserId, limit = 500) {
         let otherId = null;

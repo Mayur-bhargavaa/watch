@@ -348,6 +348,15 @@ export class DatabaseService {
       this.db.exec("ALTER TABLE rooms ADD COLUMN activity_mode TEXT DEFAULT 'CINEMA'");
     } catch {}
 
+    // Normalize direct chat messages to canonical conversation IDs if legacy
+    try {
+      this.db.exec(`
+        UPDATE direct_chat_messages
+        SET conversation_id = 'conv_' || CASE WHEN sender_id < recipient_id THEN sender_id || '_' || recipient_id ELSE recipient_id || '_' || sender_id END
+        WHERE sender_id IS NOT NULL AND recipient_id IS NOT NULL AND recipient_id != '' AND conversation_id NOT LIKE 'conv_%_%';
+      `);
+    } catch {}
+
     try {
       this.db.exec("ALTER TABLE rooms ADD COLUMN theme_id TEXT DEFAULT 'default'");
     } catch {}
@@ -1144,6 +1153,23 @@ export class DatabaseService {
     status?: string;
     createdAt?: string;
   }): void {
+    let recipientId = msg.recipientId;
+    let canonicalConvId = msg.conversationId;
+
+    if (!recipientId && msg.conversationId?.startsWith('conv_')) {
+      const stripped = msg.conversationId.replace('conv_', '');
+      const parts = stripped.split('_');
+      if (parts.length >= 2 && msg.senderId) {
+        recipientId = parts[0] === msg.senderId ? parts[1] : parts[0];
+      } else if (parts.length === 1 && msg.senderId && parts[0] !== msg.senderId) {
+        recipientId = parts[0];
+      }
+    }
+
+    if (msg.senderId && recipientId) {
+      canonicalConvId = `conv_${[msg.senderId, recipientId].sort().join('_')}`;
+    }
+
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO direct_chat_messages (
         id, conversation_id, sender_id, sender_name, sender_avatar, recipient_id,
@@ -1152,11 +1178,11 @@ export class DatabaseService {
     `);
     stmt.run(
       msg.id,
-      msg.conversationId,
+      canonicalConvId,
       msg.senderId,
       msg.senderName || null,
       msg.senderAvatar || null,
-      msg.recipientId || null,
+      recipientId || null,
       msg.type || 'text',
       msg.content,
       msg.mediaUrl || null,

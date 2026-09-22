@@ -697,11 +697,12 @@ export async function createServer(dbPath = './synccinema.db') {
   app.get('/api/chat/messages', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);
-    const { conversationId } = request.query as { conversationId?: string };
+    const { conversationId, limit } = request.query as { conversationId?: string; limit?: string };
     if (!conversationId) {
       return reply.code(400).send({ error: 'conversationId is required' });
     }
-    const messages = db.getDirectChatMessages(conversationId, user.id, 100);
+    const maxLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 500, 1), 1000) : 500;
+    const messages = db.getDirectChatMessages(conversationId, user.id, maxLimit);
     return { success: true, messages };
   });
 
@@ -715,8 +716,18 @@ export async function createServer(dbPath = './synccinema.db') {
 
     let recipientId = body.recipientId;
     if (!recipientId && body.conversationId.startsWith('conv_')) {
-      recipientId = body.conversationId.replace('conv_', '');
+      const stripped = body.conversationId.replace('conv_', '');
+      const parts = stripped.split('_');
+      if (parts.length >= 2) {
+        recipientId = parts[0] === user.id ? parts[1] : parts[0];
+      } else {
+        recipientId = stripped;
+      }
     }
+
+    const canonicalConvId = (recipientId && user.id)
+      ? `conv_${[user.id, recipientId].sort().join('_')}`
+      : body.conversationId;
 
     const isRecipientOnline = recipientId ? presenceManager.isUserOnline(recipientId) : false;
     const status = isRecipientOnline ? 'delivered' : 'sent';
@@ -724,7 +735,7 @@ export async function createServer(dbPath = './synccinema.db') {
 
     const msg = {
       id: messageId,
-      conversationId: body.conversationId,
+      conversationId: canonicalConvId,
       senderId: user.id,
       senderName: body.senderName || user.displayName,
       senderAvatar: body.senderAvatar || user.avatarUrl || undefined,

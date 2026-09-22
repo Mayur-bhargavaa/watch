@@ -397,8 +397,8 @@ export class ChatStore {
     // Auto-merge / deduplicate any duplicate direct conversations pointing to the same user
     const s = getStoredSession();
     const myId = s?.user?.id;
-    const seenFriendKeys = new Set<string>();
     const deduplicated: ChatConversation[] = [];
+    const seenFriendMap = new Map<string, ChatConversation>();
     let hadDuplicates = false;
 
     for (const c of convs) {
@@ -409,47 +409,53 @@ export class ChatStore {
 
       // Identify the other participant in this 1-on-1 direct chat
       const otherParticipant = c.participants?.find((p) => p.id && p.id !== myId) || c.participants?.[0];
-      const friendId = otherParticipant?.id || (c.id.startsWith('conv_') ? c.id.replace('conv_', '') : undefined);
+      const friendId = otherParticipant?.id || (c.id.startsWith('conv_') ? c.id.replace('conv_', '').split('_').find(id => id !== myId) : undefined);
       const friendName = (c.name || c.title || otherParticipant?.displayName || '').trim().toLowerCase();
+      const friendKey = friendId || friendName;
 
-      const key = friendId || friendName;
-      if (key && seenFriendKeys.has(key)) {
-        hadDuplicates = true;
-        // Find the existing primary conversation to merge into
-        const primary = deduplicated.find(
-          (d) =>
-            d.type === 'direct' &&
-            ((friendId && (d.participants?.some((p) => p.id === friendId) || d.id === `conv_${friendId}`)) ||
-              (friendName && (d.name || d.title || '').trim().toLowerCase() === friendName))
-        );
-
-        if (primary) {
-          // Merge messages from this duplicate into the primary conversation
-          const primaryMsgs = this.getMessages(primary.id);
-          const duplicateMsgs = this.getMessages(c.id);
-          const msgMap = new Map<string, ChatMessage>();
-          primaryMsgs.forEach((m) => msgMap.set(m.id, m));
-          duplicateMsgs.forEach((m) => msgMap.set(m.id, { ...m, conversationId: primary.id }));
-          const merged = Array.from(msgMap.values()).sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-          this.saveMessages(primary.id, merged);
-          if (merged.length > 0) {
-            primary.lastMessage = merged[merged.length - 1];
-            primary.updatedAt = merged[merged.length - 1].createdAt;
-          }
-          primary.unreadCount = Math.max(primary.unreadCount || 0, c.unreadCount || 0);
-        }
-
-        // Clean up duplicate message storage
-        try {
-          localStorage.removeItem(`${this.getStorageKey()}_msgs_${c.id}`);
-        } catch {}
+      if (!friendKey) {
+        deduplicated.push(c);
         continue;
       }
 
-      if (key) seenFriendKeys.add(key);
-      deduplicated.push(c);
+      // Canonical 1-on-1 ID
+      const canonicalId = (myId && friendId) ? `conv_${[myId, friendId].sort().join('_')}` : c.id;
+
+      if (seenFriendMap.has(friendKey)) {
+        hadDuplicates = true;
+        const existingConv = seenFriendMap.get(friendKey)!;
+
+        // Ensure existing conversation retains canonical ID
+        existingConv.id = canonicalId;
+
+        // Merge messages from c into canonicalId
+        const msgs1 = this.getMessages(existingConv.id);
+        const msgs2 = this.getMessages(c.id);
+        const msgMap = new Map<string, ChatMessage>();
+        msgs1.forEach((m) => msgMap.set(m.id, { ...m, conversationId: canonicalId }));
+        msgs2.forEach((m) => msgMap.set(m.id, { ...m, conversationId: canonicalId }));
+        const merged = Array.from(msgMap.values()).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        this.saveMessages(canonicalId, merged);
+        if (merged.length > 0) {
+          existingConv.lastMessage = merged[merged.length - 1];
+          existingConv.updatedAt = merged[merged.length - 1].createdAt;
+        }
+        existingConv.unreadCount = Math.max(existingConv.unreadCount || 0, c.unreadCount || 0);
+
+        // Safely remove ONLY non-canonical duplicate storage
+        if (c.id !== canonicalId) {
+          try {
+            localStorage.removeItem(`${this.getStorageKey()}_msgs_${c.id}`);
+          } catch {}
+        }
+      } else {
+        // Enforce canonical ID for the conversation
+        c.id = canonicalId;
+        seenFriendMap.set(friendKey, c);
+        deduplicated.push(c);
+      }
     }
 
     if (hadDuplicates && typeof window !== 'undefined') {
@@ -1391,8 +1397,21 @@ export class ChatStore {
     const s = getStoredSession();
     if (!s?.token || !conversationId) return;
 
+    // Resolve canonical conversation ID
+    const myId = s?.user?.id;
+    let canonicalId = conversationId;
+    if (myId && conversationId.startsWith('conv_')) {
+      const stripped = conversationId.replace('conv_', '');
+      const parts = stripped.split('_');
+      if (parts.length >= 2) {
+        canonicalId = `conv_${[parts[0], parts[1]].sort().join('_')}`;
+      } else if (parts.length === 1 && parts[0] !== myId) {
+        canonicalId = `conv_${[myId, parts[0]].sort().join('_')}`;
+      }
+    }
+
     try {
-      const res = await fetch(`${API_BASE}/api/chat/messages?conversationId=${encodeURIComponent(conversationId)}`, {
+      const res = await fetch(`${API_BASE}/api/chat/messages?conversationId=${encodeURIComponent(canonicalId)}&limit=500`, {
         headers: {
           Authorization: `Bearer ${s.token}`
         }
@@ -1400,7 +1419,8 @@ export class ChatStore {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.messages)) {
-          const localMsgs = this.getMessages(conversationId);
+          // Read local messages using aliases to ensure all historical messages are merged
+          const localMsgs = this.getMessages(canonicalId);
           const msgMap = new Map<string, ChatMessage>();
           localMsgs.forEach((m) => msgMap.set(m.id, m));
           data.messages.forEach((m: ChatMessage) => {
@@ -1415,36 +1435,39 @@ export class ChatStore {
               ...(m.metadata || {}),
               ...(isOpened ? { viewOnceOpened: true } : {})
             };
-            if (existing) {
-              msgMap.set(m.id, {
-                ...existing,
-                ...m,
-                metadata: mergedMeta
-              });
-            } else {
-              msgMap.set(m.id, {
-                ...m,
-                metadata: mergedMeta
-              });
-            }
+            msgMap.set(m.id, {
+              ...(existing || {}),
+              ...m,
+              conversationId: canonicalId,
+              metadata: mergedMeta
+            });
           });
           const merged = Array.from(msgMap.values()).sort(
             (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
           );
-          this.saveMessages(conversationId, merged);
+
+          // Save under canonical ID and alias
+          this.saveMessages(canonicalId, merged);
+          if (conversationId !== canonicalId) {
+            this.saveMessages(conversationId, merged);
+          }
 
           const convs = this.getConversations();
           const conv = convs.find(
             (c) =>
+              c.id === canonicalId ||
               c.id === conversationId ||
-              (conversationId.startsWith('conv_') && c.participants?.some((p) => conversationId.includes(p.id)))
+              (c.type === 'direct' && c.participants?.some((p) => canonicalId.includes(p.id)))
           );
           if (conv) {
+            conv.id = canonicalId;
             if (merged.length > 0) {
               conv.lastMessage = merged[merged.length - 1];
               conv.updatedAt = merged[merged.length - 1].createdAt;
             }
             this.saveConversations(convs);
+          } else {
+            notify();
           }
         }
       }
