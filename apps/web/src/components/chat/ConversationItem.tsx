@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Users, Flame, Mic, Film, Gamepad2, Image as ImageIcon } from 'lucide-react';
+import { Users, Flame, Mic, Film, Gamepad2, Image as ImageIcon, Smile } from 'lucide-react';
 import { ChatConversation, ChatUser } from '@/types/chat';
+import { STICKER_PACK } from './StickersData';
 
 interface ConversationItemProps {
   conversation: ChatConversation;
@@ -79,6 +80,21 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
         <span className="flex items-center gap-1 text-indigo-500 font-medium">
           <Film className="w-3.5 h-3.5" />
           <span>{lastMsg.metadata?.movie?.title || 'Shared movie'}</span>
+        </span>
+      );
+    }
+    if (
+      lastMsg.type === 'sticker' ||
+      lastMsg.content.startsWith('[sticker:') ||
+      lastMsg.content.startsWith('[draw:') ||
+      lastMsg.content.startsWith('[custom_img:') ||
+      lastMsg.content.startsWith('[gif:') ||
+      STICKER_PACK.some((s) => s.id.toLowerCase() === lastMsg.content.trim().toLowerCase())
+    ) {
+      return (
+        <span className="flex items-center gap-1 text-[#00a884] dark:text-[#00a884] font-medium">
+          <Smile className="w-3.5 h-3.5" />
+          <span>Sticker</span>
         </span>
       );
     }

@@ -917,31 +917,80 @@ export const STICKER_PACK: StickerItem[] = [
   }
 ];
 
-export function parseStickerMessage(content: string): StickerItem | null {
-  if (!content) return null;
+export function parseStickerMessage(
+  content?: string,
+  mediaUrl?: string,
+  metadata?: any
+): StickerItem | null {
+  // 1. Check if metadata already has full sticker object
+  if (metadata?.sticker && (metadata.sticker.gifUrl || metadata.sticker.drawingSvg || metadata.sticker.emoji)) {
+    return metadata.sticker;
+  }
 
-  // 1. Check [sticker:<id>]
-  if (content.startsWith('[sticker:')) {
-    const match = content.match(/^\[sticker:([a-zA-Z0-9_-]+)\]$/);
+  // 1.1 If content is empty but mediaUrl is provided
+  if (!content && mediaUrl) {
+    const foundByUrl = STICKER_PACK.find((s) => s.gifUrl === mediaUrl || s.webpUrl === mediaUrl);
+    if (foundByUrl) return foundByUrl;
+
+    return {
+      id: `media_${encodeURIComponent(mediaUrl).slice(0, 16)}`,
+      name: 'Sticker',
+      category: 'bubu_dudu',
+      gifUrl: mediaUrl,
+      tagline: 'STICKER',
+      tags: ['sticker']
+    };
+  }
+
+  if (!content) return null;
+  const raw = content.trim();
+
+  // 1.2 Direct ID check in STICKER_PACK (CRITICAL FOR BACKWARD COMPATIBILITY: e.g. 'bubu_angry' sent previously!)
+  const directMatch = STICKER_PACK.find((s) => s.id.toLowerCase() === raw.toLowerCase());
+  if (directMatch) return directMatch;
+
+  // 1.3 Check [sticker:<id>]
+  if (raw.startsWith('[sticker:')) {
+    const match = raw.match(/^\[sticker:([a-zA-Z0-9_-]+)\]$/);
     if (match) {
       const stickerId = match[1];
-      const found = STICKER_PACK.find((s) => s.id === stickerId);
+      const found = STICKER_PACK.find((s) => s.id.toLowerCase() === stickerId.toLowerCase());
       if (found) return found;
+
+      if (mediaUrl) {
+        return {
+          id: stickerId,
+          name: stickerId,
+          category: 'bubu_dudu',
+          gifUrl: mediaUrl,
+          tagline: stickerId.toUpperCase(),
+          tags: ['sticker']
+        };
+      }
+
+      return {
+        id: stickerId,
+        name: stickerId,
+        category: 'bubu_dudu',
+        emoji: '✨',
+        tagline: stickerId.toUpperCase(),
+        tags: [stickerId]
+      };
     }
   }
 
   // 1.5. Check [custom_img:<dataUrl>] or direct data:image/
-  if (content.startsWith('[custom_img:') || content.startsWith('data:image/')) {
-    let url = content;
+  if (raw.startsWith('[custom_img:') || raw.startsWith('data:image/')) {
+    let url = raw;
     let caption = 'Custom Sticker';
-    if (content.startsWith('[custom_img:')) {
-      const raw = content.slice(12, content.endsWith(']') ? -1 : undefined);
-      const pipeIdx = raw.lastIndexOf('|');
+    if (raw.startsWith('[custom_img:')) {
+      const inner = raw.slice(12, raw.endsWith(']') ? -1 : undefined);
+      const pipeIdx = inner.lastIndexOf('|');
       if (pipeIdx !== -1) {
-        url = raw.slice(0, pipeIdx);
-        caption = raw.slice(pipeIdx + 1) || 'Custom Sticker';
+        url = inner.slice(0, pipeIdx);
+        caption = inner.slice(pipeIdx + 1) || 'Custom Sticker';
       } else {
-        url = raw;
+        url = inner;
       }
     }
     return {
@@ -954,35 +1003,38 @@ export function parseStickerMessage(content: string): StickerItem | null {
     };
   }
 
-  // 2. Check [gif:<url>] or [gif:<url>:<caption?>]
-  if (content.startsWith('[gif:')) {
-    const match = content.match(/^\[gif:(https?:\/\/[^\]|]+)(?:\|([^\]]+))?\]$/);
-    if (match) {
-      const url = match[1];
-      const caption = match[2] || 'STICKER';
-      return {
-        id: `custom_${encodeURIComponent(url).slice(0, 16)}`,
-        name: caption,
-        category: 'genz',
-        gifUrl: url,
-        tagline: caption.toUpperCase(),
-        tags: ['custom', 'gif', 'giphy'],
-        bgGradient: 'from-purple-600/30 via-pink-600/20 to-rose-600/30',
-        borderColor: 'border-pink-400/50',
-        textColor: 'text-pink-200'
-      };
+  // 2. Check [gif:<url>] or [gif:<url>|<caption?>]
+  if (raw.startsWith('[gif:')) {
+    const inner = raw.slice(5, raw.endsWith(']') ? -1 : undefined);
+    const pipeIdx = inner.lastIndexOf('|');
+    let url = inner;
+    let caption = 'STICKER';
+    if (pipeIdx !== -1) {
+      url = inner.slice(0, pipeIdx);
+      caption = inner.slice(pipeIdx + 1) || 'STICKER';
     }
+    return {
+      id: `custom_${encodeURIComponent(url).slice(0, 16)}`,
+      name: caption,
+      category: 'genz',
+      gifUrl: url,
+      tagline: caption.toUpperCase(),
+      tags: ['custom', 'gif', 'giphy'],
+      bgGradient: 'from-purple-600/30 via-pink-600/20 to-rose-600/30',
+      borderColor: 'border-pink-400/50',
+      textColor: 'text-pink-200'
+    };
   }
 
   // 3. Check [draw:<svgContent>|<caption?>]
-  if (content.startsWith('[draw:')) {
-    const raw = content.slice(6, content.endsWith(']') ? -1 : undefined);
-    const pipeIdx = raw.lastIndexOf('|');
-    let svgContent = raw;
+  if (raw.startsWith('[draw:')) {
+    const inner = raw.slice(6, raw.endsWith(']') ? -1 : undefined);
+    const pipeIdx = inner.lastIndexOf('|');
+    let svgContent = inner;
     let caption = 'HAND-DRAWN ✨';
     if (pipeIdx !== -1) {
-      svgContent = raw.slice(0, pipeIdx);
-      caption = raw.slice(pipeIdx + 1) || 'HAND-DRAWN ✨';
+      svgContent = inner.slice(0, pipeIdx);
+      caption = inner.slice(pipeIdx + 1) || 'HAND-DRAWN ✨';
     }
     return {
       id: `draw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -998,19 +1050,24 @@ export function parseStickerMessage(content: string): StickerItem | null {
   }
 
   // 4. Auto-detect raw GIF or Giphy URLs
-  if (/^https?:\/\/[^\s]+(?:\.gif|\.webp|giphy\.com|tenor\.com)[^\s]*$/i.test(content.trim())) {
-    const url = content.trim();
+  if (/^https?:\/\/[^\s]+(?:\.gif|\.webp|giphy\.com|tenor\.com)[^\s]*$/i.test(raw)) {
     return {
-      id: `url_${encodeURIComponent(url).slice(0, 16)}`,
+      id: `url_${encodeURIComponent(raw).slice(0, 16)}`,
       name: 'GIF Sticker',
       category: 'genz',
-      gifUrl: url,
+      gifUrl: raw,
       tagline: 'GIPHY',
       tags: ['gif', 'giphy'],
       bgGradient: 'from-purple-600/30 via-pink-600/20 to-rose-600/30',
       borderColor: 'border-pink-400/50',
       textColor: 'text-pink-200'
     };
+  }
+
+  // 5. If mediaUrl matches a sticker in STICKER_PACK
+  if (mediaUrl) {
+    const foundByUrl = STICKER_PACK.find((s) => s.gifUrl === mediaUrl || s.webpUrl === mediaUrl);
+    if (foundByUrl) return foundByUrl;
   }
 
   return null;
@@ -1030,7 +1087,22 @@ export function formatDrawStickerMessage(svgPathsString: string, caption: string
   return `[draw:${svgPathsString}|${caption}]`;
 }
 
-export function serializeStickerMessage(sticker: any): string {
-  if (typeof sticker === 'string') return sticker;
-  return formatStickerMessage(sticker?.id || sticker?.gifUrl || sticker?.name || '', sticker?.name);
+export function serializeStickerMessage(sticker: any, caption?: string): string {
+  if (!sticker) return '';
+  if (typeof sticker === 'string') {
+    const trimmed = sticker.trim();
+    if (
+      trimmed.startsWith('[sticker:') ||
+      trimmed.startsWith('[gif:') ||
+      trimmed.startsWith('[custom_img:') ||
+      trimmed.startsWith('[draw:')
+    ) {
+      return trimmed;
+    }
+    return formatStickerMessage(trimmed, caption);
+  }
+  return formatStickerMessage(
+    sticker?.id || sticker?.gifUrl || sticker?.webpUrl || '',
+    caption || sticker?.name
+  );
 }

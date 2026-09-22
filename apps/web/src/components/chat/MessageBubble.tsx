@@ -101,7 +101,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     minute: '2-digit',
   });
 
-  const sticker = parseStickerMessage(message.content);
+  const sticker = parseStickerMessage(message.content, message.mediaUrl, message.metadata) ||
+    (message.type === 'sticker' && message.mediaUrl ? {
+      id: message.id,
+      name: 'Sticker',
+      category: 'bubu_dudu' as const,
+      gifUrl: message.mediaUrl,
+      tagline: 'STICKER',
+      tags: ['sticker'],
+    } : null);
   const emojiInfo = getEmojiOnlyInfo(!sticker && !message.mediaUrl && message.type === 'text' ? message.content : undefined);
 
   // Group reactions
@@ -204,8 +212,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <img
                   src={sticker.gifUrl || sticker.webpUrl}
                   alt={sticker.name || 'Sticker'}
-                  className="w-36 h-36 sm:w-44 sm:h-44 object-contain filter drop-shadow-md hover:scale-105 transition-transform duration-200"
+                  className="w-36 h-36 sm:w-44 sm:h-44 object-contain filter drop-shadow-md hover:scale-105 transition-transform duration-200 select-none"
                   loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
               ) : sticker.drawingSvg ? (
                 <div

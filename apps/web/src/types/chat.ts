@@ -99,6 +99,7 @@ export interface ChatMessageMetadata {
   fileName?: string;
   fileSize?: string;
   stickerUrl?: string;
+  sticker?: any;
   isViewOnce?: boolean;
   viewOnceOpened?: boolean;
   viewOnceOpenedAt?: string;

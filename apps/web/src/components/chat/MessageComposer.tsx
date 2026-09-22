@@ -18,7 +18,7 @@ import {
 import { ChatMessage, ChatPlanPayload, ChatGamePayload, ChatMoviePayload, ChatMessageMetadata } from '@/types/chat';
 import { StickerPicker } from './StickerPicker';
 import { DrawStickerModal } from './DrawStickerModal';
-import { serializeStickerMessage } from './StickersData';
+import { serializeStickerMessage, STICKER_PACK } from './StickersData';
 import { ModalPortal } from './ModalPortal';
 import { uploadChatImage } from '@/lib/uploadMedia';
 
@@ -550,14 +550,27 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                   className="absolute bottom-14 left-0 z-50"
                 >
                   <StickerPicker
-                    onSelectSticker={(sticker) => {
+                    onSelectSticker={(sticker, caption) => {
                       if (/^\p{Extended_Pictographic}+$/u.test(sticker.trim())) {
                         setText((prev) => prev + sticker);
                         textareaRef.current?.focus();
                         return;
                       }
-                      const serialized = serializeStickerMessage(sticker);
-                      onSendMessage(serialized, 'sticker');
+                      const serialized = serializeStickerMessage(sticker, caption);
+                      const foundSticker = STICKER_PACK.find(
+                        (s) => s.id.toLowerCase() === sticker.trim().toLowerCase()
+                      );
+                      const mediaUrl =
+                        foundSticker?.gifUrl ||
+                        foundSticker?.webpUrl ||
+                        (sticker.startsWith('http') || sticker.startsWith('data:') ? sticker : undefined);
+
+                      onSendMessage(
+                        serialized,
+                        'sticker',
+                        mediaUrl,
+                        foundSticker ? { sticker: foundSticker } : undefined
+                      );
                       setShowStickerPicker(false);
                     }}
                     onOpenDrawModal={() => {
