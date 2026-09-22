@@ -4,6 +4,7 @@ import fastifyJwt from '@fastify/jwt';
 import fastifyWebsocket from '@fastify/websocket';
 import { nanoid } from 'nanoid';
 import { DatabaseService, extractParticipantIdsFromConvId, toCanonicalConvId } from './db/database.js';
+import { mongoDb } from './db/mongoDatabase.js';
 import { RoomSyncManager } from './sync/RoomSyncManager.js';
 import { GameRoomManager } from './games/GameRoomManager.js';
 import { GAME_DEFINITIONS } from './games/GameDefinitions.js';
@@ -50,10 +51,16 @@ export async function createServer(dbPath = './synccinema.db') {
             level: process.env.LOG_LEVEL || 'info'
         }
     });
+    try {
+        await mongoDb.connect();
+    }
+    catch (err) {
+        console.error('MongoDB connection notice:', err);
+    }
     const db = new DatabaseService(dbPath);
     const syncManager = new RoomSyncManager(db);
     const gameRoomManager = new GameRoomManager(db);
-    const presenceManager = new PresenceManager(db);
+    const presenceManager = new PresenceManager(mongoDb);
     await app.register(cors, {
         origin: true,
         credentials: true
@@ -77,7 +84,14 @@ export async function createServer(dbPath = './synccinema.db') {
         const body = (request.body || {});
         const guestId = `guest_${nanoid(8)}`;
         const displayName = body.displayName?.trim() || `MovieFan_${nanoid(4)}`;
-        const user = db.createUser({
+        const user = await mongoDb.createUser({
+            id: guestId,
+            displayName,
+            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`,
+            isAnonymous: true,
+            createdAt: new Date().toISOString()
+        });
+        db.createUser({
             id: guestId,
             displayName,
             avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${guestId}`,
@@ -92,30 +106,56 @@ export async function createServer(dbPath = './synccinema.db') {
         await mongoLogger.logAuthLogin(user.id, 'guest@stitchbyte.local', user.displayName);
         return { token, user };
     });
+    // Check email endpoint for passwordless or adaptive login
+    app.post('/api/auth/check-email', async (request, reply) => {
+        const body = (request.body || {});
+        if (!body.email) {
+            return reply.code(400).send({ error: 'Email is required' });
+        }
+        const normalized = body.email.trim().toLowerCase();
+        const existing = await mongoDb.getUserByEmail(normalized);
+        if (!existing) {
+            return { exists: false };
+        }
+        return {
+            exists: true,
+            hasPassword: Boolean(existing.passwordHash),
+            displayName: existing.user.displayName,
+            avatarUrl: existing.user.avatarUrl
+        };
+    });
     app.post('/api/auth/login', async (request, reply) => {
         const body = (request.body || {});
         if (!body.email) {
             return reply.code(400).send({ error: 'Email is required' });
         }
-        const existing = db.getUserByEmail(body.email);
-        let user;
+        const normalized = body.email.trim().toLowerCase();
+        let existing = await mongoDb.getUserByEmail(normalized);
+        // Fallback check in sqlite
         if (!existing) {
-            // Auto-register user on initial sign-in if not yet created
-            const userId = `usr_${nanoid(10)}`;
-            const displayName = body.displayName?.trim() || body.email.split('@')[0] || `User_${nanoid(4)}`;
-            user = db.createUser({
-                id: userId,
-                email: body.email,
-                displayName,
-                avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
-                isAnonymous: false,
-                createdAt: new Date().toISOString()
-            }, body.password);
-            await mongoLogger.logAuthRegister(user.id, user.email || '', user.displayName);
+            const sqlUser = db.getUserByEmail(normalized);
+            if (sqlUser) {
+                await mongoDb.createUser(sqlUser.user, sqlUser.passwordHash);
+                existing = await mongoDb.getUserByEmail(normalized);
+            }
         }
-        else {
-            user = existing.user;
+        if (!existing) {
+            return reply.code(404).send({ error: 'No account found with this email. Please sign up to get started.' });
         }
+        // Check if account has a password set
+        if (!existing.passwordHash) {
+            return reply.code(400).send({
+                error: 'No password is set for this account yet. Please create a password to continue.',
+                needsPasswordSetup: true
+            });
+        }
+        if (!body.password) {
+            return reply.code(400).send({ error: 'Password is required' });
+        }
+        if (body.password !== existing.passwordHash) {
+            return reply.code(401).send({ error: 'Incorrect password. Please try again or reset your password.' });
+        }
+        const user = existing.user;
         const token = app.jwt.sign({
             id: user.id,
             email: user.email,
@@ -125,14 +165,48 @@ export async function createServer(dbPath = './synccinema.db') {
         await mongoLogger.logAuthLogin(user.id, user.email || '', user.displayName);
         return { token, user };
     });
+    // Set or Reset Password endpoint
+    app.post('/api/auth/set-password', async (request, reply) => {
+        const body = (request.body || {});
+        if (!body.email || !body.newPassword) {
+            return reply.code(400).send({ error: 'Email and new password are required' });
+        }
+        if (body.newPassword.length < 6) {
+            return reply.code(400).send({ error: 'Password must be at least 6 characters long' });
+        }
+        const normalized = body.email.trim().toLowerCase();
+        let existing = await mongoDb.getUserByEmail(normalized);
+        if (!existing) {
+            const sqlUser = db.getUserByEmail(normalized);
+            if (sqlUser) {
+                await mongoDb.createUser(sqlUser.user, sqlUser.passwordHash);
+                existing = await mongoDb.getUserByEmail(normalized);
+            }
+        }
+        if (!existing) {
+            return reply.code(404).send({ error: 'No account found with this email' });
+        }
+        await mongoDb.setPassword(normalized, body.newPassword);
+        const updated = await mongoDb.getUserByEmail(normalized);
+        const user = updated?.user || existing.user;
+        const token = app.jwt.sign({
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName,
+            isAnonymous: false
+        });
+        await mongoLogger.logAuthLogin(user.id, user.email || '', user.displayName);
+        return { token, user, message: 'Password updated successfully!' };
+    });
     app.post('/api/auth/register', async (request, reply) => {
         const body = request.body;
         if (!body.email || !body.displayName) {
             return reply.code(400).send({ error: 'Email and display name required' });
         }
-        const existing = db.getUserByEmail(body.email);
+        const normalized = body.email.trim().toLowerCase();
+        const existing = await mongoDb.getUserByEmail(normalized);
         if (existing) {
-            return reply.code(409).send({ error: 'Email already registered' });
+            return reply.code(409).send({ error: 'Email already registered. Please log in.' });
         }
         let calculatedAge = body.age;
         if (calculatedAge == null && body.dateOfBirth) {
@@ -143,10 +217,10 @@ export async function createServer(dbPath = './synccinema.db') {
             }
         }
         const userId = `usr_${nanoid(10)}`;
-        const user = db.createUser({
+        const userPayload = {
             id: userId,
-            email: body.email,
-            displayName: body.displayName,
+            email: normalized,
+            displayName: body.displayName.trim(),
             avatarUrl: body.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
             isAnonymous: false,
             dateOfBirth: body.dateOfBirth,
@@ -154,8 +228,9 @@ export async function createServer(dbPath = './synccinema.db') {
             isMarried: Boolean(body.isMarried),
             age: calculatedAge,
             createdAt: new Date().toISOString()
-        }, body.password // in production, hash with argon2/bcrypt
-        );
+        };
+        const user = await mongoDb.createUser(userPayload, body.password);
+        db.createUser(userPayload, body.password);
         const token = app.jwt.sign({
             id: user.id,
             email: user.email,
@@ -168,7 +243,10 @@ export async function createServer(dbPath = './synccinema.db') {
     app.get('/api/auth/me', async (request, reply) => {
         try {
             const payload = (await request.jwtVerify());
-            const user = db.getUserById(payload.id);
+            let user = await mongoDb.getUserById(payload.id);
+            if (!user) {
+                user = db.getUserById(payload.id);
+            }
             if (!user) {
                 return reply.code(404).send({ error: 'User not found' });
             }
@@ -193,7 +271,7 @@ export async function createServer(dbPath = './synccinema.db') {
             const isMarried = body.isMarried !== undefined
                 ? body.isMarried
                 : (body.relationshipStatus === 'married');
-            const updated = db.updateUser(payload.id, {
+            const updateData = {
                 displayName: body.displayName?.trim(),
                 avatarUrl: body.avatarUrl,
                 dateOfBirth: body.dateOfBirth,
@@ -207,7 +285,12 @@ export async function createServer(dbPath = './synccinema.db') {
                 favoriteGenres: body.favoriteGenres,
                 viewingVibe: body.viewingVibe,
                 age: calculatedAge
-            });
+            };
+            let updated = await mongoDb.updateUser(payload.id, updateData);
+            db.updateUser(payload.id, updateData);
+            if (!updated) {
+                updated = db.getUserById(payload.id);
+            }
             if (!updated) {
                 return reply.code(404).send({ error: 'User not found' });
             }
@@ -221,7 +304,7 @@ export async function createServer(dbPath = './synccinema.db') {
     app.get('/api/user/partner-code/status', async (request, reply) => {
         try {
             const user = await getRequestUser(request);
-            const status = db.getPartnerCodeStatus(user.id);
+            const status = await mongoDb.getPartnerCodeStatus(user.id);
             return { success: true, ...status };
         }
         catch {
@@ -236,7 +319,8 @@ export async function createServer(dbPath = './synccinema.db') {
             if (!body.newCode) {
                 return reply.code(400).send({ success: false, error: 'New username / partner code is required.' });
             }
-            const result = db.changePartnerCode(user.id, body.newCode);
+            const result = await mongoDb.changePartnerCode(user.id, body.newCode);
+            db.changePartnerCode(user.id, body.newCode);
             if (!result.success) {
                 return reply.code(400).send({ success: false, error: result.error });
             }
@@ -352,15 +436,21 @@ export async function createServer(dbPath = './synccinema.db') {
     async function getRequestUser(request) {
         try {
             const decoded = await request.jwtVerify();
-            let user = db.getUserById(decoded.id);
+            let user = await mongoDb.getUserById(decoded.id);
+            if (!user) {
+                user = db.getUserById(decoded.id);
+            }
             if (user) {
                 if (!user.partnerCode) {
-                    user.partnerCode = db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email);
+                    user.partnerCode = await mongoDb.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email);
                 }
                 return user;
             }
-            const partnerCode = db.ensureUserPartnerCode(decoded.id, decoded.displayName, decoded.avatarUrl, decoded.isAnonymous, decoded.email);
-            user = db.getUserById(decoded.id);
+            const partnerCode = await mongoDb.ensureUserPartnerCode(decoded.id, decoded.displayName, decoded.avatarUrl, decoded.isAnonymous, decoded.email);
+            user = await mongoDb.getUserById(decoded.id);
+            if (!user) {
+                user = db.getUserById(decoded.id);
+            }
             if (user)
                 return user;
             return {
@@ -377,15 +467,20 @@ export async function createServer(dbPath = './synccinema.db') {
             const query = (request.query || {});
             const userId = body.userId || query.userId || `guest_${nanoid(8)}`;
             const displayName = body.displayName || query.displayName || 'Player';
-            let user = db.getUserById(userId);
+            let user = await mongoDb.getUserById(userId);
             if (!user) {
-                user = db.createUser({
+                user = db.getUserById(userId);
+            }
+            if (!user) {
+                const userPayload = {
                     id: userId,
                     displayName,
                     avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
                     isAnonymous: true,
                     createdAt: new Date().toISOString()
-                });
+                };
+                user = await mongoDb.createUser(userPayload);
+                db.createUser(userPayload);
             }
             return user;
         }
@@ -500,19 +595,19 @@ export async function createServer(dbPath = './synccinema.db') {
     app.get('/api/friends', async (request, reply) => {
         const user = await getRequestUser(request);
         presenceManager.recordHeartbeat(user.id);
-        const friends = db.getFriendsWithStreaks(user.id, (id) => isUserOnline(id));
-        const requests = db.getFriendRequests(user.id);
+        const friends = await mongoDb.getFriendsWithStreaks(user.id, (id) => isUserOnline(id));
+        const requests = await mongoDb.getFriendRequests(user.id);
         return {
             friends,
             requests,
             pendingRequestsCount: requests.incoming.length,
-            myFriendCode: user.partnerCode || db.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email)
+            myFriendCode: user.partnerCode || (await mongoDb.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl, user.isAnonymous, user.email))
         };
     });
     app.get('/api/friends/requests', async (request, reply) => {
         const user = await getRequestUser(request);
         presenceManager.recordHeartbeat(user.id);
-        const requests = db.getFriendRequests(user.id);
+        const requests = await mongoDb.getFriendRequests(user.id);
         return {
             success: true,
             ...requests
@@ -522,7 +617,7 @@ export async function createServer(dbPath = './synccinema.db') {
         const user = await getRequestUser(request);
         presenceManager.recordHeartbeat(user.id);
         const { search } = request.query;
-        const users = db.getDiscoverableUsers(user.id, search);
+        const users = await mongoDb.getDiscoverableUsers(user.id, search);
         return {
             success: true,
             users
@@ -536,7 +631,7 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(400).send({ error: 'Friend Code is required' });
         }
         try {
-            const result = db.sendFriendRequest(user.id, body.friendCode);
+            const result = await mongoDb.sendFriendRequest(user.id, body.friendCode);
             if (result.friend) {
                 result.friend.friendUser.isOnline = isUserOnline(result.friend.friendUser.id);
             }
@@ -559,7 +654,7 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(400).send({ error: 'senderUserId is required' });
         }
         try {
-            const friend = db.acceptFriendRequest(user.id, body.senderUserId);
+            const friend = await mongoDb.acceptFriendRequest(user.id, body.senderUserId);
             friend.friendUser.isOnline = isUserOnline(friend.friendUser.id);
             return {
                 success: true,
@@ -578,7 +673,7 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!body.senderUserId) {
             return reply.code(400).send({ error: 'senderUserId is required' });
         }
-        db.declineFriendRequest(user.id, body.senderUserId);
+        await mongoDb.declineFriendRequest(user.id, body.senderUserId);
         return {
             success: true,
             message: 'Friend request declined'
@@ -591,7 +686,7 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!body.targetUserId) {
             return reply.code(400).send({ error: 'targetUserId is required' });
         }
-        db.cancelFriendRequest(user.id, body.targetUserId);
+        await mongoDb.cancelFriendRequest(user.id, body.targetUserId);
         return {
             success: true,
             message: 'Friend request cancelled'
@@ -603,7 +698,7 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!friendUserId) {
             return reply.code(400).send({ error: 'friendUserId is required' });
         }
-        db.removeFriend(user.id, friendUserId);
+        await mongoDb.removeFriend(user.id, friendUserId);
         return { success: true, message: 'Friend removed' };
     });
     // =====================================================================
@@ -617,7 +712,7 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(400).send({ error: 'conversationId is required' });
         }
         const maxLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500) : 100;
-        const messages = db.getDirectChatMessages(conversationId, user.id, {
+        const messages = await mongoDb.getDirectChatMessages(conversationId, user.id, {
             limit: maxLimit,
             before,
             after
@@ -665,6 +760,7 @@ export async function createServer(dbPath = './synccinema.db') {
             status,
             createdAt: body.createdAt || new Date().toISOString()
         };
+        await mongoDb.saveDirectChatMessage(msg);
         db.saveDirectChatMessage(msg);
         // Guarantee delivery to recipient sockets even if sender WebSocket was offline/reconnecting
         if (recipientId) {
@@ -682,7 +778,8 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!body.conversationId) {
             return reply.code(400).send({ error: 'conversationId is required' });
         }
-        const updatedMessages = db.markDirectMessagesAsRead(body.conversationId, user.id);
+        const updatedMessages = await mongoDb.markDirectMessagesAsRead(body.conversationId, user.id);
+        db.markDirectMessagesAsRead(body.conversationId, user.id);
         if (body.senderId) {
             const canonicalConvId = `conv_${[user.id, body.senderId].sort().join('_')}`;
             presenceManager.sendToUser(body.senderId, {
@@ -709,7 +806,7 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!body.messageId) {
             return reply.code(400).send({ error: 'messageId is required' });
         }
-        const details = db.markDirectMessageViewOnceOpened(body.messageId);
+        const details = (await mongoDb.markDirectMessageViewOnceOpened(body.messageId)) || db.markDirectMessageViewOnceOpened(body.messageId);
         if (details) {
             const targetUser = details.senderId === user.id ? details.recipientId : details.senderId;
             if (targetUser) {
@@ -730,7 +827,8 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!body.friendUserId) {
             return reply.code(400).send({ error: 'friendUserId is required' });
         }
-        const result = db.recordSessionBetweenUsers(user.id, body.friendUserId, body.minutes || 1);
+        const result = await mongoDb.recordSessionBetweenUsers(user.id, body.friendUserId, body.minutes || 1);
+        db.recordSessionBetweenUsers(user.id, body.friendUserId, body.minutes || 1);
         return {
             success: true,
             status: result.status,

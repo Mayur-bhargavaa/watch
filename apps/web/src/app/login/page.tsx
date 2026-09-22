@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   Calendar
 } from 'lucide-react';
-import { loginUser, registerUser, getStoredSession } from '../../lib/api';
+import { loginUser, registerUser, getStoredSession, setPassword as apiSetPassword } from '../../lib/api';
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
 function LoginFormContent() {
@@ -38,6 +38,8 @@ function LoginFormContent() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState<boolean>(false);
+  const [isResetPassword, setIsResetPassword] = useState<boolean>(false);
 
   // Phase 2: Personal milestones & dates
   const [dateOfBirth, setDateOfBirth] = useState<string>('');
@@ -123,10 +125,26 @@ function LoginFormContent() {
     if (isLogin) {
       setLoading(true);
       try {
+        if (needsPasswordSetup || isResetPassword) {
+          if (!password || password.length < 6) {
+            setError('Password must be at least 6 characters long.');
+            setLoading(false);
+            return;
+          }
+          await apiSetPassword(email.trim(), password);
+          router.push(redirectUrl);
+          return;
+        }
+
         await loginUser(email.trim(), password, displayName.trim() || undefined);
         router.push(redirectUrl);
       } catch (err: any) {
-        setError(err.message || 'Authentication failed. Please check your credentials.');
+        if (err.needsPasswordSetup) {
+          setNeedsPasswordSetup(true);
+          setError('No password is set for this account yet. Please create your password below to continue:');
+        } else {
+          setError(err.message || 'Authentication failed. Please check your credentials.');
+        }
       } finally {
         setLoading(false);
       }
@@ -410,9 +428,27 @@ function LoginFormContent() {
 
               {/* Password */}
               <div>
-                <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
+                    {needsPasswordSetup
+                      ? 'Create Your Password (Min 6 Characters)'
+                      : isResetPassword
+                      ? 'Enter New Password'
+                      : 'Password'}
+                  </label>
+                  {!needsPasswordSetup && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsResetPassword(!isResetPassword);
+                        setError(null);
+                      }}
+                      className="text-[11px] font-bold text-[#d2281e] hover:underline"
+                    >
+                      {isResetPassword ? 'Back to Sign In' : 'Forgot Password?'}
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400">
                     <Lock className="w-4 h-4" />
@@ -422,7 +458,7 @@ function LoginFormContent() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={needsPasswordSetup || isResetPassword ? 'Create new password...' : '••••••••'}
                     className="w-full pl-10 pr-10 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
                   />
                   <button
@@ -448,11 +484,23 @@ function LoginFormContent() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
-                    <span>Signing in...</span>
+                    <span>
+                      {needsPasswordSetup
+                        ? 'Setting password...'
+                        : isResetPassword
+                        ? 'Updating password...'
+                        : 'Signing in...'}
+                    </span>
                   </>
                 ) : (
                   <>
-                    <span>Sign In & Continue</span>
+                    <span>
+                      {needsPasswordSetup
+                        ? 'Set Password & Enter'
+                        : isResetPassword
+                        ? 'Update Password & Sign In'
+                        : 'Sign In & Continue'}
+                    </span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

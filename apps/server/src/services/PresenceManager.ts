@@ -15,10 +15,10 @@ export class PresenceManager {
   /**
    * Registers a client's global presence WebSocket
    */
-  public registerSocket(
+  public async registerSocket(
     ws: WebSocket,
     user: { id: string; displayName: string; partnerCode?: string; avatarUrl?: string | null; photoUrl?: string | null; avatar?: string | null }
-  ): void {
+  ): Promise<void> {
     if (!this.userSockets.has(user.id)) {
       this.userSockets.set(user.id, new Set());
     }
@@ -53,7 +53,7 @@ export class PresenceManager {
     // If any unread direct messages were pending for this user, deliver them now
     if (this.db && typeof this.db.markDirectMessagesAsDelivered === 'function') {
       try {
-        const deliveredMsgs = this.db.markDirectMessagesAsDelivered(user.id);
+        const deliveredMsgs = await Promise.resolve(this.db.markDirectMessagesAsDelivered(user.id));
         if (Array.isArray(deliveredMsgs) && deliveredMsgs.length > 0) {
           for (const d of deliveredMsgs) {
             // Deliver the message to this user
@@ -77,7 +77,7 @@ export class PresenceManager {
       }
     }
 
-    ws.on('message', (raw) => {
+    ws.on('message', async (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
         if (!msg || !msg.type) return;
@@ -99,39 +99,39 @@ export class PresenceManager {
             }
           }
 
-          const canonicalConvId = recipientId ? toCanonicalConvId(user.id, recipientId) : chatMsg.conversationId;
+          const canonicalConvId = (recipientId && user.id)
+            ? toCanonicalConvId(user.id, recipientId)
+            : chatMsg.conversationId;
 
-          // Attempt direct delivery to recipient sockets
-          let isDelivered = false;
-          if (recipientId) {
-            isDelivered = this.sendToUser(recipientId, {
-              type: 'chat:message',
-              message: {
-                ...chatMsg,
-                conversationId: canonicalConvId,
-                senderId: user.id,
-                senderName: chatMsg.senderName || user.displayName,
-                recipientId,
-                status: 'delivered',
-                createdAt: chatMsg.createdAt || new Date().toISOString()
-              }
-            });
-          }
+          const isRecipientOnline = recipientId ? this.isUserOnline(recipientId) : false;
+          let status = isRecipientOnline ? 'delivered' : 'sent';
 
-          const status = isDelivered ? 'delivered' : 'sent';
           const finalMsg = {
             ...chatMsg,
+            id: chatMsg.id || `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
             conversationId: canonicalConvId,
             senderId: user.id,
-            senderName: chatMsg.senderName || user.displayName,
+            senderName: user.displayName,
+            senderAvatar: user.avatarUrl || user.photoUrl || user.avatar || undefined,
             recipientId,
             status,
             createdAt: chatMsg.createdAt || new Date().toISOString()
           };
 
+          if (recipientId) {
+            const delivered = this.sendToUser(recipientId, {
+              type: 'chat:message',
+              message: finalMsg
+            });
+            if (delivered) {
+              status = 'delivered';
+              finalMsg.status = 'delivered';
+            }
+          }
+
           if (this.db && typeof this.db.saveDirectChatMessage === 'function') {
             try {
-              this.db.saveDirectChatMessage(finalMsg);
+              await Promise.resolve(this.db.saveDirectChatMessage(finalMsg));
             } catch (e) {
               console.error('Failed to persist direct message:', e);
             }
@@ -163,7 +163,7 @@ export class PresenceManager {
           const { conversationId, messageIds, senderId } = msg;
           if (this.db && conversationId && typeof this.db.markDirectMessagesAsRead === 'function') {
             try {
-              this.db.markDirectMessagesAsRead(conversationId, user.id);
+              await Promise.resolve(this.db.markDirectMessagesAsRead(conversationId, user.id));
             } catch {}
           }
           if (senderId) {
@@ -190,7 +190,7 @@ export class PresenceManager {
           const { conversationId, messageId } = msg;
           if (messageId && this.db && typeof this.db.markDirectMessageViewOnceOpened === 'function') {
             try {
-              const details = this.db.markDirectMessageViewOnceOpened(messageId);
+              const details = await Promise.resolve(this.db.markDirectMessageViewOnceOpened(messageId));
               if (details) {
                 const targetUser = details.senderId === user.id ? details.recipientId : details.senderId;
                 if (targetUser) {

@@ -49,6 +49,44 @@ export function clearStoredSession(): void {
   localStorage.removeItem('synccinema_session');
 }
 
+export async function checkEmail(email: string): Promise<{
+  exists: boolean;
+  hasPassword?: boolean;
+  displayName?: string;
+  avatarUrl?: string;
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/check-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      return { exists: false };
+    }
+    return await res.json();
+  } catch {
+    return { exists: false };
+  }
+}
+
+export async function setPassword(email: string, newPassword: string): Promise<UserSession> {
+  const res = await fetch(`${API_BASE}/api/auth/set-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, newPassword })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to set password');
+  }
+
+  const session = (await res.json()) as UserSession;
+  setStoredSession(session);
+  return session;
+}
+
 export async function loginUser(email: string, password?: string, displayName?: string): Promise<UserSession> {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: 'POST',
@@ -58,7 +96,11 @@ export async function loginUser(email: string, password?: string, displayName?: 
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to login');
+    const err: any = new Error(errorData.error || 'Failed to login');
+    if (errorData.needsPasswordSetup) {
+      err.needsPasswordSetup = true;
+    }
+    throw err;
   }
 
   const session = (await res.json()) as UserSession;
