@@ -115,17 +115,11 @@ export const ChatLayout: React.FC = () => {
     }
   };
 
-  // Periodic sync of remote messages for active conversation (fetch latest new arrivals with 'after' filter)
+  // Periodic sync of remote messages for active conversation (fetch latest 50 messages)
   useEffect(() => {
     if (!activeConversationId) return;
     const interval = setInterval(() => {
-      const msgs = ChatStore.getMessages(activeConversationId);
-      const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-      if (lastMsg?.createdAt) {
-        ChatStore.fetchRemoteMessages(activeConversationId, { after: lastMsg.createdAt, limit: 50 });
-      } else {
-        ChatStore.fetchRemoteMessages(activeConversationId, { limit: 100 });
-      }
+      ChatStore.fetchRemoteMessages(activeConversationId, { limit: 50 });
     }, 3000);
     return () => clearInterval(interval);
   }, [activeConversationId]);
@@ -322,6 +316,7 @@ export const ChatLayout: React.FC = () => {
 
             {/* Messages Scroll Area */}
             <MessageList
+              key={activeConversationId || activeConversation?.id || 'chat-list'}
               messages={
                 ChatStore.getMessages(activeConversationId || activeConversation?.id || '')
               }

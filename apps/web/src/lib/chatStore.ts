@@ -570,19 +570,17 @@ export class ChatStore {
     const aliases = new Set<string>([conversationId]);
 
     const { userIds, otherUserId } = extractParticipantIdsFromConvId(conversationId, myId);
-    if (userIds.length === 2) {
-      aliases.add(`conv_${userIds[0]}`);
-      aliases.add(`conv_${userIds[1]}`);
-      aliases.add(toCanonicalConvId(userIds[0], userIds[1]));
-    } else if (userIds.length === 1) {
-      aliases.add(`conv_${userIds[0]}`);
-      if (myId && userIds[0] !== myId) {
-        aliases.add(toCanonicalConvId(myId, userIds[0]));
+    const friendId = otherUserId || userIds.find((id) => id !== myId);
+    if (friendId && friendId !== myId) {
+      aliases.add(`conv_${friendId}`);
+      if (myId) {
+        aliases.add(toCanonicalConvId(myId, friendId));
       }
     }
-    if (myId && otherUserId) {
-      aliases.add(`conv_${otherUserId}`);
-      aliases.add(toCanonicalConvId(myId, otherUserId));
+    // CRITICAL: NEVER include conv_${myId} in aliases, because the current user is
+    // part of every chat, which would cause all separate conversations to cross-contaminate!
+    if (myId) {
+      aliases.delete(`conv_${myId}`);
     }
     return Array.from(aliases);
   }
@@ -785,6 +783,15 @@ export class ChatStore {
 
   static initialize(): void {
     if (typeof window !== 'undefined') {
+      const s = getStoredSession();
+      const myId = s?.user?.id;
+      if (myId) {
+        try {
+          // Remove contaminated self-conversation messages key if it was created
+          localStorage.removeItem(`${this.getStorageKey()}_msgs_conv_${myId}`);
+        } catch {}
+      }
+
       this.getConversations();
       this.syncWithExistingFriends().catch(() => {});
 
@@ -1309,8 +1316,7 @@ export class ChatStore {
         (c.type === 'direct' &&
           otherUserId &&
           (c.participants?.some((p) => p.id === otherUserId) ||
-            c.id === `conv_${otherUserId}` ||
-            (myId && c.id === `conv_${myId}`)))
+            c.id === `conv_${otherUserId}`))
     );
 
     const targetConvId = conv ? conv.id : canonicalConvId;

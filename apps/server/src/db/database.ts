@@ -1262,7 +1262,6 @@ export class DatabaseService {
             conversation_id = ?
             OR conversation_id = ?
             OR conversation_id = ?
-            OR conversation_id = ?
             OR (sender_id = ? AND recipient_id = ?)
             OR (sender_id = ? AND recipient_id = ?)
           )
@@ -1271,7 +1270,6 @@ export class DatabaseService {
         conversationId,
         canonicalId,
         `conv_${otherId}`,
-        `conv_${currentUserId}`,
         currentUserId,
         otherId,
         otherId,
@@ -1311,14 +1309,12 @@ export class DatabaseService {
         WHERE is_deleted = 0
           AND (
             conversation_id = ?
-            OR conversation_id = ?
-            ${otherId ? `OR (sender_id = ? OR recipient_id = ?)` : ''}
+            ${otherId && currentUserId ? `OR conversation_id = ? OR (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)` : ''}
           )
       `;
       const baseParams = [
         conversationId,
-        otherId && currentUserId ? toCanonicalConvId(currentUserId, otherId) : conversationId,
-        ...(otherId ? [otherId, otherId] : [])
+        ...(otherId && currentUserId ? [toCanonicalConvId(currentUserId, otherId), currentUserId, otherId, otherId, currentUserId] : [])
       ];
 
       if (after) {
