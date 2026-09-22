@@ -15,6 +15,7 @@ import {
   X,
   Eye,
   Maximize2,
+  Forward,
 } from 'lucide-react';
 import { ChatMessage } from '@/types/chat';
 import { VoiceMessage } from './VoiceMessage';
@@ -25,6 +26,7 @@ import { ReactionPicker } from './ReactionPicker';
 import { parseStickerMessage } from './StickersData';
 import { ModalPortal } from './ModalPortal';
 import { FullScreenImageViewer } from './FullScreenImageViewer';
+import { formatReplySnippet } from './ChatReplyUI';
 import { ChatStore } from '@/lib/chatStore';
 
 /**
@@ -64,6 +66,7 @@ interface MessageBubbleProps {
   showAvatar?: boolean;
   currentUserId: string;
   onReply?: (message: ChatMessage) => void;
+  onForward?: (message: ChatMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onDelete?: (messageId: string) => void;
   onPin?: (messageId: string) => void;
@@ -76,6 +79,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   showAvatar = true,
   currentUserId,
   onReply,
+  onForward,
   onReact,
   onDelete,
   onPin,
@@ -85,6 +89,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [isViewOnceModalOpen, setIsViewOnceModalOpen] = useState(false);
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+
+  // Swipe-to-reply & Touchpad gestures state
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const isHorizontalSwipeRef = useRef<boolean | null>(null);
+  const lastTapTimeRef = useRef(0);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
 
   // Robust metadata parser (handles both object and JSON string)
@@ -149,6 +161,70 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   });
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartXRef.current = touch.clientX;
+    touchStartYRef.current = touch.clientY;
+    isHorizontalSwipeRef.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartXRef.current;
+    const dy = touch.clientY - touchStartYRef.current;
+
+    if (isHorizontalSwipeRef.current === null) {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        isHorizontalSwipeRef.current = true;
+      } else if (Math.abs(dy) > 8) {
+        isHorizontalSwipeRef.current = false;
+      }
+    }
+
+    if (isHorizontalSwipeRef.current) {
+      if (dx > 0) {
+        setIsSwiping(true);
+        const clamped = Math.min(75, dx * 0.65);
+        setSwipeOffset(clamped);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    const now = Date.now();
+    if (now - lastTapTimeRef.current < 320 && !isSwiping && swipeOffset === 0) {
+      setShowActionMenu((prev) => !prev);
+      lastTapTimeRef.current = 0;
+    } else {
+      lastTapTimeRef.current = now;
+    }
+
+    if (isSwiping) {
+      if (swipeOffset >= 40 && onReply) {
+        onReply(message);
+      }
+      setIsSwiping(false);
+      setSwipeOffset(0);
+      isHorizontalSwipeRef.current = null;
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    // Touchpad two-finger horizontal swipe gesture
+    if (Math.abs(e.deltaX) > 18 && Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      if (e.deltaX < -20) {
+        // Swiping right on trackpad
+        setSwipeOffset(55);
+        if (onReply) {
+          onReply(message);
+        }
+        setTimeout(() => setSwipeOffset(0), 250);
+      }
+    }
+  };
+
   const handleCopy = () => {
     if (message.content) {
       navigator.clipboard.writeText(message.content);
@@ -164,6 +240,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         isSender ? 'justify-end' : 'justify-start'
       }`}
     >
+      {/* WhatsApp-Style Swipe to Reply Indicator */}
+      {swipeOffset > 0 && (
+        <div
+          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-200/90 dark:bg-zinc-700/90 text-[#ee1d49] flex items-center justify-center shadow-md pointer-events-none transition-all duration-150 z-10"
+          style={{
+            opacity: Math.min(1, swipeOffset / 25),
+            transform: `translate3d(${Math.min(swipeOffset * 0.45, 28)}px, -50%, 0) scale(${Math.min(1.15, 0.6 + (swipeOffset / 50) * 0.5)})`,
+          }}
+        >
+          <Reply className="w-4 h-4" />
+        </div>
+      )}
+
       {/* Receiver Avatar */}
       {!isSender &&
         (showAvatar ? (
@@ -183,7 +272,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         ))}
 
       {/* Bubble Container */}
-      <div className={`relative max-w-[85%] sm:max-w-[70%] flex flex-col ${isSender ? 'items-end' : 'items-start'}`}>
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+        onDoubleClick={() => setShowActionMenu((prev) => !prev)}
+        style={{
+          transform: `translate3d(${swipeOffset}px, 0px, 0px)`,
+          transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        }}
+        className={`relative max-w-[85%] sm:max-w-[70%] flex flex-col ${isSender ? 'items-end' : 'items-start'}`}
+      >
         {/* Pinned indicator */}
         {message.isPinned && (
           <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-500 mb-1 px-1">
@@ -214,7 +314,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.replyTo.senderName}
             </div>
             <div className="text-[11px] truncate opacity-90">
-              {message.replyTo.content}
+              {formatReplySnippet(message.replyTo.content)}
             </div>
           </button>
         )}
@@ -439,9 +539,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         )}
 
-        {/* Floating Quick Action Toolbar on Hover */}
+        {/* Floating Quick Action Toolbar on Hover / Double-tap */}
         <div
-          className={`absolute top-0 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-0.5 p-0.5 rounded-full bg-white/95 dark:bg-zinc-800/95 shadow-md border border-slate-200/80 dark:border-zinc-700/80 z-20 ${
+          className={`absolute top-0 transition-all duration-200 flex items-center gap-0.5 p-0.5 rounded-full bg-white/95 dark:bg-zinc-800/95 shadow-md border border-slate-200/80 dark:border-zinc-700/80 z-20 ${
+            showActionMenu
+              ? 'opacity-100 pointer-events-auto scale-100'
+              : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+          } ${
             isSender ? 'right-full mr-2 -translate-y-2' : 'left-full ml-2 -translate-y-2'
           }`}
         >
@@ -476,6 +580,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           >
             <Reply className="w-3.5 h-3.5" />
           </button>
+
+          {/* Forward Button */}
+          {onForward && (
+            <button
+              type="button"
+              onClick={() => onForward(message)}
+              className="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 transition cursor-pointer"
+              title="Forward message"
+            >
+              <Forward className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Copy Button */}
           {message.content && (

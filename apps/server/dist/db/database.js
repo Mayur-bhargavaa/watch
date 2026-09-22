@@ -887,13 +887,34 @@ export class DatabaseService {
     `);
         stmt.run(msg.id, msg.conversationId, msg.senderId, msg.senderName || null, msg.senderAvatar || null, msg.recipientId || null, msg.type || 'text', msg.content, msg.mediaUrl || null, msg.metadata ? JSON.stringify(msg.metadata) : null, msg.replyTo ? JSON.stringify(msg.replyTo) : null, msg.status || 'sent', msg.createdAt || new Date().toISOString());
     }
-    getDirectChatMessages(conversationId, limit = 100) {
-        const rows = this.db.prepare(`
-      SELECT * FROM direct_chat_messages
-      WHERE conversation_id = ? AND is_deleted = 0
-      ORDER BY created_at ASC
-      LIMIT ?
-    `).all(conversationId, limit);
+    getDirectChatMessages(conversationId, currentUserId, limit = 100) {
+        let otherId = null;
+        if (conversationId.startsWith('conv_')) {
+            otherId = conversationId.replace('conv_', '');
+        }
+        let rows;
+        if (currentUserId && otherId && otherId !== currentUserId) {
+            rows = this.db.prepare(`
+        SELECT * FROM direct_chat_messages
+        WHERE is_deleted = 0
+          AND (
+            conversation_id = ?
+            OR conversation_id = ?
+            OR (sender_id = ? AND recipient_id = ?)
+            OR (sender_id = ? AND recipient_id = ?)
+          )
+        ORDER BY created_at ASC
+        LIMIT ?
+      `).all(conversationId, `conv_${currentUserId}`, currentUserId, otherId, otherId, currentUserId, limit);
+        }
+        else {
+            rows = this.db.prepare(`
+        SELECT * FROM direct_chat_messages
+        WHERE conversation_id = ? AND is_deleted = 0
+        ORDER BY created_at ASC
+        LIMIT ?
+      `).all(conversationId, limit);
+        }
         return rows.map((r) => ({
             id: r.id,
             conversationId: r.conversation_id,

@@ -21,6 +21,7 @@ import { DrawStickerModal } from './DrawStickerModal';
 import { serializeStickerMessage, STICKER_PACK } from './StickersData';
 import { ModalPortal } from './ModalPortal';
 import { uploadChatImage } from '@/lib/uploadMedia';
+import { formatReplySnippet } from './ChatReplyUI';
 
 interface PendingImage {
   file: File;
@@ -230,6 +231,65 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       handleSend();
     }
   };
+
+  // Global keydown typing listener: typing any key anywhere auto-focuses the chat input
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if any modal/prompt is currently open
+      if (
+        showPlanPrompt ||
+        showGamePrompt ||
+        showMoviePrompt ||
+        showDrawSticker ||
+        showViewOnceModal
+      ) {
+        return;
+      }
+
+      // Check if user is typing in another input / textarea / editable element
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          (activeEl as HTMLElement).isContentEditable)
+      ) {
+        return;
+      }
+
+      // Ignore browser hotkeys (Cmd, Ctrl, Alt)
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+      }
+
+      // If enter pressed outside input bar, focus and send
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        textareaRef.current?.focus();
+        if (text.trim() || pendingImage) {
+          handleSend();
+        }
+        return;
+      }
+
+      // For any printable single character key: auto-focus textarea so it types into it
+      if (e.key.length === 1) {
+        textareaRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [
+    showPlanPrompt,
+    showGamePrompt,
+    showMoviePrompt,
+    showDrawSticker,
+    showViewOnceModal,
+    text,
+    pendingImage,
+    isUploading,
+  ]);
 
   // Cleanup audio tracks and timer on unmount
   useEffect(() => {
@@ -486,7 +546,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               Replying to {replyingTo.senderName}:
             </span>
             <span className="text-slate-600 dark:text-zinc-300 truncate">
-              {replyingTo.content}
+              {formatReplySnippet(replyingTo.content)}
             </span>
           </div>
           <button
@@ -758,7 +818,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           </div>
 
           {/* Text / Caption Input Area */}
-          <div className="flex-1 relative flex items-center bg-slate-100/90 dark:bg-zinc-800/80 rounded-2xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-[#ee1d49]/30 transition">
+          <div className="flex-1 relative flex items-center bg-slate-100/90 dark:bg-zinc-800/80 rounded-2xl px-3.5 py-1.5 focus-within:ring-2 focus-within:ring-[#ee1d49]/30 transition border-0 outline-none">
             <textarea
               ref={textareaRef}
               value={text}
@@ -768,7 +828,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               onKeyDown={handleKeyDown}
               placeholder={pendingImage ? "Add a caption (optional)..." : "Type a message..."}
               rows={1}
-              className="w-full bg-transparent border-0 resize-none outline-hidden text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 max-h-32 py-1 leading-normal"
+              style={{ outline: 'none', boxShadow: 'none' }}
+              className="w-full bg-transparent border-0 resize-none outline-none focus:outline-none focus-visible:outline-none focus:ring-0 ring-0 text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 max-h-32 py-1 leading-normal shadow-none"
             />
           </div>
 

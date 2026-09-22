@@ -5,9 +5,16 @@ import { CornerUpLeft, X } from 'lucide-react';
 import { ChatReplyTo } from '@synccinema/common';
 import { parseStickerMessage } from './StickersData';
 
-export function formatReplySnippet(content: string): string {
-  if (parseStickerMessage(content)) {
-    return '🖼️ Sticker';
+export function formatReplySnippet(content?: string): string {
+  if (!content) return '';
+  if (content.includes('[sticker:') || parseStickerMessage(content)) {
+    return '🎨 Sticker';
+  }
+  if (content.includes('🎤') || content.includes('[voice]') || content.startsWith('data:audio') || content.startsWith('blob:')) {
+    return '🎤 Voice message';
+  }
+  if (content.includes('[view_once]') || content.includes('viewOnce')) {
+    return '📸 View Once Photo';
   }
   return content.length > 50 ? content.slice(0, 50) + '...' : content;
 }

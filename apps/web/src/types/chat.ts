@@ -103,6 +103,8 @@ export interface ChatMessageMetadata {
   isViewOnce?: boolean;
   viewOnceOpened?: boolean;
   viewOnceOpenedAt?: string;
+  forwarded?: boolean;
+  [key: string]: any;
 }
 
 export interface ChatMessage {

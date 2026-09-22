@@ -10,6 +10,7 @@ interface MessageListProps {
   currentUserId: string;
   typingUsers?: string[];
   onReply?: (message: ChatMessage) => void;
+  onForward?: (message: ChatMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onDelete?: (messageId: string) => void;
   onPin?: (messageId: string) => void;
@@ -45,6 +46,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   currentUserId,
   typingUsers = [],
   onReply,
+  onForward,
   onReact,
   onDelete,
   onPin,
@@ -129,6 +131,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                   showAvatar={!isSameSenderAsNext}
                   currentUserId={currentUserId}
                   onReply={onReply}
+                  onForward={onForward}
                   onReact={onReact}
                   onDelete={onDelete}
                   onPin={onPin}

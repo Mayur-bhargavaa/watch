@@ -63,17 +63,52 @@ export const FullScreenImageViewer: React.FC<FullScreenImageViewerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Mouse wheel zoom
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY > 0 ? -0.2 : 0.2;
-    setScale((prev) => {
-      const next = Math.min(4, Math.max(1, prev + delta));
-      if (next === 1) setPan({ x: 0, y: 0 });
-      return next;
-    });
-  };
+  // Native wheel listener for trackpad pinch-to-zoom and 2-finger panning
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !isOpen) return;
+
+    const onNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.ctrlKey) {
+        // macOS/Chromium Trackpad pinch gesture (e.ctrlKey is true)
+        const zoomDelta = -e.deltaY * 0.015;
+        setScale((prev) => {
+          const next = Math.min(5, Math.max(1, prev + zoomDelta));
+          if (next === 1) setPan({ x: 0, y: 0 });
+          return next;
+        });
+      } else {
+        // Two-finger scroll or standard mouse wheel
+        setScale((currentScale) => {
+          if (currentScale > 1) {
+            // Pan when zoomed in
+            setPan((prevPan) => {
+              const maxPan = (currentScale - 1) * 350;
+              return {
+                x: Math.max(-maxPan, Math.min(maxPan, prevPan.x - e.deltaX)),
+                y: Math.max(-maxPan, Math.min(maxPan, prevPan.y - e.deltaY))
+              };
+            });
+            return currentScale;
+          } else {
+            // Zoom with mouse wheel when at 1x
+            const delta = e.deltaY < 0 ? 0.25 : -0.25;
+            const next = Math.min(5, Math.max(1, currentScale + delta));
+            if (next === 1) setPan({ x: 0, y: 0 });
+            return next;
+          }
+        });
+      }
+    };
+
+    el.addEventListener('wheel', onNativeWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onNativeWheel);
+    };
+  }, [isOpen]);
 
   // Double tap / Double click to zoom
   const handleDoubleTap = (clientX: number, clientY: number) => {
@@ -322,7 +357,6 @@ export const FullScreenImageViewer: React.FC<FullScreenImageViewerProps> = ({
           ref={containerRef}
           className="flex-1 w-full flex items-center justify-center p-2 sm:p-6 overflow-hidden touch-none relative cursor-grab active:cursor-grabbing"
           onClick={(e) => e.stopPropagation()}
-          onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

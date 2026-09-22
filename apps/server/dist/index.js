@@ -582,7 +582,7 @@ export async function createServer(dbPath = './synccinema.db') {
         if (!conversationId) {
             return reply.code(400).send({ error: 'conversationId is required' });
         }
-        const messages = db.getDirectChatMessages(conversationId, 100);
+        const messages = db.getDirectChatMessages(conversationId, user.id, 100);
         return { success: true, messages };
     });
     app.post('/api/chat/messages', async (request, reply) => {
@@ -615,12 +615,10 @@ export async function createServer(dbPath = './synccinema.db') {
             createdAt: body.createdAt || new Date().toISOString()
         };
         db.saveDirectChatMessage(msg);
-        if (recipientId && isRecipientOnline) {
-            presenceManager.sendToUser(recipientId, {
-                type: 'chat:message',
-                message: msg
-            });
-        }
+        // NOTE: Do NOT re-deliver to recipient here.
+        // The WebSocket chat:send handler already delivers the message in real-time.
+        // Delivering here too causes the recipient to receive the same message twice,
+        // resulting in duplicate unread badges and double notifications.
         return { success: true, message: msg };
     });
     app.post('/api/chat/read', async (request, reply) => {

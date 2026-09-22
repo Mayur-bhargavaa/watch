@@ -20,6 +20,7 @@ import { MessageComposer } from './MessageComposer';
 import { FriendProfileSheet } from './FriendProfileSheet';
 import { CreateGroupModal } from './CreateGroupModal';
 import { ChatSearchModal } from './ChatSearchModal';
+import { ForwardMessageModal } from './ForwardMessageModal';
 import { ModalPortal } from './ModalPortal';
 
 export const ChatLayout: React.FC = () => {
@@ -32,6 +33,7 @@ export const ChatLayout: React.FC = () => {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
 
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<ChatMessage | null>(null);
   const [showProfileSheet, setShowProfileSheet] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -300,6 +302,7 @@ export const ChatLayout: React.FC = () => {
               messages={activeConversation.messages || []}
               currentUserId={currentUserId}
               onReply={(msg) => setReplyingTo(msg)}
+              onForward={(msg) => setForwardingMessage(msg)}
               onReact={handleReact}
               onDelete={handleDelete}
               onPin={handlePin}
@@ -391,6 +394,16 @@ export const ChatLayout: React.FC = () => {
             }}
           />
         </ModalPortal>
+      )}
+
+      {/* Forward Message Modal */}
+      {forwardingMessage && (
+        <ForwardMessageModal
+          isOpen={Boolean(forwardingMessage)}
+          onClose={() => setForwardingMessage(null)}
+          message={forwardingMessage}
+          conversations={conversations}
+        />
       )}
 
       {/* Live Active Call Overlay Modal */}
