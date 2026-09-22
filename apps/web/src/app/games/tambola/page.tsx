@@ -1,120 +1,45 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ChevronLeft,
-  Settings,
-  Users,
+  Ticket,
+  Crown,
   Trophy,
   Sparkles,
-  Share2,
-  Copy,
-  Check,
-  AlertTriangle,
   RotateCcw,
   Video,
   VideoOff,
   Mic,
   MicOff,
-  MessageSquare,
-  Palette,
-  GripHorizontal,
-  Minus,
+  Send,
   X as CloseIcon,
-  Flame,
-  Crown,
-  Heart
+  Minus,
+  GripHorizontal,
+  ScanLine,
+  Shuffle,
+  ChevronLeft,
+  AlertTriangle,
+  Play
 } from 'lucide-react';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
-import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
-import { VideoAvatar } from '../../../components/games/LudoGame';
-import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
-import { getStoredSession, UserSession, createGameRoomWithPartner, getGameRoute, getGameTitle } from '../../../lib/api';
+import { useWebRTC } from '../../../hooks/useWebRTC';
+import { getStoredSession, UserSession, getGameRoute } from '../../../lib/api';
 import { BingoLobby } from '../../../components/games/bingo/BingoLobby';
-import { BingoWaitingRoom } from '../../../components/games/bingo/BingoWaitingRoom';
-import { BingoCaller } from '../../../components/games/bingo/BingoCaller';
-import { BingoTicket } from '../../../components/games/bingo/BingoTicket';
-import { WinningProgress } from '../../../components/games/bingo/WinningProgress';
-import { ClaimBingoButton } from '../../../components/games/bingo/ClaimBingoButton';
 import { BingoVictory } from '../../../components/games/bingo/BingoVictory';
-import { BingoBottomDock } from '../../../components/games/bingo/BingoBottomDock';
-import { BingoChatDrawer } from '../../../components/games/bingo/BingoChatDrawer';
-import { BingoRoomSettings } from '../../../components/games/bingo/BingoRoomSettings';
-import { BingoGameHistory } from '../../../components/games/bingo/BingoGameHistory';
-import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
-import { BingoRoomConfig, BingoWinCondition } from '@synccinema/common';
+import { BingoRoomConfig } from '@synccinema/common';
 
-export interface BoardTheme {
-  id: string;
-  name: string;
-  bgUrl: string;
-  accent: string;
-  gridBorder: string;
-  cellBg: string;
+const ONES = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+const TENS = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+
+function formatNumberWord(num: number | null): string {
+  if (!num || num < 1) return 'READY';
+  if (num < 20) return ONES[num] || 'NUMBER';
+  const ten = Math.floor(num / 10);
+  const one = num % 10;
+  return one > 0 ? `${TENS[ten]}-${ONES[one]}` : TENS[ten];
 }
-
-const THEMES: BoardTheme[] = [
-  {
-    id: 'cozy',
-    name: 'Cozy Cottage',
-    bgUrl: '/images/cozy_ludo_bg.jpg',
-    accent: '#f43f5e',
-    gridBorder: 'border-rose-500/20',
-    cellBg: 'bg-rose-950/20 hover:bg-rose-900/30'
-  },
-  {
-    id: 'theam1',
-    name: 'Theme 1 • Candlelit Café',
-    bgUrl: '/theams/theam1.jpeg',
-    accent: '#fbbf24',
-    gridBorder: 'border-amber-500/20',
-    cellBg: 'bg-amber-950/20 hover:bg-amber-900/30'
-  },
-  {
-    id: 'theam2',
-    name: 'Theme 2 • Neon Romance',
-    bgUrl: '/theams/theam2.jpeg',
-    accent: '#ec4899',
-    gridBorder: 'border-pink-500/30',
-    cellBg: 'bg-pink-950/25 hover:bg-pink-900/35'
-  },
-  {
-    id: 'theam3',
-    name: 'Theme 3 • Better Together',
-    bgUrl: '/theams/theam3.jpeg',
-    accent: '#8b5cf6',
-    gridBorder: 'border-purple-500/20',
-    cellBg: 'bg-purple-950/20 hover:bg-purple-900/30'
-  },
-  {
-    id: 'theam4',
-    name: 'Theme 4 • Watch Together',
-    bgUrl: '/theams/theam4.jpeg',
-    accent: '#3b82f6',
-    gridBorder: 'border-blue-500/20',
-    cellBg: 'bg-blue-950/20 hover:bg-blue-900/30'
-  },
-  {
-    id: 'theam5',
-    name: 'Theme 5 • Snuggle Cinema',
-    bgUrl: '/theams/theam5.jpeg',
-    accent: '#f43f5e',
-    gridBorder: 'border-rose-500/20',
-    cellBg: 'bg-rose-950/20 hover:bg-rose-900/30'
-  },
-  {
-    id: 'theam6',
-    name: 'Theme 6 • Velvet Night',
-    bgUrl: '/theams/theam6.jpeg',
-    accent: '#06b6d4',
-    gridBorder: 'border-cyan-500/20',
-    cellBg: 'bg-cyan-950/20 hover:bg-cyan-900/30'
-  }
-];
-
-const QUICK_REACTION_EMOJIS = ['❤️', '😂', '🔥', '👏', '🎉', '🎱', '🥳', '🥺', '✨', '🙈', '😱'];
 
 const DEFAULT_CONFIG: BingoRoomConfig = {
   mode: '90-ball',
@@ -151,6 +76,35 @@ const DEFAULT_CONFIG: BingoRoomConfig = {
   falseClaimPenalty: 0
 };
 
+// Default fallback Tambola ticket (mirrors the reference screenshot)
+const INITIAL_PREVIEW_TICKET: (number | null)[][] = [
+  [18, null, 35, null, 46, null, 61, 85, null],
+  [null, 23, 36, null, 48, null, 76, 88, null],
+  [9, null, 39, null, 57, 67, 78, null, null]
+];
+
+function generateRandomTambolaGrid(): (number | null)[][] {
+  const colRanges = [
+    [1, 9], [10, 19], [20, 29], [30, 39], [40, 49],
+    [50, 59], [60, 69], [70, 79], [80, 90]
+  ];
+  const grid: (number | null)[][] = [
+    [null, null, null, null, null, null, null, null, null],
+    [null, null, null, null, null, null, null, null, null],
+    [null, null, null, null, null, null, null, null, null]
+  ];
+
+  for (let r = 0; r < 3; r++) {
+    const cols = [0, 1, 2, 3, 4, 5, 6, 7, 8].sort(() => Math.random() - 0.5).slice(0, 5);
+    cols.forEach(c => {
+      const [min, max] = colRanges[c];
+      const val = Math.floor(Math.random() * (max - min + 1)) + min;
+      grid[r][c] = val;
+    });
+  }
+  return grid;
+}
+
 function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -166,19 +120,23 @@ function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
   return <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />;
 }
 
-function BingoGameContent() {
+function TambolaGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomCodeParam = searchParams.get('room');
 
   const [session, setSession] = useState<UserSession | null>(null);
-  const [showFriendDrawer, setShowFriendDrawer] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [showThemeModal, setShowThemeModal] = useState(false);
-  const [activeTheme, setActiveTheme] = useState<string>('cozy');
-  const [isChatOpen, setIsChatOpen] = useState(false);
   const [roomConfig, setRoomConfig] = useState<BingoRoomConfig>(DEFAULT_CONFIG);
+
+  // Auto-Mark switch state
+  const [autoMark, setAutoMark] = useState(false);
+
+  // Local client ticket state fallback
+  const [previewTicketGrid, setPreviewTicketGrid] = useState<(number | null)[][]>(INITIAL_PREVIEW_TICKET);
+
+  // Chat input
+  const [chatInput, setChatInput] = useState('');
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Claim Feedback Toast State
   const [claimToast, setClaimToast] = useState<{
@@ -206,12 +164,9 @@ function BingoGameContent() {
     lastBingoConditionWon,
     chatMessages,
     floatingReactions,
-    connectionStatus,
     startBingoGame,
-    callNextBingoNumber,
     claimBingo,
     markBingoNumber,
-    updateBingoConfig,
     sendChat,
     sendReaction,
     sendLeave,
@@ -220,7 +175,6 @@ function BingoGameContent() {
     rematch,
     rematchStatus,
     declineRematch,
-    rematchDeclined,
     clearRematchDeclined,
     sendWebRTCSignal,
     registerWebRTCListener,
@@ -244,7 +198,7 @@ function BingoGameContent() {
     }
   }, [roomCodeParam, room?.gameType, room?.roomCode, router]);
 
-  const effectiveUserId = myUserId || session?.user.id || '';
+  const effectiveUserId = myUserId || session?.user?.id || '';
 
   // Determine players
   const me = players.find(p => p.userId === effectiveUserId) || players[0];
@@ -256,7 +210,7 @@ function BingoGameContent() {
 
   // WebRTC Setup
   const webRTCMembers = useMemo(() => {
-    return players.map(p => ({
+    return players.map((p: any) => ({
       userId: p.userId,
       name: p.displayName,
       avatarUrl: p.avatarUrl || null,
@@ -267,10 +221,8 @@ function BingoGameContent() {
   const {
     isCameraOn,
     isMicMuted,
-    localUserStream,
     toggleCamera,
-    toggleMic,
-    videoGridParticipants
+    toggleMic
   } = useWebRTC({
     myUserId: effectiveUserId,
     members: webRTCMembers as any,
@@ -284,75 +236,9 @@ function BingoGameContent() {
     registerVoiceListener
   });
 
-  // Draggable Floating Video Call Window State
-  const [isPipMinimized, setIsPipMinimized] = useState(false);
-  const [isPipClosed, setIsPipClosed] = useState(false);
-  const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
-  const [isDraggingPip, setIsDraggingPip] = useState(false);
-  const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
-  const pipRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && pipPosition === null) {
-      if (window.innerWidth >= 1024) {
-        setPipPosition({ x: 32, y: 140 });
-      } else {
-        setPipPosition({ x: 16, y: Math.max(100, window.innerHeight - 170) });
-      }
-    }
-  }, [pipPosition]);
-
-  const handlePipDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, select')) return;
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    const rect = pipRef.current?.getBoundingClientRect();
-    const currentX = rect ? rect.left : 32;
-    const currentY = rect ? rect.top : 140;
-
-    dragStartRef.current = {
-      startX: clientX,
-      startY: clientY,
-      initialX: currentX,
-      initialY: currentY
-    };
-    setIsDraggingPip(true);
-  }, []);
-
-  useEffect(() => {
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (!dragStartRef.current) return;
-      const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-
-      const deltaX = clientX - dragStartRef.current.startX;
-      const deltaY = clientY - dragStartRef.current.startY;
-
-      const newX = Math.max(8, Math.min(window.innerWidth - 240, dragStartRef.current.initialX + deltaX));
-      const newY = Math.max(64, Math.min(window.innerHeight - 120, dragStartRef.current.initialY + deltaY));
-
-      setPipPosition({ x: newX, y: newY });
-    };
-
-    const handleEnd = () => {
-      dragStartRef.current = null;
-      setIsDraggingPip(false);
-    };
-
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleEnd);
-    window.addEventListener('touchmove', handleMove);
-    window.addEventListener('touchend', handleEnd);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleEnd);
-      window.removeEventListener('touchmove', handleMove);
-      window.removeEventListener('touchend', handleEnd);
-    };
-  }, []);
+  // Floating Call Widget State
+  const [isCallMinimized, setIsCallMinimized] = useState(false);
+  const [isCallClosed, setIsCallClosed] = useState(false);
 
   // Sync config from gameState when active
   useEffect(() => {
@@ -374,152 +260,879 @@ function BingoGameContent() {
     }
   }, [lastBingoClaimResult]);
 
+  // Auto-scroll chat
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
+
   // Handle leave room
   const handleLeave = () => {
     sendLeave();
     router.push('/games');
   };
 
-  // Handle invite friend
-  const handleInviteFriend = () => {
-    setShowFriendDrawer(true);
-  };
-
-  const currentTheme = useMemo(() => {
-    return THEMES.find(t => t.id === activeTheme) || THEMES[0];
-  }, [activeTheme]);
-
-  // Participants for call
-  const callParticipants = useMemo(() => {
-    const list = [...videoGridParticipants];
-    if (opponent && !list.some(p => p.userId === opponent.userId)) {
-      list.push({
-        userId: opponent.userId,
-        displayName: opponent.displayName,
-        stream: null,
-        isMuted: true,
-        isSelf: false,
-        isCameraOn: false
-      });
-    }
-    return list;
-  }, [videoGridParticipants, opponent]);
-
   // 1. NO ROOM PARAM -> Render Lobby
   if (!roomCodeParam) {
     return <BingoLobby />;
   }
 
-  // 2. ROOM WAITING / READY -> Render Waiting Room
-  if (!isPlaying && !isFinished && room) {
-    return (
-      <>
-        <BingoWaitingRoom
-          room={room}
-          myUserId={effectiveUserId}
-          config={roomConfig}
-          rematchStatus={rematchStatus}
-          onRematch={rematch}
-          onStartGame={(cfg) => {
-            startBingoGame(cfg);
-          }}
-          onUpdateConfig={(cfg) => {
-            setRoomConfig(cfg);
-            updateBingoConfig(cfg);
-          }}
-          onLeave={handleLeave}
-          onInviteFriend={handleInviteFriend}
-        />
+  // Current Number & called list
+  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? 69;
+  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? formatNumberWord(currentNum);
+  const rawCalled = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [84, 74, 6, 80, 90];
+  const lastCalled = rawCalled.length > 0 ? rawCalled : [84, 74, 6, 80, 90];
+  const remaining = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 79;
 
-        <GameFriendSelectorDrawer
-          isOpen={showFriendDrawer}
-          onClose={() => setShowFriendDrawer(false)}
-          token={session?.token}
-          gameTitle="Tambola"
-          onSelectFriend={async (friend) => {
-            try {
-              const res = await createGameRoomWithPartner('tambola', friend.friendUser.id);
-              if (res?.room?.roomCode) {
-                router.push(`/games/tambola?room=${res.room.roomCode}`);
-              }
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-        />
-      </>
-    );
-  }
+  // Ticket data
+  const serverTicket = gameState?.tickets?.[me?.userId || ''];
+  const ticketCells = serverTicket?.cells && serverTicket.cells.length > 0
+    ? serverTicket.cells
+    : previewTicketGrid;
 
-  // 3. LIVE GAME / FINISHED SCREEN
-  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
-  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? null;
-  const lastCalled = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
-  const remaining = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 90;
+  // Marked numbers
+  const myMarkedList = gameState?.playerMarked?.[me?.userId || ''] || [18];
+  const myMarkedSet = new Set(myMarkedList);
 
-  // ONLY SELF TICKET IS USED ON SCREEN
-  const myTicket = gameState?.tickets?.[me?.userId || ''] || { cells: [] };
-  const myMarked = gameState?.playerMarked?.[me?.userId || ''] || [];
+  const calledSet = new Set(gameState?.calledNumbers || [18, 69, 84, 74, 6, 80, 90]);
+
+  // Auto-mark effect
+  useEffect(() => {
+    if (autoMark && isPlaying && ticketCells) {
+      ticketCells.flat().forEach((num: number | null) => {
+        if (num !== null && calledSet.has(num) && !myMarkedSet.has(num)) {
+          markBingoNumber(num);
+        }
+      });
+    }
+  }, [autoMark, calledSet, myMarkedSet, isPlaying, ticketCells, markBingoNumber]);
+
+  // Count marked out of 15
+  const allTicketNumbers = ticketCells.flat().filter((n: number | null): n is number => n !== null);
+  const myMarkedCount = allTicketNumbers.filter((n: number) => myMarkedSet.has(n)).length;
+
+  const opponentMarkedList = opponent ? (gameState?.playerMarked?.[opponent.userId] || []) : [];
+  const opponentMarkedCount = opponentMarkedList.length;
+
   const myScore = gameState?.scores?.[me?.userId || ''] || 0;
-  const myProgress = gameState?.conditionProgress?.[me?.userId || ''] || {};
+  const opponentScore = opponent ? (gameState?.scores?.[opponent.userId] || 0) : 0;
 
-  const opponentScore = opponent ? gameState?.scores?.[opponent.userId] || 0 : 0;
-  const opponentProgress = opponent ? gameState?.conditionProgress?.[opponent.userId] || {} : {};
+  // Winning conditions calculation
+  const row0Nums = ticketCells[0]?.filter((n: number | null): n is number => n !== null) || [];
+  const row1Nums = ticketCells[1]?.filter((n: number | null): n is number => n !== null) || [];
+  const row2Nums = ticketCells[2]?.filter((n: number | null): n is number => n !== null) || [];
 
-  // Count conditions claimed by opponent
-  const opponentCompletedCount = Object.values(opponentProgress).filter((p: any) => p?.isMet).length;
+  const early5Count = Math.min(5, myMarkedCount);
+  const topLineCount = row0Nums.filter((n: number) => myMarkedSet.has(n)).length;
+  const middleLineCount = row1Nums.filter((n: number) => myMarkedSet.has(n)).length;
+  const bottomLineCount = row2Nums.filter((n: number) => myMarkedSet.has(n)).length;
+
+  const cornerNums = [row0Nums[0], row0Nums[row0Nums.length - 1], row2Nums[0], row2Nums[row2Nums.length - 1]].filter(Boolean);
+  const fourCornersCount = cornerNums.filter((n: number) => myMarkedSet.has(n)).length;
+  const housefullCount = myMarkedCount;
+
+  // Handler for clicking a number on ticket
+  const handleCellClick = (num: number | null) => {
+    if (num === null) return;
+    if (isPlaying) {
+      markBingoNumber(num);
+    } else {
+      if (myMarkedSet.has(num)) {
+        myMarkedSet.delete(num);
+      } else {
+        myMarkedSet.add(num);
+      }
+      setPreviewTicketGrid([...previewTicketGrid]);
+    }
+  };
+
+  // New ticket generator
+  const handleNewTicket = () => {
+    setPreviewTicketGrid(generateRandomTambolaGrid());
+  };
+
+  // Primary Bingo claim action
+  const handleClaim = () => {
+    if (!isPlaying) {
+      if (isHost) {
+        startBingoGame(roomConfig);
+      }
+      return;
+    }
+    if (housefullCount >= 15) claimBingo('housefull');
+    else if (topLineCount >= 5) claimBingo('topLine');
+    else if (middleLineCount >= 5) claimBingo('middleLine');
+    else if (bottomLineCount >= 5) claimBingo('bottomLine');
+    else if (fourCornersCount >= 4) claimBingo('fourCorners');
+    else if (early5Count >= 5) claimBingo('early5');
+    else claimBingo('early5');
+  };
+
+  // Send Chat message
+  const handleSendChat = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim()) return;
+    sendChat(chatInput.trim());
+    setChatInput('');
+  };
 
   return (
-    <div className="min-h-screen text-white flex flex-col justify-between selection:bg-rose-600 selection:text-white relative overflow-hidden font-sans">
-      {/* Full-Screen Ambient Wallpaper Background */}
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat select-none pointer-events-none transition-all duration-700"
-        style={{ backgroundImage: `url('${currentTheme.bgUrl || '/images/cozy_ludo_bg.jpg'}')` }}
-      >
-        <div className="absolute inset-0 bg-[#0c0818]/75 backdrop-blur-[2px]" />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-gradient-to-br from-[#fcf7fa] via-[#faedf5] to-[#f4e2ee] text-[#1e1435] flex flex-col justify-between selection:bg-[#ff3b77] selection:text-white relative overflow-x-hidden font-sans">
+      
+      {/* Soft Ambient Pastel Background Blurs */}
+      <div className="fixed inset-0 pointer-events-none select-none z-0">
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-pink-200/40 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 right-1/4 w-[550px] h-[550px] bg-purple-200/35 rounded-full blur-3xl" />
       </div>
-
-      <DynamicThemeEffects themeId={activeTheme} />
-
-      {/* Floating Remote Audio Player */}
-      {callParticipants.map(p => (
-        !p.isSelf && p.stream ? <RemoteAudioPlayer key={p.userId} stream={p.stream} /> : null
-      ))}
 
       {/* Floating Reactions Overlay */}
       <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-        {floatingReactions.map((r) => (
+        {floatingReactions.map((r: any) => (
           <div
             key={r.id}
-            className="absolute bottom-28 left-1/2 -translate-x-1/2 animate-bounce text-3xl font-bold flex items-center gap-2 bg-black/70 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 shadow-2xl"
+            className="absolute bottom-28 left-1/2 -translate-x-1/2 animate-bounce text-3xl font-bold flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full border border-pink-200 shadow-2xl"
           >
             <span>{r.emoji}</span>
-            <span className="text-xs text-rose-300 font-semibold">{r.userName}</span>
+            <span className="text-xs text-[#ff3864] font-semibold">{r.userName}</span>
           </div>
         ))}
       </div>
 
+      {/* Claim Result Toast Notification */}
+      {claimToast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-3 duration-200">
+          <div
+            className={`px-5 py-3 rounded-2xl border shadow-2xl flex items-center gap-2.5 text-xs font-black ${
+              claimToast.valid
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-emerald-200/50'
+                : 'bg-rose-50 border-rose-300 text-rose-800 shadow-rose-200/50'
+            }`}
+          >
+            {claimToast.valid ? <Sparkles className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
+            <span>{claimToast.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* MAIN CONTAINER */}
+      <div className="relative z-10 w-full max-w-[1440px] mx-auto p-3 sm:p-6 lg:p-8 flex flex-col gap-4">
+        
+        {/* 1. TOP HEADER BAR */}
+        <header className="flex items-center justify-between gap-4">
+          {/* Left: Ticket icon, Title & "Play Laugh Stay Together ♡" */}
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#ff2b70] via-[#ff3b77] to-[#ff6699] flex items-center justify-center text-white shadow-md shadow-pink-500/25 shrink-0">
+              <Ticket className="w-6 h-6 stroke-[2.2]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-black text-[#1e1435] tracking-tight">
+                  Tambola
+                </h1>
+                {/* Play Laugh Stay Together Script */}
+                <div className="font-serif italic text-[11px] leading-[1.05] text-[#ff2b70] tracking-tight select-none">
+                  Play<br />Laugh<br />Stay Together ♡
+                </div>
+              </div>
+              <p className="text-xs text-[#8a80a0] font-medium tracking-wide">
+                1-90 Numbers • Classic Fun • 2 Players
+              </p>
+            </div>
+          </div>
+
+          {/* Right: "Same Numbers Different Hearts" Quote & Quick Navigation */}
+          <div className="flex items-center gap-4">
+            <span className="hidden md:inline-block font-serif italic text-base text-[#8d4b88] tracking-wide select-none">
+              “Same Numbers Different Hearts” ♡
+            </span>
+            <button
+              onClick={handleLeave}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/80 hover:bg-white text-xs font-bold text-[#4a3e68] border border-pink-100 shadow-xs transition cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Leave</span>
+            </button>
+          </div>
+        </header>
+
+        {/* 2. TOP DUEL PLAYERS BAR */}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
+          {/* Left Player Card (You) */}
+          <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-sm shrink-0 flex items-center justify-center">
+              {me?.avatarUrl ? (
+                <img src={me.avatarUrl} alt={me.displayName} className="w-full h-full object-cover" />
+              ) : (
+                <img
+                  src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${me?.displayName || 'Mayur'}&glassesProbability=100`}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
+                  {me?.displayName || 'Mayur Bhargava'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-[#ffe8f0] text-[#ff3864] text-[10px] font-black uppercase tracking-wider">
+                  You
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1">
+                <span className="font-bold text-[#1e1435]">
+                  Score: <span className="font-extrabold text-[#1e1435]">{myScore} pts</span>
+                </span>
+                <span className="text-[10px] font-semibold text-[#8a80a0]">
+                  {myMarkedCount}/15 Marked
+                </span>
+              </div>
+              {/* Pink Progress Bar */}
+              <div className="w-full h-2 rounded-full bg-[#fdebf2] overflow-hidden mt-1.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#ff3864] to-[#ff6b8b] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (myMarkedCount / 15) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Center VS Chip */}
+          <div className="flex flex-col items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#ffeef4] border border-pink-200/80 flex items-center justify-center text-xs font-black text-[#ff3864] shadow-xs">
+              VS
+            </div>
+            <span className="text-[10px] text-[#8a80a0] font-medium mt-1">
+              1v1 Tambola Duel
+            </span>
+          </div>
+
+          {/* Right Player Card (Opponent) */}
+          <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-sm shrink-0 flex items-center justify-center">
+              {opponent?.avatarUrl ? (
+                <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
+              ) : (
+                <img
+                  src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${opponent?.displayName || 'abcdghijk552'}&hair=long`}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
+                  {opponent?.displayName || 'abcdghijk552'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1">
+                <span className="font-bold text-[#1e1435]">
+                  Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
+                </span>
+                <span className="text-[10px] font-semibold text-[#8a80a0]">
+                  {opponentMarkedCount}/15 Marked
+                </span>
+              </div>
+              {/* Lavender Progress Bar */}
+              <div className="w-full h-2 rounded-full bg-[#f3eafc] overflow-hidden mt-1.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (opponentMarkedCount / 15) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. MAIN ARENA (GRID: LEFT TICKET/PROGRESS, MIDDLE CALLER/CALL, RIGHT CHAT) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+          
+          {/* LEFT COLUMN: TICKET & WINNING PROGRESS (8 COLS) */}
+          <div className="lg:col-span-8 flex flex-col gap-4">
+            
+            {/* TICKET + CALLER ROW */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              
+              {/* YOUR TAMBOLA TICKET CARD (7 COLS OF 12) */}
+              <div className="md:col-span-7 bg-white/95 backdrop-blur-md rounded-[30px] p-5 sm:p-6 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)] flex flex-col justify-between">
+                
+                {/* Ticket Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-[#ffe8f0] text-[#ff3864] flex items-center justify-center shadow-xs">
+                      <Crown className="w-3.5 h-3.5 stroke-[2.5]" />
+                    </div>
+                    <h2 className="text-base sm:text-lg font-black text-[#1e1435]">
+                      Your Tambola Ticket
+                    </h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleNewTicket}
+                    className="flex items-center gap-1 text-xs font-bold text-[#4a3e68] hover:text-[#ff3864] transition cursor-pointer"
+                  >
+                    <Shuffle className="w-3.5 h-3.5" />
+                    <span>New Ticket</span>
+                  </button>
+                </div>
+
+                {/* The 3x9 Ticket Grid */}
+                <div className="space-y-1.5 sm:space-y-2 select-none my-auto">
+                  {ticketCells.map((row: (number | null)[], rIdx: number) => (
+                    <div key={`row-${rIdx}`} className="grid grid-cols-9 gap-1 sm:gap-1.5">
+                      {row.map((num: number | null, cIdx: number) => {
+                        if (num === null) {
+                          return (
+                            <div
+                              key={`blank-${rIdx}-${cIdx}`}
+                              className="aspect-square rounded-xl bg-[#f7f8fc] border border-slate-200/50 flex items-center justify-center"
+                            />
+                          );
+                        }
+
+                        const isMarked = myMarkedSet.has(num);
+                        const isCalled = calledSet.has(num);
+
+                        return (
+                          <button
+                            key={`cell-${rIdx}-${cIdx}`}
+                            type="button"
+                            onClick={() => handleCellClick(num)}
+                            className={`aspect-square rounded-xl border flex items-center justify-center font-mono text-xs sm:text-base font-black transition-all cursor-pointer ${
+                              isMarked
+                                ? 'bg-[#ffe4ec] border-2 border-[#ff3864] text-[#1e1435] shadow-xs scale-98'
+                                : isCalled
+                                ? 'bg-amber-50 border-amber-300 text-[#1e1435] ring-2 ring-amber-300/60 animate-pulse hover:bg-amber-100 hover:scale-105'
+                                : 'bg-white border-slate-200/80 text-[#1e1435] hover:border-pink-300 hover:scale-105 shadow-xs'
+                            }`}
+                          >
+                            {num}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Ticket Footer Legend & Auto Mark */}
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 text-xs">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#ff3864]" />
+                      <span className="font-bold text-[#1e1435]">
+                        Marked ({myMarkedCount}/15)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
+                      <span className="text-[#8a80a0] font-medium">
+                        Not in your ticket
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Auto Mark Toggle */}
+                  <div className="flex items-center gap-2">
+                    <ScanLine className="w-3.5 h-3.5 text-[#4a3e68]" />
+                    <span className="text-xs font-bold text-[#1e1435]">
+                      Auto Mark: <span className="font-extrabold">{autoMark ? 'ON' : 'OFF'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setAutoMark(!autoMark)}
+                      className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
+                        autoMark ? 'bg-[#ff3864]' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out ${
+                          autoMark ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* CURRENT NUMBER CALLER CARD (5 COLS OF 12) */}
+              <div className="md:col-span-5 bg-white/95 backdrop-blur-md rounded-[30px] p-5 sm:p-6 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)] flex flex-col items-center justify-between text-center">
+                
+                <h3 className="text-sm sm:text-base font-extrabold text-[#1e1435]">
+                  Current Number
+                </h3>
+
+                {/* Big Glowing Dial with Sunburst Rays */}
+                <div className="relative my-3 flex items-center justify-center">
+                  {/* Decorative Sunburst Rays */}
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <span className="absolute -left-3 w-3 h-0.5 bg-amber-400 rounded-full" />
+                    <span className="absolute -right-3 w-3 h-0.5 bg-amber-400 rounded-full" />
+                    <span className="absolute -top-1 -left-1 w-3 h-0.5 bg-amber-400 rounded-full -rotate-45" />
+                    <span className="absolute -top-1 -right-1 w-3 h-0.5 bg-amber-400 rounded-full rotate-45" />
+                  </div>
+
+                  {/* Circular Ring */}
+                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-[#ff3864] flex flex-col items-center justify-center bg-white shadow-[0_4px_25px_rgba(255,56,100,0.18)]">
+                    <span className="text-4xl sm:text-5xl font-black text-[#1e1435] tracking-tight font-mono">
+                      {currentNum}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Uppercase Word Label */}
+                <div className="text-xs font-black tracking-widest text-[#ff3864] uppercase -mt-1 mb-2">
+                  {currentWord}
+                </div>
+
+                {/* Last 5 Numbers */}
+                <div className="w-full">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-[#8a80a0] mb-1.5 px-1">
+                    <span>Last 5 Numbers</span>
+                    <span>{remaining} Left</span>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-1.5">
+                    {lastCalled.slice(0, 5).map((num: number, idx: number) => (
+                      <div
+                        key={`${num}-${idx}`}
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center font-mono text-xs sm:text-sm font-bold ${
+                          idx === 0
+                            ? 'bg-[#ffe4ec] border-[#ff3864]/40 text-[#ff3864] shadow-xs'
+                            : 'bg-[#f7f8fc] border-slate-200/80 text-[#1e1435]'
+                        }`}
+                      >
+                        {num}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Big Vibrant Pink Claim Button */}
+                <button
+                  type="button"
+                  onClick={handleClaim}
+                  className="w-full mt-4 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-[0_8px_25px_rgba(255,56,100,0.35)] flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 fill-white" />
+                  <span>
+                    {!isPlaying && isHost
+                      ? '🎮 START TAMBOLA'
+                      : '🎉 I HAVE A BINGO!'}
+                  </span>
+                </button>
+
+              </div>
+            </div>
+
+            {/* WINNING PROGRESS CARD (2 ROWS X 3 COLS) */}
+            <div className="bg-white/95 backdrop-blur-md rounded-[30px] p-5 sm:p-6 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)]">
+              
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shadow-xs">
+                  <Trophy className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="text-sm sm:text-base font-extrabold text-[#1e1435]">
+                  Winning Progress
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3.5">
+                {/* Early 5 */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
+                    <span>Early 5</span>
+                    <span className="text-[#8a80a0] font-medium">{early5Count} / 5</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
+                    <div
+                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                      style={{ width: `${Math.min(100, (early5Count / 5) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Top Line */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
+                    <span>Top Line</span>
+                    <span className="text-[#8a80a0] font-medium">{topLineCount} / 5</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
+                    <div
+                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                      style={{ width: `${Math.min(100, (topLineCount / 5) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Middle Line */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
+                    <span>Middle Line</span>
+                    <span className="text-[#8a80a0] font-medium">{middleLineCount} / 5</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
+                    <div
+                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                      style={{ width: `${Math.min(100, (middleLineCount / 5) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Bottom Line */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
+                    <span>Bottom Line</span>
+                    <span className="text-[#8a80a0] font-medium">{bottomLineCount} / 5</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
+                    <div
+                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                      style={{ width: `${Math.min(100, (bottomLineCount / 5) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Four Corners */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
+                    <span>Four Corners</span>
+                    <span className="text-[#8a80a0] font-medium">{fourCornersCount} / 4</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
+                    <div
+                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                      style={{ width: `${Math.min(100, (fourCornersCount / 4) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Housefull */}
+                <div>
+                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
+                    <span>Housefull</span>
+                    <span className="text-[#8a80a0] font-medium">{housefullCount} / 15</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
+                    <div
+                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                      style={{ width: `${Math.min(100, (housefullCount / 15) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* Bottom Row: Romantic script quote + Call Widget + Popcorn Container */}
+            <div className="flex items-center justify-between pt-2">
+              <div className="font-serif italic text-base sm:text-lg text-[#8d4b88] tracking-wide select-none">
+                Good Games<br />Better Company ♡
+              </div>
+
+              {/* Call Widget & Popcorn */}
+              <div className="flex items-end gap-3">
+                {/* Floating Call Card */}
+                {!isCallClosed && (
+                  <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white shadow-xl flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-1.5 text-[#1e1435] font-black">
+                        <GripHorizontal className="w-3.5 h-3.5 text-rose-500" />
+                        <span>Call (2/2)</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={toggleMic}
+                          className={`w-6 h-6 rounded-full flex items-center justify-center transition ${
+                            isMicMuted ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
+                          }`}
+                        >
+                          {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleCamera}
+                          className={`w-6 h-6 rounded-full flex items-center justify-center transition ${
+                            isCameraOn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          <Video className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsCallMinimized(!isCallMinimized)}
+                          className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsCallClosed(true)}
+                          className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-rose-100 hover:text-rose-600"
+                        >
+                          <CloseIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {!isCallMinimized && (
+                      <div className="flex items-center gap-2 pt-1">
+                        {/* Self participant feed */}
+                        <div className="relative w-20 sm:w-24 h-16 sm:h-18 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex flex-col items-center justify-center shadow-inner group">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff3864] to-[#ff6699] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                            {me?.displayName?.charAt(0).toUpperCase() || 'Y'}
+                          </div>
+                          <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between text-[9px] font-bold text-[#1e1435]">
+                            <span className="truncate">You</span>
+                            <span className="text-[10px]">{isMicMuted ? '🔴' : '🟢'}</span>
+                          </div>
+                        </div>
+
+                        {/* Opponent participant feed */}
+                        <div className="relative w-20 sm:w-24 h-16 sm:h-18 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex flex-col items-center justify-center shadow-inner group">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff3864] to-[#ff80a0] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                            {opponent?.displayName?.charAt(0).toUpperCase() || 'A'}
+                          </div>
+                          <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between text-[9px] font-bold text-[#1e1435]">
+                            <span className="truncate max-w-[50px]">{opponent?.displayName || 'abcdghijk552'}</span>
+                            <span className="text-[10px]">🟢</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Popcorn Bucket Decor */}
+                <div className="relative w-16 h-20 select-none pointer-events-none">
+                  <div className="absolute bottom-0 w-14 h-14 bg-gradient-to-b from-pink-100 to-rose-200 rounded-b-2xl rounded-t-sm border border-rose-300 shadow-lg flex flex-col items-center justify-center text-center p-1">
+                    <span className="font-serif italic font-black text-[9px] text-[#ff2b70] leading-tight">
+                      Good<br />Vibes<br />Only
+                    </span>
+                  </div>
+                  {/* Popcorn kernals overflowing */}
+                  <div className="absolute -top-1 left-1 flex gap-0.5">
+                    <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs" />
+                    <span className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 shadow-xs -ml-1 -mt-1" />
+                    <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs -ml-1" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* RIGHT COLUMN: GAME CHAT CARD (4 COLS) */}
+          <div className="lg:col-span-4 bg-white/95 backdrop-blur-md rounded-[30px] p-4 sm:p-5 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)] flex flex-col justify-between h-[660px]">
+            
+            {/* Chat Header */}
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#7c3aed] text-white flex items-center justify-center shadow-xs">
+                    <Send className="w-4 h-4 rotate-45" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-[#1e1435]">Game Chat</h3>
+                    <p className="text-[10px] text-[#8a80a0] font-medium">Live messages, reactions & fun!</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Message List */}
+              <div ref={chatScrollRef} className="h-[390px] overflow-y-auto py-3 space-y-3.5 pr-1">
+                {chatMessages.length === 0 ? (
+                  /* Initial dialogue matching the screenshot */
+                  <>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=Mayur&glassesProbability=100`}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs font-bold text-[#1e1435]">Mayur</span>
+                          <span className="text-[10px] text-slate-400">8:41 PM</span>
+                        </div>
+                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Ready? 👀</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=abcdghijk552&hair=long`}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs font-bold text-[#1e1435]">abcdghijk552</span>
+                          <span className="text-[10px] text-slate-400">8:41 PM</span>
+                        </div>
+                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Let's go! 🔥</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=Mayur&glassesProbability=100`}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs font-bold text-[#1e1435]">Mayur</span>
+                          <span className="text-[10px] text-slate-400">8:42 PM</span>
+                        </div>
+                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Nice number!</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=abcdghijk552&hair=long`}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs font-bold text-[#1e1435]">abcdghijk552</span>
+                          <span className="text-[10px] text-slate-400">8:42 PM</span>
+                        </div>
+                        <div className="text-xs text-[#332a47] font-medium mt-0.5">So close! 😂</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=Mayur&glassesProbability=100`}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs font-bold text-[#1e1435]">Mayur</span>
+                          <span className="text-[10px] text-slate-400">8:43 PM</span>
+                        </div>
+                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Bingo soon! 🎯</div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  chatMessages.map((m: any) => (
+                    <div key={m.id} className="flex items-start gap-2.5">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                        <img
+                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${m.userName}`}
+                          alt="Avatar"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xs font-bold text-[#1e1435]">{m.userName}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="text-xs text-[#332a47] font-medium mt-0.5">{m.content}</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Actions: Emoji row, Quick phrases & Message Input */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              {/* Emojis row */}
+              <div className="flex items-center justify-between text-xl px-1">
+                {['❤️', '😂', '🔥', '🎉', '🎲', '😍'].map((emoji: string) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => sendReaction(emoji)}
+                    className="hover:scale-130 transition transform active:scale-95 cursor-pointer"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick phrases pills */}
+              <div className="flex items-center justify-between gap-1 text-[10px]">
+                {['Good Luck! 🍀', 'Nice Mark! 👏', 'Bingo soon! 🎯'].map((phrase: string) => (
+                  <button
+                    key={phrase}
+                    type="button"
+                    onClick={() => sendChat(phrase)}
+                    className="flex-1 py-1 px-1.5 rounded-full bg-[#f6f7fb] hover:bg-[#ffeef4] text-[#4a3e68] hover:text-[#ff3864] font-semibold border border-slate-200/60 transition cursor-pointer text-center truncate"
+                  >
+                    {phrase}
+                  </button>
+                ))}
+              </div>
+
+              {/* Input & Send button */}
+              <form onSubmit={handleSendChat} className="flex items-center gap-1.5 pt-1">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 bg-[#f6f7fb] border border-slate-200/80 rounded-2xl px-3.5 py-2.5 text-xs text-[#1e1435] placeholder:text-slate-400 focus:outline-none focus:border-[#ff3864] transition"
+                />
+                <button
+                  type="submit"
+                  disabled={!chatInput.trim()}
+                  className="w-9 h-9 rounded-2xl bg-[#ff3864] hover:bg-[#e6005c] disabled:opacity-40 text-white flex items-center justify-center shadow-md shadow-pink-500/20 transition cursor-pointer shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
       {/* Rematch Request Popup from Opponent */}
       {rematchStatus && !rematchStatus.allVoted && !rematchStatus.votedUserIds?.includes(effectiveUserId) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-rose-500/40 text-white shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_35px_rgba(244,63,94,0.25)] text-center space-y-4 relative overflow-hidden">
-            <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-3xl shadow-lg shadow-rose-500/30 animate-bounce">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-[32px] p-6 bg-white border border-pink-200 text-[#1e1435] shadow-2xl text-center space-y-4">
+            <div className="w-16 h-16 mx-auto rounded-full bg-pink-100 text-3xl flex items-center justify-center shadow-sm">
               ⚔️
             </div>
             <div>
-              <h3 className="text-xl font-black text-white">Rematch Challenge!</h3>
-              <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                <strong className="text-[#ff3864] font-bold">{rematchStatus.requesterName || opponent?.displayName || 'Your Opponent'}</strong> has requested a rematch!
-                <br />
-                Do you want to play again?
+              <h3 className="text-xl font-black">Rematch Challenge!</h3>
+              <p className="text-xs text-[#8a80a0] mt-1">
+                <strong className="text-[#ff3864]">{rematchStatus.requesterName || opponent?.displayName || 'Your Opponent'}</strong> has requested a rematch!
               </p>
             </div>
-            <div className="flex flex-col gap-2.5 pt-2">
+            <div className="flex flex-col gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => rematch()}
-                className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-bold text-xs sm:text-sm rounded-2xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer"
+                className="w-full py-3 px-4 bg-[#ff3864] hover:bg-[#e6005c] text-white font-bold text-xs sm:text-sm rounded-2xl shadow-lg shadow-pink-500/30 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>Accept Rematch (Yes!)</span>
@@ -527,7 +1140,7 @@ function BingoGameContent() {
               <button
                 type="button"
                 onClick={declineRematch}
-                className="w-full py-2.5 px-4 bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold text-zinc-300 rounded-xl transition cursor-pointer"
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 rounded-xl cursor-pointer"
               >
                 Decline (No)
               </button>
@@ -535,495 +1148,6 @@ function BingoGameContent() {
           </div>
         </div>
       )}
-
-      {/* Rematch Waiting Modal for requester */}
-      {rematchStatus && !rematchStatus.allVoted && rematchStatus.votedUserIds?.includes(effectiveUserId) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-7 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4 relative overflow-hidden">
-            <div className="w-16 h-16 mx-auto rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-3xl animate-pulse">
-              ⏳
-            </div>
-            <h3 className="text-xl font-black text-white">Rematch Requested</h3>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              Waiting for <strong className="text-rose-400 font-bold">{opponent?.displayName || 'Opponent'}</strong> to accept the rematch...
-            </p>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={declineRematch}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-bold text-zinc-300 transition cursor-pointer"
-              >
-                Cancel Request
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rematch Declined / Opponent Left Modal */}
-      {rematchDeclined && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-3xl">
-              🚪
-            </div>
-            <h3 className="text-xl font-black text-white">Rematch Declined</h3>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              {rematchDeclined.message || 'Opponent declined the rematch or left the game.'}
-            </p>
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  clearRematchDeclined();
-                  router.push('/games');
-                }}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition"
-              >
-                Games Hub
-              </button>
-              <button
-                type="button"
-                onClick={clearRematchDeclined}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-[#ff2b5e] hover:bg-rose-600 text-xs font-bold text-white transition"
-              >
-                Stay on Board
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Claim Result Toast Notification */}
-      {claimToast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-3 duration-200">
-          <div
-            className={`px-5 py-3 rounded-2xl border shadow-2xl flex items-center gap-2.5 text-xs font-black ${
-              claimToast.valid
-                ? 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200 shadow-emerald-950/50'
-                : 'bg-rose-950/90 border-rose-500/50 text-rose-200 shadow-rose-950/50'
-            }`}
-          >
-            {claimToast.valid ? <Sparkles className="w-4 h-4 text-yellow-300" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
-            <span>{claimToast.message}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Condition Won Banner */}
-      {lastBingoConditionWon && (
-        <div className="bg-gradient-to-r from-rose-950/80 via-purple-950/80 to-rose-950/80 border-b border-rose-500/30 px-4 py-2 text-center text-xs font-black text-white flex items-center justify-center gap-2 z-20 backdrop-blur-md">
-          <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-          <span>
-            {lastBingoConditionWon.displayName} won {lastBingoConditionWon.conditionName}! (+{lastBingoConditionWon.points} pts)
-          </span>
-        </div>
-      )}
-
-      {/* TOP NAVIGATION HEADER BAR */}
-      <header className="h-16 px-4 sm:px-8 border-b border-white/10 flex items-center justify-between bg-[#0e0c18]/80 backdrop-blur-xl z-30 sticky top-0">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleLeave}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Leave</span>
-          </button>
-
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="text-lg">🎱</span>
-            <span className="text-sm font-black text-white tracking-wide">Tambola</span>
-            <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-[10px] text-zinc-300 font-mono">
-              Room: {room?.roomCode || roomCodeParam}
-            </span>
-          </div>
-        </div>
-
-        {/* Video Call Show Button (if minimized or closed, ONLY WHEN IN ROOM) */}
-        {roomCodeParam && isPipClosed && (
-          <button
-            onClick={() => setIsPipClosed(false)}
-            className="px-3 py-1 rounded-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 shadow text-xs font-semibold flex items-center gap-1.5 transition"
-            title="Open Floating Video Call"
-          >
-            <Video className="w-3.5 h-3.5 text-rose-400" />
-            <span>Show Call</span>
-          </button>
-        )}
-
-        <div className="flex items-center gap-2">
-          {roomCodeParam && (
-            <>
-              {/* Audio Mic Toggle */}
-              <button
-                type="button"
-                onClick={toggleMic}
-                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                  isMicMuted
-                    ? 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
-                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
-                }`}
-                title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
-              >
-                {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </button>
-
-              {/* Camera Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  toggleCamera();
-                  if (isPipClosed) setIsPipClosed(false);
-                }}
-                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                  isCameraOn
-                    ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
-                    : 'bg-white/10 border-white/15 text-zinc-400 hover:text-white'
-                }`}
-                title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
-              >
-                {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-              </button>
-
-              {/* Chat Drawer Toggle */}
-              <button
-                type="button"
-                onClick={() => setIsChatOpen(!isChatOpen)}
-                className={`relative w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                  isChatOpen
-                    ? 'bg-rose-600 border-rose-500 text-white'
-                    : 'bg-white/10 hover:bg-white/15 border-white/15 text-white'
-                }`}
-                title="Toggle Match Chat"
-              >
-                <MessageSquare className="w-4 h-4" />
-                {chatMessages.length > 0 && !isChatOpen && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[9px] font-black flex items-center justify-center text-white">
-                    {chatMessages.length}
-                  </span>
-                )}
-              </button>
-            </>
-          )}
-
-          {/* Theme Switcher Button */}
-          <button
-            type="button"
-            onClick={() => setShowThemeModal(true)}
-            className="w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center justify-center shadow-xs"
-            title="Change Theme Wallpaper"
-          >
-            <Palette className="w-4 h-4 text-amber-300" />
-          </button>
-
-          {/* Game History */}
-          <button
-            type="button"
-            onClick={() => setShowHistoryModal(true)}
-            className="w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center justify-center shadow-xs"
-            title="Scoreboard & History"
-          >
-            <Trophy className="w-4 h-4 text-yellow-400" />
-          </button>
-
-          {/* Settings Modal */}
-          <button
-            type="button"
-            onClick={() => setShowSettingsModal(true)}
-            className="w-9 h-9 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center justify-center shadow-xs"
-            title="Room Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
-
-      {/* MOVEABLE FLOATING VIDEO CALL WINDOW (ONLY IN ROOM) */}
-      {roomCodeParam && !isPipClosed && (
-        <div
-          ref={pipRef}
-          onMouseDown={handlePipDragStart}
-          onTouchStart={handlePipDragStart}
-          style={
-            pipPosition
-              ? { left: `${pipPosition.x}px`, top: `${pipPosition.y}px` }
-              : { left: '32px', top: '140px' }
-          }
-          className={`fixed z-40 select-none bg-[#140f22]/95 border border-white/20 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-shadow ${
-            isDraggingPip
-              ? 'cursor-grabbing ring-2 ring-rose-500/60 shadow-[0_25px_60px_rgba(244,63,94,0.35)] scale-[1.02]'
-              : 'cursor-grab hover:border-white/30'
-          } ${isPipMinimized ? 'px-3 py-2' : 'p-2.5 sm:p-3'}`}
-        >
-          {/* Top Bar: Drag Grip + In-Call Controls */}
-          <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-white/10 touch-none">
-            <div className="flex items-center gap-1.5 text-zinc-300 pointer-events-none">
-              <GripHorizontal className="w-4 h-4 text-rose-400/80" />
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-white">
-                Call ({callParticipants.length}/2)
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleMic();
-                }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
-                  isMicMuted
-                    ? 'bg-rose-950/80 border-rose-500/60 text-rose-300 hover:bg-rose-900'
-                    : 'bg-emerald-950/80 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900 ring-1 ring-emerald-400/40'
-                }`}
-                title={isMicMuted ? 'Unmute' : 'Mute'}
-              >
-                {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 animate-pulse" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleCamera();
-                }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
-                  isCameraOn
-                    ? 'bg-emerald-950/80 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900 ring-1 ring-emerald-400/40'
-                    : 'bg-rose-950/80 border-rose-500/60 text-rose-300 hover:bg-rose-900'
-                }`}
-                title={isCameraOn ? 'Turn Off Cam' : 'Turn On Cam'}
-              >
-                {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPipMinimized(!isPipMinimized);
-                }}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center transition"
-                title={isPipMinimized ? 'Expand' : 'Minimize'}
-              >
-                <Minus className="w-3.5 h-3.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPipClosed(true);
-                }}
-                className="w-7 h-7 rounded-full bg-white/10 hover:bg-rose-500/30 text-zinc-400 hover:text-rose-200 flex items-center justify-center transition"
-                title="Hide Call Box"
-              >
-                <CloseIcon className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Video Feeds Grid */}
-          {!isPipMinimized && (
-            <div className="flex items-center gap-2 pt-1">
-              {callParticipants.map(participant => (
-                <div
-                  key={participant.userId}
-                  className="relative w-28 sm:w-32 h-20 sm:h-22 rounded-2xl bg-black/70 border border-white/15 overflow-hidden flex items-center justify-center shadow-inner group"
-                >
-                  {participant.stream && participant.isCameraOn ? (
-                    <VideoAvatar
-                      stream={participant.stream}
-                      isSelf={participant.isSelf}
-                      displayName={participant.displayName}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-center p-2">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-black text-xs flex items-center justify-center mb-1 shadow">
-                        {participant.displayName.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-[10px] text-zinc-300 font-bold truncate max-w-[90px]">
-                        {participant.displayName}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-bold text-white/90 drop-shadow pointer-events-none">
-                    <span className="truncate max-w-[65px]">{participant.displayName}</span>
-                    <span className="shrink-0">{!participant.isMuted ? '🟢' : '🔴'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MAIN GAME ARENA (ONLY SELF TICKET IS SHOWN) */}
-      <main className="flex-1 flex flex-col justify-start p-3 sm:p-6 z-10 max-w-[1400px] mx-auto w-full space-y-4">
-        
-        {/* TOP OPPONENT DUEL STATUS BAR */}
-        <div className="w-full bg-[#140f22]/85 border border-white/15 rounded-3xl p-3.5 sm:p-4 shadow-xl backdrop-blur-xl flex items-center justify-between gap-4">
-          {/* Self Player Badge */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center font-black text-rose-300 text-sm overflow-hidden shadow-sm shrink-0">
-              {me?.avatarUrl ? (
-                <img src={me.avatarUrl} alt={me.displayName} className="w-full h-full object-cover" />
-              ) : (
-                me?.displayName?.charAt(0).toUpperCase() || 'Y'
-              )}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs sm:text-sm font-black text-white truncate max-w-[110px] sm:max-w-[160px]">
-                  {me?.displayName || 'You'}
-                </span>
-                <span className="px-1.5 py-0.2 rounded-md bg-rose-500/20 text-[#ff3864] text-[9px] font-black uppercase">
-                  YOU
-                </span>
-              </div>
-              <span className="text-xs text-rose-400 font-mono font-bold">
-                Score: {myScore} pts
-              </span>
-            </div>
-          </div>
-
-          {/* VS Center Badge */}
-          <div className="flex flex-col items-center">
-            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-black tracking-widest text-amber-300 shadow-xs">
-              VS
-            </span>
-            <span className="text-[10px] text-zinc-400 font-mono mt-0.5">
-              1v1 Tambola Duel
-            </span>
-          </div>
-
-          {/* Opponent Player Badge */}
-          <div className="flex items-center gap-3 min-w-0 justify-end">
-            <div className="text-right min-w-0">
-              <div className="flex items-center justify-end gap-1.5">
-                <span className="text-xs sm:text-sm font-black text-white truncate max-w-[110px] sm:max-w-[160px]">
-                  {opponent ? opponent.displayName : 'Opponent'}
-                </span>
-                {opponent && opponentCompletedCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300 text-[9px] font-black">
-                    {opponentCompletedCount} claims
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-cyan-400 font-mono font-bold">
-                Score: {opponentScore} pts
-              </span>
-            </div>
-            <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center font-black text-cyan-300 text-sm overflow-hidden shadow-sm shrink-0">
-              {opponent?.avatarUrl ? (
-                <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
-              ) : (
-                opponent?.displayName?.charAt(0).toUpperCase() || 'O'
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* CENTER ARENA: SELF TICKET + BALL CALLER */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
-          {/* LEFT: MY TICKET & MY PROGRESS (ONLY SELF TICKET) */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="rounded-3xl bg-[#140f22]/90 border border-white/15 shadow-2xl backdrop-blur-2xl p-4 sm:p-6 transition-all">
-              <BingoTicket
-                ticket={myTicket}
-                mode={roomConfig.mode}
-                playerName={me?.displayName || 'You'}
-                avatarUrl={me?.avatarUrl}
-                score={myScore}
-                isHost={isHost}
-                isMe={true}
-                calledNumbers={gameState?.calledNumbers || []}
-                markedNumbers={myMarked}
-                onToggleMark={(n) => markBingoNumber(n)}
-                accentColor="rose"
-              />
-            </div>
-
-            <WinningProgress
-              progress={myProgress}
-              playerName={me?.displayName || 'You'}
-            />
-          </div>
-
-          {/* RIGHT: BALL CALLER + CLAIM BUTTON + EMOJIS */}
-          <div className="lg:col-span-5 flex flex-col items-center space-y-5">
-            <div className="w-full rounded-3xl bg-[#140f22]/90 border border-white/15 shadow-2xl backdrop-blur-2xl p-5 sm:p-6 flex flex-col items-center">
-              <BingoCaller
-                currentNumber={currentNum}
-                currentNumberWord={currentWord}
-                lastCalledNumbers={lastCalled}
-                remainingCount={remaining}
-                totalNumbers={roomConfig.mode === '75-ball' ? 75 : 90}
-                isAutoCall={roomConfig.autoCall}
-                callingSpeed={roomConfig.callingSpeed}
-                isHost={isHost}
-                onCallNext={callNextBingoNumber}
-              />
-
-              {/* Big Glowing Claim Bingo Button */}
-              <div className="w-full pt-4 flex justify-center">
-                <ClaimBingoButton
-                  conditionProgress={myProgress}
-                  claimedConditions={gameState?.claimedConditions || {}}
-                  onClaim={(c) => claimBingo(c)}
-                  penaltyUntil={gameState?.penaltyUntil?.[me?.userId || '']}
-                  lastClaimResult={lastBingoClaimResult}
-                />
-              </div>
-            </div>
-
-            {/* Quick Emoji Reactions Bar */}
-            <div className="w-full p-3 rounded-2xl bg-[#140f22]/80 border border-white/10 backdrop-blur-xl shadow-lg flex items-center justify-between gap-1 overflow-x-auto">
-              {QUICK_REACTION_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => sendReaction(emoji)}
-                  className="p-1.5 text-lg hover:scale-130 transition transform active:scale-95 cursor-pointer"
-                  title={`Send ${emoji}`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Bottom Social Controls Dock */}
-        <div className="pt-2 pb-2">
-          <BingoBottomDock
-            isMuted={isMicMuted}
-            isCameraOn={isCameraOn}
-            unreadChatCount={chatMessages.length}
-            onToggleMic={toggleMic}
-            onToggleCamera={toggleCamera}
-            onToggleChat={() => setIsChatOpen(!isChatOpen)}
-            onSendReaction={(emoji) => sendReaction(emoji)}
-            onOpenSettings={() => setShowSettingsModal(true)}
-          />
-        </div>
-
-      </main>
-
-      {/* Side Chat Drawer */}
-      <BingoChatDrawer
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        messages={chatMessages}
-        myUserId={effectiveUserId}
-        onSendMessage={(text) => sendChat(text)}
-      />
 
       {/* Victory Celebration Modal */}
       {isFinished && (
@@ -1042,92 +1166,7 @@ function BingoGameContent() {
         />
       )}
 
-      {/* Theme Selector Modal */}
-      {showThemeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-3xl p-6 bg-[#161220] border border-white/20 text-white shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <Palette className="w-5 h-5 text-amber-300" />
-                <h3 className="font-bold text-base">Select Arena Theme</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowThemeModal(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition"
-              >
-                <CloseIcon className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 max-h-[60vh] overflow-y-auto p-1">
-              {THEMES.map((theme) => (
-                <div
-                  key={theme.id}
-                  onClick={() => {
-                    setActiveTheme(theme.id);
-                    setShowThemeModal(false);
-                  }}
-                  className={`group relative rounded-2xl overflow-hidden border p-3 cursor-pointer transition flex flex-col justify-between h-28 ${
-                    activeTheme === theme.id
-                      ? 'border-rose-500 ring-2 ring-rose-500/40'
-                      : 'border-white/15 hover:border-white/30'
-                  }`}
-                >
-                  <img
-                    src={theme.bgUrl}
-                    alt={theme.name}
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0e0c18] via-[#0e0c18]/60 to-transparent" />
-                  <div className="relative z-10 flex justify-end">
-                    {activeTheme === theme.id && (
-                      <span className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-white">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    )}
-                  </div>
-                  <span className="relative z-10 text-xs font-bold text-white leading-tight">
-                    {theme.name}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <BingoRoomSettings
-          config={roomConfig}
-          isOpen={showSettingsModal}
-          onClose={() => setShowSettingsModal(false)}
-          onSave={(cfg) => {
-            setRoomConfig(cfg);
-            updateBingoConfig(cfg);
-          }}
-          isHost={isHost}
-        />
-      )}
-
-      {/* Game History Modal */}
-      {showHistoryModal && (
-        <BingoGameHistory
-          isOpen={showHistoryModal}
-          onClose={() => setShowHistoryModal(false)}
-          winnerDisplayName={gameState?.winnerDisplayName}
-          finalScores={gameState?.scores}
-          roundsWon={gameState?.gameSummary?.roundsWon || Object.values(gameState?.claimedConditions || {}).map((c: any) => ({
-            condition: c.condition,
-            winnerName: c.claimedByDisplayName,
-            points: c.points
-          }))}
-          players={players.map(p => ({ userId: p.userId, displayName: p.displayName }))}
-        />
-      )}
-
-      {/* Snapchat-Style Friend Streak Celebration Modal */}
+      {/* Friend Streak Celebration Modal */}
       {streakCelebration && (
         <StreakCelebrationModal
           isOpen={!!streakCelebration}
@@ -1141,17 +1180,17 @@ function BingoGameContent() {
   );
 }
 
-export default function BingoPage() {
+export default function TambolaPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#080a12] flex flex-col items-center justify-center text-white space-y-3">
-          <div className="w-10 h-10 border-3 border-rose-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold text-zinc-400">Loading Bingo Duel...</span>
+        <div className="min-h-screen bg-[#fcf7fa] flex flex-col items-center justify-center text-[#1e1435] space-y-3">
+          <div className="w-10 h-10 border-3 border-[#ff3864] border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-bold text-[#8a80a0]">Loading Tambola...</span>
         </div>
       }
     >
-      <BingoGameContent />
+      <TambolaGameContent />
     </Suspense>
   );
 }
