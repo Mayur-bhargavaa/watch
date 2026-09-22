@@ -46,6 +46,7 @@ import { ChessPlayerCard } from '../../../components/games/chess/ChessPlayerCard
 import { ChessWaitingRoom } from '../../../components/games/chess/ChessWaitingRoom';
 import { ChessGameEnd } from '../../../components/games/chess/ChessGameEnd';
 import { ChessReview } from '../../../components/games/chess/ChessReview';
+import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { ChessMoveHistory } from '../../../components/games/chess/ChessMoveHistory';
 import {
   ChessResignModal,
@@ -144,7 +145,9 @@ function ChessGameContent() {
     chessDrawOffer,
     chessTakebackRequest,
     lastChessMove,
-    chessMoveError
+    chessMoveError,
+    streakCelebration,
+    clearStreakCelebration
   } = useGameRoom(roomCodeParam || null);
 
   const gameState = rawGameState as ChessGameState | null;
@@ -799,6 +802,17 @@ function ChessGameContent() {
         <ChessReview
           gameState={gameState}
           onClose={() => setShowReviewModal(false)}
+        />
+      )}
+
+      {/* Snapchat-Style Friend Streak Celebration Modal */}
+      {streakCelebration && (
+        <StreakCelebrationModal
+          isOpen={!!streakCelebration}
+          onClose={clearStreakCelebration}
+          friendName={streakCelebration.friendName}
+          streakCount={streakCelebration.streakCount}
+          isExtended={streakCelebration.isExtended}
         />
       )}
 

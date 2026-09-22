@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { useGameRoom } from '../../../hooks/useGameRoom';
+import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
 import { VideoAvatar } from '../../../components/games/LudoGame';
 import { getStoredSession, UserSession, getGameRoute, getGameTitle } from '../../../lib/api';
@@ -149,7 +150,9 @@ function DoodleDuelGameContent() {
     registerVoiceListener,
     rematch,
     rematchStatus,
-    opponentLeftWin
+    opponentLeftWin,
+    streakCelebration,
+    clearStreakCelebration
   } = useGameRoom(roomCodeParam);
 
   // Cross-game redirect guard
@@ -911,6 +914,17 @@ function DoodleDuelGameContent() {
           rematchStatus={rematchStatus}
           player1={player1}
           player2={player2}
+        />
+      )}
+
+      {/* Snapchat-Style Friend Streak Celebration Modal */}
+      {streakCelebration && (
+        <StreakCelebrationModal
+          isOpen={!!streakCelebration}
+          onClose={clearStreakCelebration}
+          friendName={streakCelebration.friendName}
+          streakCount={streakCelebration.streakCount}
+          isExtended={streakCelebration.isExtended}
         />
       )}
     </div>

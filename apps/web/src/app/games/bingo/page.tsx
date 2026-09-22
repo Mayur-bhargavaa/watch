@@ -51,6 +51,7 @@ import { StickerPicker, StickerMessageView } from '../../../components/chat/Stic
 import { DrawStickerModal } from '../../../components/chat/DrawStickerModal';
 import { parseStickerMessage, formatStickerMessage } from '../../../components/chat/StickersData';
 import { useGameRoom } from '../../../hooks/useGameRoom';
+import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { useWebRTC } from '../../../hooks/useWebRTC';
 import { VideoAvatar } from '../../../components/games/LudoGame';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
@@ -381,7 +382,9 @@ function BingoDuelGameContent() {
     registerWebRTCListener,
     registerCameraListener,
     registerVoiceListener,
-    error: gameRoomError
+    error: gameRoomError,
+    streakCelebration,
+    clearStreakCelebration
   } = useGameRoom(roomCodeParam);
 
   const gameState = rawGameState as BingoDuelGameState | null;
@@ -2608,6 +2611,17 @@ function BingoDuelGameContent() {
             setAlertModalState(null);
             if (cb) cb();
           }}
+        />
+      )}
+
+      {/* Snapchat-Style Friend Streak Celebration Modal */}
+      {streakCelebration && (
+        <StreakCelebrationModal
+          isOpen={!!streakCelebration}
+          onClose={clearStreakCelebration}
+          friendName={streakCelebration.friendName}
+          streakCount={streakCelebration.streakCount}
+          isExtended={streakCelebration.isExtended}
         />
       )}
     </div>

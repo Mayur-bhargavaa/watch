@@ -13,7 +13,7 @@ import {
   DoodleConfig,
   DoodleRole
 } from '@synccinema/common';
-import { WS_BASE, getStoredSession, ensureSession } from '../lib/api';
+import { WS_BASE, getStoredSession, ensureSession, recordFriendStreak } from '../lib/api';
 
 export interface GameChatMessage {
   id: string;
@@ -238,6 +238,45 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   const canRoll = Boolean(isMyTurn && gameState?.canRoll);
   const legalMoves = isMyTurn ? (gameState?.legalMoves || []) : [];
   const canMove = Boolean(isMyTurn && !gameState?.canRoll && legalMoves.length > 0);
+
+  // Universal Friend Streak Celebration State
+  const [streakCelebration, setStreakCelebration] = useState<{
+    friendName: string;
+    streakCount: number;
+    isExtended: boolean;
+  } | null>(null);
+  const streakRecordedPairRef = useRef<Set<string>>(new Set());
+
+  // Automatic streak tracking for ALL games
+  useEffect(() => {
+    const session = getStoredSession();
+    if (room?.status === 'PLAYING' && room?.players && session?.token && myUserId) {
+      const today = new Date().toISOString().split('T')[0];
+      const opponents = room.players.filter(
+        p => p.userId && p.userId !== myUserId && !p.userId.startsWith('bot_') && !p.userId.startsWith('guest_')
+      );
+
+      for (const opp of opponents) {
+        const key = `${opp.userId}_${today}`;
+        if (!streakRecordedPairRef.current.has(key)) {
+          streakRecordedPairRef.current.add(key);
+          recordFriendStreak(session.token, opp.userId, 1)
+            .then(res => {
+              if (res.success && (res.status === 'EXTENDED' || res.status === 'RESET_STARTED')) {
+                setStreakCelebration({
+                  friendName: opp.displayName || 'Friend',
+                  streakCount: res.streak.currentStreak,
+                  isExtended: res.status === 'EXTENDED'
+                });
+              }
+            })
+            .catch(() => {
+              // Ignore if opponent is not yet a friend
+            });
+        }
+      }
+    }
+  }, [room?.status, room?.players, myUserId]);
 
   const connect = useCallback(async () => {
     if (!roomCode || isUnmountedRef.current) return;
@@ -1607,6 +1646,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     sendVoiceState,
     registerWebRTCListener,
     registerCameraListener,
-    registerVoiceListener
+    registerVoiceListener,
+    streakCelebration,
+    clearStreakCelebration: () => setStreakCelebration(null)
   };
 }

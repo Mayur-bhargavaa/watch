@@ -19,6 +19,7 @@ import { BingoDuelEngine, DEFAULT_BINGO_DUEL_CONFIG } from './BingoDuelEngine.js
 import { DoodleDuelEngine, DEFAULT_DOODLE_CONFIG, DOODLE_WORDS } from './DoodleDuelEngine.js';
 import { ChessEngine } from './ChessEngine.js';
 import { DEFAULT_CHESS_CONFIG, ChessGameState } from '@synccinema/common';
+import { mongoDb } from '../db/mongoDatabase.js';
 
 interface ConnectedGameClient {
   socket: WebSocket;
@@ -53,6 +54,41 @@ export class GameRoomManager {
 
   constructor(db: DatabaseService) {
     this.db = db;
+  }
+
+  /**
+   * Authoritative streak recorder: when a game is played or finishes between real users,
+   * automatically record their daily friend streak in MongoDB.
+   */
+  public async recordGameStreaks(room: GameRoom): Promise<void> {
+    if (!room || !room.players || room.players.length < 2) return;
+    const realPlayers = room.players.filter(
+      p => p.userId && !p.userId.startsWith('bot_') && !p.userId.startsWith('guest_')
+    );
+    if (realPlayers.length < 2) return;
+
+    for (let i = 0; i < realPlayers.length; i++) {
+      for (let j = i + 1; j < realPlayers.length; j++) {
+        try {
+          await mongoDb.recordSessionBetweenUsers(realPlayers[i].userId, realPlayers[j].userId, 1);
+        } catch (err) {
+          console.error(`[GameRoomManager] Failed to record streak between ${realPlayers[i].userId} and ${realPlayers[j].userId}:`, err);
+        }
+      }
+    }
+  }
+
+  public updateGameRoomStatusWithStreak(
+    room: GameRoom,
+    status: GameRoomStatus,
+    startedAt?: string,
+    endedAt?: string
+  ): void {
+    this.db.updateGameRoomStatus(room.id, status, startedAt, endedAt);
+    room.status = status;
+    if (status === 'PLAYING' || status === 'FINISHED') {
+      this.recordGameStreaks(room);
+    }
   }
 
   /**
@@ -304,6 +340,7 @@ export class GameRoomManager {
     room.status = 'PLAYING';
     room.gameState = initialState;
     room.startedAt = now;
+    this.recordGameStreaks(room);
 
     // Broadcast game start countdown & authoritative initial state
     this.broadcast(room.id, {
@@ -1365,6 +1402,7 @@ export class GameRoomManager {
     const now = new Date().toISOString();
     room.startedAt = now;
     this.db.updateGameRoomStatus(room.id, 'PLAYING', now);
+    this.recordGameStreaks(room);
 
     DoodleDuelEngine.startRoundIntro(room.gameState, drawerPlayer.userId, guesserPlayer.userId);
     room.gameState.drawerDisplayName = drawerPlayer.displayName;
@@ -1622,6 +1660,7 @@ export class GameRoomManager {
     room.status = 'PLAYING';
     room.gameState = state;
     room.startedAt = now;
+    this.recordGameStreaks(room);
 
     this.startChessClock(roomId);
 

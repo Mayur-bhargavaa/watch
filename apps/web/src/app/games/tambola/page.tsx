@@ -27,6 +27,7 @@ import {
   Heart
 } from 'lucide-react';
 import { useGameRoom } from '../../../hooks/useGameRoom';
+import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { useWebRTC, VideoGridParticipant } from '../../../hooks/useWebRTC';
 import { VideoAvatar } from '../../../components/games/LudoGame';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
@@ -224,7 +225,9 @@ function BingoGameContent() {
     sendWebRTCSignal,
     registerWebRTCListener,
     registerCameraListener,
-    registerVoiceListener
+    registerVoiceListener,
+    streakCelebration,
+    clearStreakCelebration
   } = useGameRoom(roomCodeParam);
 
   // Cross-game redirect guard
@@ -1121,6 +1124,17 @@ function BingoGameContent() {
             points: c.points
           }))}
           players={players.map(p => ({ userId: p.userId, displayName: p.displayName }))}
+        />
+      )}
+
+      {/* Snapchat-Style Friend Streak Celebration Modal */}
+      {streakCelebration && (
+        <StreakCelebrationModal
+          isOpen={!!streakCelebration}
+          onClose={clearStreakCelebration}
+          friendName={streakCelebration.friendName}
+          streakCount={streakCelebration.streakCount}
+          isExtended={streakCelebration.isExtended}
         />
       )}
     </div>
