@@ -190,19 +190,23 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         setIsUploading(true);
         const uploadedUrl = await uploadChatImage(pendingImage.file);
         const isVO = Boolean(pendingImage.isViewOnce);
-        const caption = text.trim() || (isVO ? '📸 Photo' : '📷 Photo');
+        const caption = text.trim();
         const messageType: 'view_once' | 'image' = isVO ? 'view_once' : 'image';
+
+        const meta: any = {
+          fileName: pendingImage.file.name,
+          fileSize: `${(pendingImage.file.size / 1024).toFixed(0)} KB`,
+        };
+        if (isVO) {
+          meta.isViewOnce = true;
+          meta.viewOnceOpened = false;
+        }
 
         onSendMessage(
           caption,
           messageType,
           uploadedUrl,
-          {
-            isViewOnce: isVO,
-            viewOnceOpened: false,
-            fileName: pendingImage.file.name,
-            fileSize: `${(pendingImage.file.size / 1024).toFixed(0)} KB`,
-          }
+          meta
         );
         handleCancelPendingImage();
         setText('');
@@ -588,12 +592,12 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             <button
               type="button"
               onClick={handleToggleViewOnce}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs font-bold transition cursor-pointer select-none ${
                 pendingImage.isViewOnce
                   ? 'bg-[#ee1d49] text-white shadow-xs shadow-[#ee1d49]/30 ring-2 ring-[#ee1d49]/40'
                   : 'bg-white dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-600 hover:border-[#ee1d49]/50'
               }`}
-              title={pendingImage.isViewOnce ? 'View once is enabled' : 'Set photo to view once'}
+              title={pendingImage.isViewOnce ? 'View once is enabled (tap to disable)' : 'Set photo to view once (tap to enable)'}
             >
               <div
                 className={`w-4 h-4 rounded-full border-1.5 flex items-center justify-center text-[10px] font-black ${
@@ -602,8 +606,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               >
                 1
               </div>
-              <span className="hidden xs:inline text-[11px]">
-                {pendingImage.isViewOnce ? 'View Once ON' : 'View Once'}
+              <span className="text-[11px] font-semibold">
+                {pendingImage.isViewOnce ? 'View once ON' : 'View once'}
               </span>
             </button>
 

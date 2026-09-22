@@ -105,11 +105,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     : (message.metadata || {});
 
   const isViewOnce = Boolean(
-    rawMeta?.isViewOnce ||
-    rawMeta?.viewOnce ||
-    rawMeta?.view_once ||
-    (message.type as string) === 'view_once' ||
-    (rawMeta?.viewOnceOpened !== undefined && rawMeta?.viewOnceOpened !== null)
+    rawMeta?.isViewOnce === true ||
+    rawMeta?.viewOnce === true ||
+    rawMeta?.view_once === true ||
+    (message.type as string) === 'view_once'
   );
   const isViewOnceOpened = Boolean(
     rawMeta?.viewOnceOpened ||
@@ -463,13 +462,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       e.stopPropagation();
                       setIsImageViewerOpen(true);
                     }}
-                    className="mb-2 rounded-xl overflow-hidden max-h-80 cursor-zoom-in group/img relative shadow-xs"
+                    className="mb-1 rounded-xl overflow-hidden max-h-80 sm:max-h-96 cursor-zoom-in group/img relative shadow-xs"
                     title="Click to view full screen"
                   >
                     <img
                       src={displayImageUrl}
                       alt="Media"
-                      className="w-full h-full object-cover transition-transform duration-200 group-hover/img:scale-[1.02]"
+                      className="w-full h-auto max-h-80 sm:max-h-96 object-contain sm:object-cover rounded-xl transition-transform duration-200 group-hover/img:scale-[1.01]"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/25 transition-colors flex items-center justify-center pointer-events-none">
                       <span className="opacity-0 group-hover/img:opacity-100 transition-opacity px-2.5 py-1 rounded-full bg-black/70 text-white text-[11px] font-semibold backdrop-blur-xs flex items-center gap-1 shadow-md">
@@ -478,7 +477,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </div>
                   </div>
                 )}
-                {message.content && (
+                {message.content &&
+                  message.content !== '📷 Photo' &&
+                  message.content !== '📸 Photo' &&
+                  message.content !== 'Photo' && (
                   <p
                     className={`leading-tight whitespace-pre-wrap wrap-break-word ${
                       emojiInfo.isOnlyEmoji
