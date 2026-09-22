@@ -708,12 +708,10 @@ export async function createServer(dbPath = './synccinema.db') {
 
     db.saveDirectChatMessage(msg);
 
-    if (recipientId && isRecipientOnline) {
-      presenceManager.sendToUser(recipientId, {
-        type: 'chat:message',
-        message: msg
-      });
-    }
+    // NOTE: Do NOT re-deliver to recipient here.
+    // The WebSocket chat:send handler already delivers the message in real-time.
+    // Delivering here too causes the recipient to receive the same message twice,
+    // resulting in duplicate unread badges and double notifications.
 
     return { success: true, message: msg };
   });

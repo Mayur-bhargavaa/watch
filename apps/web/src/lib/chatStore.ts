@@ -976,7 +976,10 @@ export class ChatStore {
 
     const msgs = this.getMessages(conversationId);
     const existingIndex = msgs.findIndex((m) => m.id === incoming.id);
+    const isNewMessage = existingIndex < 0;
+
     if (existingIndex >= 0) {
+      // Message already exists — just update fields (e.g. status), don't duplicate
       msgs[existingIndex] = { ...msgs[existingIndex], ...incoming };
     } else {
       msgs.push(incoming);
@@ -1013,7 +1016,8 @@ export class ChatStore {
     } else {
       conv.lastMessage = incoming;
       conv.updatedAt = incoming.createdAt;
-      if (typeof window !== 'undefined') {
+      // Only increment unread for genuinely new messages, not duplicate deliveries
+      if (isNewMessage && typeof window !== 'undefined') {
         const activeId = sessionStorage.getItem('watch_active_conv_id');
         if (activeId !== conversationId) {
           conv.unreadCount = (conv.unreadCount || 0) + 1;
