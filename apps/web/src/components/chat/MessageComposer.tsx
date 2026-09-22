@@ -345,20 +345,32 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             </button>
 
             {showStickerPicker && (
-              <div className="absolute bottom-12 left-0 z-50">
-                <StickerPicker
-                  onSelectSticker={(sticker) => {
-                    const serialized = serializeStickerMessage(sticker);
-                    onSendMessage(serialized, 'sticker');
-                    setShowStickerPicker(false);
-                  }}
-                  onOpenDrawModal={() => {
-                    setShowStickerPicker(false);
-                    setShowDrawSticker(true);
-                  }}
-                  onClose={() => setShowStickerPicker(false)}
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowStickerPicker(false)}
                 />
-              </div>
+                <div className="absolute bottom-14 left-0 z-50">
+                  <StickerPicker
+                    onSelectSticker={(sticker) => {
+                      // If it's a standard unicode emoji, append to text input like WhatsApp
+                      if (/^\p{Extended_Pictographic}+$/u.test(sticker.trim())) {
+                        setText((prev) => prev + sticker);
+                        textareaRef.current?.focus();
+                        return;
+                      }
+                      const serialized = serializeStickerMessage(sticker);
+                      onSendMessage(serialized, 'sticker');
+                      setShowStickerPicker(false);
+                    }}
+                    onOpenDrawModal={() => {
+                      setShowStickerPicker(false);
+                      setShowDrawSticker(true);
+                    }}
+                    onClose={() => setShowStickerPicker(false)}
+                  />
+                </div>
+              </>
             )}
           </div>
 

@@ -147,74 +147,113 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
 
         {/* Main Content Bubble */}
-        <div
-          className={`relative px-4 py-2.5 rounded-2xl shadow-2xs transition-all ${
-            isSender
-              ? 'bg-[#ee1d49] text-white rounded-br-xs'
-              : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 border border-slate-100 dark:border-zinc-700/60 rounded-bl-xs'
-          }`}
-        >
-          {/* Sticker display */}
-          {sticker ? (
-            <div className="py-1">
-              <span className="text-5xl">{sticker.emoji}</span>
-            </div>
-          ) : message.type === 'voice' && message.metadata?.voice ? (
-            /* Voice Note */
-            <VoiceMessage voice={message.metadata.voice} isSender={isSender} />
-          ) : message.type === 'plan' && message.metadata?.plan ? (
-            /* Plan Card */
-            <PlanMessage plan={message.metadata.plan} isSender={isSender} />
-          ) : (message.type === 'game_invite' || message.type === 'game') && message.metadata?.game ? (
-            /* Game Invite Card */
-            <GameInviteMessage game={message.metadata.game} isSender={isSender} />
-          ) : (message.type === 'movie_share' || message.type === 'movie') && message.metadata?.movie ? (
-            /* Movie Share Card */
-            <MovieShareMessage movie={message.metadata.movie} isSender={isSender} />
-          ) : (
-            /* Standard Text / Image */
-            <div>
-              {message.mediaUrl && (
-                <div className="mb-2 rounded-xl overflow-hidden max-h-72">
-                  <img
-                    src={message.mediaUrl}
-                    alt="Media"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              {message.content && (
-                <p className="text-[14px] leading-relaxed whitespace-pre-wrap wrap-break-word">
-                  {message.content}
-                </p>
+        {sticker ? (
+          /* WhatsApp-Style Borderless Free-Floating Sticker */
+          <div className="relative select-none group/sticker py-0.5">
+            <div className="flex items-center justify-center">
+              {sticker.gifUrl || sticker.webpUrl ? (
+                <img
+                  src={sticker.gifUrl || sticker.webpUrl}
+                  alt={sticker.name || 'Sticker'}
+                  className="w-36 h-36 sm:w-44 sm:h-44 object-contain filter drop-shadow-md hover:scale-105 transition-transform duration-200"
+                  loading="lazy"
+                />
+              ) : sticker.drawingSvg ? (
+                <div
+                  dangerouslySetInnerHTML={{ __html: sticker.drawingSvg }}
+                  className="w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center drop-shadow-md"
+                />
+              ) : (
+                <span className="text-7xl drop-shadow-sm select-none">{sticker.emoji || '✨'}</span>
               )}
             </div>
-          )}
 
-          {/* Timestamp & Status Checkmarks */}
+            {/* Subtle floating timestamp and ticks */}
+            <div className="flex items-center justify-end gap-1 mt-1 px-1.5 py-0.5 rounded-md bg-black/40 backdrop-blur-xs text-[10px] font-semibold text-white/90 w-fit ml-auto shadow-xs">
+              <span>{formattedTime}</span>
+              {isSender && (
+                <span className="inline-flex">
+                  {message.status === 'sending' ? (
+                    <Clock className="w-3 h-3 text-white/60 animate-pulse" />
+                  ) : message.status === 'sent' ? (
+                    <Check className="w-3 h-3 text-white/80" />
+                  ) : (
+                    <CheckCheck
+                      className={`w-3.5 h-3.5 ${
+                        message.status === 'read' ? 'text-[#53bdeb]' : 'text-white/80'
+                      }`}
+                    />
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Standard Card Bubble for Text / Voice / Plans / Games / Movies */
           <div
-            className={`flex items-center justify-end gap-1 mt-1 text-[10px] font-medium select-none ${
-              isSender ? 'text-white/70' : 'text-slate-400 dark:text-zinc-500'
+            className={`relative px-4 py-2.5 rounded-2xl shadow-2xs transition-all ${
+              isSender
+                ? 'bg-[#ee1d49] text-white rounded-br-xs'
+                : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-100 border border-slate-100 dark:border-zinc-700/60 rounded-bl-xs'
             }`}
           >
-            <span>{formattedTime}</span>
-            {isSender && (
-              <span className="inline-flex">
-                {message.status === 'sending' ? (
-                  <Clock className="w-3 h-3 text-white/50 animate-pulse" />
-                ) : message.status === 'sent' ? (
-                  <Check className="w-3 h-3" />
-                ) : (
-                  <CheckCheck
-                    className={`w-3.5 h-3.5 ${
-                      message.status === 'read' ? 'text-cyan-200' : 'text-white/70'
-                    }`}
-                  />
+            {message.type === 'voice' && message.metadata?.voice ? (
+              /* Voice Note */
+              <VoiceMessage voice={message.metadata.voice} isSender={isSender} />
+            ) : message.type === 'plan' && message.metadata?.plan ? (
+              /* Plan Card */
+              <PlanMessage plan={message.metadata.plan} isSender={isSender} />
+            ) : (message.type === 'game_invite' || message.type === 'game') && message.metadata?.game ? (
+              /* Game Invite Card */
+              <GameInviteMessage game={message.metadata.game} isSender={isSender} />
+            ) : (message.type === 'movie_share' || message.type === 'movie') && message.metadata?.movie ? (
+              /* Movie Share Card */
+              <MovieShareMessage movie={message.metadata.movie} isSender={isSender} />
+            ) : (
+              /* Standard Text / Image */
+              <div>
+                {message.mediaUrl && (
+                  <div className="mb-2 rounded-xl overflow-hidden max-h-72">
+                    <img
+                      src={message.mediaUrl}
+                      alt="Media"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 )}
-              </span>
+                {message.content && (
+                  <p className="text-[14px] leading-relaxed whitespace-pre-wrap wrap-break-word">
+                    {message.content}
+                  </p>
+                )}
+              </div>
             )}
+
+            {/* Timestamp & Status Checkmarks */}
+            <div
+              className={`flex items-center justify-end gap-1 mt-1 text-[10px] font-medium select-none ${
+                isSender ? 'text-white/70' : 'text-slate-400 dark:text-zinc-500'
+              }`}
+            >
+              <span>{formattedTime}</span>
+              {isSender && (
+                <span className="inline-flex">
+                  {message.status === 'sending' ? (
+                    <Clock className="w-3 h-3 text-white/50 animate-pulse" />
+                  ) : message.status === 'sent' ? (
+                    <Check className="w-3 h-3" />
+                  ) : (
+                    <CheckCheck
+                      className={`w-3.5 h-3.5 ${
+                        message.status === 'read' ? 'text-cyan-200' : 'text-white/70'
+                      }`}
+                    />
+                  )}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Reaction Badges Container */}
         {reactionGroups.length > 0 && (
