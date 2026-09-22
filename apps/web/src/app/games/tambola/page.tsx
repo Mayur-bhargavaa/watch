@@ -32,7 +32,6 @@ import {
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { useWebRTC } from '../../../hooks/useWebRTC';
-import { VideoAvatar } from '../../../components/games/LudoGame';
 import { getStoredSession, UserSession, getGameRoute, createGameRoomWithPartner } from '../../../lib/api';
 import { BingoLobby } from '../../../components/games/bingo/BingoLobby';
 import { BingoVictory } from '../../../components/games/bingo/BingoVictory';
@@ -129,10 +128,59 @@ function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
   return <audio ref={audioRef} autoPlay playsInline style={{ display: 'none' }} />;
 }
 
-function TambolaGameContent() {
+const VideoAvatar = React.memo(function VideoAvatar({
+  stream,
+  isSelf,
+  displayName
+}: {
+  stream: MediaStream | null;
+  isSelf?: boolean;
+  displayName: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !stream) return;
+
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+    video.defaultMuted = Boolean(isSelf);
+    video.muted = Boolean(isSelf);
+
+    const playVideo = () => {
+      video.play().catch(() => {});
+    };
+
+    playVideo();
+    video.addEventListener('loadedmetadata', playVideo);
+    return () => {
+      video.removeEventListener('loadedmetadata', playVideo);
+    };
+  }, [stream, isSelf]);
+
+  if (!stream) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-white font-bold text-xs">
+        {displayName?.[0]?.toUpperCase() || 'U'}
+      </div>
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted={Boolean(isSelf)}
+      className="w-full h-full object-cover rounded-xl"
+    />
+  );
+});
+
+function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const roomCodeParam = searchParams.get('room');
 
   const [session, setSession] = useState<UserSession | null>(null);
   const [roomConfig, setRoomConfig] = useState<BingoRoomConfig>(DEFAULT_CONFIG);
@@ -193,21 +241,21 @@ function TambolaGameContent() {
     registerVoiceListener,
     streakCelebration,
     clearStreakCelebration
-  } = useGameRoom(roomCodeParam);
+  } = useGameRoom(roomCode);
 
   // Cross-game redirect guard
   useEffect(() => {
-    if (roomCodeParam) {
-      const code = roomCodeParam.trim().toUpperCase();
+    if (roomCode) {
+      const code = roomCode.trim().toUpperCase();
       if (!code.startsWith('TAMBOLA-') && !code.startsWith('BINGO-') && (code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-'))) {
-        router.replace(getGameRoute(undefined, roomCodeParam));
+        router.replace(getGameRoute(undefined, roomCode));
         return;
       }
     }
     if (room?.gameType && room.gameType !== 'tambola' && room.gameType !== 'bingo' && room?.roomCode) {
       router.replace(getGameRoute(room.gameType, room.roomCode));
     }
-  }, [roomCodeParam, room?.gameType, room?.roomCode, router]);
+  }, [roomCode, room?.gameType, room?.roomCode, router]);
 
   const effectiveUserId = myUserId || session?.user?.id || '';
 
@@ -358,7 +406,7 @@ function TambolaGameContent() {
   // Copy room code
   const handleCopyCode = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(room?.roomCode || roomCodeParam || '');
+    navigator.clipboard.writeText(room?.roomCode || roomCode || '');
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 3000);
   };
@@ -368,11 +416,6 @@ function TambolaGameContent() {
     sendLeave();
     router.push('/games');
   };
-
-  // 1. NO ROOM PARAM -> Render Lobby
-  if (!roomCodeParam) {
-    return <BingoLobby />;
-  }
 
   // Participants for call
   const callParticipants = useMemo(() => {
@@ -389,6 +432,98 @@ function TambolaGameContent() {
     }
     return list;
   }, [videoGridParticipants, opponent]);
+
+  // Derived state for live game arena & ticket calculations
+  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
+  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? (currentNum ? formatNumberWord(currentNum) : 'READY');
+  const lastCalled: number[] = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
+  const remaining: number = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 90;
+
+  // Real Ticket data
+  const serverTicket = gameState?.tickets?.[me?.userId || ''];
+  const ticketCells = serverTicket?.cells && serverTicket.cells.length > 0
+    ? serverTicket.cells
+    : previewTicketGrid;
+
+  // Real Marked numbers
+  const myMarkedList: number[] = gameState?.playerMarked?.[me?.userId || ''] || [];
+  const myMarkedSet = useMemo(() => new Set(myMarkedList), [myMarkedList]);
+  const calledSet = useMemo(() => new Set<number>(gameState?.calledNumbers || []), [gameState?.calledNumbers]);
+
+  // Auto-mark effect
+  useEffect(() => {
+    if (autoMark && isPlaying && ticketCells) {
+      ticketCells.flat().forEach((num: number | null) => {
+        if (num !== null && calledSet.has(num) && !myMarkedSet.has(num)) {
+          markBingoNumber(num);
+        }
+      });
+    }
+  }, [autoMark, calledSet, myMarkedSet, isPlaying, ticketCells, markBingoNumber]);
+
+  // Count marked out of 15
+  const allTicketNumbers = ticketCells.flat().filter((n: number | null): n is number => n !== null);
+  const myMarkedCount = allTicketNumbers.filter((n: number) => myMarkedSet.has(n)).length;
+
+  const opponentMarkedList: number[] = opponent ? (gameState?.playerMarked?.[opponent.userId] || []) : [];
+  const opponentMarkedCount = opponentMarkedList.length;
+
+  const myScore = gameState?.scores?.[me?.userId || ''] || 0;
+  const opponentScore = opponent ? (gameState?.scores?.[opponent.userId] || 0) : 0;
+
+  // Winning conditions calculation
+  const row0Nums = ticketCells[0]?.filter((n: number | null): n is number => n !== null) || [];
+  const row1Nums = ticketCells[1]?.filter((n: number | null): n is number => n !== null) || [];
+  const row2Nums = ticketCells[2]?.filter((n: number | null): n is number => n !== null) || [];
+
+  const early5Count = Math.min(5, myMarkedCount);
+  const topLineCount = row0Nums.filter((n: number) => myMarkedSet.has(n)).length;
+  const middleLineCount = row1Nums.filter((n: number) => myMarkedSet.has(n)).length;
+  const bottomLineCount = row2Nums.filter((n: number) => myMarkedSet.has(n)).length;
+
+  const cornerNums = [row0Nums[0], row0Nums[row0Nums.length - 1], row2Nums[0], row2Nums[row2Nums.length - 1]].filter(Boolean);
+  const fourCornersCount = cornerNums.filter((n: number) => myMarkedSet.has(n)).length;
+  const housefullCount = myMarkedCount;
+
+  // Handler for clicking a number on ticket
+  const handleCellClick = (num: number | null) => {
+    if (num === null) return;
+    if (isPlaying) {
+      markBingoNumber(num);
+    } else {
+      if (myMarkedSet.has(num)) {
+        myMarkedSet.delete(num);
+      } else {
+        myMarkedSet.add(num);
+      }
+      setPreviewTicketGrid([...previewTicketGrid]);
+    }
+  };
+
+  // Primary Tambola action (Claim or Start)
+  const handleClaimOrStart = () => {
+    if (!isPlaying) {
+      if (isHost && opponent) {
+        startBingoGame(roomConfig);
+      }
+      return;
+    }
+    if (housefullCount >= 15) claimBingo('housefull');
+    else if (topLineCount >= 5) claimBingo('topLine');
+    else if (middleLineCount >= 5) claimBingo('middleLine');
+    else if (bottomLineCount >= 5) claimBingo('bottomLine');
+    else if (fourCornersCount >= 4) claimBingo('fourCorners');
+    else if (early5Count >= 5) claimBingo('early5');
+    else claimBingo('early5');
+  };
+
+  // Send Chat message
+  const handleSendChat = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim()) return;
+    sendChat(chatInput.trim());
+    setChatInput('');
+  };
 
   // =========================================================================
   // 2. WAITING ROOM SCREEN (MATCHING LUDO / 6 GAMES STYLE)
@@ -585,98 +720,6 @@ function TambolaGameContent() {
   // =========================================================================
   // 3. LIVE MATCH GAME ARENA (EXACT PIXEL-PERFECT MOCKUP)
   // =========================================================================
-  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
-  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? (currentNum ? formatNumberWord(currentNum) : 'READY');
-  const lastCalled: number[] = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
-  const remaining: number = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 90;
-
-  // Real Ticket data
-  const serverTicket = gameState?.tickets?.[me?.userId || ''];
-  const ticketCells = serverTicket?.cells && serverTicket.cells.length > 0
-    ? serverTicket.cells
-    : previewTicketGrid;
-
-  // Real Marked numbers
-  const myMarkedList: number[] = gameState?.playerMarked?.[me?.userId || ''] || [];
-  const myMarkedSet = new Set(myMarkedList);
-
-  const calledSet = new Set<number>(gameState?.calledNumbers || []);
-
-  // Auto-mark effect
-  useEffect(() => {
-    if (autoMark && isPlaying && ticketCells) {
-      ticketCells.flat().forEach((num: number | null) => {
-        if (num !== null && calledSet.has(num) && !myMarkedSet.has(num)) {
-          markBingoNumber(num);
-        }
-      });
-    }
-  }, [autoMark, calledSet, myMarkedSet, isPlaying, ticketCells, markBingoNumber]);
-
-  // Count marked out of 15
-  const allTicketNumbers = ticketCells.flat().filter((n: number | null): n is number => n !== null);
-  const myMarkedCount = allTicketNumbers.filter((n: number) => myMarkedSet.has(n)).length;
-
-  const opponentMarkedList: number[] = opponent ? (gameState?.playerMarked?.[opponent.userId] || []) : [];
-  const opponentMarkedCount = opponentMarkedList.length;
-
-  const myScore = gameState?.scores?.[me?.userId || ''] || 0;
-  const opponentScore = opponent ? (gameState?.scores?.[opponent.userId] || 0) : 0;
-
-  // Winning conditions calculation
-  const row0Nums = ticketCells[0]?.filter((n: number | null): n is number => n !== null) || [];
-  const row1Nums = ticketCells[1]?.filter((n: number | null): n is number => n !== null) || [];
-  const row2Nums = ticketCells[2]?.filter((n: number | null): n is number => n !== null) || [];
-
-  const early5Count = Math.min(5, myMarkedCount);
-  const topLineCount = row0Nums.filter((n: number) => myMarkedSet.has(n)).length;
-  const middleLineCount = row1Nums.filter((n: number) => myMarkedSet.has(n)).length;
-  const bottomLineCount = row2Nums.filter((n: number) => myMarkedSet.has(n)).length;
-
-  const cornerNums = [row0Nums[0], row0Nums[row0Nums.length - 1], row2Nums[0], row2Nums[row2Nums.length - 1]].filter(Boolean);
-  const fourCornersCount = cornerNums.filter((n: number) => myMarkedSet.has(n)).length;
-  const housefullCount = myMarkedCount;
-
-  // Handler for clicking a number on ticket
-  const handleCellClick = (num: number | null) => {
-    if (num === null) return;
-    if (isPlaying) {
-      markBingoNumber(num);
-    } else {
-      if (myMarkedSet.has(num)) {
-        myMarkedSet.delete(num);
-      } else {
-        myMarkedSet.add(num);
-      }
-      setPreviewTicketGrid([...previewTicketGrid]);
-    }
-  };
-
-  // Primary Tambola action (Claim or Start)
-  const handleClaimOrStart = () => {
-    if (!isPlaying) {
-      if (isHost && opponent) {
-        startBingoGame(roomConfig);
-      }
-      return;
-    }
-    if (housefullCount >= 15) claimBingo('housefull');
-    else if (topLineCount >= 5) claimBingo('topLine');
-    else if (middleLineCount >= 5) claimBingo('middleLine');
-    else if (bottomLineCount >= 5) claimBingo('bottomLine');
-    else if (fourCornersCount >= 4) claimBingo('fourCorners');
-    else if (early5Count >= 5) claimBingo('early5');
-    else claimBingo('early5');
-  };
-
-  // Send Chat message
-  const handleSendChat = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!chatInput.trim()) return;
-    sendChat(chatInput.trim());
-    setChatInput('');
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fcf7fa] via-[#faedf5] to-[#f4e2ee] text-[#1e1435] flex flex-col justify-between selection:bg-[#ff3b77] selection:text-white relative overflow-x-hidden font-sans">
       
@@ -1559,6 +1602,17 @@ function TambolaGameContent() {
   );
 }
 
+function TambolaPageInner() {
+  const searchParams = useSearchParams();
+  const roomCodeParam = searchParams.get('room');
+
+  if (!roomCodeParam) {
+    return <BingoLobby />;
+  }
+
+  return <TambolaGameRoom roomCode={roomCodeParam} />;
+}
+
 export default function TambolaPage() {
   return (
     <Suspense
@@ -1569,7 +1623,7 @@ export default function TambolaPage() {
         </div>
       }
     >
-      <TambolaGameContent />
+      <TambolaPageInner />
     </Suspense>
   );
 }
