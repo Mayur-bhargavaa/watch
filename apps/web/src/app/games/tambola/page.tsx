@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Ticket,
@@ -23,11 +23,16 @@ import {
   Play,
   Copy,
   Check,
-  UserPlus
+  UserPlus,
+  Share2,
+  ShieldCheck,
+  User,
+  MessageSquare
 } from 'lucide-react';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { useWebRTC } from '../../../hooks/useWebRTC';
+import { VideoAvatar } from '../../../components/games/LudoGame';
 import { getStoredSession, UserSession, getGameRoute, createGameRoomWithPartner } from '../../../lib/api';
 import { BingoLobby } from '../../../components/games/bingo/BingoLobby';
 import { BingoVictory } from '../../../components/games/bingo/BingoVictory';
@@ -133,16 +138,18 @@ function TambolaGameContent() {
   const [roomConfig, setRoomConfig] = useState<BingoRoomConfig>(DEFAULT_CONFIG);
   const [showFriendDrawer, setShowFriendDrawer] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  // Chat Bubble state (compact height, toggleable anytime)
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-Mark switch state
   const [autoMark, setAutoMark] = useState(false);
 
   // Local client ticket state fallback
   const [previewTicketGrid, setPreviewTicketGrid] = useState<(number | null)[][]>(INITIAL_PREVIEW_TICKET);
-
-  // Chat input
-  const [chatInput, setChatInput] = useState('');
-  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Claim Feedback Toast State
   const [claimToast, setClaimToast] = useState<{
@@ -209,8 +216,9 @@ function TambolaGameContent() {
   const opponent = players.find((p: any) => p.userId !== me?.userId);
 
   const isHost = room?.hostUserId === effectiveUserId;
-  const isPlaying = room && room.status === 'PLAYING' && gameState !== null;
-  const isFinished = room && (room.status === 'FINISHED' || gameState?.phase === 'FINISHED');
+  const isWaiting = Boolean(room && room.status === 'WAITING');
+  const isPlaying = Boolean(room && room.status === 'PLAYING' && gameState !== null);
+  const isFinished = Boolean(room && (room.status === 'FINISHED' || gameState?.phase === 'FINISHED'));
 
   // WebRTC Setup
   const webRTCMembers = useMemo(() => {
@@ -225,8 +233,10 @@ function TambolaGameContent() {
   const {
     isCameraOn,
     isMicMuted,
+    localUserStream,
     toggleCamera,
-    toggleMic
+    toggleMic,
+    videoGridParticipants
   } = useWebRTC({
     myUserId: effectiveUserId,
     members: webRTCMembers as any,
@@ -240,9 +250,75 @@ function TambolaGameContent() {
     registerVoiceListener
   });
 
-  // Floating Call Widget State
-  const [isCallMinimized, setIsCallMinimized] = useState(false);
-  const [isCallClosed, setIsCallClosed] = useState(false);
+  // Draggable Moveable Video Call Window State
+  const [isPipMinimized, setIsPipMinimized] = useState(false);
+  const [isPipClosed, setIsPipClosed] = useState(false);
+  const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingPip, setIsDraggingPip] = useState(false);
+  const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
+  const pipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && pipPosition === null) {
+      if (window.innerWidth >= 1024) {
+        setPipPosition({ x: window.innerWidth - 320, y: window.innerHeight - 200 });
+      } else {
+        setPipPosition({ x: 16, y: Math.max(80, window.innerHeight - 180) });
+      }
+    }
+  }, [pipPosition]);
+
+  const handlePipDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('button, input, select')) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const rect = pipRef.current?.getBoundingClientRect();
+    const currentX = rect ? rect.left : 32;
+    const currentY = rect ? rect.top : 140;
+
+    dragStartRef.current = {
+      startX: clientX,
+      startY: clientY,
+      initialX: currentX,
+      initialY: currentY
+    };
+    setIsDraggingPip(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!dragStartRef.current) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+      const deltaX = clientX - dragStartRef.current.startX;
+      const deltaY = clientY - dragStartRef.current.startY;
+
+      const newX = Math.max(8, Math.min(window.innerWidth - 260, dragStartRef.current.initialX + deltaX));
+      const newY = Math.max(64, Math.min(window.innerHeight - 140, dragStartRef.current.initialY + deltaY));
+
+      setPipPosition({ x: newX, y: newY });
+    };
+
+    const handleEnd = () => {
+      dragStartRef.current = null;
+      setIsDraggingPip(false);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove);
+    window.addEventListener('touchend', handleEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, []);
 
   // Sync config from gameState when active
   useEffect(() => {
@@ -269,7 +345,7 @@ function TambolaGameContent() {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
     }
-  }, [chatMessages]);
+  }, [chatMessages, isChatOpen]);
 
   // Copy room invite link
   const handleCopyLink = () => {
@@ -277,6 +353,14 @@ function TambolaGameContent() {
     navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
+  };
+
+  // Copy room code
+  const handleCopyCode = () => {
+    if (typeof window === 'undefined') return;
+    navigator.clipboard.writeText(room?.roomCode || roomCodeParam || '');
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 3000);
   };
 
   // Handle leave room
@@ -290,7 +374,217 @@ function TambolaGameContent() {
     return <BingoLobby />;
   }
 
-  // Real Current Number & called list
+  // Participants for call
+  const callParticipants = useMemo(() => {
+    const list = [...videoGridParticipants];
+    if (opponent && !list.some(p => p.userId === opponent.userId)) {
+      list.push({
+        userId: opponent.userId,
+        displayName: opponent.displayName,
+        stream: null,
+        isMuted: true,
+        isSelf: false,
+        isCameraOn: false
+      });
+    }
+    return list;
+  }, [videoGridParticipants, opponent]);
+
+  // =========================================================================
+  // 2. WAITING ROOM SCREEN (MATCHING LUDO / 6 GAMES STYLE)
+  // =========================================================================
+  if (isWaiting && room) {
+    const isReadyToStart = room.players.length >= 2;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#120e20] via-[#161226] to-[#0c0915] text-white flex flex-col justify-between selection:bg-[#ff3b77] selection:text-white relative overflow-x-hidden font-sans">
+        
+        {/* Background Ambience */}
+        <div className="fixed inset-0 pointer-events-none select-none z-0">
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-rose-500/10 rounded-full blur-3xl" />
+        </div>
+
+        {/* Top Header */}
+        <header className="h-16 px-4 sm:px-8 border-b border-white/10 flex items-center justify-between bg-[#120e20]/80 backdrop-blur-xl z-30 sticky top-0">
+          <button
+            type="button"
+            onClick={handleLeave}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Leave</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <Ticket className="w-5 h-5 text-rose-400" />
+            <span className="text-sm font-black text-white tracking-wide">Tambola 1v1 Duel</span>
+          </div>
+
+          <div className="text-xs font-mono px-2.5 py-1 rounded-full bg-white/10 border border-white/10 text-zinc-300">
+            {room.roomCode}
+          </div>
+        </header>
+
+        {/* Center Glassmorphic Waiting Card (Ludo Style) */}
+        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 z-10">
+          <div className="relative z-10 w-full max-w-xl my-auto rounded-[32px] sm:rounded-[36px] p-6 sm:p-8 bg-[#181326]/80 border border-white/20 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.7),0_0_35px_rgba(255,59,119,0.15)] text-center overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Zero-Bots Matchmaking Pill */}
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#0d2a20]/90 border border-[#10b981]/50 text-[#34d399] text-[11px] font-semibold tracking-wide mb-4 shadow-sm">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#34d399]" />
+              <span>Strict Zero-Bots Matchmaking</span>
+            </div>
+
+            {/* Waiting for Players Heading */}
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
+              Waiting <span className="font-medium text-white/90">for</span> <span className="text-[#ff3864]">Opponent</span>
+            </h2>
+
+            {/* Match Subtitle */}
+            <p className="text-xs sm:text-[13px] text-zinc-300 font-normal leading-relaxed max-w-sm mx-auto mb-6">
+              Match will begin when <span className="text-[#ff3864] font-semibold">2 human players</span> join.
+              <br />
+              No bots will ever be injected.
+            </p>
+
+            {/* Room Code Card */}
+            <div className="w-full bg-[#201933]/90 border border-white/10 rounded-2xl p-4 sm:p-4.5 flex items-center justify-between gap-3 mb-5 shadow-inner">
+              <div className="text-left min-w-0">
+                <span className="text-[10px] font-bold text-zinc-400 tracking-wider uppercase block">
+                  ROOM CODE
+                </span>
+                <span className="text-2xl sm:text-3xl font-mono font-black text-[#ff3864] tracking-wider block mt-0.5 leading-tight">
+                  {room.roomCode}
+                </span>
+                <span className="text-[11px] text-zinc-400 block mt-0.5 truncate">
+                  Share this code with your friend
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition cursor-pointer active:scale-95"
+                  title="Copy Code"
+                >
+                  {copiedCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="py-2.5 px-4 sm:px-5 bg-gradient-to-r from-[#ff3864] to-[#ff6699] hover:brightness-110 text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(255,56,100,0.4)] transition active:scale-95 flex items-center gap-2 cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>{copiedLink ? 'Link Copied!' : 'Share Link'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Joined Seats Section */}
+            <div className="w-full mb-5">
+              <div className="flex items-center justify-between text-xs font-semibold text-white/90 mb-3 px-0.5">
+                <span>Joined Seats ({room.players.length}/2)</span>
+                <span className="text-[11px] text-zinc-300 flex items-center gap-1.5 font-normal">
+                  <span className="w-2.5 h-2.5 rounded-full border border-rose-400/80 inline-block shrink-0" />
+                  <span>{2 - room.players.length} seat remaining</span>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Seat 1: Host */}
+                <div className="bg-[#201933]/90 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[120px]">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff3864] to-[#e6005c] text-white font-black text-lg flex items-center justify-center mb-2 shadow-sm">
+                    {(room.players[0]?.displayName?.[0] || 'P').toUpperCase()}
+                  </div>
+                  <span className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
+                    {room.players[0]?.displayName || 'Host'}
+                  </span>
+                  <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
+                    <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Host
+                  </span>
+                </div>
+
+                {/* Seat 2: Opponent / Waiting */}
+                {room.players[1] ? (
+                  <div className="bg-[#201933]/90 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[120px]">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] text-white font-black text-lg flex items-center justify-center mb-2 shadow-sm">
+                      {(room.players[1]?.displayName?.[0] || 'O').toUpperCase()}
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
+                      {room.players[1]?.displayName}
+                    </span>
+                    <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                      <User className="w-3.5 h-3.5" /> Player 2
+                    </span>
+                  </div>
+                ) : (
+                  <div className="bg-[#181326]/60 border border-dashed border-white/20 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-inner min-h-[120px]">
+                    <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-zinc-400 flex items-center justify-center mb-2 animate-pulse">
+                      <User className="w-5 h-5 text-zinc-400" />
+                    </div>
+                    <span className="text-xs sm:text-sm font-semibold text-zinc-300">Waiting...</span>
+                    <span className="text-[11px] text-zinc-500 mt-0.5">Player 2</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Invite Button */}
+            <div className="w-full flex flex-col gap-2.5">
+              {isHost && isReadyToStart ? (
+                <button
+                  type="button"
+                  onClick={() => startBingoGame(roomConfig)}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 cursor-pointer animate-bounce"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>Start Tambola Match</span>
+                </button>
+              ) : isHost ? (
+                <button
+                  type="button"
+                  onClick={() => setShowFriendDrawer(true)}
+                  className="w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition"
+                >
+                  <UserPlus className="w-4 h-4 text-[#ff3864]" />
+                  <span>Invite from Online Friends</span>
+                </button>
+              ) : (
+                <div className="w-full py-3 px-4 rounded-2xl bg-white/5 border border-white/10 text-zinc-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
+                  <span>⏳ Waiting for Host to start match...</span>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </main>
+
+        {/* Friend Selector Drawer */}
+        <GameFriendSelectorDrawer
+          isOpen={showFriendDrawer}
+          onClose={() => setShowFriendDrawer(false)}
+          token={session?.token}
+          gameTitle="Tambola"
+          onSelectFriend={async (friend: any) => {
+            try {
+              const res = await createGameRoomWithPartner('tambola', friend.friendUser.id);
+              if (res?.room?.roomCode) {
+                router.push(`/games/tambola?room=${res.room.roomCode}`);
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 3. LIVE MATCH GAME ARENA (EXACT PIXEL-PERFECT MOCKUP)
+  // =========================================================================
   const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
   const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? (currentNum ? formatNumberWord(currentNum) : 'READY');
   const lastCalled: number[] = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
@@ -358,24 +652,14 @@ function TambolaGameContent() {
     }
   };
 
-  // New ticket generator
-  const handleNewTicket = () => {
-    if (!isPlaying) {
-      setPreviewTicketGrid(generateRandomTambolaGrid());
-    }
-  };
-
   // Primary Tambola action (Claim or Start)
   const handleClaimOrStart = () => {
     if (!isPlaying) {
       if (isHost && opponent) {
         startBingoGame(roomConfig);
-      } else if (!opponent) {
-        handleCopyLink();
       }
       return;
     }
-    // Claim best available condition
     if (housefullCount >= 15) claimBingo('housefull');
     else if (topLineCount >= 5) claimBingo('topLine');
     else if (middleLineCount >= 5) claimBingo('middleLine');
@@ -396,6 +680,11 @@ function TambolaGameContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#fcf7fa] via-[#faedf5] to-[#f4e2ee] text-[#1e1435] flex flex-col justify-between selection:bg-[#ff3b77] selection:text-white relative overflow-x-hidden font-sans">
       
+      {/* Remote Audio Players */}
+      {callParticipants.map(p => (
+        !p.isSelf && p.stream ? <RemoteAudioPlayer key={p.userId} stream={p.stream} /> : null
+      ))}
+
       {/* Soft Ambient Pastel Background Blurs */}
       <div className="fixed inset-0 pointer-events-none select-none z-0">
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-pink-200/40 rounded-full blur-3xl" />
@@ -431,6 +720,16 @@ function TambolaGameContent() {
         </div>
       )}
 
+      {/* Condition Won Banner */}
+      {lastBingoConditionWon && (
+        <div className="bg-gradient-to-r from-rose-100 via-pink-100 to-rose-100 border-b border-rose-300 px-4 py-2 text-center text-xs font-black text-[#1e1435] flex items-center justify-center gap-2 z-20 backdrop-blur-md">
+          <Trophy className="w-3.5 h-3.5 text-amber-500" />
+          <span>
+            {lastBingoConditionWon.displayName} won {lastBingoConditionWon.conditionName}! (+{lastBingoConditionWon.points} pts)
+          </span>
+        </div>
+      )}
+
       {/* MAIN CONTAINER */}
       <div className="relative z-10 w-full max-w-[1440px] mx-auto p-3 sm:p-6 lg:p-8 flex flex-col gap-4">
         
@@ -456,11 +755,44 @@ function TambolaGameContent() {
             </div>
           </div>
 
-          {/* Right: "Same Numbers Different Hearts" Quote & Quick Navigation */}
-          <div className="flex items-center gap-4">
-            <span className="hidden md:inline-block font-serif italic text-base text-[#8d4b88] tracking-wide select-none">
+          {/* Right: "Same Numbers Different Hearts" Quote & Controls */}
+          <div className="flex items-center gap-3">
+            <span className="hidden md:inline-block font-serif italic text-base text-[#8d4b88] tracking-wide select-none mr-2">
               “Same Numbers Different Hearts” ♡
             </span>
+
+            {/* Show Call Button (if closed) */}
+            {isPipClosed && (
+              <button
+                type="button"
+                onClick={() => setIsPipClosed(false)}
+                className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                title="Show Call Window"
+              >
+                <Video className="w-3.5 h-3.5 text-rose-500" />
+                <span>Show Call</span>
+              </button>
+            )}
+
+            {/* Chat Bubble Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className={`relative px-3.5 py-1.5 rounded-full border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                isChatOpen
+                  ? 'bg-[#ff3864] text-white border-[#ff3864]'
+                  : 'bg-white/80 hover:bg-white text-[#4a3e68] border-pink-100'
+              }`}
+              title="Toggle Game Chat"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Chat</span>
+              {chatMessages.length > 0 && !isChatOpen && (
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+              )}
+            </button>
+
+            {/* Leave Match */}
             <button
               onClick={handleLeave}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/80 hover:bg-white text-xs font-bold text-[#4a3e68] border border-pink-100 shadow-xs transition cursor-pointer"
@@ -471,7 +803,7 @@ function TambolaGameContent() {
           </div>
         </header>
 
-        {/* 2. TOP DUEL PLAYERS BAR (REAL PLAYERS OR WAITING FOR OPPONENT) */}
+        {/* 2. TOP DUEL PLAYERS BAR (REAL PLAYERS) */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
           {/* Left Player Card (You) */}
           <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
@@ -519,86 +851,48 @@ function TambolaGameContent() {
             </span>
           </div>
 
-          {/* Right Player Card (Real Opponent if joined, or Invite slot) */}
-          {opponent ? (
-            <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
-              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-sm shrink-0 flex items-center justify-center font-bold text-purple-600 text-lg">
-                {opponent.avatarUrl ? (
-                  <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
-                ) : (
-                  opponent.displayName?.charAt(0).toUpperCase() || 'O'
-                )}
+          {/* Right Player Card (Real Opponent) */}
+          <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-sm shrink-0 flex items-center justify-center font-bold text-purple-600 text-lg">
+              {opponent?.avatarUrl ? (
+                <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
+              ) : (
+                opponent?.displayName?.charAt(0).toUpperCase() || 'O'
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
+                  {opponent ? opponent.displayName : 'Opponent'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-[10px] font-black uppercase tracking-wider">
+                  Opponent
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
-                    {opponent.displayName}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
-                    Ready
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-xs mt-1">
-                  <span className="font-bold text-[#1e1435]">
-                    Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
-                  </span>
-                  <span className="text-[10px] font-semibold text-[#8a80a0]">
-                    {opponentMarkedCount}/15 Marked
-                  </span>
-                </div>
-                {/* Lavender Progress Bar */}
-                <div className="w-full h-2 rounded-full bg-[#f3eafc] overflow-hidden mt-1.5">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] transition-all duration-300"
-                    style={{ width: `${Math.min(100, (opponentMarkedCount / 15) * 100)}%` }}
-                  />
-                </div>
+              <div className="flex items-center justify-between text-xs mt-1">
+                <span className="font-bold text-[#1e1435]">
+                  Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
+                </span>
+                <span className="text-[10px] font-semibold text-[#8a80a0]">
+                  {opponentMarkedCount}/15 Marked
+                </span>
+              </div>
+              {/* Lavender Progress Bar */}
+              <div className="w-full h-2 rounded-full bg-[#f3eafc] overflow-hidden mt-1.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (opponentMarkedCount / 15) * 100)}%` }}
+                />
               </div>
             </div>
-          ) : (
-            /* Waiting for Opponent Slot */
-            <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-dashed border-pink-300 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-[#ff3864]/50 bg-[#fff0f5] flex items-center justify-center text-[#ff3864] shrink-0 animate-pulse">
-                  <UserPlus className="w-6 h-6" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-sm font-extrabold text-[#1e1435] block truncate">
-                    Waiting for Opponent...
-                  </span>
-                  <span className="text-[11px] text-[#8a80a0] block truncate">
-                    Room: <strong className="text-[#ff3864] font-mono">{room?.roomCode || roomCodeParam}</strong>
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="px-2.5 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-[#ff3864] text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                  title="Copy Game Link"
-                >
-                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Copied' : 'Copy'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowFriendDrawer(true)}
-                  className="px-3 py-1.5 rounded-xl bg-[#ff3864] hover:bg-[#e6005c] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Invite</span>
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* 3. MAIN ARENA (GRID: LEFT TICKET/PROGRESS, MIDDLE CALLER/CALL, RIGHT CHAT) */}
+        {/* 3. MAIN ARENA */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
           
-          {/* LEFT COLUMN: TICKET & WINNING PROGRESS (8 COLS) */}
-          <div className="lg:col-span-8 flex flex-col gap-4">
+          {/* TICKET & CALLER ROW (12 COLS OR ADAPTIVE) */}
+          <div className="lg:col-span-12 flex flex-col gap-4">
             
             {/* TICKET + CALLER ROW */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
@@ -620,7 +914,7 @@ function TambolaGameContent() {
                   {!isPlaying && (
                     <button
                       type="button"
-                      onClick={handleNewTicket}
+                      onClick={() => setPreviewTicketGrid(generateRandomTambolaGrid())}
                       className="flex items-center gap-1 text-xs font-bold text-[#4a3e68] hover:text-[#ff3864] transition cursor-pointer"
                     >
                       <Shuffle className="w-3.5 h-3.5" />
@@ -765,7 +1059,7 @@ function TambolaGameContent() {
                     </div>
                   </>
                 ) : (
-                  /* Waiting Lobby Dial */
+                  /* Dial when waiting / ready */
                   <div className="my-auto flex flex-col items-center justify-center py-4">
                     <div className="w-24 h-24 rounded-full border-3 border-dashed border-[#ff3864]/40 bg-[#fff5f8] flex flex-col items-center justify-center mb-2">
                       <Sparkles className="w-8 h-8 text-[#ff3864] animate-pulse" />
@@ -773,7 +1067,7 @@ function TambolaGameContent() {
                     </div>
                     <span className="text-xs font-bold text-[#1e1435]">Tambola Duel Arena</span>
                     <span className="text-[11px] text-[#8a80a0] mt-0.5">
-                      {opponent ? 'All players joined! Ready to begin.' : 'Waiting for opponent to connect...'}
+                      Ready to start the match!
                     </span>
                   </div>
                 )}
@@ -781,36 +1075,15 @@ function TambolaGameContent() {
                 {/* Primary Action Button */}
                 <button
                   type="button"
-                  disabled={!isPlaying && !isHost && Boolean(opponent)}
                   onClick={handleClaimOrStart}
-                  className={`w-full mt-4 py-3.5 px-4 rounded-2xl text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition shadow-lg ${
-                    isPlaying
-                      ? 'bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 shadow-pink-500/30 cursor-pointer'
-                      : isHost && opponent
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 shadow-emerald-500/30 cursor-pointer animate-bounce'
-                      : !opponent
-                      ? 'bg-gradient-to-r from-[#ff3864] to-[#ff6699] hover:brightness-105 shadow-pink-500/25 cursor-pointer'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  }`}
+                  className="w-full mt-4 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition shadow-[0_8px_25px_rgba(255,56,100,0.35)] cursor-pointer"
                 >
-                  {isPlaying ? (
-                    <>
-                      <Sparkles className="w-4 h-4 fill-white" />
-                      <span>🎉 CLAIM TAMBOLA!</span>
-                    </>
-                  ) : isHost && opponent ? (
-                    <>
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>🚀 START TAMBOLA DUEL</span>
-                    </>
-                  ) : !opponent ? (
-                    <>
-                      <UserPlus className="w-4 h-4" />
-                      <span>📲 INVITE OPPONENT TO PLAY</span>
-                    </>
-                  ) : (
-                    <span>⏳ WAITING FOR HOST TO START...</span>
-                  )}
+                  <Sparkles className="w-4 h-4 fill-white" />
+                  <span>
+                    {!isPlaying && isHost
+                      ? '🚀 START TAMBOLA MATCH'
+                      : '🎉 CLAIM TAMBOLA!'}
+                  </span>
                 </button>
 
               </div>
@@ -917,207 +1190,25 @@ function TambolaGameContent() {
 
             </div>
 
-            {/* Bottom Row: Romantic script quote + Call Widget + Popcorn Container */}
+            {/* Bottom Row: Romantic script quote + Popcorn Container */}
             <div className="flex items-center justify-between pt-2">
               <div className="font-serif italic text-base sm:text-lg text-[#8d4b88] tracking-wide select-none">
                 Good Games<br />Better Company ♡
               </div>
 
-              {/* Call Widget & Popcorn */}
-              <div className="flex items-end gap-3">
-                {/* Floating Call Card */}
-                {!isCallClosed && (
-                  <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white shadow-xl flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-1.5 text-[#1e1435] font-black">
-                        <GripHorizontal className="w-3.5 h-3.5 text-rose-500" />
-                        <span>Call ({players.length}/2)</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={toggleMic}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center transition ${
-                            isMicMuted ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
-                          }`}
-                        >
-                          {isMicMuted ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={toggleCamera}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center transition ${
-                            isCameraOn ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-600'
-                          }`}
-                        >
-                          <Video className="w-3 h-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsCallMinimized(!isCallMinimized)}
-                          className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsCallClosed(true)}
-                          className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-rose-100 hover:text-rose-600"
-                        >
-                          <CloseIcon className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {!isCallMinimized && (
-                      <div className="flex items-center gap-2 pt-1">
-                        {/* Self participant feed */}
-                        <div className="relative w-20 sm:w-24 h-16 sm:h-18 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex flex-col items-center justify-center shadow-inner group">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff3864] to-[#ff6699] text-white font-black text-xs flex items-center justify-center shadow-xs">
-                            {me?.displayName?.charAt(0).toUpperCase() || 'Y'}
-                          </div>
-                          <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between text-[9px] font-bold text-[#1e1435]">
-                            <span className="truncate">You</span>
-                            <span className="text-[10px]">{isMicMuted ? '🔴' : '🟢'}</span>
-                          </div>
-                        </div>
-
-                        {/* Opponent participant feed */}
-                        <div className="relative w-20 sm:w-24 h-16 sm:h-18 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex flex-col items-center justify-center shadow-inner group">
-                          {opponent ? (
-                            <>
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff3864] to-[#ff80a0] text-white font-black text-xs flex items-center justify-center shadow-xs">
-                                {opponent.displayName?.charAt(0).toUpperCase() || 'O'}
-                              </div>
-                              <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between text-[9px] font-bold text-[#1e1435]">
-                                <span className="truncate max-w-[50px]">{opponent.displayName}</span>
-                                <span className="text-[10px]">🟢</span>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="text-center p-1">
-                              <span className="text-[9px] text-slate-400 font-bold block">Waiting...</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Popcorn Bucket Decor */}
-                <div className="relative w-16 h-20 select-none pointer-events-none">
-                  <div className="absolute bottom-0 w-14 h-14 bg-gradient-to-b from-pink-100 to-rose-200 rounded-b-2xl rounded-t-sm border border-rose-300 shadow-lg flex flex-col items-center justify-center text-center p-1">
-                    <span className="font-serif italic font-black text-[9px] text-[#ff2b70] leading-tight">
-                      Good<br />Vibes<br />Only
-                    </span>
-                  </div>
-                  <div className="absolute -top-1 left-1 flex gap-0.5">
-                    <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs" />
-                    <span className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 shadow-xs -ml-1 -mt-1" />
-                    <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs -ml-1" />
-                  </div>
+              {/* Popcorn Bucket Decor */}
+              <div className="relative w-16 h-20 select-none pointer-events-none">
+                <div className="absolute bottom-0 w-14 h-14 bg-gradient-to-b from-pink-100 to-rose-200 rounded-b-2xl rounded-t-sm border border-rose-300 shadow-lg flex flex-col items-center justify-center text-center p-1">
+                  <span className="font-serif italic font-black text-[9px] text-[#ff2b70] leading-tight">
+                    Good<br />Vibes<br />Only
+                  </span>
+                </div>
+                <div className="absolute -top-1 left-1 flex gap-0.5">
+                  <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs" />
+                  <span className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 shadow-xs -ml-1 -mt-1" />
+                  <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs -ml-1" />
                 </div>
               </div>
-            </div>
-
-          </div>
-
-          {/* RIGHT COLUMN: GAME CHAT CARD (4 COLS) - REAL MESSAGES ONLY */}
-          <div className="lg:col-span-4 bg-white/95 backdrop-blur-md rounded-[30px] p-4 sm:p-5 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)] flex flex-col justify-between h-[660px]">
-            
-            {/* Chat Header */}
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#7c3aed] text-white flex items-center justify-center shadow-xs">
-                    <Send className="w-4 h-4 rotate-45" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-[#1e1435]">Game Chat</h3>
-                    <p className="text-[10px] text-[#8a80a0] font-medium">Live messages & reactions</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Message List - REAL MESSAGES ONLY */}
-              <div ref={chatScrollRef} className="h-[390px] overflow-y-auto py-3 space-y-3.5 pr-1">
-                {chatMessages.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-                    <div className="w-12 h-12 rounded-full bg-pink-50 text-[#ff3864] flex items-center justify-center mb-2">
-                      <Send className="w-5 h-5 rotate-45" />
-                    </div>
-                    <p className="text-xs font-bold text-[#1e1435]">No messages yet</p>
-                    <p className="text-[11px] text-[#8a80a0] mt-0.5">Send a message or reaction to your opponent!</p>
-                  </div>
-                ) : (
-                  chatMessages.map((m: any) => (
-                    <div key={m.id} className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0 flex items-center justify-center font-bold text-xs text-[#ff3864]">
-                        {m.userName?.charAt(0).toUpperCase() || 'U'}
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-xs font-bold text-[#1e1435]">{m.userName}</span>
-                          <span className="text-[10px] text-slate-400">
-                            {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <div className="text-xs text-[#332a47] font-medium mt-0.5">{m.content}</div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Bottom Actions: Emoji row, Quick phrases & Message Input */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              {/* Emojis row */}
-              <div className="flex items-center justify-between text-xl px-1">
-                {['❤️', '😂', '🔥', '🎉', '🎲', '😍'].map((emoji: string) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => sendReaction(emoji)}
-                    className="hover:scale-130 transition transform active:scale-95 cursor-pointer"
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-
-              {/* Quick phrases pills */}
-              <div className="flex items-center justify-between gap-1 text-[10px]">
-                {['Good Luck! 🍀', 'Nice Mark! 👏', 'Tambola soon! 🎯'].map((phrase: string) => (
-                  <button
-                    key={phrase}
-                    type="button"
-                    onClick={() => sendChat(phrase)}
-                    className="flex-1 py-1 px-1.5 rounded-full bg-[#f6f7fb] hover:bg-[#ffeef4] text-[#4a3e68] hover:text-[#ff3864] font-semibold border border-slate-200/60 transition cursor-pointer text-center truncate"
-                  >
-                    {phrase}
-                  </button>
-                ))}
-              </div>
-
-              {/* Input & Send button */}
-              <form onSubmit={handleSendChat} className="flex items-center gap-1.5 pt-1">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 bg-[#f6f7fb] border border-slate-200/80 rounded-2xl px-3.5 py-2.5 text-xs text-[#1e1435] placeholder:text-slate-400 focus:outline-none focus:border-[#ff3864] transition"
-                />
-                <button
-                  type="submit"
-                  disabled={!chatInput.trim()}
-                  className="w-9 h-9 rounded-2xl bg-[#ff3864] hover:bg-[#e6005c] disabled:opacity-40 text-white flex items-center justify-center shadow-md shadow-pink-500/20 transition cursor-pointer shrink-0"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
             </div>
 
           </div>
@@ -1126,23 +1217,282 @@ function TambolaGameContent() {
 
       </div>
 
-      {/* Friend Selector Drawer to Invite Online Friends */}
-      <GameFriendSelectorDrawer
-        isOpen={showFriendDrawer}
-        onClose={() => setShowFriendDrawer(false)}
-        token={session?.token}
-        gameTitle="Tambola"
-        onSelectFriend={async (friend: any) => {
-          try {
-            const res = await createGameRoomWithPartner('tambola', friend.friendUser.id);
-            if (res?.room?.roomCode) {
-              router.push(`/games/tambola?room=${res.room.roomCode}`);
-            }
-          } catch (e) {
-            console.error(e);
+      {/* ========================================================================= */}
+      {/* 4. DRAGGABLE MOVEABLE VIDEO CALL WINDOW                                    */}
+      {/* ========================================================================= */}
+      {!isPipClosed && (
+        <div
+          ref={pipRef}
+          onMouseDown={handlePipDragStart}
+          onTouchStart={handlePipDragStart}
+          style={
+            pipPosition
+              ? { left: `${pipPosition.x}px`, top: `${pipPosition.y}px` }
+              : { right: '32px', bottom: '100px' }
           }
-        }}
-      />
+          className={`fixed z-40 select-none bg-white/95 border border-white/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition-shadow ${
+            isDraggingPip
+              ? 'cursor-grabbing ring-2 ring-[#ff3864]/60 scale-[1.02]'
+              : 'cursor-grab hover:border-pink-200'
+          } ${isPipMinimized ? 'px-3 py-2' : 'p-3'}`}
+        >
+          {/* Header Bar: Drag Grip + In-Call Controls */}
+          <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-slate-100 touch-none">
+            <div className="flex items-center gap-1.5 text-slate-700 pointer-events-none">
+              <GripHorizontal className="w-4 h-4 text-rose-500" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#1e1435]">
+                Call ({callParticipants.length}/2)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMic();
+                }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
+                  isMicMuted
+                    ? 'bg-rose-100 border-rose-200 text-rose-600'
+                    : 'bg-emerald-100 border-emerald-200 text-emerald-600'
+                }`}
+                title={isMicMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 animate-pulse" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCamera();
+                }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
+                  isCameraOn
+                    ? 'bg-emerald-100 border-emerald-200 text-emerald-600'
+                    : 'bg-slate-100 border-slate-200 text-slate-600'
+                }`}
+                title={isCameraOn ? 'Turn Off Cam' : 'Turn On Cam'}
+              >
+                {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPipMinimized(!isPipMinimized);
+                }}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+                title={isPipMinimized ? 'Expand' : 'Minimize'}
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPipClosed(true);
+                }}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 flex items-center justify-center transition cursor-pointer"
+                title="Hide Call Box"
+              >
+                <CloseIcon className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Working Video Feeds */}
+          {!isPipMinimized && (
+            <div className="flex items-center gap-2 pt-1">
+              {/* Self Video Feed */}
+              <div className="relative w-28 sm:w-32 h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
+                {localUserStream && isCameraOn ? (
+                  <VideoAvatar
+                    stream={localUserStream}
+                    isSelf={true}
+                    displayName={me?.displayName || 'You'}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center p-2">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#ff3864] to-[#ff6699] text-white font-black text-xs flex items-center justify-center mb-1 shadow-sm">
+                      {me?.displayName?.charAt(0).toUpperCase() || 'Y'}
+                    </div>
+                    <span className="text-[10px] text-zinc-300 font-bold truncate max-w-[90px]">You</span>
+                  </div>
+                )}
+                <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-bold text-white drop-shadow pointer-events-none">
+                  <span className="truncate max-w-[65px]">You</span>
+                  <span>{isMicMuted ? '🔴' : '🟢'}</span>
+                </div>
+              </div>
+
+              {/* Opponent Video Feed */}
+              <div className="relative w-28 sm:w-32 h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
+                {opponent ? (
+                  (() => {
+                    const oppParticipant = callParticipants.find(p => p.userId === opponent.userId);
+                    return oppParticipant && oppParticipant.stream && oppParticipant.isCameraOn ? (
+                      <VideoAvatar
+                        stream={oppParticipant.stream}
+                        isSelf={false}
+                        displayName={opponent.displayName}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-center p-2">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#8b5cf6] to-[#6d28d9] text-white font-black text-xs flex items-center justify-center mb-1 shadow-sm">
+                          {opponent.displayName?.charAt(0).toUpperCase() || 'O'}
+                        </div>
+                        <span className="text-[10px] text-zinc-300 font-bold truncate max-w-[90px]">
+                          {opponent.displayName}
+                        </span>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-center p-2">
+                    <span className="text-[10px] text-zinc-400 font-bold">Waiting...</span>
+                  </div>
+                )}
+                <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-bold text-white drop-shadow pointer-events-none">
+                  <span className="truncate max-w-[65px]">{opponent?.displayName || 'Opponent'}</span>
+                  <span>🟢</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. CHAT BUBBLE TRIGGER & COMPACT POPUP CHAT WINDOW                        */}
+      {/* ========================================================================= */}
+      {/* Floating Chat Bubble Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          type="button"
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#ff3864] via-[#ff2b70] to-[#ff6699] text-white flex items-center justify-center shadow-[0_8px_30px_rgba(255,56,100,0.45)] hover:scale-110 active:scale-95 transition-transform duration-200 cursor-pointer relative"
+          title="Open Match Chat"
+        >
+          <MessageSquare className="w-6 h-6 stroke-[2.2]" />
+          {chatMessages.length > 0 && !isChatOpen && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] flex items-center justify-center border-2 border-white shadow-xs">
+              {chatMessages.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Floating Compact Chat Window */}
+      {isChatOpen && (
+        <div className="fixed bottom-22 right-6 z-40 w-80 sm:w-92 h-[420px] max-h-[80vh] bg-white/95 backdrop-blur-xl rounded-[28px] p-4 border border-white/90 shadow-[0_15px_50px_rgba(0,0,0,0.22)] flex flex-col justify-between animate-in slide-in-from-bottom-5 duration-200">
+          
+          {/* Header */}
+          <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-[#7c3aed] text-white flex items-center justify-center shadow-xs">
+                <Send className="w-3.5 h-3.5 rotate-45" />
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-[#1e1435]">Game Chat</h3>
+                <p className="text-[10px] text-[#8a80a0]">Live messages & reactions</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(false)}
+              className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            >
+              <CloseIcon className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Messages list */}
+          <div ref={chatScrollRef} className="flex-1 overflow-y-auto py-2.5 space-y-2.5 pr-1">
+            {chatMessages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center p-4 text-slate-400">
+                <div className="w-10 h-10 rounded-full bg-pink-50 text-[#ff3864] flex items-center justify-center mb-1.5">
+                  <Send className="w-4 h-4 rotate-45" />
+                </div>
+                <p className="text-xs font-bold text-[#1e1435]">No messages yet</p>
+                <p className="text-[10px] text-[#8a80a0] mt-0.5">Send a message to start!</p>
+              </div>
+            ) : (
+              chatMessages.map((m: any) => (
+                <div key={m.id} className="flex items-start gap-2">
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0 flex items-center justify-center font-bold text-[10px] text-[#ff3864]">
+                    {m.userName?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-xs font-bold text-[#1e1435] truncate">{m.userName}</span>
+                      <span className="text-[9px] text-slate-400">
+                        {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="text-xs text-[#332a47] font-medium mt-0.5 break-words">{m.content}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Bottom Controls: Emojis, Phrases, Input */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            {/* Emojis row */}
+            <div className="flex items-center justify-between text-lg px-0.5">
+              {['❤️', '😂', '🔥', '🎉', '🎲', '😍'].map((emoji: string) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => sendReaction(emoji)}
+                  className="hover:scale-130 transition transform active:scale-95 cursor-pointer"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            {/* Quick phrases pills */}
+            <div className="flex items-center justify-between gap-1 text-[9px]">
+              {['Good Luck! 🍀', 'Nice Mark! 👏', 'Tambola soon! 🎯'].map((phrase: string) => (
+                <button
+                  key={phrase}
+                  type="button"
+                  onClick={() => sendChat(phrase)}
+                  className="flex-1 py-1 px-1 rounded-full bg-[#f6f7fb] hover:bg-[#ffeef4] text-[#4a3e68] hover:text-[#ff3864] font-semibold border border-slate-200/60 transition cursor-pointer text-center truncate"
+                >
+                  {phrase}
+                </button>
+              ))}
+            </div>
+
+            {/* Input & Send */}
+            <form onSubmit={handleSendChat} className="flex items-center gap-1.5 pt-0.5">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 bg-[#f6f7fb] border border-slate-200/80 rounded-xl px-3 py-1.5 text-xs text-[#1e1435] placeholder:text-slate-400 focus:outline-none focus:border-[#ff3864] transition"
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim()}
+                className="w-8 h-8 rounded-xl bg-[#ff3864] hover:bg-[#e6005c] disabled:opacity-40 text-white flex items-center justify-center shadow-md shadow-pink-500/20 transition cursor-pointer shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </div>
+
+        </div>
+      )}
 
       {/* Rematch Request Popup from Opponent */}
       {rematchStatus && !rematchStatus.allVoted && !rematchStatus.votedUserIds?.includes(effectiveUserId) && (
