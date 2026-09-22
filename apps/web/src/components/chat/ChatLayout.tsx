@@ -113,7 +113,7 @@ export const ChatLayout: React.FC = () => {
 
   const handleSendMessage = (
     content: string,
-    type: 'text' | 'image' | 'sticker' | 'voice' = 'text',
+    type: 'text' | 'image' | 'sticker' | 'voice' | 'view_once' = 'text',
     mediaUrl?: string,
     metadata?: ChatMessageMetadata
   ) => {

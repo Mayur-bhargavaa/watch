@@ -38,7 +38,8 @@ export type ChatMessageType =
   | 'game_invite'
   | 'movie'
   | 'movie_share'
-  | 'system';
+  | 'system'
+  | 'view_once';
 
 export interface ChatMessageReaction {
   emoji: string;

@@ -32,7 +32,7 @@ interface PendingImage {
 interface MessageComposerProps {
   onSendMessage: (
     content: string,
-    type?: 'text' | 'image' | 'sticker' | 'voice',
+    type?: 'text' | 'image' | 'sticker' | 'voice' | 'view_once',
     mediaUrl?: string,
     metadata?: ChatMessageMetadata
   ) => void;
@@ -169,12 +169,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   const handleToggleViewOnce = () => {
     if (!pendingImage) return;
-    if (!pendingImage.isViewOnce) {
-      // Show browser disclaimer modal first
-      setShowViewOnceModal(true);
-    } else {
-      setPendingImage((prev) => (prev ? { ...prev, isViewOnce: false } : null));
-    }
+    setPendingImage((prev) => (prev ? { ...prev, isViewOnce: !prev.isViewOnce } : null));
   };
 
   const handleConfirmViewOnce = () => {
@@ -189,13 +184,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       try {
         setIsUploading(true);
         const uploadedUrl = await uploadChatImage(pendingImage.file);
-        const caption = text.trim();
+        const isVO = Boolean(pendingImage.isViewOnce);
+        const caption = text.trim() || (isVO ? '📸 Photo' : '📷 Photo');
+        const messageType: 'view_once' | 'image' = isVO ? 'view_once' : 'image';
+
         onSendMessage(
           caption,
-          'image',
+          messageType,
           uploadedUrl,
           {
-            isViewOnce: pendingImage.isViewOnce,
+            isViewOnce: isVO,
             viewOnceOpened: false,
             fileName: pendingImage.file.name,
             fileSize: `${(pendingImage.file.size / 1024).toFixed(0)} KB`,

@@ -304,16 +304,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <button
             type="button"
             onClick={() => onJumpToReply && onJumpToReply(message.replyTo!.id)}
-            className={`text-left text-xs mb-1 px-3 py-1.5 rounded-xl border-l-3 transition-opacity hover:opacity-90 max-w-full truncate cursor-pointer ${
+            className={`text-left text-xs mb-1 px-3 py-1.5 rounded-xl border-l-4 border-[#ee1d49] transition-opacity hover:opacity-95 max-w-full truncate cursor-pointer shadow-2xs ${
               isSender
-                ? 'bg-rose-950/20 border-[#ee1d49] text-rose-200'
-                : 'bg-slate-100 dark:bg-zinc-800 border-slate-400 dark:border-zinc-500 text-slate-700 dark:text-zinc-300'
+                ? 'bg-rose-100/90 dark:bg-rose-950/40 text-slate-900 dark:text-zinc-100'
+                : 'bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100'
             }`}
           >
-            <div className="font-bold text-[10px] text-[#ee1d49] truncate">
+            <div className="font-bold text-[11px] text-[#ee1d49] truncate">
               {message.replyTo.senderName}
             </div>
-            <div className="text-[11px] truncate opacity-90">
+            <div className="text-[12px] font-semibold text-slate-900 dark:text-zinc-100 truncate">
               {formatReplySnippet(message.replyTo.content)}
             </div>
           </button>
