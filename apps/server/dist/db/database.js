@@ -245,6 +245,27 @@ export class DatabaseService {
 
       CREATE INDEX IF NOT EXISTS idx_plans_host ON plans(host_id);
       CREATE INDEX IF NOT EXISTS idx_plans_date ON plans(date);
+
+      CREATE TABLE IF NOT EXISTS direct_chat_messages (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        sender_id TEXT NOT NULL,
+        sender_name TEXT,
+        sender_avatar TEXT,
+        recipient_id TEXT,
+        type TEXT DEFAULT 'text',
+        content TEXT NOT NULL,
+        media_url TEXT,
+        metadata TEXT,
+        reply_to TEXT,
+        status TEXT DEFAULT 'sent',
+        is_deleted INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_direct_chat_conv ON direct_chat_messages(conversation_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_direct_chat_recip ON direct_chat_messages(recipient_id, status);
+      CREATE INDEX IF NOT EXISTS idx_direct_chat_sender ON direct_chat_messages(sender_id, created_at);
     `);
         // Migration for existing databases
         try {
@@ -855,6 +876,82 @@ export class DatabaseService {
     }
     deleteChatMessage(messageId) {
         this.db.prepare(`UPDATE chat_messages SET is_deleted = 1 WHERE id = ?`).run(messageId);
+    }
+    // --- Watch Direct Chat Engine ---
+    saveDirectChatMessage(msg) {
+        const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO direct_chat_messages (
+        id, conversation_id, sender_id, sender_name, sender_avatar, recipient_id,
+        type, content, media_url, metadata, reply_to, status, is_deleted, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+    `);
+        stmt.run(msg.id, msg.conversationId, msg.senderId, msg.senderName || null, msg.senderAvatar || null, msg.recipientId || null, msg.type || 'text', msg.content, msg.mediaUrl || null, msg.metadata ? JSON.stringify(msg.metadata) : null, msg.replyTo ? JSON.stringify(msg.replyTo) : null, msg.status || 'sent', msg.createdAt || new Date().toISOString());
+    }
+    getDirectChatMessages(conversationId, limit = 100) {
+        const rows = this.db.prepare(`
+      SELECT * FROM direct_chat_messages
+      WHERE conversation_id = ? AND is_deleted = 0
+      ORDER BY created_at ASC
+      LIMIT ?
+    `).all(conversationId, limit);
+        return rows.map((r) => ({
+            id: r.id,
+            conversationId: r.conversation_id,
+            senderId: r.sender_id,
+            senderName: r.sender_name,
+            senderAvatar: r.sender_avatar,
+            recipientId: r.recipient_id,
+            type: r.type,
+            content: r.content,
+            mediaUrl: r.media_url,
+            metadata: r.metadata ? (() => { try {
+                return JSON.parse(r.metadata);
+            }
+            catch {
+                return undefined;
+            } })() : undefined,
+            replyTo: r.reply_to ? (() => { try {
+                return JSON.parse(r.reply_to);
+            }
+            catch {
+                return undefined;
+            } })() : undefined,
+            status: r.status,
+            createdAt: r.created_at
+        }));
+    }
+    updateDirectChatMessageStatus(messageId, status) {
+        this.db.prepare(`UPDATE direct_chat_messages SET status = ? WHERE id = ?`).run(status, messageId);
+    }
+    markDirectMessagesAsDelivered(recipientId) {
+        const messages = this.db.prepare(`
+      SELECT id, conversation_id as conversationId, sender_id as senderId
+      FROM direct_chat_messages
+      WHERE recipient_id = ? AND status = 'sent' AND is_deleted = 0
+    `).all(recipientId);
+        if (messages.length > 0) {
+            this.db.prepare(`
+        UPDATE direct_chat_messages
+        SET status = 'delivered'
+        WHERE recipient_id = ? AND status = 'sent' AND is_deleted = 0
+      `).run(recipientId);
+        }
+        return messages;
+    }
+    markDirectMessagesAsRead(conversationId, readerUserId) {
+        const messages = this.db.prepare(`
+      SELECT id, sender_id as senderId
+      FROM direct_chat_messages
+      WHERE conversation_id = ? AND sender_id != ? AND status != 'read' AND is_deleted = 0
+    `).all(conversationId, readerUserId);
+        if (messages.length > 0) {
+            this.db.prepare(`
+        UPDATE direct_chat_messages
+        SET status = 'read'
+        WHERE conversation_id = ? AND sender_id != ? AND status != 'read' AND is_deleted = 0
+      `).run(conversationId, readerUserId);
+        }
+        return messages;
     }
     // --- Privacy & GDPR Data Deletion ---
     deleteUserData(userId) {

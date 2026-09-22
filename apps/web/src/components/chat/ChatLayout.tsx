@@ -71,12 +71,39 @@ export const ChatLayout: React.FC = () => {
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
 
-  const otherUser = activeConversation?.participants.find((p) => p.id !== currentUserId) || activeConversation?.participants[0];
+  const rawOtherUser = activeConversation?.participants.find((p) => p.id !== currentUserId) || activeConversation?.participants[0];
+  const otherUser = rawOtherUser ? (users[rawOtherUser.id] || rawOtherUser) : undefined;
+
+  // Mark conversation as read and sync remote messages when opened
+  useEffect(() => {
+    if (activeConversationId) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('watch_active_conv_id', activeConversationId);
+      }
+      ChatStore.markAsRead(activeConversationId, otherUser?.id);
+      ChatStore.fetchRemoteMessages(activeConversationId);
+    } else {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('watch_active_conv_id');
+      }
+    }
+  }, [activeConversationId, otherUser?.id]);
+
+  // Periodic sync of remote messages for active conversation
+  useEffect(() => {
+    if (!activeConversationId) return;
+    const interval = setInterval(() => {
+      ChatStore.fetchRemoteMessages(activeConversationId);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [activeConversationId]);
 
   // Mark conversation as read when opened
   const handleSelectConversation = (conv: ChatConversation) => {
     setActiveConversationId(conv.id);
-    ChatStore.markAsRead(conv.id);
+    const targetOther = conv.participants.find((p) => p.id !== currentUserId) || conv.participants[0];
+    ChatStore.markAsRead(conv.id, targetOther?.id);
+    ChatStore.fetchRemoteMessages(conv.id);
   };
 
   const myName = session?.user?.displayName || 'You';

@@ -43,7 +43,7 @@ export async function createServer(dbPath = './synccinema.db') {
   const db = new DatabaseService(dbPath);
   const syncManager = new RoomSyncManager(db);
   const gameRoomManager = new GameRoomManager(db);
-  const presenceManager = new PresenceManager();
+  const presenceManager = new PresenceManager(db);
 
   await app.register(cors, {
     origin: true,
@@ -656,6 +656,85 @@ export async function createServer(dbPath = './synccinema.db') {
     }
     db.removeFriend(user.id, friendUserId);
     return { success: true, message: 'Friend removed' };
+  });
+
+  // =====================================================================
+  // Watch Direct Chat Endpoints
+  // =====================================================================
+
+  app.get('/api/chat/messages', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const { conversationId } = request.query as { conversationId?: string };
+    if (!conversationId) {
+      return reply.code(400).send({ error: 'conversationId is required' });
+    }
+    const messages = db.getDirectChatMessages(conversationId, 100);
+    return { success: true, messages };
+  });
+
+  app.post('/api/chat/messages', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as any;
+    if (!body.conversationId || !body.content) {
+      return reply.code(400).send({ error: 'conversationId and content are required' });
+    }
+
+    let recipientId = body.recipientId;
+    if (!recipientId && body.conversationId.startsWith('conv_')) {
+      recipientId = body.conversationId.replace('conv_', '');
+    }
+
+    const isRecipientOnline = recipientId ? presenceManager.isUserOnline(recipientId) : false;
+    const status = isRecipientOnline ? 'delivered' : 'sent';
+    const messageId = body.id || `msg_${Date.now()}_${nanoid(6)}`;
+
+    const msg = {
+      id: messageId,
+      conversationId: body.conversationId,
+      senderId: user.id,
+      senderName: body.senderName || user.displayName,
+      senderAvatar: body.senderAvatar || user.avatarUrl || undefined,
+      recipientId,
+      type: body.type || 'text',
+      content: body.content,
+      mediaUrl: body.mediaUrl,
+      metadata: body.metadata,
+      replyTo: body.replyTo,
+      status,
+      createdAt: body.createdAt || new Date().toISOString()
+    };
+
+    db.saveDirectChatMessage(msg);
+
+    if (recipientId && isRecipientOnline) {
+      presenceManager.sendToUser(recipientId, {
+        type: 'chat:message',
+        message: msg
+      });
+    }
+
+    return { success: true, message: msg };
+  });
+
+  app.post('/api/chat/read', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { conversationId?: string; senderId?: string };
+    if (!body.conversationId) {
+      return reply.code(400).send({ error: 'conversationId is required' });
+    }
+    const updatedMessages = db.markDirectMessagesAsRead(body.conversationId, user.id);
+    if (body.senderId) {
+      presenceManager.sendToUser(body.senderId, {
+        type: 'chat:status_update',
+        conversationId: body.conversationId,
+        status: 'read',
+        messageIds: updatedMessages.map((m) => m.id)
+      });
+    }
+    return { success: true, count: updatedMessages.length };
   });
 
   app.post('/api/streaks/record', async (request, reply) => {

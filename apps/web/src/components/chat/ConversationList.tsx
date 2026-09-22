@@ -109,7 +109,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           </div>
         ) : (
           filteredConversations.map((conv) => {
-            const otherUser = conv.participants.find((p) => p.id !== currentUserId) || conv.participants[0];
+            const rawOtherUser = conv.participants.find((p) => p.id !== currentUserId) || conv.participants[0];
+            const otherUser = rawOtherUser ? (users[rawOtherUser.id] || rawOtherUser) : undefined;
 
             return (
               <ConversationItem

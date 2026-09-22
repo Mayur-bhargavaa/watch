@@ -371,7 +371,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   ) : (
                     <CheckCheck
                       className={`w-3.5 h-3.5 ${
-                        message.status === 'read' ? 'text-cyan-200' : 'text-white/70'
+                        message.status === 'read' ? 'text-[#53bdeb]' : 'text-white/70'
                       }`}
                     />
                   )}

@@ -1,10 +1,15 @@
 import { WebSocket } from 'ws';
 
 export class PresenceManager {
-  // userId -> Set of active WebSockets (one user could have 2 tabs open)
+  private db?: any;
+  // userId -> Set of active WebSockets (one user could have multiple tabs/devices)
   private userSockets = new Map<string, Set<WebSocket>>();
   // userId -> timestamp (ms) of last activity/heartbeat
   private lastSeen = new Map<string, number>();
+
+  constructor(db?: any) {
+    this.db = db;
+  }
 
   /**
    * Registers a client's global presence WebSocket
@@ -19,8 +24,9 @@ export class PresenceManager {
     this.userSockets.get(user.id)!.add(ws);
     this.lastSeen.set(user.id, Date.now());
 
-    // Send initial ack
+    // Send initial connection ack + list of currently online user IDs
     try {
+      const onlineUserIds = Array.from(this.userSockets.keys());
       ws.send(
         JSON.stringify({
           type: 'presence:connected',
@@ -28,14 +34,121 @@ export class PresenceManager {
           timestamp: Date.now()
         })
       );
+      ws.send(
+        JSON.stringify({
+          type: 'presence:initial_online_users',
+          userIds: onlineUserIds
+        })
+      );
     } catch (e) {}
+
+    // Broadcast that this user is now ONLINE to all other active connected users
+    this.broadcastToOthers(user.id, {
+      type: 'presence:user_status',
+      userId: user.id,
+      isOnline: true
+    });
+
+    // Mark any pending direct messages sent to this user as DELIVERED
+    if (this.db && typeof this.db.markDirectMessagesAsDelivered === 'function') {
+      try {
+        const delivered = this.db.markDirectMessagesAsDelivered(user.id);
+        for (const item of delivered) {
+          this.sendToUser(item.senderId, {
+            type: 'chat:status_update',
+            messageId: item.id,
+            conversationId: item.conversationId,
+            status: 'delivered'
+          });
+        }
+      } catch (err) {
+        console.error('Error delivering pending messages:', err);
+      }
+    }
 
     ws.on('message', (data: any) => {
       try {
         const msg = JSON.parse(data.toString());
+        if (!msg || !msg.type) return;
+
         if (msg.type === 'presence:heartbeat') {
           this.recordHeartbeat(user.id);
           ws.send(JSON.stringify({ type: 'presence:ack', timestamp: Date.now() }));
+        }
+
+        // Live Direct Chat Message
+        if (msg.type === 'chat:send' && msg.message) {
+          const chatMsg = msg.message;
+          let recipientId = chatMsg.recipientId;
+          if (!recipientId && chatMsg.conversationId?.startsWith('conv_')) {
+            recipientId = chatMsg.conversationId.replace('conv_', '');
+          }
+
+          const isRecipientOnline = recipientId ? this.isUserOnline(recipientId) : false;
+          const status = isRecipientOnline ? 'delivered' : 'sent';
+
+          const finalMsg = {
+            ...chatMsg,
+            senderId: user.id,
+            senderName: chatMsg.senderName || user.displayName,
+            recipientId,
+            status,
+            createdAt: chatMsg.createdAt || new Date().toISOString()
+          };
+
+          if (this.db && typeof this.db.saveDirectChatMessage === 'function') {
+            try {
+              this.db.saveDirectChatMessage(finalMsg);
+            } catch (e) {
+              console.error('Failed to persist direct message:', e);
+            }
+          }
+
+          // Deliver directly to recipient if online
+          if (recipientId && isRecipientOnline) {
+            this.sendToUser(recipientId, {
+              type: 'chat:message',
+              message: finalMsg
+            });
+          }
+
+          // Acknowledge back to sender with updated status (sent or delivered)
+          ws.send(
+            JSON.stringify({
+              type: 'chat:status_update',
+              messageId: finalMsg.id,
+              conversationId: finalMsg.conversationId,
+              status
+            })
+          );
+        }
+
+        // Read receipt
+        if (msg.type === 'chat:read') {
+          const { conversationId, messageIds, senderId } = msg;
+          if (this.db && conversationId && typeof this.db.markDirectMessagesAsRead === 'function') {
+            try {
+              this.db.markDirectMessagesAsRead(conversationId, user.id);
+            } catch {}
+          }
+          if (senderId) {
+            this.sendToUser(senderId, {
+              type: 'chat:status_update',
+              conversationId,
+              messageIds,
+              status: 'read'
+            });
+          }
+        }
+
+        // Typing indicator
+        if (msg.type === 'chat:typing' && msg.recipientId) {
+          this.sendToUser(msg.recipientId, {
+            type: 'chat:typing',
+            conversationId: msg.conversationId,
+            fromUserId: user.id,
+            isTyping: Boolean(msg.isTyping)
+          });
         }
       } catch (e) {}
     });
@@ -46,9 +159,17 @@ export class PresenceManager {
         set.delete(ws);
         if (set.size === 0) {
           this.userSockets.delete(user.id);
+          this.lastSeen.set(user.id, Date.now());
+
+          // Broadcast that user is now OFFLINE to other connected users
+          this.broadcastToOthers(user.id, {
+            type: 'presence:user_status',
+            userId: user.id,
+            isOnline: false,
+            lastSeen: new Date().toISOString()
+          });
         }
       }
-      this.lastSeen.set(user.id, Date.now());
     });
 
     ws.on('error', () => {
@@ -101,5 +222,22 @@ export class PresenceManager {
       }
     }
     return sent;
+  }
+
+  /**
+   * Broadcasts a message to all connected users except the sender
+   */
+  public broadcastToOthers(excludeUserId: string, message: any): void {
+    const payload = JSON.stringify(message);
+    for (const [uid, sockets] of this.userSockets.entries()) {
+      if (uid === excludeUserId) continue;
+      for (const s of sockets) {
+        if (s.readyState === 1) {
+          try {
+            s.send(payload);
+          } catch (e) {}
+        }
+      }
+    }
   }
 }

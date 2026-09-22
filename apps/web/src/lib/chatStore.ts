@@ -18,7 +18,8 @@ import {
   getUserPartner,
   acceptFriendRequest,
   declineFriendRequest,
-  addFriendByCode
+  addFriendByCode,
+  API_BASE
 } from './api';
 
 const STORAGE_PREFIX = 'watch_chat_v2_';
@@ -360,6 +361,12 @@ function notify() {
 }
 
 export class ChatStore {
+  private static socketSender: ((msg: any) => void) | null = null;
+
+  static registerSocketSender(sender: (msg: any) => void): void {
+    this.socketSender = sender;
+  }
+
   private static getStorageKey(userId?: string): string {
     const s = getStoredSession();
     const uid = userId || s?.user?.id || 'guest';
@@ -501,6 +508,7 @@ export class ChatStore {
               existing.avatarUrl = friend.avatarUrl;
               existing.avatar = friend.avatarUrl || undefined;
               existing.participants = [chatUser];
+              changed = true;
             }
           }
         }
@@ -534,6 +542,13 @@ export class ChatStore {
     if (typeof window !== 'undefined') {
       this.getConversations();
       this.syncWithExistingFriends().catch(() => {});
+
+      // Keep friends and online status synced every 8 seconds
+      if (!(window as any).__watch_chat_store_interval) {
+        (window as any).__watch_chat_store_interval = setInterval(() => {
+          this.syncWithExistingFriends().catch(() => {});
+        }, 8000);
+      }
     }
   }
 
@@ -641,8 +656,8 @@ export class ChatStore {
     return this.createGroup(name, members);
   }
 
-  static markAsRead(conversationId: string): void {
-    this.markConversationRead(conversationId);
+  static markAsRead(conversationId: string, senderId?: string): void {
+    this.markConversationRead(conversationId, senderId);
   }
 
   static toggleReaction(conversationId: string, messageId: string, emoji: string, currentUserId?: string): void {
@@ -739,6 +754,53 @@ export class ChatStore {
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
       this.saveConversations(convs);
+    }
+
+    // Determine target recipient for live delivery
+    let recipientId: string | undefined;
+    const currentConv = convs.find(c => c.id === conversationId);
+    const otherParticipant = currentConv?.participants.find(p => p.id !== senderId);
+    if (otherParticipant) {
+      recipientId = otherParticipant.id;
+    } else if (conversationId.startsWith('conv_')) {
+      recipientId = conversationId.replace('conv_', '');
+    }
+
+    // 1. Dispatch live via WebSocket
+    if (this.socketSender) {
+      try {
+        this.socketSender({
+          type: 'chat:send',
+          message: {
+            ...newMsg,
+            recipientId
+          }
+        });
+      } catch (e) {
+        console.warn('Socket send failed:', e);
+      }
+    }
+
+    // 2. Dispatch via HTTP for guaranteed persistence
+    if (s?.token) {
+      fetch(`${API_BASE}/api/chat/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${s.token}`
+        },
+        body: JSON.stringify({
+          ...newMsg,
+          recipientId
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.message?.status) {
+            this.updateMessageStatus(newMsg.id, conversationId, data.message.status);
+          }
+        })
+        .catch(() => {});
     }
 
     // Auto-echo response after 1.5s if talking to Rahul or Dhruv for realistic social feel
@@ -852,12 +914,250 @@ export class ChatStore {
     }
   }
 
-  static markConversationRead(conversationId: string): void {
+  static markConversationRead(conversationId: string, senderId?: string): void {
     const convs = this.getConversations();
     const conv = convs.find(c => c.id === conversationId);
+    const s = getStoredSession();
+    const myId = s?.user?.id || 'current_user';
+
+    const msgs = this.getMessages(conversationId);
+    let changed = false;
+    const readMessageIds: string[] = [];
+    const targetSenderId = senderId || conv?.participants.find(p => p.id !== myId)?.id;
+
+    for (const m of msgs) {
+      if (m.senderId !== myId && m.status !== 'read') {
+        m.status = 'read';
+        readMessageIds.push(m.id);
+        changed = true;
+      }
+    }
+
     if (conv && conv.unreadCount > 0) {
       conv.unreadCount = 0;
       this.saveConversations(convs);
+    }
+
+    if (changed) {
+      this.saveMessages(conversationId, msgs);
+    }
+
+    if (this.socketSender && targetSenderId) {
+      try {
+        this.socketSender({
+          type: 'chat:read',
+          conversationId,
+          messageIds: readMessageIds,
+          senderId: targetSenderId
+        });
+      } catch {}
+    }
+
+    if (s?.token) {
+      fetch(`${API_BASE}/api/chat/read`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${s.token}`
+        },
+        body: JSON.stringify({
+          conversationId,
+          senderId: targetSenderId
+        })
+      }).catch(() => {});
+    }
+
+    notify();
+  }
+
+  static receiveIncomingMessage(incoming: ChatMessage): void {
+    const conversationId = incoming.conversationId;
+    if (!conversationId) return;
+
+    const msgs = this.getMessages(conversationId);
+    const existingIndex = msgs.findIndex((m) => m.id === incoming.id);
+    if (existingIndex >= 0) {
+      msgs[existingIndex] = { ...msgs[existingIndex], ...incoming };
+    } else {
+      msgs.push(incoming);
+    }
+    this.saveMessages(conversationId, msgs);
+
+    const convs = this.getConversations();
+    let conv = convs.find((c) => c.id === conversationId);
+    if (!conv) {
+      conv = {
+        id: conversationId,
+        type: 'direct',
+        name: incoming.senderName || 'Friend',
+        title: incoming.senderName || 'Friend',
+        avatarUrl: incoming.senderAvatar || null,
+        avatar: incoming.senderAvatar || undefined,
+        participants: [
+          {
+            id: incoming.senderId,
+            displayName: incoming.senderName || 'Friend',
+            name: incoming.senderName || 'Friend',
+            avatarUrl: incoming.senderAvatar || null,
+            avatar: incoming.senderAvatar || undefined,
+            onlineStatus: 'ONLINE',
+            isOnline: true
+          }
+        ],
+        messages: [incoming],
+        lastMessage: incoming,
+        unreadCount: 1,
+        updatedAt: incoming.createdAt
+      };
+      convs.unshift(conv);
+    } else {
+      conv.lastMessage = incoming;
+      conv.updatedAt = incoming.createdAt;
+      if (typeof window !== 'undefined') {
+        const activeId = sessionStorage.getItem('watch_active_conv_id');
+        if (activeId !== conversationId) {
+          conv.unreadCount = (conv.unreadCount || 0) + 1;
+        }
+      }
+      convs.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    }
+    this.saveConversations(convs);
+
+    // If currently viewing this conversation, mark as read immediately
+    if (typeof window !== 'undefined') {
+      const activeId = sessionStorage.getItem('watch_active_conv_id');
+      if (activeId === conversationId) {
+        this.markAsRead(conversationId, incoming.senderId);
+      }
+    }
+  }
+
+  static updateMessageStatus(
+    messageId?: string,
+    conversationId?: string,
+    status: 'sent' | 'delivered' | 'read' = 'delivered',
+    messageIds?: string[]
+  ): void {
+    const convs = this.getConversations();
+    const targetConvs = conversationId ? convs.filter((c) => c.id === conversationId) : convs;
+
+    for (const c of targetConvs) {
+      const msgs = this.getMessages(c.id);
+      let changed = false;
+      for (const m of msgs) {
+        const matches =
+          (messageId && m.id === messageId) ||
+          (messageIds && messageIds.includes(m.id)) ||
+          (!messageId && !messageIds && status === 'read');
+        if (matches && m.status !== status) {
+          if (m.status === 'read' && status !== 'read') continue;
+          m.status = status;
+          changed = true;
+        }
+      }
+      if (changed) {
+        this.saveMessages(c.id, msgs);
+      }
+    }
+    notify();
+  }
+
+  static async fetchRemoteMessages(conversationId: string): Promise<void> {
+    const s = getStoredSession();
+    if (!s?.token || !conversationId) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/messages?conversationId=${encodeURIComponent(conversationId)}`, {
+        headers: {
+          Authorization: `Bearer ${s.token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.messages)) {
+          const localMsgs = this.getMessages(conversationId);
+          const msgMap = new Map<string, ChatMessage>();
+          localMsgs.forEach((m) => msgMap.set(m.id, m));
+          data.messages.forEach((m: ChatMessage) => {
+            const existing = msgMap.get(m.id);
+            if (existing) {
+              msgMap.set(m.id, { ...existing, ...m });
+            } else {
+              msgMap.set(m.id, m);
+            }
+          });
+          const merged = Array.from(msgMap.values()).sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          this.saveMessages(conversationId, merged);
+
+          if (merged.length > 0) {
+            const convs = this.getConversations();
+            const conv = convs.find((c) => c.id === conversationId);
+            if (conv) {
+              conv.lastMessage = merged[merged.length - 1];
+              conv.updatedAt = merged[merged.length - 1].createdAt;
+              this.saveConversations(convs);
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  static setUserOnline(userId: string, isOnline: boolean, lastSeen?: string): void {
+    if (realFriendsMap[userId]) {
+      realFriendsMap[userId].isOnline = isOnline;
+      realFriendsMap[userId].onlineStatus = isOnline ? 'ONLINE' : 'OFFLINE';
+      if (lastSeen) realFriendsMap[userId].lastSeen = lastSeen;
+    }
+
+    const convs = this.getConversations();
+    let changed = false;
+    for (const c of convs) {
+      for (const p of c.participants || []) {
+        if (p.id === userId) {
+          p.isOnline = isOnline;
+          p.onlineStatus = isOnline ? 'ONLINE' : 'OFFLINE';
+          if (lastSeen) p.lastSeen = lastSeen;
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      this.saveConversations(convs);
+    } else {
+      notify();
+    }
+  }
+
+  static setInitialOnlineUsers(userIds: string[]): void {
+    const idSet = new Set(userIds);
+    Object.values(realFriendsMap).forEach((f) => {
+      f.isOnline = idSet.has(f.id);
+      f.onlineStatus = f.isOnline ? 'ONLINE' : 'OFFLINE';
+    });
+
+    const convs = this.getConversations();
+    let changed = false;
+    for (const c of convs) {
+      for (const p of c.participants || []) {
+        const online = idSet.has(p.id);
+        if (p.isOnline !== online) {
+          p.isOnline = online;
+          p.onlineStatus = online ? 'ONLINE' : 'OFFLINE';
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      this.saveConversations(convs);
+    } else {
+      notify();
     }
   }
 

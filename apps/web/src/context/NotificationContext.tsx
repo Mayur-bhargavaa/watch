@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useRouter } from 'next/navigation';
 import { getStoredSession, UserSession, getGameRoute, getGameTitle } from '../lib/api';
 import { getRandomRoast, RoastCategory } from '../lib/roastMessages';
+import { ChatStore } from '../lib/chatStore';
 
 export interface AppNotification {
   id: string;
@@ -304,6 +305,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         socketRef.current = ws;
 
         ws.onopen = () => {
+          // Register socket sender for real-time chat messages
+          ChatStore.registerSocketSender((payload) => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify(payload));
+            }
+          });
+
           // Heartbeat interval
           const hbInterval = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -318,6 +326,47 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           try {
             const data = JSON.parse(event.data);
             if (!data || !data.type) return;
+
+            // Handle Direct Chat Messages
+            if (data.type === 'chat:message' && data.message) {
+              ChatStore.receiveIncomingMessage(data.message);
+              const sender = data.message.senderName || 'A friend';
+              const isChatPage = typeof window !== 'undefined' && window.location.pathname === '/chat';
+              if (!isChatPage || (typeof document !== 'undefined' && document.hidden)) {
+                pushNotification({
+                  title: `💬 ${sender}`,
+                  body:
+                    data.message.type === 'image'
+                      ? '📷 Sent a photo'
+                      : data.message.type === 'sticker'
+                      ? '🎨 Sent a sticker'
+                      : data.message.type === 'voice'
+                      ? '🎤 Sent a voice message'
+                      : data.message.content || 'Sent a message',
+                  emoji: '💬',
+                  category: 'system',
+                  link: '/chat',
+                  fromName: sender
+                });
+              } else {
+                playChimeSound();
+              }
+            }
+
+            // Handle Direct Chat Status Updates (delivered / read ticks)
+            if (data.type === 'chat:status_update') {
+              ChatStore.updateMessageStatus(data.messageId, data.conversationId, data.status, data.messageIds);
+            }
+
+            // Handle Real-Time User Online/Offline updates
+            if (data.type === 'presence:user_status') {
+              ChatStore.setUserOnline(data.userId, data.isOnline, data.lastSeen);
+            }
+
+            // Handle Initial list of online users
+            if (data.type === 'presence:initial_online_users' && Array.isArray(data.userIds)) {
+              ChatStore.setInitialOnlineUsers(data.userIds);
+            }
 
             // Handle Partner Ping
             if (data.type === 'partner:ping') {
