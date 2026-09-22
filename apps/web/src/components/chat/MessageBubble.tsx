@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   X,
   Eye,
+  Maximize2,
 } from 'lucide-react';
 import { ChatMessage } from '@/types/chat';
 import { VoiceMessage } from './VoiceMessage';
@@ -23,6 +24,7 @@ import { MovieShareMessage } from './MovieShareMessage';
 import { ReactionPicker } from './ReactionPicker';
 import { parseStickerMessage } from './StickersData';
 import { ModalPortal } from './ModalPortal';
+import { FullScreenImageViewer } from './FullScreenImageViewer';
 import { ChatStore } from '@/lib/chatStore';
 
 /**
@@ -82,16 +84,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [isViewOnceModalOpen, setIsViewOnceModalOpen] = useState(false);
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
 
+  // Robust metadata parser (handles both object and JSON string)
+  const rawMeta: any = typeof message.metadata === 'string'
+    ? (() => { try { return JSON.parse(message.metadata); } catch { return {}; } })()
+    : (message.metadata || {});
+
+  const isViewOnce = Boolean(
+    rawMeta?.isViewOnce ||
+    rawMeta?.viewOnce ||
+    rawMeta?.view_once ||
+    (message.type as string) === 'view_once' ||
+    (rawMeta?.viewOnceOpened !== undefined && rawMeta?.viewOnceOpened !== null)
+  );
+  const isViewOnceOpened = Boolean(rawMeta?.viewOnceOpened);
+
   const handleOpenViewOnce = () => {
-    if (message.metadata?.viewOnceOpened) return;
+    if (isViewOnceOpened) return;
     setIsViewOnceModalOpen(true);
   };
 
   const handleCloseViewOnce = () => {
     setIsViewOnceModalOpen(false);
-    if (!message.metadata?.viewOnceOpened) {
+    if (!isViewOnceOpened) {
       ChatStore.markViewOnceOpened(message.conversationId, message.id);
     }
   };
@@ -148,23 +165,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       }`}
     >
       {/* Receiver Avatar */}
-      {!isSender && (
-        <div className="w-8 h-8 rounded-full shrink-0 self-end mb-1 overflow-hidden bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center font-bold text-xs">
-          {showAvatar ? (
-            message.senderAvatar ? (
+      {!isSender &&
+        (showAvatar ? (
+          <div className="w-8 h-8 rounded-full shrink-0 self-end mb-1 overflow-hidden bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 flex items-center justify-center font-bold text-xs shadow-xs">
+            {message.senderAvatar ? (
               <img
                 src={message.senderAvatar}
                 alt={message.senderName}
                 className="w-full h-full object-cover"
               />
             ) : (
-              message.senderName.slice(0, 1).toUpperCase()
-            )
-          ) : (
-            <span className="w-8" />
-          )}
-        </div>
-      )}
+              (message.senderName || 'U').slice(0, 1).toUpperCase()
+            )}
+          </div>
+        ) : (
+          <div className="w-8 shrink-0" aria-hidden="true" />
+        ))}
 
       {/* Bubble Container */}
       <div className={`relative max-w-[85%] sm:max-w-[70%] flex flex-col ${isSender ? 'items-end' : 'items-start'}`}>
@@ -271,10 +287,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             ) : (message.type === 'movie_share' || message.type === 'movie') && message.metadata?.movie ? (
               /* Movie Share Card */
               <MovieShareMessage movie={message.metadata.movie} isSender={isSender} />
-            ) : message.metadata?.isViewOnce ? (
+            ) : isViewOnce ? (
               /* WhatsApp-style View Once Photo Message */
               <div className="py-0.5">
-                {message.metadata?.viewOnceOpened ? (
+                {isViewOnceOpened ? (
                   /* Opened State - Cannot be opened again */
                   <div className="flex items-center gap-2.5 py-1 px-1 select-none opacity-85">
                     <div
@@ -335,12 +351,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               /* Standard Text / Image / Big Emojis */
               <div>
                 {message.mediaUrl && (
-                  <div className="mb-2 rounded-xl overflow-hidden max-h-72">
+                  <div
+                    onClick={() => setIsImageViewerOpen(true)}
+                    className="mb-2 rounded-xl overflow-hidden max-h-72 cursor-pointer group/img relative shadow-xs"
+                    title="Click to view full screen"
+                  >
                     <img
                       src={message.mediaUrl}
                       alt="Media"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover/img:scale-[1.02]"
                     />
+                    <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
+                      <span className="opacity-0 group-hover/img:opacity-100 transition-opacity px-2.5 py-1 rounded-full bg-black/60 text-white text-[11px] font-semibold backdrop-blur-xs flex items-center gap-1 shadow-md">
+                        <Maximize2 className="w-3 h-3" /> Full screen
+                      </span>
+                    </div>
                   </div>
                 )}
                 {message.content && (
@@ -492,72 +517,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </div>
       </div>
 
+      {/* Fullscreen Lightbox Modal for Regular Images */}
+      {isImageViewerOpen && message.mediaUrl && (
+        <FullScreenImageViewer
+          isOpen={isImageViewerOpen}
+          onClose={() => setIsImageViewerOpen(false)}
+          imageUrl={message.mediaUrl}
+          caption={message.content}
+          senderName={message.senderName}
+          timestamp={formattedTime}
+          isViewOnce={false}
+        />
+      )}
+
       {/* Fullscreen View Once Lightbox Modal */}
       {isViewOnceModalOpen && message.mediaUrl && (
-        <ModalPortal>
-          <div
-            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200"
-            onClick={handleCloseViewOnce}
-          >
-            {/* Top Header */}
-            <div
-              className="w-full max-w-3xl mx-auto flex items-center justify-between py-2 text-white border-b border-white/10"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-full border-2 border-[#ee1d49] bg-[#ee1d49] text-white flex items-center justify-center text-xs font-black">
-                  1
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">View Once Photo</h4>
-                  <p className="text-[10px] text-zinc-400">
-                    Will be marked as Opened once closed
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCloseViewOnce}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-                title="Close and mark opened"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Main Image */}
-            <div
-              className="flex-1 flex items-center justify-center py-4 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={message.mediaUrl}
-                alt="View once photo"
-                className="max-h-[72vh] max-w-full rounded-2xl object-contain shadow-2xl select-none"
-              />
-            </div>
-
-            {/* Bottom Caption / Close Button */}
-            <div
-              className="w-full max-w-3xl mx-auto flex flex-col items-center gap-3 text-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {message.content && (
-                <p className="text-sm text-white/90 bg-white/10 px-4 py-2 rounded-2xl backdrop-blur-md max-w-lg">
-                  {message.content}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={handleCloseViewOnce}
-                className="px-6 py-2 rounded-full bg-[#ee1d49] hover:bg-[#d61840] text-white text-xs font-bold shadow-lg shadow-rose-500/20 transition cursor-pointer"
-              >
-                Close photo
-              </button>
-            </div>
-          </div>
-        </ModalPortal>
+        <FullScreenImageViewer
+          isOpen={isViewOnceModalOpen}
+          onClose={handleCloseViewOnce}
+          imageUrl={message.mediaUrl}
+          caption={message.content}
+          senderName={message.senderName}
+          timestamp={formattedTime}
+          isViewOnce={true}
+        />
       )}
     </div>
   );

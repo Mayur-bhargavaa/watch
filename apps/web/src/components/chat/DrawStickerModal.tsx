@@ -54,63 +54,67 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
 
   // Redraw canvas with high DPI and smooth neon glow
   const renderCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grid texture
-    ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.05)';
-    ctx.lineWidth = 1;
-    const step = 24;
-    for (let x = 0; x < canvas.width; x += step) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < canvas.height; y += step) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
-
-    // Draw each stroke
-    strokes.forEach((stroke) => {
-      if (stroke.points.length === 0) return;
-      ctx.save();
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      // Neon outer glow pass
-      ctx.shadowColor = stroke.glow;
-      ctx.shadowBlur = stroke.size * 2.8;
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size;
-
-      ctx.beginPath();
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      // Draw grid texture
+      ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.05)';
+      ctx.lineWidth = 1;
+      const step = 24;
+      for (let x = 0; x < canvas.width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
       }
-      ctx.stroke();
-
-      // High-brightness core line
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = Math.max(1.5, stroke.size * 0.35);
-
-      ctx.beginPath();
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      for (let y = 0; y < canvas.height; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
       }
-      ctx.stroke();
-      ctx.restore();
-    });
+
+      // Draw each stroke
+      strokes.forEach((stroke) => {
+        if (!stroke.points || stroke.points.length === 0) return;
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Neon outer glow pass
+        ctx.shadowColor = stroke.glow;
+        ctx.shadowBlur = stroke.size * 2.8;
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.size;
+
+        ctx.beginPath();
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        ctx.stroke();
+
+        // High-brightness core line
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(1.5, stroke.size * 0.35);
+
+        ctx.beginPath();
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      });
+    } catch (err) {
+      console.warn('Canvas render error:', err);
+    }
   }, [strokes, isDark]);
 
   useEffect(() => {
@@ -118,53 +122,67 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
   }, [renderCanvas]);
 
   const handleStartDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    isDrawingRef.current = true;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const point = {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY
-    };
+    try {
+      isDrawingRef.current = true;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const touch = 'touches' in e && e.touches.length > 0 ? e.touches[0] : null;
+      const clientX = touch ? touch.clientX : ('clientX' in e ? e.clientX : undefined);
+      const clientY = touch ? touch.clientY : ('clientY' in e ? e.clientY : undefined);
+      if (clientX === undefined || clientY === undefined) return;
 
-    const paletteItem = NEON_PALETTE.find((p) => p.color === selectedColor) || NEON_PALETTE[0];
-    const newStroke: Stroke = {
-      points: [point],
-      color: paletteItem.color,
-      size: brushSize,
-      glow: paletteItem.glow
-    };
-    currentStrokeRef.current = newStroke;
-    setStrokes((prev) => [...prev, newStroke]);
+      const scaleX = canvas.width / (rect.width || 280);
+      const scaleY = canvas.height / (rect.height || 280);
+      const point = {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+
+      const paletteItem = NEON_PALETTE.find((p) => p.color === selectedColor) || NEON_PALETTE[0];
+      const newStroke: Stroke = {
+        points: [point],
+        color: paletteItem.color,
+        size: brushSize,
+        glow: paletteItem.glow
+      };
+      currentStrokeRef.current = newStroke;
+      setStrokes((prev) => [...prev, newStroke]);
+    } catch (err) {
+      console.warn('handleStartDraw error:', err);
+    }
   };
 
   const handleDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawingRef.current || !currentStrokeRef.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const point = {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY
-    };
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const touch = 'touches' in e && e.touches.length > 0 ? e.touches[0] : null;
+      const clientX = touch ? touch.clientX : ('clientX' in e ? e.clientX : undefined);
+      const clientY = touch ? touch.clientY : ('clientY' in e ? e.clientY : undefined);
+      if (clientX === undefined || clientY === undefined) return;
 
-    currentStrokeRef.current.points.push(point);
-    setStrokes((prev) => {
-      const copy = [...prev];
-      copy[copy.length - 1] = {
-        ...currentStrokeRef.current!,
-        points: [...currentStrokeRef.current!.points]
+      const scaleX = canvas.width / (rect.width || 280);
+      const scaleY = canvas.height / (rect.height || 280);
+      const point = {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
       };
-      return copy;
-    });
+
+      currentStrokeRef.current.points.push(point);
+      setStrokes((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = {
+          ...currentStrokeRef.current!,
+          points: [...currentStrokeRef.current!.points]
+        };
+        return copy;
+      });
+    } catch (err) {
+      console.warn('handleDraw error:', err);
+    }
   };
 
   const handleEndDraw = () => {

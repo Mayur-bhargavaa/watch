@@ -71,7 +71,7 @@ export const ChatLayout: React.FC = () => {
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
 
-  const rawOtherUser = activeConversation?.participants.find((p) => p.id !== currentUserId) || activeConversation?.participants[0];
+  const rawOtherUser = activeConversation?.participants?.find((p) => p && p.id !== currentUserId) || activeConversation?.participants?.[0];
   const otherUser = rawOtherUser ? (users[rawOtherUser.id] || rawOtherUser) : undefined;
 
   // Mark conversation as read and sync remote messages when opened
@@ -101,7 +101,7 @@ export const ChatLayout: React.FC = () => {
   // Mark conversation as read when opened
   const handleSelectConversation = (conv: ChatConversation) => {
     setActiveConversationId(conv.id);
-    const targetOther = conv.participants.find((p) => p.id !== currentUserId) || conv.participants[0];
+    const targetOther = conv.participants?.find((p) => p && p.id !== currentUserId) || conv.participants?.[0];
     ChatStore.markAsRead(conv.id, targetOther?.id);
     ChatStore.fetchRemoteMessages(conv.id);
   };
