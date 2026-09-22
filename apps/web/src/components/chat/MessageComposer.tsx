@@ -18,6 +18,7 @@ import { ChatMessage, ChatPlanPayload, ChatGamePayload, ChatMoviePayload } from 
 import { StickerPicker } from './StickerPicker';
 import { DrawStickerModal } from './DrawStickerModal';
 import { serializeStickerMessage } from './StickersData';
+import { ModalPortal } from './ModalPortal';
 
 interface MessageComposerProps {
   onSendMessage: (content: string, type?: 'text' | 'image' | 'sticker' | 'voice', mediaUrl?: string) => void;
@@ -399,230 +400,238 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
       {/* Draw Sticker Modal */}
       {showDrawSticker && (
-        <DrawStickerModal
-          isOpen={showDrawSticker}
-          onClose={() => setShowDrawSticker(false)}
-          onSendDrawnSticker={(formattedStickerMessage) => {
-            onSendMessage(formattedStickerMessage, 'sticker');
-            setShowDrawSticker(false);
-          }}
-        />
+        <ModalPortal>
+          <DrawStickerModal
+            isOpen={showDrawSticker}
+            onClose={() => setShowDrawSticker(false)}
+            onSendDrawnSticker={(formattedStickerMessage) => {
+              onSendMessage(formattedStickerMessage, 'sticker');
+              setShowDrawSticker(false);
+            }}
+          />
+        </ModalPortal>
       )}
 
       {/* Quick Plan Modal */}
       {showPlanPrompt && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <form
-            onSubmit={handleCreatePlan}
-            className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#ee1d49]" />
-                <span>Create Watch Plan</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowPlanPrompt(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <form
+              onSubmit={handleCreatePlan}
+              className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#ee1d49]" />
+                  <span>Create Watch Plan</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowPlanPrompt(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
-                Plan Name
-              </label>
-              <input
-                type="text"
-                value={planTitle}
-                onChange={(e) => setPlanTitle(e.target.value)}
-                placeholder="e.g. 🍿 Friday Movie Night"
-                required
-                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-[#ee1d49]/40"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
-                  Date
+                  Plan Name
                 </label>
                 <input
                   type="text"
-                  value={planDate}
-                  onChange={(e) => setPlanDate(e.target.value)}
-                  placeholder="e.g. Friday"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden"
+                  value={planTitle}
+                  onChange={(e) => setPlanTitle(e.target.value)}
+                  placeholder="e.g. 🍿 Friday Movie Night"
+                  required
+                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-[#ee1d49]/40"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
-                  Time
-                </label>
-                <input
-                  type="text"
-                  value={planTime}
-                  onChange={(e) => setPlanTime(e.target.value)}
-                  placeholder="e.g. 9:00 PM"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden"
-                />
-              </div>
-            </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowPlanPrompt(false)}
-                className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2 rounded-xl bg-[#ee1d49] hover:bg-[#d61840] text-xs font-bold text-white shadow-xs"
-              >
-                Share Plan
-              </button>
-            </div>
-          </form>
-        </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="text"
+                    value={planDate}
+                    onChange={(e) => setPlanDate(e.target.value)}
+                    placeholder="e.g. Friday"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                    Time
+                  </label>
+                  <input
+                    type="text"
+                    value={planTime}
+                    onChange={(e) => setPlanTime(e.target.value)}
+                    placeholder="e.g. 9:00 PM"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPlanPrompt(false)}
+                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-[#ee1d49] hover:bg-[#d61840] text-xs font-bold text-white shadow-xs cursor-pointer"
+                >
+                  Share Plan
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalPortal>
       )}
 
       {/* Quick Game Modal */}
       {showGamePrompt && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <form
-            onSubmit={handleCreateGame}
-            className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Gamepad2 className="w-4 h-4 text-amber-500" />
-                <span>Invite to Game</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowGamePrompt(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400">
-                Choose Game
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'ludo', label: '🎲 Ludo' },
-                  { id: 'chess', label: '♟️ Chess' },
-                  { id: 'bingo', label: '🔢 Bingo' },
-                  { id: 'trivia', label: '💡 Trivia' },
-                  { id: 'doodle', label: '🎨 Doodle' },
-                ].map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => setSelectedGame(g.id as any)}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition text-left cursor-pointer ${
-                      selectedGame === g.id
-                        ? 'bg-rose-50 dark:bg-rose-950/40 border-[#ee1d49] text-[#ee1d49]'
-                        : 'bg-slate-100 dark:bg-zinc-800 border-transparent text-slate-700 dark:text-zinc-300'
-                    }`}
-                  >
-                    {g.label}
-                  </button>
-                ))}
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <form
+              onSubmit={handleCreateGame}
+              className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Gamepad2 className="w-4 h-4 text-amber-500" />
+                  <span>Invite to Game</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowGamePrompt(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowGamePrompt(false)}
-                className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-xs"
-              >
-                Send Invite
-              </button>
-            </div>
-          </form>
-        </div>
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400">
+                  Choose Game
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'ludo', label: '🎲 Ludo' },
+                    { id: 'chess', label: '♟️ Chess' },
+                    { id: 'bingo', label: '🔢 Bingo' },
+                    { id: 'trivia', label: '💡 Trivia' },
+                    { id: 'doodle', label: '🎨 Doodle' },
+                  ].map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setSelectedGame(g.id as any)}
+                      className={`py-2 px-3 rounded-xl text-xs font-semibold border transition text-left cursor-pointer ${
+                        selectedGame === g.id
+                          ? 'bg-rose-50 dark:bg-rose-950/40 border-[#ee1d49] text-[#ee1d49]'
+                          : 'bg-slate-100 dark:bg-zinc-800 border-transparent text-slate-700 dark:text-zinc-300'
+                      }`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGamePrompt(false)}
+                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-xs cursor-pointer"
+                >
+                  Send Invite
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalPortal>
       )}
 
       {/* Quick Movie Modal */}
       {showMoviePrompt && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <form
-            onSubmit={handleCreateMovie}
-            className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Film className="w-4 h-4 text-indigo-500" />
-                <span>Share Movie</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowMoviePrompt(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <form
+              onSubmit={handleCreateMovie}
+              className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-5 shadow-2xl border border-slate-200 dark:border-zinc-800 space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Film className="w-4 h-4 text-indigo-500" />
+                  <span>Share Movie</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowMoviePrompt(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
-                Movie Title
-              </label>
-              <input
-                type="text"
-                value={movieTitle}
-                onChange={(e) => setMovieTitle(e.target.value)}
-                placeholder="e.g. Interstellar, Inception, Dune..."
-                required
-                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-[#ee1d49]/40"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                  Movie Title
+                </label>
+                <input
+                  type="text"
+                  value={movieTitle}
+                  onChange={(e) => setMovieTitle(e.target.value)}
+                  placeholder="e.g. Interstellar, Inception, Dune..."
+                  required
+                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-[#ee1d49]/40"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
-                Genres
-              </label>
-              <input
-                type="text"
-                value={movieGenres}
-                onChange={(e) => setMovieGenres(e.target.value)}
-                placeholder="e.g. Sci-Fi, Adventure"
-                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1">
+                  Genres
+                </label>
+                <input
+                  type="text"
+                  value={movieGenres}
+                  onChange={(e) => setMovieGenres(e.target.value)}
+                  placeholder="e.g. Sci-Fi, Adventure"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-sm text-slate-900 dark:text-white outline-hidden"
+                />
+              </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowMoviePrompt(false)}
-                className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2 rounded-xl bg-[#ee1d49] hover:bg-[#d61840] text-xs font-bold text-white shadow-xs"
-              >
-                Share Movie
-              </button>
-            </div>
-          </form>
-        </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMoviePrompt(false)}
+                  className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-600 dark:text-zinc-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-[#ee1d49] hover:bg-[#d61840] text-xs font-bold text-white shadow-xs cursor-pointer"
+                >
+                  Share Movie
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalPortal>
       )}
     </div>
   );

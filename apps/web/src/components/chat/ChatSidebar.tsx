@@ -17,6 +17,7 @@ import {
 import { ChatConversation, ChatUser, ChatMessageRequest } from '@/types/chat';
 import { ChatStore } from '@/lib/chatStore';
 import { ConversationList } from './ConversationList';
+import { ModalPortal } from './ModalPortal';
 
 interface ChatSidebarProps {
   conversations: ChatConversation[];
@@ -350,78 +351,80 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
       {/* Add Friend by Code Modal */}
       {showAddFriend && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <form
-            onSubmit={handleAddFriendSubmit}
-            className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 shadow-2xl border border-slate-200 dark:border-zinc-800 p-5 space-y-4 animate-in zoom-in-95"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-[#ee1d49]" />
-                <span>Add Friend by Code</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddFriend(false);
-                  setAddFriendFeedback(null);
-                }}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 rounded-lg cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        <ModalPortal>
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <form
+              onSubmit={handleAddFriendSubmit}
+              className="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 shadow-2xl border border-slate-200 dark:border-zinc-800 p-5 space-y-4 animate-in zoom-in-95"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-[#ee1d49]" />
+                  <span>Add Friend by Code</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddFriend(false);
+                    setAddFriendFeedback(null);
+                  }}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 rounded-lg cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1.5">
-                Friend's Partner Code
-              </label>
-              <input
-                type="text"
-                value={friendCodeInput}
-                onChange={(e) => setFriendCodeInput(e.target.value.toUpperCase())}
-                placeholder="e.g. DHRUV42, RAHUL99..."
-                required
-                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-sm font-mono uppercase text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-[#ee1d49]/40"
-              />
-              <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">
-                Enter your friend's code to connect and start chatting right away.
-              </p>
-            </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-zinc-400 mb-1.5">
+                  Friend's Partner Code
+                </label>
+                <input
+                  type="text"
+                  value={friendCodeInput}
+                  onChange={(e) => setFriendCodeInput(e.target.value.toUpperCase())}
+                  placeholder="e.g. DHRUV42, RAHUL99..."
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-sm font-mono uppercase text-slate-900 dark:text-white outline-hidden focus:ring-2 focus:ring-[#ee1d49]/40"
+                />
+                <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-1">
+                  Enter your friend's code to connect and start chatting right away.
+                </p>
+              </div>
 
-            {addFriendFeedback && (
-              <p
-                className={`text-xs font-semibold p-2 rounded-xl ${
-                  addFriendFeedback.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
-                    : 'bg-rose-50 text-rose-600 dark:bg-rose-950/30'
-                }`}
-              >
-                {addFriendFeedback.message}
-              </p>
-            )}
+              {addFriendFeedback && (
+                <p
+                  className={`text-xs font-semibold p-2 rounded-xl ${
+                    addFriendFeedback.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30'
+                      : 'bg-rose-50 text-rose-600 dark:bg-rose-950/30'
+                  }`}
+                >
+                  {addFriendFeedback.message}
+                </p>
+              )}
 
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAddFriend(false);
-                  setAddFriendFeedback(null);
-                }}
-                className="flex-1 py-2.5 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-200 cursor-pointer transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={!friendCodeInput.trim() || isSubmittingFriend}
-                className="flex-1 py-2.5 rounded-2xl bg-[#ee1d49] hover:bg-[#d61840] text-xs font-bold text-white shadow-xs disabled:opacity-50 cursor-pointer transition"
-              >
-                {isSubmittingFriend ? 'Connecting...' : 'Connect'}
-              </button>
-            </div>
-          </form>
-        </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddFriend(false);
+                    setAddFriendFeedback(null);
+                  }}
+                  className="flex-1 py-2.5 rounded-2xl bg-slate-100 dark:bg-zinc-800 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-200 cursor-pointer transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!friendCodeInput.trim() || isSubmittingFriend}
+                  className="flex-1 py-2.5 rounded-2xl bg-[#ee1d49] hover:bg-[#d61840] text-xs font-bold text-white shadow-xs disabled:opacity-50 cursor-pointer transition"
+                >
+                  {isSubmittingFriend ? 'Connecting...' : 'Connect'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </ModalPortal>
       )}
     </div>
   );
