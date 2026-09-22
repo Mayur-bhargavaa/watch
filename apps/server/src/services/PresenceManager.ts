@@ -81,14 +81,22 @@ export class PresenceManager {
           const chatMsg = msg.message;
           let recipientId = chatMsg.recipientId;
           if (!recipientId && chatMsg.conversationId?.startsWith('conv_')) {
-            recipientId = chatMsg.conversationId.replace('conv_', '');
+            const stripped = chatMsg.conversationId.replace('conv_', '');
+            const parts = stripped.split('_');
+            if (parts.length >= 2) {
+              recipientId = parts[0] === user.id ? parts[1] : parts[0];
+            } else {
+              recipientId = stripped;
+            }
           }
 
           const isRecipientOnline = recipientId ? this.isUserOnline(recipientId) : false;
           const status = isRecipientOnline ? 'delivered' : 'sent';
+          const canonicalConvId = recipientId ? `conv_${[user.id, recipientId].sort().join('_')}` : chatMsg.conversationId;
 
           const finalMsg = {
             ...chatMsg,
+            conversationId: canonicalConvId,
             senderId: user.id,
             senderName: chatMsg.senderName || user.displayName,
             recipientId,
@@ -117,10 +125,20 @@ export class PresenceManager {
             JSON.stringify({
               type: 'chat:status_update',
               messageId: finalMsg.id,
-              conversationId: finalMsg.conversationId,
+              conversationId: canonicalConvId,
               status
             })
           );
+          if (chatMsg.conversationId && chatMsg.conversationId !== canonicalConvId) {
+            ws.send(
+              JSON.stringify({
+                type: 'chat:status_update',
+                messageId: finalMsg.id,
+                conversationId: chatMsg.conversationId,
+                status
+              })
+            );
+          }
         }
 
         // Read receipt
@@ -132,12 +150,21 @@ export class PresenceManager {
             } catch {}
           }
           if (senderId) {
+            const canonicalConvId = `conv_${[user.id, senderId].sort().join('_')}`;
             this.sendToUser(senderId, {
               type: 'chat:status_update',
-              conversationId,
+              conversationId: canonicalConvId,
               messageIds,
               status: 'read'
             });
+            if (conversationId && conversationId !== canonicalConvId) {
+              this.sendToUser(senderId, {
+                type: 'chat:status_update',
+                conversationId,
+                messageIds,
+                status: 'read'
+              });
+            }
           }
         }
 

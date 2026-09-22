@@ -757,12 +757,21 @@ export async function createServer(dbPath = './synccinema.db') {
     }
     const updatedMessages = db.markDirectMessagesAsRead(body.conversationId, user.id);
     if (body.senderId) {
+      const canonicalConvId = `conv_${[user.id, body.senderId].sort().join('_')}`;
       presenceManager.sendToUser(body.senderId, {
         type: 'chat:status_update',
-        conversationId: body.conversationId,
+        conversationId: canonicalConvId,
         status: 'read',
         messageIds: updatedMessages.map((m) => m.id)
       });
+      if (body.conversationId !== canonicalConvId) {
+        presenceManager.sendToUser(body.senderId, {
+          type: 'chat:status_update',
+          conversationId: body.conversationId,
+          status: 'read',
+          messageIds: updatedMessages.map((m) => m.id)
+        });
+      }
     }
     return { success: true, count: updatedMessages.length };
   });

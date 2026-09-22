@@ -68,7 +68,19 @@ export const ChatLayout: React.FC = () => {
     }
   }, [conversations, activeConversationId]);
 
-  const activeConversation = conversations.find((c) => c.id === activeConversationId);
+  const activeConversation = conversations.find((c) =>
+    c.id === activeConversationId ||
+    (activeConversationId && activeConversationId.startsWith('conv_') && (
+      c.id.includes(activeConversationId.replace('conv_', '')) ||
+      c.participants?.some((p) => p && activeConversationId.includes(p.id))
+    ))
+  );
+
+  useEffect(() => {
+    if (activeConversation && activeConversation.id !== activeConversationId) {
+      setActiveConversationId(activeConversation.id);
+    }
+  }, [activeConversation, activeConversationId]);
 
   const rawOtherUser = activeConversation?.participants?.find((p) => p && p.id !== currentUserId) || activeConversation?.participants?.[0];
   const otherUser = rawOtherUser ? (users[rawOtherUser.id] || rawOtherUser) : undefined;
@@ -284,7 +296,11 @@ export const ChatLayout: React.FC = () => {
 
             {/* Messages Scroll Area */}
             <MessageList
-              messages={activeConversation.messages || []}
+              messages={
+                activeConversation?.messages && activeConversation.messages.length > 0
+                  ? activeConversation.messages
+                  : (activeConversation?.id ? ChatStore.getMessages(activeConversation.id) : (activeConversationId ? ChatStore.getMessages(activeConversationId) : []))
+              }
               currentUserId={currentUserId}
               onReply={(msg) => setReplyingTo(msg)}
               onForward={(msg) => setForwardingMessage(msg)}

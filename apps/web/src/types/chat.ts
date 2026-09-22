@@ -114,6 +114,7 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   senderAvatar?: string | null;
+  recipientId?: string;
   type: ChatMessageType;
   content: string;
   mediaUrl?: string;

@@ -1167,27 +1167,40 @@ export class DatabaseService {
     );
   }
 
-  getDirectChatMessages(conversationId: string, currentUserId?: string, limit = 100): any[] {
+  getDirectChatMessages(conversationId: string, currentUserId?: string, limit = 500): any[] {
     let otherId: string | null = null;
     if (conversationId.startsWith('conv_')) {
-      otherId = conversationId.replace('conv_', '');
+      const stripped = conversationId.replace('conv_', '');
+      const parts = stripped.split('_');
+      if (parts.length >= 2 && currentUserId) {
+        otherId = parts[0] === currentUserId ? parts[1] : parts[0];
+      } else {
+        otherId = stripped;
+      }
     }
 
     let rows: any[];
     if (currentUserId && otherId && otherId !== currentUserId) {
+      const canonicalId = `conv_${[currentUserId, otherId].sort().join('_')}`;
       rows = this.db.prepare(`
-        SELECT * FROM direct_chat_messages
-        WHERE is_deleted = 0
-          AND (
-            conversation_id = ?
-            OR conversation_id = ?
-            OR (sender_id = ? AND recipient_id = ?)
-            OR (sender_id = ? AND recipient_id = ?)
-          )
-        ORDER BY created_at ASC
-        LIMIT ?
+        SELECT * FROM (
+          SELECT * FROM direct_chat_messages
+          WHERE is_deleted = 0
+            AND (
+              conversation_id = ?
+              OR conversation_id = ?
+              OR conversation_id = ?
+              OR conversation_id = ?
+              OR (sender_id = ? AND recipient_id = ?)
+              OR (sender_id = ? AND recipient_id = ?)
+            )
+          ORDER BY created_at DESC
+          LIMIT ?
+        ) ORDER BY created_at ASC
       `).all(
         conversationId,
+        canonicalId,
+        `conv_${otherId}`,
         `conv_${currentUserId}`,
         currentUserId,
         otherId,
@@ -1197,10 +1210,12 @@ export class DatabaseService {
       ) as any[];
     } else {
       rows = this.db.prepare(`
-        SELECT * FROM direct_chat_messages
-        WHERE conversation_id = ? AND is_deleted = 0
-        ORDER BY created_at ASC
-        LIMIT ?
+        SELECT * FROM (
+          SELECT * FROM direct_chat_messages
+          WHERE conversation_id = ? AND is_deleted = 0
+          ORDER BY created_at DESC
+          LIMIT ?
+        ) ORDER BY created_at ASC
       `).all(conversationId, limit) as any[];
     }
 
@@ -1243,18 +1258,85 @@ export class DatabaseService {
   }
 
   markDirectMessagesAsRead(conversationId: string, readerUserId: string): { id: string; senderId: string }[] {
-    const messages = this.db.prepare(`
-      SELECT id, sender_id as senderId
-      FROM direct_chat_messages
-      WHERE conversation_id = ? AND sender_id != ? AND status != 'read' AND is_deleted = 0
-    `).all(conversationId, readerUserId) as any[];
+    let otherId: string | null = null;
+    if (conversationId.startsWith('conv_')) {
+      const stripped = conversationId.replace('conv_', '');
+      const parts = stripped.split('_');
+      if (parts.length >= 2 && readerUserId) {
+        otherId = parts[0] === readerUserId ? parts[1] : parts[0];
+      } else {
+        otherId = stripped;
+      }
+    }
 
-    if (messages.length > 0) {
-      this.db.prepare(`
-        UPDATE direct_chat_messages
-        SET status = 'read'
+    let messages: any[];
+    if (otherId && otherId !== readerUserId) {
+      const canonicalId = `conv_${[readerUserId, otherId].sort().join('_')}`;
+      messages = this.db.prepare(`
+        SELECT id, sender_id as senderId
+        FROM direct_chat_messages
+        WHERE is_deleted = 0
+          AND status != 'read'
+          AND sender_id != ?
+          AND (
+            conversation_id = ?
+            OR conversation_id = ?
+            OR conversation_id = ?
+            OR conversation_id = ?
+            OR recipient_id = ?
+            OR (sender_id = ? AND recipient_id = ?)
+          )
+      `).all(
+        readerUserId,
+        conversationId,
+        canonicalId,
+        `conv_${otherId}`,
+        `conv_${readerUserId}`,
+        readerUserId,
+        otherId,
+        readerUserId
+      ) as any[];
+
+      if (messages.length > 0) {
+        this.db.prepare(`
+          UPDATE direct_chat_messages
+          SET status = 'read'
+          WHERE is_deleted = 0
+            AND status != 'read'
+            AND sender_id != ?
+            AND (
+              conversation_id = ?
+              OR conversation_id = ?
+              OR conversation_id = ?
+              OR conversation_id = ?
+              OR recipient_id = ?
+              OR (sender_id = ? AND recipient_id = ?)
+            )
+        `).run(
+          readerUserId,
+          conversationId,
+          canonicalId,
+          `conv_${otherId}`,
+          `conv_${readerUserId}`,
+          readerUserId,
+          otherId,
+          readerUserId
+        );
+      }
+    } else {
+      messages = this.db.prepare(`
+        SELECT id, sender_id as senderId
+        FROM direct_chat_messages
         WHERE conversation_id = ? AND sender_id != ? AND status != 'read' AND is_deleted = 0
-      `).run(conversationId, readerUserId);
+      `).all(conversationId, readerUserId) as any[];
+
+      if (messages.length > 0) {
+        this.db.prepare(`
+          UPDATE direct_chat_messages
+          SET status = 'read'
+          WHERE conversation_id = ? AND sender_id != ? AND status != 'read' AND is_deleted = 0
+        `).run(conversationId, readerUserId);
+      }
     }
     return messages;
   }
