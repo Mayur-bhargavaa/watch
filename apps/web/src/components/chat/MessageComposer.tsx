@@ -169,7 +169,12 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   const handleToggleViewOnce = () => {
     if (!pendingImage) return;
-    setPendingImage((prev) => (prev ? { ...prev, isViewOnce: !prev.isViewOnce } : null));
+    if (!pendingImage.isViewOnce) {
+      // Show browser disclaimer modal first as requested
+      setShowViewOnceModal(true);
+    } else {
+      setPendingImage((prev) => (prev ? { ...prev, isViewOnce: false } : null));
+    }
   };
 
   const handleConfirmViewOnce = () => {
@@ -878,18 +883,25 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Photo Set to View Once
                 </h3>
-                <p className="text-xs leading-relaxed text-slate-600 dark:text-zinc-400 px-2">
-                  This is a browser-based approach and other users can still take screenshots or screen recordings, so please send images carefully.
+                <p className="text-xs leading-relaxed text-slate-600 dark:text-zinc-300 px-2">
+                  For privacy, this photo can only be opened once. However, as this is a web-based app, recipients can still take screenshots or screen recordings. Please send images at your own risk.
                 </p>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col gap-2">
                 <button
                   type="button"
                   onClick={handleConfirmViewOnce}
                   className="w-full py-2.5 rounded-2xl bg-[#ee1d49] hover:bg-[#d61840] text-white font-bold text-xs shadow-md shadow-rose-500/20 transition active:scale-98 cursor-pointer"
                 >
-                  Okay, I Understand
+                  Send as View Once
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowViewOnceModal(false)}
+                  className="w-full py-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 text-xs font-semibold transition cursor-pointer"
+                >
+                  Keep as Regular Photo
                 </button>
               </div>
             </div>
