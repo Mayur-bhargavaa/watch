@@ -542,9 +542,13 @@ export class MongoDatabaseService {
       .toArray();
 
     const result: FriendWithStreak[] = [];
+    const seenFriendIds = new Set<string>();
 
     for (const f of friendships) {
       const otherId = f.userId1 === userId ? f.userId2 : f.userId1;
+      if (!otherId || otherId === userId || seenFriendIds.has(otherId)) continue;
+      seenFriendIds.add(otherId);
+
       const friendUser = await this.usersCol.findOne({ _id: otherId });
       if (!friendUser) continue;
 
@@ -590,7 +594,10 @@ export class MongoDatabaseService {
       .toArray();
 
     const incoming: FriendRequestItem[] = [];
+    const seenIncoming = new Set<string>();
     for (const r of incomingRows) {
+      if (seenIncoming.has(r.userId1)) continue;
+      seenIncoming.add(r.userId1);
       const u = await this.usersCol.findOne({ _id: r.userId1 });
       if (u) {
         incoming.push({
@@ -607,7 +614,10 @@ export class MongoDatabaseService {
     }
 
     const outgoing: FriendRequestItem[] = [];
+    const seenOutgoing = new Set<string>();
     for (const r of outgoingRows) {
+      if (seenOutgoing.has(r.userId2)) continue;
+      seenOutgoing.add(r.userId2);
       const u = await this.usersCol.findOne({ _id: r.userId2 });
       if (u) {
         outgoing.push({
@@ -648,8 +658,8 @@ export class MongoDatabaseService {
         return { status: 'PENDING', message: `Friend request already sent to ${target.displayName}.` };
       }
       // Reverse direction: accept!
-      await this.friendshipsCol.updateOne(
-        { _id: existing._id },
+      await this.friendshipsCol.updateMany(
+        { userIds: { $all: pair } },
         { $set: { status: 'ACCEPTED', updatedAt: new Date().toISOString() } }
       );
       const friends = await this.getFriendsWithStreaks(userId);
@@ -674,10 +684,9 @@ export class MongoDatabaseService {
 
   async acceptFriendRequest(userId: string, senderUserId: string): Promise<FriendWithStreak> {
     const pair = [userId, senderUserId].sort();
-    await this.friendshipsCol.updateOne(
+    await this.friendshipsCol.updateMany(
       { userIds: { $all: pair } },
-      { $set: { status: 'ACCEPTED', updatedAt: new Date().toISOString() } },
-      { upsert: true }
+      { $set: { status: 'ACCEPTED', updatedAt: new Date().toISOString() } }
     );
     const friends = await this.getFriendsWithStreaks(userId);
     const friend = friends.find((f) => f.friendUser.id === senderUserId);
@@ -687,17 +696,17 @@ export class MongoDatabaseService {
 
   async declineFriendRequest(userId: string, senderUserId: string): Promise<void> {
     const pair = [userId, senderUserId].sort();
-    await this.friendshipsCol.deleteOne({ userIds: { $all: pair } });
+    await this.friendshipsCol.deleteMany({ userIds: { $all: pair } });
   }
 
   async cancelFriendRequest(userId: string, targetUserId: string): Promise<void> {
     const pair = [userId, targetUserId].sort();
-    await this.friendshipsCol.deleteOne({ userIds: { $all: pair } });
+    await this.friendshipsCol.deleteMany({ userIds: { $all: pair } });
   }
 
   async removeFriend(userId: string, friendUserId: string): Promise<void> {
     const pair = [userId, friendUserId].sort();
-    await this.friendshipsCol.deleteOne({ userIds: { $all: pair } });
+    await this.friendshipsCol.deleteMany({ userIds: { $all: pair } });
   }
 
   async getDiscoverableUsers(currentUserId: string, search?: string): Promise<DiscoverableUserItem[]> {

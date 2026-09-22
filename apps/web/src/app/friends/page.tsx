@@ -75,6 +75,16 @@ function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&skinColor=edb98a&top=shortCurly&hairColor=4a312c&accessoriesProbability=0&clothing=blazerAndShirt&clothesColor=25557c&eyes=wink&mouth=smile`;
 }
 
+function dedupeFriends(list: FriendWithStreak[]): FriendWithStreak[] {
+  const seen = new Set<string>();
+  return list.filter((f) => {
+    const id = f.friendUser?.id;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
 function FriendsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -143,7 +153,7 @@ function FriendsPageContent() {
         getFriendsWithStreaks(session.token).catch(() => ({ friends: [], myFriendCode: '' })),
         getFriendRequests(session.token).catch(() => ({ incoming: [], outgoing: [] }))
       ]);
-      setFriends(friendsRes.friends || []);
+      setFriends(dedupeFriends(friendsRes.friends || []));
       if (friendsRes.myFriendCode) {
         setMyFriendCode(friendsRes.myFriendCode);
       }
@@ -239,7 +249,7 @@ function FriendsPageContent() {
             type: 'success',
             message: `🎉 You and ${res.friend.friendUser.displayName} are now friends! Streak started 🔥`
           });
-          setFriends((prev) => [res.friend!, ...prev]);
+          setFriends((prev) => dedupeFriends([res.friend!, ...prev]));
         } else {
           setFeedback({
             type: 'success',
@@ -273,7 +283,7 @@ function FriendsPageContent() {
             type: 'success',
             message: `🎉 You and ${user.displayName} are now friends!`
           });
-          setFriends((prev) => [res.friend!, ...prev]);
+          setFriends((prev) => dedupeFriends([res.friend!, ...prev]));
         } else {
           setFeedback({
             type: 'success',
@@ -302,7 +312,7 @@ function FriendsPageContent() {
           type: 'success',
           message: `🎉 You and ${displayName} are now friends! Daily streak unlocked 🔥`
         });
-        setFriends((prev) => [res.friend!, ...prev]);
+        setFriends((prev) => dedupeFriends([res.friend!, ...prev]));
         await loadAllFriendsData();
         await loadDiscoverDirectory(discoverSearch);
       }
