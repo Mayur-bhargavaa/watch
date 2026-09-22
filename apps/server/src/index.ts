@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import fastifyWebsocket from '@fastify/websocket';
 import { nanoid } from 'nanoid';
-import { DatabaseService } from './db/database.js';
+import { DatabaseService, extractParticipantIdsFromConvId, toCanonicalConvId } from './db/database.js';
 import { RoomSyncManager } from './sync/RoomSyncManager.js';
 import { GameRoomManager } from './games/GameRoomManager.js';
 import { GAME_DEFINITIONS } from './games/GameDefinitions.js';
@@ -715,18 +715,15 @@ export async function createServer(dbPath = './synccinema.db') {
     }
 
     let recipientId = body.recipientId;
-    if (!recipientId && body.conversationId.startsWith('conv_')) {
-      const stripped = body.conversationId.replace('conv_', '');
-      const parts = stripped.split('_');
-      if (parts.length >= 2) {
-        recipientId = parts[0] === user.id ? parts[1] : parts[0];
-      } else {
-        recipientId = stripped;
+    if (!recipientId && body.conversationId) {
+      const { otherUserId } = extractParticipantIdsFromConvId(body.conversationId, user.id);
+      if (otherUserId) {
+        recipientId = otherUserId;
       }
     }
 
     const canonicalConvId = (recipientId && user.id)
-      ? `conv_${[user.id, recipientId].sort().join('_')}`
+      ? toCanonicalConvId(user.id, recipientId)
       : body.conversationId;
 
     const isRecipientOnline = recipientId ? presenceManager.isUserOnline(recipientId) : false;

@@ -29,6 +29,56 @@ let realFriendsMap: Record<string, ChatUser> = {};
 let realRequestsList: ChatMessageRequest[] = [];
 let cachedMyFriendCode: string = '';
 
+export function extractParticipantIdsFromConvId(
+  convId: string,
+  currentUserId?: string
+): { userIds: string[]; otherUserId?: string } {
+  if (!convId || !convId.startsWith('conv_')) {
+    return { userIds: [] };
+  }
+  const raw = convId.slice(5); // strip 'conv_'
+
+  // Pattern 1: conv_usr_AAA_usr_BBB
+  const matchTwoUsr = raw.match(/^(usr_[a-zA-Z0-9_-]+?)_(usr_[a-zA-Z0-9_-]+)$/);
+  if (matchTwoUsr) {
+    const userIds = [matchTwoUsr[1], matchTwoUsr[2]];
+    const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
+    return { userIds, otherUserId };
+  }
+
+  // Pattern 2: single conv_usr_AAA
+  const matchOneUsr = raw.match(/^(usr_[a-zA-Z0-9_-]+)$/);
+  if (matchOneUsr) {
+    const userIds = [matchOneUsr[1]];
+    const otherUserId = currentUserId && userIds[0] === currentUserId ? undefined : userIds[0];
+    return { userIds, otherUserId };
+  }
+
+  // Pattern 3: mixed usr_ / guest_
+  const matchMixed = raw.match(/^((?:usr|guest)_[a-zA-Z0-9_-]+?)_((?:usr|guest)_[a-zA-Z0-9_-]+)$/);
+  if (matchMixed) {
+    const userIds = [matchMixed[1], matchMixed[2]];
+    const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
+    return { userIds, otherUserId };
+  }
+
+  // Fallback: If currentUserId is inside raw
+  if (currentUserId && raw.includes(currentUserId)) {
+    let remainder = raw.replace(currentUserId, '');
+    if (remainder.startsWith('_')) remainder = remainder.slice(1);
+    if (remainder.endsWith('_')) remainder = remainder.slice(0, -1);
+    if (remainder) {
+      return { userIds: [currentUserId, remainder], otherUserId: remainder };
+    }
+  }
+
+  return { userIds: [raw], otherUserId: raw !== currentUserId ? raw : undefined };
+}
+
+export function toCanonicalConvId(userA: string, userB: string): string {
+  return `conv_${[userA, userB].sort().join('_')}`;
+}
+
 // Initial Mock Seed Data reflecting user's social circle on Watch (fallback for guests)
 const DEFAULT_PARTICIPANTS: Record<string, ChatUser> = {
   rahul: {
@@ -409,7 +459,8 @@ export class ChatStore {
 
       // Identify the other participant in this 1-on-1 direct chat
       const otherParticipant = c.participants?.find((p) => p.id && p.id !== myId) || c.participants?.[0];
-      const friendId = otherParticipant?.id || (c.id.startsWith('conv_') ? c.id.replace('conv_', '').split('_').find(id => id !== myId) : undefined);
+      const { otherUserId } = extractParticipantIdsFromConvId(c.id, myId);
+      const friendId = otherParticipant?.id || otherUserId;
       const friendName = (c.name || c.title || otherParticipant?.displayName || '').trim().toLowerCase();
       const friendKey = friendId || friendName;
 
@@ -419,7 +470,7 @@ export class ChatStore {
       }
 
       // Canonical 1-on-1 ID
-      const canonicalId = (myId && friendId) ? `conv_${[myId, friendId].sort().join('_')}` : c.id;
+      const canonicalId = (myId && friendId) ? toCanonicalConvId(myId, friendId) : c.id;
 
       if (seenFriendMap.has(friendKey)) {
         hadDuplicates = true;
@@ -517,20 +568,21 @@ export class ChatStore {
     const s = getStoredSession();
     const myId = s?.user?.id;
     const aliases = new Set<string>([conversationId]);
-    if (conversationId && conversationId.startsWith('conv_')) {
-      const stripped = conversationId.replace('conv_', '');
-      const parts = stripped.split('_');
-      if (parts.length >= 2) {
-        aliases.add(`conv_${parts[0]}`);
-        aliases.add(`conv_${parts[1]}`);
-        if (myId) {
-          aliases.add(`conv_${[parts[0], parts[1]].sort().join('_')}`);
-        }
-      } else if (parts.length === 1 && myId) {
-        const otherId = parts[0];
-        aliases.add(`conv_${[myId, otherId].sort().join('_')}`);
-        aliases.add(`conv_${myId}`);
+
+    const { userIds, otherUserId } = extractParticipantIdsFromConvId(conversationId, myId);
+    if (userIds.length === 2) {
+      aliases.add(`conv_${userIds[0]}`);
+      aliases.add(`conv_${userIds[1]}`);
+      aliases.add(toCanonicalConvId(userIds[0], userIds[1]));
+    } else if (userIds.length === 1) {
+      aliases.add(`conv_${userIds[0]}`);
+      if (myId && userIds[0] !== myId) {
+        aliases.add(toCanonicalConvId(myId, userIds[0]));
       }
+    }
+    if (myId && otherUserId) {
+      aliases.add(`conv_${otherUserId}`);
+      aliases.add(toCanonicalConvId(myId, otherUserId));
     }
     return Array.from(aliases);
   }
@@ -975,8 +1027,9 @@ export class ChatStore {
     const otherParticipant = currentConv?.participants.find(p => p.id !== senderId);
     if (otherParticipant) {
       recipientId = otherParticipant.id;
-    } else if (conversationId.startsWith('conv_')) {
-      recipientId = conversationId.replace('conv_', '');
+    } else if (conversationId) {
+      const { otherUserId } = extractParticipantIdsFromConvId(conversationId, senderId);
+      recipientId = otherUserId;
     }
 
     // 1. Dispatch live via WebSocket
@@ -1399,16 +1452,8 @@ export class ChatStore {
 
     // Resolve canonical conversation ID
     const myId = s?.user?.id;
-    let canonicalId = conversationId;
-    if (myId && conversationId.startsWith('conv_')) {
-      const stripped = conversationId.replace('conv_', '');
-      const parts = stripped.split('_');
-      if (parts.length >= 2) {
-        canonicalId = `conv_${[parts[0], parts[1]].sort().join('_')}`;
-      } else if (parts.length === 1 && parts[0] !== myId) {
-        canonicalId = `conv_${[myId, parts[0]].sort().join('_')}`;
-      }
-    }
+    const { otherUserId } = extractParticipantIdsFromConvId(conversationId, myId);
+    const canonicalId = (myId && otherUserId) ? toCanonicalConvId(myId, otherUserId) : conversationId;
 
     try {
       const res = await fetch(`${API_BASE}/api/chat/messages?conversationId=${encodeURIComponent(canonicalId)}&limit=500`, {

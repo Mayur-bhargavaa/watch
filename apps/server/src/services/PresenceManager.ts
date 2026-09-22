@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws';
+import { extractParticipantIdsFromConvId, toCanonicalConvId } from '../db/database.js';
 
 export class PresenceManager {
   private db?: any;
@@ -49,29 +50,32 @@ export class PresenceManager {
       isOnline: true
     });
 
-    // Mark any pending direct messages sent to this user as DELIVERED
+    // If any unread direct messages were pending for this user, deliver them now
     if (this.db && typeof this.db.markDirectMessagesAsDelivered === 'function') {
       try {
-        const delivered = this.db.markDirectMessagesAsDelivered(user.id);
-        for (const item of delivered) {
-          this.sendToUser(item.senderId, {
-            type: 'chat:status_update',
-            messageId: item.id,
-            conversationId: item.conversationId,
-            status: 'delivered'
-          });
+        const deliveredMsgs = this.db.markDirectMessagesAsDelivered(user.id);
+        if (Array.isArray(deliveredMsgs) && deliveredMsgs.length > 0) {
+          for (const d of deliveredMsgs) {
+            this.sendToUser(d.senderId, {
+              type: 'chat:status_update',
+              messageId: d.id,
+              conversationId: d.conversationId,
+              status: 'delivered'
+            });
+          }
         }
       } catch (err) {
-        console.error('Error delivering pending messages:', err);
+        console.error('Failed to update delivered message status:', err);
       }
     }
 
-    ws.on('message', (data: any) => {
+    ws.on('message', (raw) => {
       try {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(raw.toString());
         if (!msg || !msg.type) return;
 
-        if (msg.type === 'presence:heartbeat') {
+        // Heartbeat
+        if (msg.type === 'presence:heartbeat' || msg.type === 'presence:ping') {
           this.recordHeartbeat(user.id);
           ws.send(JSON.stringify({ type: 'presence:ack', timestamp: Date.now() }));
         }
@@ -80,19 +84,16 @@ export class PresenceManager {
         if (msg.type === 'chat:send' && msg.message) {
           const chatMsg = msg.message;
           let recipientId = chatMsg.recipientId;
-          if (!recipientId && chatMsg.conversationId?.startsWith('conv_')) {
-            const stripped = chatMsg.conversationId.replace('conv_', '');
-            const parts = stripped.split('_');
-            if (parts.length >= 2) {
-              recipientId = parts[0] === user.id ? parts[1] : parts[0];
-            } else {
-              recipientId = stripped;
+          if (!recipientId && chatMsg.conversationId) {
+            const { otherUserId } = extractParticipantIdsFromConvId(chatMsg.conversationId, user.id);
+            if (otherUserId) {
+              recipientId = otherUserId;
             }
           }
 
           const isRecipientOnline = recipientId ? this.isUserOnline(recipientId) : false;
           const status = isRecipientOnline ? 'delivered' : 'sent';
-          const canonicalConvId = recipientId ? `conv_${[user.id, recipientId].sort().join('_')}` : chatMsg.conversationId;
+          const canonicalConvId = recipientId ? toCanonicalConvId(user.id, recipientId) : chatMsg.conversationId;
 
           const finalMsg = {
             ...chatMsg,

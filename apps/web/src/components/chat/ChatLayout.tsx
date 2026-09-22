@@ -12,7 +12,7 @@ import {
   ChatMessageRequest,
   ChatMessageMetadata,
 } from '@/types/chat';
-import { ChatStore } from '@/lib/chatStore';
+import { ChatStore, extractParticipantIdsFromConvId, toCanonicalConvId } from '@/lib/chatStore';
 import { ChatSidebar } from './ChatSidebar';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
@@ -62,21 +62,25 @@ export const ChatLayout: React.FC = () => {
   }, []);
 
   // Default to first conversation on larger screens if none selected
+  // Default to first conversation on larger screens if none selected
   useEffect(() => {
     if (!activeConversationId && conversations.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768) {
-      setActiveConversationId(conversations[0].id);
+      const firstConv = conversations[0];
+      const targetOther = firstConv.participants?.find((p) => p && p.id !== currentUserId) || firstConv.participants?.[0];
+      const { otherUserId } = extractParticipantIdsFromConvId(firstConv.id, currentUserId);
+      const friendId = targetOther?.id || otherUserId;
+      const canonicalId = (currentUserId && friendId && firstConv.type === 'direct')
+        ? toCanonicalConvId(currentUserId, friendId)
+        : firstConv.id;
+      setActiveConversationId(canonicalId);
     }
-  }, [conversations, activeConversationId]);
+  }, [conversations, activeConversationId, currentUserId]);
 
   const activeConversation = conversations.find((c) => {
     if (c.id === activeConversationId) return true;
-    if (activeConversationId && activeConversationId.startsWith('conv_')) {
-      const stripped = activeConversationId.replace('conv_', '');
-      const parts = stripped.split('_');
-      if (parts.length >= 2 && c.participants?.some((p) => parts.includes(p.id))) {
-        return true;
-      }
-      if (parts.length === 1 && (c.id.includes(parts[0]) || c.participants?.some((p) => p.id === parts[0]))) {
+    if (activeConversationId) {
+      const { otherUserId } = extractParticipantIdsFromConvId(activeConversationId, currentUserId);
+      if (otherUserId && (c.id.includes(otherUserId) || c.participants?.some((p) => p && p.id === otherUserId))) {
         return true;
       }
     }
@@ -113,11 +117,13 @@ export const ChatLayout: React.FC = () => {
   // Mark conversation as read when opened
   const handleSelectConversation = (conv: ChatConversation) => {
     const targetOther = conv.participants?.find((p) => p && p.id !== currentUserId) || conv.participants?.[0];
-    const canonicalId = (currentUserId && targetOther?.id && conv.type === 'direct')
-      ? `conv_${[currentUserId, targetOther.id].sort().join('_')}`
+    const { otherUserId } = extractParticipantIdsFromConvId(conv.id, currentUserId);
+    const friendId = targetOther?.id || otherUserId;
+    const canonicalId = (currentUserId && friendId && conv.type === 'direct')
+      ? toCanonicalConvId(currentUserId, friendId)
       : conv.id;
     setActiveConversationId(canonicalId);
-    ChatStore.markAsRead(canonicalId, targetOther?.id);
+    ChatStore.markAsRead(canonicalId, friendId);
     ChatStore.fetchRemoteMessages(canonicalId);
   };
 
