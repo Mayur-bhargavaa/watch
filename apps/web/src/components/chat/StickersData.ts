@@ -26,44 +26,43 @@ export interface StickerItem {
 
 export const STICKER_CATEGORIES = [
   { id: 'all', label: 'All', icon: '✨' },
-  { id: 'desi_memes', label: 'Desi Memes', icon: '🇮🇳' },
-  { id: 'baby_hamster', label: 'Baby & Hamster', icon: '🐹' },
   { id: 'bubu_dudu', label: 'Bubu & Dudu', icon: '🐼' },
   { id: 'cat_memes', label: 'Cat Memes', icon: '😹' },
   { id: 'milk_mocha', label: 'Milk & Mocha', icon: '🐻' },
+  { id: 'peach_goma', label: 'Peach & Goma', icon: '🐱' },
   { id: 'capybara', label: 'Capybara', icon: '🦫' },
-  { id: 'cinema', label: 'Cinema', icon: '🍿' },
-  { id: 'genz', label: 'Gen Z', icon: '💅' }
+  { id: 'genz', label: 'Gen Z', icon: '💅' },
+  { id: 'desi_memes', label: 'Desi Memes', icon: '🇮🇳' },
+  { id: 'baby_hamster', label: 'Baby & Hamster', icon: '🐹' },
+  { id: 'cinema', label: 'Cinema', icon: '🍿' }
 ] as const;
 
 export const WHATSAPP_REACTION_TAGS = [
   { id: 'all', label: 'All', icon: '✨', query: '' },
-  { id: 'hi', label: 'Hi', icon: '👋', query: 'hi' },
-  { id: 'haha', label: 'Haha', icon: '😂', query: 'haha' },
+  { id: 'bubu', label: 'Bubu', icon: '🐼', query: 'bubu' },
   { id: 'love', label: 'Love', icon: '❤️', query: 'love' },
+  { id: 'haha', label: 'Haha', icon: '😂', query: 'haha' },
+  { id: 'hi', label: 'Hi', icon: '👋', query: 'hi' },
+  { id: 'cats', label: 'Cats', icon: '🐱', query: 'cat' },
   { id: 'sad', label: 'Sad', icon: '😢', query: 'sad' },
   { id: 'mood', label: 'Mood', icon: '🔥', query: 'mood' },
   { id: 'desi', label: 'Memes', icon: '🇮🇳', query: 'desi' },
-  { id: 'cats', label: 'Cats', icon: '🐱', query: 'cat' },
-  { id: 'cinema', label: 'Cinema', icon: '🍿', query: 'cinema' },
-  { id: 'party', label: 'Party', icon: '🎉', query: 'party' },
+  { id: 'cinema', label: 'Cinema', icon: '🍿', query: 'cinema' }
 ] as const;
 
 export const TRENDING_GIFS = [
   { id: 'gif_laugh', name: 'LMAO Laugh', url: 'https://media.giphy.com/media/bC9czlgCMtw4cj8RgH/giphy.gif', tags: ['laugh', 'lmao', 'funny'] },
   { id: 'gif_nod', name: 'Nod Approval', url: 'https://media.giphy.com/media/NEvPzZ8bd1V4Y/giphy.gif', tags: ['nod', 'yes', 'agree', 'cool'] },
   { id: 'gif_mindblown', name: 'Mind Blown', url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif', tags: ['mind blown', 'shock', 'wow', 'universe'] },
-  { id: 'gif_popcorn', name: 'Popcorn Drama', url: 'https://media.giphy.com/media/GLbiGv98nTFja/giphy.gif', tags: ['popcorn', 'drama', 'watching', 'cinema'] },
-  { id: 'gif_facepalm', name: 'Facepalm', url: 'https://media.giphy.com/media/3og0INy0oWXEB7D8aI/giphy.gif', tags: ['facepalm', 'smh', 'fail', 'omg'] },
-  { id: 'gif_cheems', name: 'Cheems Bonk', url: 'https://media.giphy.com/media/RodyInIO0ueak/giphy.gif', tags: ['bonk', 'doge', 'cheems', 'meme'] },
-  { id: 'gif_paisa', name: 'Paisa Hi Paisa', url: 'https://media.giphy.com/media/eek65vDkx0OJjHs0dc/giphy.gif', tags: ['paisa', 'akshay', 'money', 'rich', 'desi'] },
-  { id: 'gif_salman', name: 'Dabangg Swag', url: 'https://media.giphy.com/media/3ohfFMbIeQOa5vXUqs/giphy.gif', tags: ['salman', 'swag', 'dance', 'desi', 'bollywood'] },
-  { id: 'gif_srk', name: 'SRK Open Arms', url: 'https://media.giphy.com/media/3ohfFrepUhdF6eN35m/giphy.gif', tags: ['srk', 'shahrukh', 'love', 'romantic', 'bollywood'] },
-  { id: 'gif_ranveer', name: 'High Energy', url: 'https://media.giphy.com/media/3otPoHnQ8kK15i27F6/giphy.gif', tags: ['ranveer', 'energy', 'fire', 'dance', 'excited'] },
-  { id: 'gif_deepika', name: 'Cute Smile', url: 'https://media.giphy.com/media/3otPoxJ4n5U54d9cPe/giphy.gif', tags: ['deepika', 'smile', 'blush', 'cute', 'love'] },
-  { id: 'gif_cat_vibe', name: 'Vibing Cat', url: 'https://media.giphy.com/media/DH1Au7j1gCGxGOkvUm/giphy.gif', tags: ['cat', 'vibing', 'music', 'jam', 'bop'] },
+  { id: 'gif_popcorn', name: 'Drama Popcorn', url: 'https://media0.giphy.com/media/blSTtZehjAZ8I/giphy.gif', tags: ['popcorn', 'drama', 'watching', 'cinema', 'michael'] },
+  { id: 'gif_shaq', name: 'Shaq Belly Laugh', url: 'https://media1.giphy.com/media/UO5elnTqo4vSg/giphy.gif', tags: ['shaq', 'laugh', 'meme', 'haha', 'lmao'] },
+  { id: 'gif_dicaprio', name: 'DiCaprio Applause', url: 'https://media2.giphy.com/media/g9582DNuQppxC/giphy.gif', tags: ['dicaprio', 'cheers', 'clap', 'applause', 'great'] },
+  { id: 'gif_paisa', name: 'Paisa Hi Paisa', url: 'https://media1.giphy.com/media/3o6gDWzmAzrpi5DQU8/giphy.gif', tags: ['paisa', 'money', 'rich', 'cash', 'desi'] },
+  { id: 'gif_cat_vibe', name: 'Vibing Cat', url: 'https://media0.giphy.com/media/DH1Au7j1gCGxGOkvUm/giphy.gif', tags: ['cat', 'vibing', 'music', 'jam', 'bop'] },
   { id: 'gif_cat_type', name: 'Typing Cat', url: 'https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif', tags: ['cat', 'typing', 'work', 'fast', 'busy'] },
-  { id: 'gif_hamster', name: 'Dancing Hamster', url: 'https://media.giphy.com/media/14qKckCUUpHeOA/giphy.gif', tags: ['hamster', 'dance', 'cute', 'peace'] }
+  { id: 'gif_crying_cat', name: 'Dukh Dard Cat', url: 'https://media2.giphy.com/media/d2lcHJTG5Tscg/giphy.gif', tags: ['cat', 'crying', 'sad', 'tears', 'meme'] },
+  { id: 'gif_cat_hug', name: 'Cat Hug', url: 'https://media0.giphy.com/media/Lq0h93752f6J9tijrh/giphy.gif', tags: ['cat', 'hug', 'love', 'cute', 'cuddle'] },
+  { id: 'gif_sponge_cry', name: 'Crying Tears', url: 'https://media3.giphy.com/media/OPU6wzx8JrHna/giphy.gif', tags: ['crying', 'sad', 'tears', 'sponge', 'cry'] }
 ];
 
 export const EMOJI_CATEGORIES = [
@@ -91,35 +90,120 @@ export const EMOJI_CATEGORIES = [
 
 export const STICKER_PACK: StickerItem[] = [
   // ==========================================
-  // 1. DESI MEMES & BOLLYWOOD (WhatsApp Iconic)
+  // 1. BUBU & DUDU (Panda & Bear Couple)
   // ==========================================
   {
-    id: 'desi_jethalal',
-    name: 'Jethalal Laugh',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/10JhviFuU2ywZq/giphy.gif',
-    emoji: '😂',
-    tagline: 'AISA ITOM!',
-    tags: ['jethalal', 'tmkoc', 'laugh', 'desi', 'meme', 'aisa itom', 'funny']
+    id: 'bubu_dance',
+    name: 'Bubu Dudu Dance',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media4.giphy.com/media/Pw4DoWaNHDj8YVCWtu/giphy.gif',
+    emoji: '🐼',
+    tagline: 'HAPPY DANCE!',
+    tags: ['bubu', 'dudu', 'dance', 'happy', 'yay', 'couple', 'bounce', 'cute']
   },
   {
-    id: 'desi_akshay_paisa',
-    name: '25 Din Mein Paisa Double',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/eek65vDkx0OJjHs0dc/giphy.gif',
-    emoji: '🤑',
-    tagline: 'PAISA HI PAISA!',
-    tags: ['akshay', 'hera pheri', 'paisa', 'money', 'double', 'desi', 'meme']
+    id: 'bubu_kiss',
+    name: 'Bubu Kiss Dudu',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media2.giphy.com/media/fX5NLVCyAnWyGsERta/giphy.gif',
+    emoji: '💋',
+    tagline: 'MWAHH! ❤️',
+    tags: ['bubu', 'dudu', 'kiss', 'muah', 'love', 'sweet', 'couple']
   },
   {
-    id: 'desi_monkey_chup',
-    name: 'Chup Rehna Seekh Gaya Hoon',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/3o85xAYQIED40HIjy8/giphy.gif',
-    emoji: '🐒',
-    tagline: 'CHUP HO JAO',
-    tags: ['monkey', 'chup', 'quiet', 'desi', 'meme', 'relatable']
+    id: 'bubu_hug',
+    name: 'Bubu Warm Bear Hug',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media3.giphy.com/media/GhUy4fOxwX1YGyIgEJ/giphy.gif',
+    emoji: '🫂',
+    tagline: 'TIGHT HUG ❤️',
+    tags: ['bubu', 'dudu', 'hug', 'love', 'cuddle', 'warm', 'comfort']
   },
+  {
+    id: 'bubu_headpat',
+    name: 'Bubu Head Pat',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media3.giphy.com/media/6FfOKVchlToDnqtd00/giphy.gif',
+    emoji: '🐾',
+    tagline: 'GOOD JOB! 🐾',
+    tags: ['bubu', 'dudu', 'pat', 'comfort', 'cute', 'good boy', 'sweet']
+  },
+  {
+    id: 'bubu_loveheart',
+    name: 'Bubu Big Heart',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media4.giphy.com/media/ZO6uFYmEKnPWUQQsf7/giphy.gif',
+    emoji: '💖',
+    tagline: 'I LOVE YOU',
+    tags: ['bubu', 'dudu', 'heart', 'love', 'forever', 'ily', 'sweet']
+  },
+  {
+    id: 'bubu_running',
+    name: 'Bubu Zooming In',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media3.giphy.com/media/RKq8Lhors1hVHHAsdl/giphy.gif',
+    emoji: '🏃',
+    tagline: 'ON MY WAY! 🏃',
+    tags: ['bubu', 'dudu', 'run', 'zoom', 'coming', 'fast', 'excited']
+  },
+  {
+    id: 'bubu_crying',
+    name: 'Bubu Cry Baby',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media2.giphy.com/media/ccy51ucWzDJwiHTP0I/giphy.gif',
+    emoji: '🥺',
+    tagline: 'HUHUHU 🥺',
+    tags: ['bubu', 'dudu', 'cry', 'sad', 'comfort', 'tears', 'plead']
+  },
+  {
+    id: 'bubu_snacks',
+    name: 'Bubu Eating Snacks',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media1.giphy.com/media/1NMk54KqDCy7VLCbe7/giphy.gif',
+    emoji: '🍿',
+    tagline: 'NOM NOM 🍿',
+    tags: ['bubu', 'dudu', 'eat', 'food', 'snack', 'popcorn', 'nom', 'hungry']
+  },
+  {
+    id: 'bubu_cheeks',
+    name: 'Dudu Cheek Squish',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media0.giphy.com/media/AVarCftTBximdfi2sQ/giphy.gif',
+    emoji: '🐻',
+    tagline: 'SQUISHY CHEEKS',
+    tags: ['bubu', 'dudu', 'cheek', 'pinch', 'squish', 'cute', 'soft']
+  },
+  {
+    id: 'bubu_angry',
+    name: 'Cute Angry Pout',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media1.giphy.com/media/vsOs4PeQFTJB4vzuPk/giphy.gif',
+    emoji: '😤',
+    tagline: 'HMPH! 😤',
+    tags: ['bubu', 'dudu', 'angry', 'mad', 'pout', 'grumpy', 'cute']
+  },
+  {
+    id: 'bubu_sleep',
+    name: 'Sleepy Under Blanket',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media4.giphy.com/media/KmqRTBbPvTRkvFOwxa/giphy.gif',
+    emoji: '💤',
+    tagline: 'SLEEPY ZZZ',
+    tags: ['bubu', 'dudu', 'sleep', 'bed', 'night', 'tired', 'zzz']
+  },
+  {
+    id: 'bubu_wave',
+    name: 'Wave Hello',
+    category: 'bubu_dudu',
+    gifUrl: 'https://media2.giphy.com/media/WRitVHJJFMii9yowCB/giphy.gif',
+    emoji: '👋',
+    tagline: 'HEYYY THERE 👋',
+    tags: ['bubu', 'dudu', 'hello', 'hi', 'wave', 'greet', 'welcome']
+  },
+
+  // ==========================================
+  // 2. DESI MEMES & BOLLYWOOD
+  // ==========================================
   {
     id: 'desi_cats_talk',
     name: 'Bhai Aa Du Jhunjhuna',
@@ -130,90 +214,54 @@ export const STICKER_PACK: StickerItem[] = [
     tags: ['cat', 'jhunjhuna', 'desi', 'meme', 'bhai', 'relatable']
   },
   {
-    id: 'desi_salman_swag',
-    name: 'Salman Dabangg Hookstep',
+    id: 'desi_shaq_laugh',
+    name: 'Belly Laugh ROFL',
     category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/3ohfFMbIeQOa5vXUqs/giphy.gif',
-    emoji: '🕺',
-    tagline: 'SWAG SE SWAGAT',
-    tags: ['salman', 'dabangg', 'dance', 'swag', 'bollywood', 'desi']
+    gifUrl: 'https://media1.giphy.com/media/UO5elnTqo4vSg/giphy.gif',
+    emoji: '😂',
+    tagline: 'HAHAHA DEAD 😂',
+    tags: ['laugh', 'rofl', 'lmao', 'funny', 'desi', 'meme']
   },
   {
-    id: 'desi_srk_arms',
-    name: 'SRK Open Arms Love',
+    id: 'desi_paisa_rain',
+    name: 'Paisa Hi Paisa',
     category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/3ohfFrepUhdF6eN35m/giphy.gif',
-    emoji: '❤️',
-    tagline: 'PYAR DOST HAI',
-    tags: ['srk', 'shahrukh', 'love', 'arms', 'romantic', 'bollywood', 'desi']
+    gifUrl: 'https://media1.giphy.com/media/3o6gDWzmAzrpi5DQU8/giphy.gif',
+    emoji: '🤑',
+    tagline: 'PAISA HI PAISA!',
+    tags: ['paisa', 'money', 'rich', 'cash', 'desi', 'double']
   },
   {
-    id: 'desi_ranveer_energy',
-    name: 'Ranveer High Energy',
+    id: 'desi_dicaprio_clap',
+    name: 'DiCaprio Applause',
     category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/3otPoHnQ8kK15i27F6/giphy.gif',
-    emoji: '🔥',
-    tagline: 'FULL POWER!',
-    tags: ['ranveer', 'fire', 'energy', 'excited', 'party', 'bollywood']
-  },
-  {
-    id: 'desi_deepika_smile',
-    name: 'Deepika Dimple Smile',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/3otPoxJ4n5U54d9cPe/giphy.gif',
-    emoji: '🥰',
-    tagline: 'SWEET SMILE',
-    tags: ['deepika', 'smile', 'dimple', 'love', 'blush', 'bollywood']
-  },
-  {
-    id: 'desi_dancing_uncle',
-    name: 'Govinda Uncle Dance',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/3ohfFq8mK27eJg1m6c/giphy.gif',
-    emoji: '💃',
-    tagline: 'DANCE FLOOR FIRE',
-    tags: ['uncle', 'dance', 'govinda', 'wedding', 'desi', 'bhangra']
-  },
-  {
-    id: 'desi_aamir_confused',
-    name: 'Aamir Khan Confused',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/3otPoOzO78o6N5e85q/giphy.gif',
-    emoji: '🤔',
-    tagline: 'ARE BHAIYA!',
-    tags: ['aamir', 'pk', 'confused', 'kya', 'desi', 'bhaiya']
-  },
-  {
-    id: 'cheems_bonk',
-    name: 'Cheems Doge Bonk',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/RodyInIO0ueak/giphy.gif',
-    emoji: '🔨',
-    tagline: 'BONK!',
-    tags: ['cheems', 'doge', 'bonk', 'meme', 'jail', 'shutup']
-  },
-  {
-    id: 'laugh_clapping_hands',
-    name: 'Laughing & Clapping Hands',
-    category: 'desi_memes',
-    gifUrl: 'https://media.giphy.com/media/lszAB3TzFtTxm/giphy.gif',
+    gifUrl: 'https://media2.giphy.com/media/g9582DNuQppxC/giphy.gif',
     emoji: '👏',
-    tagline: 'HAHAHA DEAD',
-    tags: ['laugh', 'clap', 'hands', 'emoji', 'haha', 'lmao', 'rofl']
+    tagline: 'SHABAASH 👏',
+    tags: ['applause', 'clap', 'cheers', 'great', 'shabaash']
+  },
+  {
+    id: 'desi_popcorn_michael',
+    name: 'Lafda Popcorn Time',
+    category: 'desi_memes',
+    gifUrl: 'https://media0.giphy.com/media/blSTtZehjAZ8I/giphy.gif',
+    emoji: '🍿',
+    tagline: 'POP CORN TIME 🍿',
+    tags: ['popcorn', 'lafda', 'drama', 'watching', 'cinema', 'fun']
+  },
+  {
+    id: 'desi_cat_crying',
+    name: 'Dukh Dard Peeda',
+    category: 'desi_memes',
+    gifUrl: 'https://media2.giphy.com/media/d2lcHJTG5Tscg/giphy.gif',
+    emoji: '😿',
+    tagline: 'DUKH DARD PEEDA 😭',
+    tags: ['cat', 'crying', 'sad', 'dukh', 'dard', 'tears']
   },
 
   // ==========================================
-  // 2. BABY & HAMSTER (WhatsApp Relatable)
+  // 3. BABY & HAMSTER
   // ==========================================
-  {
-    id: 'hamster_peace',
-    name: 'Hamster Peace Sign',
-    category: 'baby_hamster',
-    gifUrl: 'https://media.giphy.com/media/v6aOjy0Qo1GIA/giphy.gif',
-    emoji: '✌️',
-    tagline: 'PEACE OUT 🐹',
-    tags: ['hamster', 'peace', 'cute', 'hi', 'vibe', 'hello', 'chill']
-  },
   {
     id: 'baby_crying_tears',
     name: 'Chubby Baby Crying',
@@ -222,33 +270,6 @@ export const STICKER_PACK: StickerItem[] = [
     emoji: '😭',
     tagline: 'HUHUHU 😭',
     tags: ['baby', 'crying', 'sad', 'tears', 'plead', 'chubby', 'cute']
-  },
-  {
-    id: 'hamster_dancing_vibes',
-    name: 'Hamster Dancing',
-    category: 'baby_hamster',
-    gifUrl: 'https://media.giphy.com/media/14qKckCUUpHeOA/giphy.gif',
-    emoji: '🐹',
-    tagline: 'PARTY MOOD',
-    tags: ['hamster', 'dance', 'party', 'vibes', 'happy']
-  },
-  {
-    id: 'baby_shocked_face',
-    name: 'Baby Shocked',
-    category: 'baby_hamster',
-    gifUrl: 'https://media.giphy.com/media/l378giAZ0GLSHjIN2/giphy.gif',
-    emoji: '😱',
-    tagline: 'HATT!!',
-    tags: ['baby', 'shocked', 'hatt', 'gasp', 'omg', 'cute']
-  },
-  {
-    id: 'baby_dancing_happy',
-    name: 'Baby Happy Dance',
-    category: 'baby_hamster',
-    gifUrl: 'https://media.giphy.com/media/12BJcgMmv90UZA/giphy.gif',
-    emoji: '👶',
-    tagline: 'YAY DANCE',
-    tags: ['baby', 'dance', 'happy', 'yay', 'cute']
   },
   {
     id: 'bubu_scooter_ride',
@@ -278,13 +299,22 @@ export const STICKER_PACK: StickerItem[] = [
     tags: ['cat', 'typing', 'busy', 'computer', 'work', 'fast']
   },
   {
-    id: 'doraemon_happy_face',
-    name: 'Doraemon Happy Smile',
+    id: 'cat_hugging_cozy',
+    name: 'Cute Kitten Hug',
     category: 'baby_hamster',
-    gifUrl: 'https://media.giphy.com/media/12bjQ0e1XgQc9W/giphy.gif',
-    emoji: '🐱',
-    tagline: 'DORAEMON!',
-    tags: ['doraemon', 'cartoon', 'happy', 'smile', 'cute']
+    gifUrl: 'https://media0.giphy.com/media/Lq0h93752f6J9tijrh/giphy.gif',
+    emoji: '😻',
+    tagline: 'HUG ME PLEASE 🫂',
+    tags: ['cat', 'hug', 'love', 'cute', 'cuddle']
+  },
+  {
+    id: 'hamster_vibing_beat',
+    name: 'Vibing to the Beat',
+    category: 'baby_hamster',
+    gifUrl: 'https://media0.giphy.com/media/DH1Au7j1gCGxGOkvUm/giphy.gif',
+    emoji: '🎶',
+    tagline: 'VIBING OUT 🎶',
+    tags: ['hamster', 'vibing', 'music', 'dance', 'party']
   },
 
   // ==========================================
