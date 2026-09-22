@@ -20,14 +20,18 @@ import {
   Shuffle,
   ChevronLeft,
   AlertTriangle,
-  Play
+  Play,
+  Copy,
+  Check,
+  UserPlus
 } from 'lucide-react';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { useWebRTC } from '../../../hooks/useWebRTC';
-import { getStoredSession, UserSession, getGameRoute } from '../../../lib/api';
+import { getStoredSession, UserSession, getGameRoute, createGameRoomWithPartner } from '../../../lib/api';
 import { BingoLobby } from '../../../components/games/bingo/BingoLobby';
 import { BingoVictory } from '../../../components/games/bingo/BingoVictory';
+import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
 import { BingoRoomConfig } from '@synccinema/common';
 
 const ONES = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
@@ -76,7 +80,7 @@ const DEFAULT_CONFIG: BingoRoomConfig = {
   falseClaimPenalty: 0
 };
 
-// Default fallback Tambola ticket (mirrors the reference screenshot)
+// Initial default Tambola ticket
 const INITIAL_PREVIEW_TICKET: (number | null)[][] = [
   [18, null, 35, null, 46, null, 61, 85, null],
   [null, 23, 36, null, 48, null, 76, 88, null],
@@ -127,6 +131,8 @@ function TambolaGameContent() {
 
   const [session, setSession] = useState<UserSession | null>(null);
   const [roomConfig, setRoomConfig] = useState<BingoRoomConfig>(DEFAULT_CONFIG);
+  const [showFriendDrawer, setShowFriendDrawer] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Auto-Mark switch state
   const [autoMark, setAutoMark] = useState(false);
@@ -157,7 +163,6 @@ function TambolaGameContent() {
     room,
     players,
     gameState,
-    myPlayer,
     myUserId,
     lastBingoCall,
     lastBingoClaimResult,
@@ -175,7 +180,6 @@ function TambolaGameContent() {
     rematch,
     rematchStatus,
     declineRematch,
-    clearRematchDeclined,
     sendWebRTCSignal,
     registerWebRTCListener,
     registerCameraListener,
@@ -200,9 +204,9 @@ function TambolaGameContent() {
 
   const effectiveUserId = myUserId || session?.user?.id || '';
 
-  // Determine players
-  const me = players.find(p => p.userId === effectiveUserId) || players[0];
-  const opponent = players.find(p => p.userId !== me?.userId);
+  // Determine real players from WebSocket room state
+  const me = players.find((p: any) => p.userId === effectiveUserId) || players[0];
+  const opponent = players.find((p: any) => p.userId !== me?.userId);
 
   const isHost = room?.hostUserId === effectiveUserId;
   const isPlaying = room && room.status === 'PLAYING' && gameState !== null;
@@ -267,6 +271,14 @@ function TambolaGameContent() {
     }
   }, [chatMessages]);
 
+  // Copy room invite link
+  const handleCopyLink = () => {
+    if (typeof window === 'undefined') return;
+    navigator.clipboard.writeText(window.location.href);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 3000);
+  };
+
   // Handle leave room
   const handleLeave = () => {
     sendLeave();
@@ -278,24 +290,23 @@ function TambolaGameContent() {
     return <BingoLobby />;
   }
 
-  // Current Number & called list
-  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? 69;
-  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? formatNumberWord(currentNum);
-  const rawCalled = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [84, 74, 6, 80, 90];
-  const lastCalled = rawCalled.length > 0 ? rawCalled : [84, 74, 6, 80, 90];
-  const remaining = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 79;
+  // Real Current Number & called list
+  const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
+  const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? (currentNum ? formatNumberWord(currentNum) : 'READY');
+  const lastCalled: number[] = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
+  const remaining: number = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 90;
 
-  // Ticket data
+  // Real Ticket data
   const serverTicket = gameState?.tickets?.[me?.userId || ''];
   const ticketCells = serverTicket?.cells && serverTicket.cells.length > 0
     ? serverTicket.cells
     : previewTicketGrid;
 
-  // Marked numbers
-  const myMarkedList = gameState?.playerMarked?.[me?.userId || ''] || [18];
+  // Real Marked numbers
+  const myMarkedList: number[] = gameState?.playerMarked?.[me?.userId || ''] || [];
   const myMarkedSet = new Set(myMarkedList);
 
-  const calledSet = new Set(gameState?.calledNumbers || [18, 69, 84, 74, 6, 80, 90]);
+  const calledSet = new Set<number>(gameState?.calledNumbers || []);
 
   // Auto-mark effect
   useEffect(() => {
@@ -312,7 +323,7 @@ function TambolaGameContent() {
   const allTicketNumbers = ticketCells.flat().filter((n: number | null): n is number => n !== null);
   const myMarkedCount = allTicketNumbers.filter((n: number) => myMarkedSet.has(n)).length;
 
-  const opponentMarkedList = opponent ? (gameState?.playerMarked?.[opponent.userId] || []) : [];
+  const opponentMarkedList: number[] = opponent ? (gameState?.playerMarked?.[opponent.userId] || []) : [];
   const opponentMarkedCount = opponentMarkedList.length;
 
   const myScore = gameState?.scores?.[me?.userId || ''] || 0;
@@ -349,17 +360,22 @@ function TambolaGameContent() {
 
   // New ticket generator
   const handleNewTicket = () => {
-    setPreviewTicketGrid(generateRandomTambolaGrid());
+    if (!isPlaying) {
+      setPreviewTicketGrid(generateRandomTambolaGrid());
+    }
   };
 
-  // Primary Bingo claim action
-  const handleClaim = () => {
+  // Primary Tambola action (Claim or Start)
+  const handleClaimOrStart = () => {
     if (!isPlaying) {
-      if (isHost) {
+      if (isHost && opponent) {
         startBingoGame(roomConfig);
+      } else if (!opponent) {
+        handleCopyLink();
       }
       return;
     }
+    // Claim best available condition
     if (housefullCount >= 15) claimBingo('housefull');
     else if (topLineCount >= 5) claimBingo('topLine');
     else if (middleLineCount >= 5) claimBingo('middleLine');
@@ -430,7 +446,6 @@ function TambolaGameContent() {
                 <h1 className="text-2xl sm:text-3xl font-black text-[#1e1435] tracking-tight">
                   Tambola
                 </h1>
-                {/* Play Laugh Stay Together Script */}
                 <div className="font-serif italic text-[11px] leading-[1.05] text-[#ff2b70] tracking-tight select-none">
                   Play<br />Laugh<br />Stay Together ♡
                 </div>
@@ -456,25 +471,21 @@ function TambolaGameContent() {
           </div>
         </header>
 
-        {/* 2. TOP DUEL PLAYERS BAR */}
+        {/* 2. TOP DUEL PLAYERS BAR (REAL PLAYERS OR WAITING FOR OPPONENT) */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
           {/* Left Player Card (You) */}
           <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
-            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-sm shrink-0 flex items-center justify-center">
+            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-sm shrink-0 flex items-center justify-center font-bold text-[#ff3864] text-lg">
               {me?.avatarUrl ? (
                 <img src={me.avatarUrl} alt={me.displayName} className="w-full h-full object-cover" />
               ) : (
-                <img
-                  src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${me?.displayName || 'Mayur'}&glassesProbability=100`}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
+                me?.displayName?.charAt(0).toUpperCase() || 'Y'
               )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
-                  {me?.displayName || 'Mayur Bhargava'}
+                  {me?.displayName || session?.user?.displayName || 'You'}
                 </span>
                 <span className="px-2 py-0.5 rounded-full bg-[#ffe8f0] text-[#ff3864] text-[10px] font-black uppercase tracking-wider">
                   You
@@ -508,42 +519,79 @@ function TambolaGameContent() {
             </span>
           </div>
 
-          {/* Right Player Card (Opponent) */}
-          <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
-            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-sm shrink-0 flex items-center justify-center">
-              {opponent?.avatarUrl ? (
-                <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
-              ) : (
-                <img
-                  src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${opponent?.displayName || 'abcdghijk552'}&hair=long`}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
-              )}
+          {/* Right Player Card (Real Opponent if joined, or Invite slot) */}
+          {opponent ? (
+            <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
+              <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-sm shrink-0 flex items-center justify-center font-bold text-purple-600 text-lg">
+                {opponent.avatarUrl ? (
+                  <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
+                ) : (
+                  opponent.displayName?.charAt(0).toUpperCase() || 'O'
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
+                    {opponent.displayName}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
+                    Ready
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs mt-1">
+                  <span className="font-bold text-[#1e1435]">
+                    Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
+                  </span>
+                  <span className="text-[10px] font-semibold text-[#8a80a0]">
+                    {opponentMarkedCount}/15 Marked
+                  </span>
+                </div>
+                {/* Lavender Progress Bar */}
+                <div className="w-full h-2 rounded-full bg-[#f3eafc] overflow-hidden mt-1.5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] transition-all duration-300"
+                    style={{ width: `${Math.min(100, (opponentMarkedCount / 15) * 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
-                  {opponent?.displayName || 'abcdghijk552'}
-                </span>
+          ) : (
+            /* Waiting for Opponent Slot */
+            <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-dashed border-pink-300 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full border-2 border-dashed border-[#ff3864]/50 bg-[#fff0f5] flex items-center justify-center text-[#ff3864] shrink-0 animate-pulse">
+                  <UserPlus className="w-6 h-6" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-extrabold text-[#1e1435] block truncate">
+                    Waiting for Opponent...
+                  </span>
+                  <span className="text-[11px] text-[#8a80a0] block truncate">
+                    Room: <strong className="text-[#ff3864] font-mono">{room?.roomCode || roomCodeParam}</strong>
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-xs mt-1">
-                <span className="font-bold text-[#1e1435]">
-                  Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
-                </span>
-                <span className="text-[10px] font-semibold text-[#8a80a0]">
-                  {opponentMarkedCount}/15 Marked
-                </span>
-              </div>
-              {/* Lavender Progress Bar */}
-              <div className="w-full h-2 rounded-full bg-[#f3eafc] overflow-hidden mt-1.5">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] transition-all duration-300"
-                  style={{ width: `${Math.min(100, (opponentMarkedCount / 15) * 100)}%` }}
-                />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="px-2.5 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 text-[#ff3864] text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                  title="Copy Game Link"
+                >
+                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedLink ? 'Copied' : 'Copy'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowFriendDrawer(true)}
+                  className="px-3 py-1.5 rounded-xl bg-[#ff3864] hover:bg-[#e6005c] text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer shadow-xs"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Invite</span>
+                </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* 3. MAIN ARENA (GRID: LEFT TICKET/PROGRESS, MIDDLE CALLER/CALL, RIGHT CHAT) */}
@@ -569,14 +617,16 @@ function TambolaGameContent() {
                     </h2>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleNewTicket}
-                    className="flex items-center gap-1 text-xs font-bold text-[#4a3e68] hover:text-[#ff3864] transition cursor-pointer"
-                  >
-                    <Shuffle className="w-3.5 h-3.5" />
-                    <span>New Ticket</span>
-                  </button>
+                  {!isPlaying && (
+                    <button
+                      type="button"
+                      onClick={handleNewTicket}
+                      className="flex items-center gap-1 text-xs font-bold text-[#4a3e68] hover:text-[#ff3864] transition cursor-pointer"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" />
+                      <span>New Ticket</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* The 3x9 Ticket Grid */}
@@ -665,64 +715,102 @@ function TambolaGameContent() {
                   Current Number
                 </h3>
 
-                {/* Big Glowing Dial with Sunburst Rays */}
-                <div className="relative my-3 flex items-center justify-center">
-                  {/* Decorative Sunburst Rays */}
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <span className="absolute -left-3 w-3 h-0.5 bg-amber-400 rounded-full" />
-                    <span className="absolute -right-3 w-3 h-0.5 bg-amber-400 rounded-full" />
-                    <span className="absolute -top-1 -left-1 w-3 h-0.5 bg-amber-400 rounded-full -rotate-45" />
-                    <span className="absolute -top-1 -right-1 w-3 h-0.5 bg-amber-400 rounded-full rotate-45" />
-                  </div>
+                {isPlaying && currentNum !== null ? (
+                  <>
+                    {/* Big Glowing Dial with Sunburst Rays */}
+                    <div className="relative my-3 flex items-center justify-center">
+                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                        <span className="absolute -left-3 w-3 h-0.5 bg-amber-400 rounded-full" />
+                        <span className="absolute -right-3 w-3 h-0.5 bg-amber-400 rounded-full" />
+                        <span className="absolute -top-1 -left-1 w-3 h-0.5 bg-amber-400 rounded-full -rotate-45" />
+                        <span className="absolute -top-1 -right-1 w-3 h-0.5 bg-amber-400 rounded-full rotate-45" />
+                      </div>
 
-                  {/* Circular Ring */}
-                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-[#ff3864] flex flex-col items-center justify-center bg-white shadow-[0_4px_25px_rgba(255,56,100,0.18)]">
-                    <span className="text-4xl sm:text-5xl font-black text-[#1e1435] tracking-tight font-mono">
-                      {currentNum}
+                      <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-[#ff3864] flex flex-col items-center justify-center bg-white shadow-[0_4px_25px_rgba(255,56,100,0.18)]">
+                        <span className="text-4xl sm:text-5xl font-black text-[#1e1435] tracking-tight font-mono">
+                          {currentNum}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs font-black tracking-widest text-[#ff3864] uppercase -mt-1 mb-2">
+                      {currentWord}
+                    </div>
+
+                    {/* Real Last Numbers */}
+                    <div className="w-full">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-[#8a80a0] mb-1.5 px-1">
+                        <span>Last Numbers</span>
+                        <span>{remaining} Left</span>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-1.5">
+                        {lastCalled.length > 0 ? (
+                          lastCalled.slice(0, 5).map((num: number, idx: number) => (
+                            <div
+                              key={`${num}-${idx}`}
+                              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center font-mono text-xs sm:text-sm font-bold ${
+                                idx === 0
+                                  ? 'bg-[#ffe4ec] border-[#ff3864]/40 text-[#ff3864] shadow-xs'
+                                  : 'bg-[#f7f8fc] border-slate-200/80 text-[#1e1435]'
+                              }`}
+                            >
+                              {num}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-400 py-1 font-medium">Numbers will appear here</span>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Waiting Lobby Dial */
+                  <div className="my-auto flex flex-col items-center justify-center py-4">
+                    <div className="w-24 h-24 rounded-full border-3 border-dashed border-[#ff3864]/40 bg-[#fff5f8] flex flex-col items-center justify-center mb-2">
+                      <Sparkles className="w-8 h-8 text-[#ff3864] animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#ff3864] mt-1">Ready</span>
+                    </div>
+                    <span className="text-xs font-bold text-[#1e1435]">Tambola Duel Arena</span>
+                    <span className="text-[11px] text-[#8a80a0] mt-0.5">
+                      {opponent ? 'All players joined! Ready to begin.' : 'Waiting for opponent to connect...'}
                     </span>
                   </div>
-                </div>
+                )}
 
-                {/* Uppercase Word Label */}
-                <div className="text-xs font-black tracking-widest text-[#ff3864] uppercase -mt-1 mb-2">
-                  {currentWord}
-                </div>
-
-                {/* Last 5 Numbers */}
-                <div className="w-full">
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-[#8a80a0] mb-1.5 px-1">
-                    <span>Last 5 Numbers</span>
-                    <span>{remaining} Left</span>
-                  </div>
-
-                  <div className="flex items-center justify-center gap-1.5">
-                    {lastCalled.slice(0, 5).map((num: number, idx: number) => (
-                      <div
-                        key={`${num}-${idx}`}
-                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center font-mono text-xs sm:text-sm font-bold ${
-                          idx === 0
-                            ? 'bg-[#ffe4ec] border-[#ff3864]/40 text-[#ff3864] shadow-xs'
-                            : 'bg-[#f7f8fc] border-slate-200/80 text-[#1e1435]'
-                        }`}
-                      >
-                        {num}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Big Vibrant Pink Claim Button */}
+                {/* Primary Action Button */}
                 <button
                   type="button"
-                  onClick={handleClaim}
-                  className="w-full mt-4 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-[0_8px_25px_rgba(255,56,100,0.35)] flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer"
+                  disabled={!isPlaying && !isHost && Boolean(opponent)}
+                  onClick={handleClaimOrStart}
+                  className={`w-full mt-4 py-3.5 px-4 rounded-2xl text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition shadow-lg ${
+                    isPlaying
+                      ? 'bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 shadow-pink-500/30 cursor-pointer'
+                      : isHost && opponent
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 shadow-emerald-500/30 cursor-pointer animate-bounce'
+                      : !opponent
+                      ? 'bg-gradient-to-r from-[#ff3864] to-[#ff6699] hover:brightness-105 shadow-pink-500/25 cursor-pointer'
+                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4 fill-white" />
-                  <span>
-                    {!isPlaying && isHost
-                      ? '🎮 START TAMBOLA'
-                      : '🎉 I HAVE A BINGO!'}
-                  </span>
+                  {isPlaying ? (
+                    <>
+                      <Sparkles className="w-4 h-4 fill-white" />
+                      <span>🎉 CLAIM TAMBOLA!</span>
+                    </>
+                  ) : isHost && opponent ? (
+                    <>
+                      <Play className="w-4 h-4 fill-white" />
+                      <span>🚀 START TAMBOLA DUEL</span>
+                    </>
+                  ) : !opponent ? (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>📲 INVITE OPPONENT TO PLAY</span>
+                    </>
+                  ) : (
+                    <span>⏳ WAITING FOR HOST TO START...</span>
+                  )}
                 </button>
 
               </div>
@@ -843,7 +931,7 @@ function TambolaGameContent() {
                     <div className="flex items-center justify-between gap-3 text-xs">
                       <div className="flex items-center gap-1.5 text-[#1e1435] font-black">
                         <GripHorizontal className="w-3.5 h-3.5 text-rose-500" />
-                        <span>Call (2/2)</span>
+                        <span>Call ({players.length}/2)</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
@@ -896,13 +984,21 @@ function TambolaGameContent() {
 
                         {/* Opponent participant feed */}
                         <div className="relative w-20 sm:w-24 h-16 sm:h-18 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex flex-col items-center justify-center shadow-inner group">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff3864] to-[#ff80a0] text-white font-black text-xs flex items-center justify-center shadow-xs">
-                            {opponent?.displayName?.charAt(0).toUpperCase() || 'A'}
-                          </div>
-                          <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between text-[9px] font-bold text-[#1e1435]">
-                            <span className="truncate max-w-[50px]">{opponent?.displayName || 'abcdghijk552'}</span>
-                            <span className="text-[10px]">🟢</span>
-                          </div>
+                          {opponent ? (
+                            <>
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff3864] to-[#ff80a0] text-white font-black text-xs flex items-center justify-center shadow-xs">
+                                {opponent.displayName?.charAt(0).toUpperCase() || 'O'}
+                              </div>
+                              <div className="absolute bottom-1 left-2 right-2 flex items-center justify-between text-[9px] font-bold text-[#1e1435]">
+                                <span className="truncate max-w-[50px]">{opponent.displayName}</span>
+                                <span className="text-[10px]">🟢</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center p-1">
+                              <span className="text-[9px] text-slate-400 font-bold block">Waiting...</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -916,7 +1012,6 @@ function TambolaGameContent() {
                       Good<br />Vibes<br />Only
                     </span>
                   </div>
-                  {/* Popcorn kernals overflowing */}
                   <div className="absolute -top-1 left-1 flex gap-0.5">
                     <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs" />
                     <span className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 shadow-xs -ml-1 -mt-1" />
@@ -928,7 +1023,7 @@ function TambolaGameContent() {
 
           </div>
 
-          {/* RIGHT COLUMN: GAME CHAT CARD (4 COLS) */}
+          {/* RIGHT COLUMN: GAME CHAT CARD (4 COLS) - REAL MESSAGES ONLY */}
           <div className="lg:col-span-4 bg-white/95 backdrop-blur-md rounded-[30px] p-4 sm:p-5 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)] flex flex-col justify-between h-[660px]">
             
             {/* Chat Header */}
@@ -940,110 +1035,26 @@ function TambolaGameContent() {
                   </div>
                   <div>
                     <h3 className="text-sm font-extrabold text-[#1e1435]">Game Chat</h3>
-                    <p className="text-[10px] text-[#8a80a0] font-medium">Live messages, reactions & fun!</p>
+                    <p className="text-[10px] text-[#8a80a0] font-medium">Live messages & reactions</p>
                   </div>
                 </div>
               </div>
 
-              {/* Message List */}
+              {/* Message List - REAL MESSAGES ONLY */}
               <div ref={chatScrollRef} className="h-[390px] overflow-y-auto py-3 space-y-3.5 pr-1">
                 {chatMessages.length === 0 ? (
-                  /* Initial dialogue matching the screenshot */
-                  <>
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=Mayur&glassesProbability=100`}
-                          alt="Avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-xs font-bold text-[#1e1435]">Mayur</span>
-                          <span className="text-[10px] text-slate-400">8:41 PM</span>
-                        </div>
-                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Ready? 👀</div>
-                      </div>
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                    <div className="w-12 h-12 rounded-full bg-pink-50 text-[#ff3864] flex items-center justify-center mb-2">
+                      <Send className="w-5 h-5 rotate-45" />
                     </div>
-
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=abcdghijk552&hair=long`}
-                          alt="Avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-xs font-bold text-[#1e1435]">abcdghijk552</span>
-                          <span className="text-[10px] text-slate-400">8:41 PM</span>
-                        </div>
-                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Let's go! 🔥</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=Mayur&glassesProbability=100`}
-                          alt="Avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-xs font-bold text-[#1e1435]">Mayur</span>
-                          <span className="text-[10px] text-slate-400">8:42 PM</span>
-                        </div>
-                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Nice number!</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=abcdghijk552&hair=long`}
-                          alt="Avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-xs font-bold text-[#1e1435]">abcdghijk552</span>
-                          <span className="text-[10px] text-slate-400">8:42 PM</span>
-                        </div>
-                        <div className="text-xs text-[#332a47] font-medium mt-0.5">So close! 😂</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=Mayur&glassesProbability=100`}
-                          alt="Avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-xs font-bold text-[#1e1435]">Mayur</span>
-                          <span className="text-[10px] text-slate-400">8:43 PM</span>
-                        </div>
-                        <div className="text-xs text-[#332a47] font-medium mt-0.5">Bingo soon! 🎯</div>
-                      </div>
-                    </div>
-                  </>
+                    <p className="text-xs font-bold text-[#1e1435]">No messages yet</p>
+                    <p className="text-[11px] text-[#8a80a0] mt-0.5">Send a message or reaction to your opponent!</p>
+                  </div>
                 ) : (
                   chatMessages.map((m: any) => (
                     <div key={m.id} className="flex items-start gap-2.5">
-                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
-                        <img
-                          src={`https://api.dicebear.com/7.x/adventurer/svg?seed=${m.userName}`}
-                          alt="Avatar"
-                          className="w-full h-full object-cover"
-                        />
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0 flex items-center justify-center font-bold text-xs text-[#ff3864]">
+                        {m.userName?.charAt(0).toUpperCase() || 'U'}
                       </div>
                       <div>
                         <div className="flex items-baseline gap-1.5">
@@ -1078,7 +1089,7 @@ function TambolaGameContent() {
 
               {/* Quick phrases pills */}
               <div className="flex items-center justify-between gap-1 text-[10px]">
-                {['Good Luck! 🍀', 'Nice Mark! 👏', 'Bingo soon! 🎯'].map((phrase: string) => (
+                {['Good Luck! 🍀', 'Nice Mark! 👏', 'Tambola soon! 🎯'].map((phrase: string) => (
                   <button
                     key={phrase}
                     type="button"
@@ -1114,6 +1125,24 @@ function TambolaGameContent() {
         </div>
 
       </div>
+
+      {/* Friend Selector Drawer to Invite Online Friends */}
+      <GameFriendSelectorDrawer
+        isOpen={showFriendDrawer}
+        onClose={() => setShowFriendDrawer(false)}
+        token={session?.token}
+        gameTitle="Tambola"
+        onSelectFriend={async (friend: any) => {
+          try {
+            const res = await createGameRoomWithPartner('tambola', friend.friendUser.id);
+            if (res?.room?.roomCode) {
+              router.push(`/games/tambola?room=${res.room.roomCode}`);
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }}
+      />
 
       {/* Rematch Request Popup from Opponent */}
       {rematchStatus && !rematchStatus.allVoted && !rematchStatus.votedUserIds?.includes(effectiveUserId) && (
