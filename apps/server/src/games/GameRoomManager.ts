@@ -266,11 +266,11 @@ export class GameRoomManager {
     } else if (room.gameType === 'bingo') {
       this.stopBingoAutoCall(room.id);
       const config = (room as any).bingoConfig || DEFAULT_BINGO_DUEL_CONFIG;
+      // Freshly shuffle 5x5 tickets/boards for all players on every start and rematch
       initialState = BingoDuelEngine.createInitialState(
         room.id,
         playerConfigs.map(p => p.userId),
-        config,
-        (room.gameState as any)?.boards
+        config
       );
     } else if (room.gameType === 'tambola') {
       this.stopBingoAutoCall(room.id);
@@ -456,6 +456,11 @@ export class GameRoomManager {
       setTimeout(() => {
         const freshRoom = this.db.getGameRoomById(roomId);
         if (freshRoom) {
+          if (freshRoom.gameState) {
+            delete (freshRoom.gameState as any).boards;
+            delete (freshRoom.gameState as any).playerMarks;
+            delete (freshRoom.gameState as any).playerPicks;
+          }
           this.startGame(freshRoom);
         }
       }, 500);

@@ -168,14 +168,28 @@ function BingoDuelGameContent() {
   const [isPreviewActive, setIsPreviewActive] = useState<boolean>(isPreviewParam);
   const isPreview = isPreviewParam || isPreviewActive;
 
-  // Demo state for interactive preview
-  const demoBoard = useMemo(() => [
+  // Helper to generate freshly shuffled 5x5 ticket
+  const generateShuffledDemoBoard = useCallback((): number[][] => {
+    const nums = Array.from({ length: 25 }, (_, i) => i + 1);
+    for (let i = nums.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [nums[i], nums[j]] = [nums[j], nums[i]];
+    }
+    const board: number[][] = [];
+    for (let r = 0; r < 5; r++) {
+      board.push(nums.slice(r * 5, (r + 1) * 5));
+    }
+    return board;
+  }, []);
+
+  // Demo state for interactive preview with shuffled board
+  const [demoBoard, setDemoBoard] = useState<number[][]>(() => [
     [1, 2, 3, 4, 5],
     [6, 7, 8, 9, 10],
     [11, 12, 13, 14, 15],
     [16, 17, 18, 19, 20],
     [21, 22, 23, 24, 25]
-  ], []);
+  ]);
   const [demoP1Marks, setDemoP1Marks] = useState<number[]>([1, 2, 3, 4, 5]); // Starts with Row 1 to show 'B' cut
   const [demoP2Marks, setDemoP2Marks] = useState<number[]>([7, 13, 19]);
 
@@ -360,6 +374,9 @@ function BingoDuelGameContent() {
     clearRematchDeclined,
     opponentLeftWin,
     clearOpponentLeftWin,
+    nudgeAlert,
+    clearNudgeAlert,
+    sendNudge,
     sendWebRTCSignal,
     registerWebRTCListener,
     registerCameraListener,
@@ -474,6 +491,58 @@ function BingoDuelGameContent() {
       return () => clearTimeout(timer);
     }
   }, [gameRoomError]);
+
+  // In-Game Nudge State & Handlers
+  const [nudgeFeedback, setNudgeFeedback] = useState<string | null>(null);
+  const [nudgeCooldown, setNudgeCooldown] = useState(0);
+
+  // Cooldown countdown ticker
+  useEffect(() => {
+    if (nudgeCooldown <= 0) return;
+    const interval = setInterval(() => {
+      setNudgeCooldown(c => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [nudgeCooldown]);
+
+  // Auto-clear nudgeAlert after 4.5s
+  useEffect(() => {
+    if (nudgeAlert) {
+      const timer = setTimeout(() => {
+        clearNudgeAlert();
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [nudgeAlert, clearNudgeAlert]);
+
+  const handleNudgeOpponent = useCallback(() => {
+    if (nudgeCooldown > 0) return;
+    const targetId = opponentUserId || opponent?.userId;
+
+    const BINGO_NUDGES = [
+      "Hey! It's your turn to pick a number! 🔔",
+      "Wake up! The Bingo board is waiting for you! ⚡",
+      "Don't fall asleep, make your pick! 😉",
+      "Arey jaldi number bolo, Bingo jeetna hai! 🎯",
+      "Thinking so hard? Pick a lucky number already! 🍀",
+      "Your move! Time's ticking! ⏱️"
+    ];
+    const randomMsg = BINGO_NUDGES[Math.floor(Math.random() * BINGO_NUDGES.length)];
+
+    if (isPreview) {
+      setNudgeCooldown(5);
+      setNudgeFeedback("🔔 Nudged demo opponent!");
+      const timer = setTimeout(() => setNudgeFeedback(null), 3000);
+      return;
+    }
+
+    if (!targetId) return;
+
+    sendNudge(targetId, randomMsg);
+    setNudgeCooldown(6);
+    setNudgeFeedback(`🔔 Nudged ${opponent?.displayName || 'opponent'}!`);
+    const timer = setTimeout(() => setNudgeFeedback(null), 3000);
+  }, [nudgeCooldown, opponentUserId, opponent?.userId, opponent?.displayName, isPreview, sendNudge]);
 
   // Alternating Turn Calculation
   const currentTurnUserId = gameState?.currentTurnUserId || room?.hostUserId;
@@ -1436,6 +1505,7 @@ function BingoDuelGameContent() {
               }}
               onReset={() => {
                 if (isPreview) {
+                  setDemoBoard(generateShuffledDemoBoard());
                   setDemoP1Marks([1, 9, 13, 22, 25]);
                   setDemoP2Marks([5, 7, 16, 19]);
                 } else {
@@ -1448,6 +1518,11 @@ function BingoDuelGameContent() {
               isRoundOver={isRoundOver}
               isOpponentLeft={Boolean(isOpponentLeft)}
               onStartNewMatch={handleStartNewMatch}
+              onNudge={handleNudgeOpponent}
+              nudgeCooldown={nudgeCooldown}
+              nudgeFeedback={nudgeFeedback}
+              nudgeAlert={nudgeAlert}
+              onClearNudgeAlert={clearNudgeAlert}
               toast={claimToast}
               onOpenSettings={() => setShowSettingsModal(true)}
               onToggleChat={() => setIsChatOpen(!isChatOpen)}
@@ -2250,6 +2325,7 @@ function BingoDuelGameContent() {
           isHost={isHost}
           onNextRound={startBingoNextRound}
           onRematch={isPreview ? () => {
+            setDemoBoard(generateShuffledDemoBoard());
             setDemoP1Marks([1, 2, 3, 4, 5]);
             setShowDelayedWinModal(false);
             setShowPartyPoppers(false);
