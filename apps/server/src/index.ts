@@ -697,13 +697,28 @@ export async function createServer(dbPath = './synccinema.db') {
   app.get('/api/chat/messages', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);
-    const { conversationId, limit } = request.query as { conversationId?: string; limit?: string };
+    const { conversationId, limit, before, after } = request.query as {
+      conversationId?: string;
+      limit?: string;
+      before?: string;
+      after?: string;
+    };
     if (!conversationId) {
       return reply.code(400).send({ error: 'conversationId is required' });
     }
-    const maxLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 500, 1), 1000) : 500;
-    const messages = db.getDirectChatMessages(conversationId, user.id, maxLimit);
-    return { success: true, messages };
+    const maxLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500) : 100;
+    const messages = db.getDirectChatMessages(conversationId, user.id, {
+      limit: maxLimit,
+      before,
+      after
+    });
+    return {
+      success: true,
+      messages,
+      hasMore: messages.length >= maxLimit,
+      latestTimestamp: messages.length > 0 ? messages[messages.length - 1].createdAt : null,
+      earliestTimestamp: messages.length > 0 ? messages[0].createdAt : null
+    };
   });
 
   app.post('/api/chat/messages', async (request, reply) => {

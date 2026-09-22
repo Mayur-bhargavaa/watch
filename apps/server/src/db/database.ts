@@ -1239,29 +1239,35 @@ export class DatabaseService {
     );
   }
 
-  getDirectChatMessages(conversationId: string, currentUserId?: string, limit = 500): any[] {
+  getDirectChatMessages(
+    conversationId: string,
+    currentUserId?: string,
+    limitOrOptions: number | { limit?: number; before?: string; after?: string } = 100
+  ): any[] {
+    const options = typeof limitOrOptions === 'number' ? { limit: limitOrOptions } : (limitOrOptions || {});
+    const limit = options.limit ? Math.min(Math.max(options.limit, 1), 500) : 100;
+    const before = options.before;
+    const after = options.after;
+
     const { userIds, otherUserId } = extractParticipantIdsFromConvId(conversationId, currentUserId);
     const otherId = otherUserId || (userIds.length === 2 ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : (userIds[0] !== currentUserId ? userIds[0] : null));
 
     let rows: any[];
+
     if (currentUserId && otherId && otherId !== currentUserId) {
       const canonicalId = toCanonicalConvId(currentUserId, otherId);
-      rows = this.db.prepare(`
-        SELECT * FROM (
-          SELECT * FROM direct_chat_messages
-          WHERE is_deleted = 0
-            AND (
-              conversation_id = ?
-              OR conversation_id = ?
-              OR conversation_id = ?
-              OR conversation_id = ?
-              OR (sender_id = ? AND recipient_id = ?)
-              OR (sender_id = ? AND recipient_id = ?)
-            )
-          ORDER BY created_at DESC
-          LIMIT ?
-        ) ORDER BY created_at ASC
-      `).all(
+      const baseFilter = `
+        WHERE is_deleted = 0
+          AND (
+            conversation_id = ?
+            OR conversation_id = ?
+            OR conversation_id = ?
+            OR conversation_id = ?
+            OR (sender_id = ? AND recipient_id = ?)
+            OR (sender_id = ? AND recipient_id = ?)
+          )
+      `;
+      const baseParams = [
         conversationId,
         canonicalId,
         `conv_${otherId}`,
@@ -1269,27 +1275,80 @@ export class DatabaseService {
         currentUserId,
         otherId,
         otherId,
-        currentUserId,
-        limit
-      ) as any[];
-    } else {
-      rows = this.db.prepare(`
-        SELECT * FROM (
+        currentUserId
+      ];
+
+      if (after) {
+        rows = this.db.prepare(`
           SELECT * FROM direct_chat_messages
-          WHERE (
+          ${baseFilter}
+            AND created_at > ?
+          ORDER BY created_at ASC
+          LIMIT ?
+        `).all(...baseParams, after, limit) as any[];
+      } else if (before) {
+        rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+              AND created_at < ?
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, before, limit) as any[];
+      } else {
+        rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, limit) as any[];
+      }
+    } else {
+      const baseFilter = `
+        WHERE is_deleted = 0
+          AND (
             conversation_id = ?
             OR conversation_id = ?
             ${otherId ? `OR (sender_id = ? OR recipient_id = ?)` : ''}
-          ) AND is_deleted = 0
-          ORDER BY created_at DESC
-          LIMIT ?
-        ) ORDER BY created_at ASC
-      `).all(
+          )
+      `;
+      const baseParams = [
         conversationId,
         otherId && currentUserId ? toCanonicalConvId(currentUserId, otherId) : conversationId,
-        ...(otherId ? [otherId, otherId] : []),
-        limit
-      ) as any[];
+        ...(otherId ? [otherId, otherId] : [])
+      ];
+
+      if (after) {
+        rows = this.db.prepare(`
+          SELECT * FROM direct_chat_messages
+          ${baseFilter}
+            AND created_at > ?
+          ORDER BY created_at ASC
+          LIMIT ?
+        `).all(...baseParams, after, limit) as any[];
+      } else if (before) {
+        rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+              AND created_at < ?
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, before, limit) as any[];
+      } else {
+        rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, limit) as any[];
+      }
     }
 
     return rows.map((r) => ({

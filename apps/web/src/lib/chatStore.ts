@@ -646,7 +646,7 @@ export class ChatStore {
       // Also mirror to canonical ID if this was a legacy direct chat key
       const aliases = this.getConversationAliases(conversationId);
       for (const alias of aliases) {
-        if (alias !== conversationId && alias.includes('_') && alias.split('_').length === 3) {
+        if (alias !== conversationId) {
           try {
             localStorage.setItem(`${this.getStorageKey()}_msgs_${alias}`, JSON.stringify(messages));
           } catch {}
@@ -1446,7 +1446,10 @@ export class ChatStore {
     notify();
   }
 
-  static async fetchRemoteMessages(conversationId: string): Promise<void> {
+  static async fetchRemoteMessages(
+    conversationId: string,
+    options?: { before?: string; after?: string; limit?: number }
+  ): Promise<void> {
     const s = getStoredSession();
     if (!s?.token || !conversationId) return;
 
@@ -1456,7 +1459,14 @@ export class ChatStore {
     const canonicalId = (myId && otherUserId) ? toCanonicalConvId(myId, otherUserId) : conversationId;
 
     try {
-      const res = await fetch(`${API_BASE}/api/chat/messages?conversationId=${encodeURIComponent(canonicalId)}&limit=500`, {
+      const params = new URLSearchParams({
+        conversationId: canonicalId,
+        limit: String(options?.limit || 100)
+      });
+      if (options?.before) params.set('before', options.before);
+      if (options?.after) params.set('after', options.after);
+
+      const res = await fetch(`${API_BASE}/api/chat/messages?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${s.token}`
         }

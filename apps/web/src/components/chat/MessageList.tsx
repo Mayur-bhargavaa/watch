@@ -14,6 +14,7 @@ interface MessageListProps {
   onReact?: (messageId: string, emoji: string) => void;
   onDelete?: (messageId: string) => void;
   onPin?: (messageId: string) => void;
+  onLoadMore?: () => void;
 }
 
 function formatDateDivider(timestamp: number): string {
@@ -50,27 +51,61 @@ export const MessageList: React.FC<MessageListProps> = ({
   onReact,
   onDelete,
   onPin,
+  onLoadMore,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const loadingMoreRef = useRef(false);
 
-  // Auto scroll to bottom when messages change or latest message updates
+  const prevLastMsgIdRef = useRef<string>('');
+  const prevFirstMsgIdRef = useRef<string>('');
+  const prevScrollHeightRef = useRef<number>(0);
+
+  // Auto scroll to bottom when new messages arrive at the bottom
   const scrollToBottom = (smooth = true) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   };
 
+  const firstMsgId = messages.length > 0 ? messages[0]?.id : '';
   const lastMsgId = messages.length > 0 ? messages[messages.length - 1]?.id : '';
 
   useEffect(() => {
-    scrollToBottom(false);
-  }, [messages.length, lastMsgId]);
+    if (!lastMsgId) return;
+
+    if (lastMsgId !== prevLastMsgIdRef.current) {
+      // New message received at the bottom or conversation switched
+      scrollToBottom(false);
+    } else if (firstMsgId !== prevFirstMsgIdRef.current && scrollRef.current) {
+      // Older messages prepended at the top: preserve viewport scroll offset
+      const currentScrollHeight = scrollRef.current.scrollHeight;
+      const diff = currentScrollHeight - prevScrollHeightRef.current;
+      if (diff > 0) {
+        scrollRef.current.scrollTop += diff;
+      }
+    }
+
+    prevLastMsgIdRef.current = lastMsgId;
+    prevFirstMsgIdRef.current = firstMsgId;
+    if (scrollRef.current) {
+      prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+    }
+  }, [messages.length, lastMsgId, firstMsgId]);
 
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
     const isUp = scrollHeight - scrollTop - clientHeight > 150;
     setShowScrollBottom(isUp);
+
+    // If scrolled near the top, trigger loading earlier messages
+    if (scrollTop < 40 && onLoadMore && !loadingMoreRef.current) {
+      loadingMoreRef.current = true;
+      onLoadMore();
+      setTimeout(() => {
+        loadingMoreRef.current = false;
+      }, 1000);
+    }
   };
 
   const jumpToMessage = (messageId: string) => {

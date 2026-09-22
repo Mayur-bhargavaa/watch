@@ -105,11 +105,27 @@ export const ChatLayout: React.FC = () => {
     }
   }, [activeConversationId, otherUser?.id]);
 
-  // Periodic sync of remote messages for active conversation (fetch latest messages every 3s)
+  // Handle loading older messages when scrolling to top (cursor pagination with 'before')
+  const handleLoadMore = () => {
+    if (!activeConversationId) return;
+    const msgs = ChatStore.getMessages(activeConversationId);
+    const firstMsg = msgs.length > 0 ? msgs[0] : null;
+    if (firstMsg?.createdAt) {
+      ChatStore.fetchRemoteMessages(activeConversationId, { before: firstMsg.createdAt, limit: 50 });
+    }
+  };
+
+  // Periodic sync of remote messages for active conversation (fetch latest new arrivals with 'after' filter)
   useEffect(() => {
     if (!activeConversationId) return;
     const interval = setInterval(() => {
-      ChatStore.fetchRemoteMessages(activeConversationId);
+      const msgs = ChatStore.getMessages(activeConversationId);
+      const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+      if (lastMsg?.createdAt) {
+        ChatStore.fetchRemoteMessages(activeConversationId, { after: lastMsg.createdAt, limit: 50 });
+      } else {
+        ChatStore.fetchRemoteMessages(activeConversationId, { limit: 100 });
+      }
     }, 3000);
     return () => clearInterval(interval);
   }, [activeConversationId]);
@@ -315,6 +331,7 @@ export const ChatLayout: React.FC = () => {
               onReact={handleReact}
               onDelete={handleDelete}
               onPin={handlePin}
+              onLoadMore={handleLoadMore}
             />
 
             {/* Input Composer */}

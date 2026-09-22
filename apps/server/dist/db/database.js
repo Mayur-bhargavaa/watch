@@ -2,6 +2,48 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import { nanoid } from 'nanoid';
+export function extractParticipantIdsFromConvId(convId, currentUserId) {
+    if (!convId || !convId.startsWith('conv_')) {
+        return { userIds: [] };
+    }
+    const raw = convId.slice(5); // strip 'conv_'
+    // Pattern 1: conv_usr_AAA_usr_BBB
+    const matchTwoUsr = raw.match(/^(usr_[a-zA-Z0-9_-]+?)_(usr_[a-zA-Z0-9_-]+)$/);
+    if (matchTwoUsr) {
+        const userIds = [matchTwoUsr[1], matchTwoUsr[2]];
+        const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
+        return { userIds, otherUserId };
+    }
+    // Pattern 2: single conv_usr_AAA
+    const matchOneUsr = raw.match(/^(usr_[a-zA-Z0-9_-]+)$/);
+    if (matchOneUsr) {
+        const userIds = [matchOneUsr[1]];
+        const otherUserId = currentUserId && userIds[0] === currentUserId ? undefined : userIds[0];
+        return { userIds, otherUserId };
+    }
+    // Pattern 3: mixed usr_ / guest_
+    const matchMixed = raw.match(/^((?:usr|guest)_[a-zA-Z0-9_-]+?)_((?:usr|guest)_[a-zA-Z0-9_-]+)$/);
+    if (matchMixed) {
+        const userIds = [matchMixed[1], matchMixed[2]];
+        const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
+        return { userIds, otherUserId };
+    }
+    // Fallback: If currentUserId is inside raw
+    if (currentUserId && raw.includes(currentUserId)) {
+        let remainder = raw.replace(currentUserId, '');
+        if (remainder.startsWith('_'))
+            remainder = remainder.slice(1);
+        if (remainder.endsWith('_'))
+            remainder = remainder.slice(0, -1);
+        if (remainder) {
+            return { userIds: [currentUserId, remainder], otherUserId: remainder };
+        }
+    }
+    return { userIds: [raw], otherUserId: raw !== currentUserId ? raw : undefined };
+}
+export function toCanonicalConvId(userA, userB) {
+    return `conv_${[userA, userB].sort().join('_')}`;
+}
 export class DatabaseService {
     db;
     constructor(dbPath) {
@@ -902,19 +944,15 @@ export class DatabaseService {
     // --- Watch Direct Chat Engine ---
     saveDirectChatMessage(msg) {
         let recipientId = msg.recipientId;
-        let canonicalConvId = msg.conversationId;
-        if (!recipientId && msg.conversationId?.startsWith('conv_')) {
-            const stripped = msg.conversationId.replace('conv_', '');
-            const parts = stripped.split('_');
-            if (parts.length >= 2 && msg.senderId) {
-                recipientId = parts[0] === msg.senderId ? parts[1] : parts[0];
-            }
-            else if (parts.length === 1 && msg.senderId && parts[0] !== msg.senderId) {
-                recipientId = parts[0];
+        if (!recipientId && msg.conversationId) {
+            const { otherUserId } = extractParticipantIdsFromConvId(msg.conversationId, msg.senderId);
+            if (otherUserId) {
+                recipientId = otherUserId;
             }
         }
+        let canonicalConvId = msg.conversationId;
         if (msg.senderId && recipientId) {
-            canonicalConvId = `conv_${[msg.senderId, recipientId].sort().join('_')}`;
+            canonicalConvId = toCanonicalConvId(msg.senderId, recipientId);
         }
         const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO direct_chat_messages (
@@ -924,47 +962,112 @@ export class DatabaseService {
     `);
         stmt.run(msg.id, canonicalConvId, msg.senderId, msg.senderName || null, msg.senderAvatar || null, recipientId || null, msg.type || 'text', msg.content, msg.mediaUrl || null, msg.metadata ? JSON.stringify(msg.metadata) : null, msg.replyTo ? JSON.stringify(msg.replyTo) : null, msg.status || 'sent', msg.createdAt || new Date().toISOString());
     }
-    getDirectChatMessages(conversationId, currentUserId, limit = 500) {
-        let otherId = null;
-        if (conversationId.startsWith('conv_')) {
-            const stripped = conversationId.replace('conv_', '');
-            const parts = stripped.split('_');
-            if (parts.length >= 2 && currentUserId) {
-                otherId = parts[0] === currentUserId ? parts[1] : parts[0];
-            }
-            else {
-                otherId = stripped;
-            }
-        }
+    getDirectChatMessages(conversationId, currentUserId, limitOrOptions = 100) {
+        const options = typeof limitOrOptions === 'number' ? { limit: limitOrOptions } : (limitOrOptions || {});
+        const limit = options.limit ? Math.min(Math.max(options.limit, 1), 500) : 100;
+        const before = options.before;
+        const after = options.after;
+        const { userIds, otherUserId } = extractParticipantIdsFromConvId(conversationId, currentUserId);
+        const otherId = otherUserId || (userIds.length === 2 ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : (userIds[0] !== currentUserId ? userIds[0] : null));
         let rows;
         if (currentUserId && otherId && otherId !== currentUserId) {
-            const canonicalId = `conv_${[currentUserId, otherId].sort().join('_')}`;
-            rows = this.db.prepare(`
-        SELECT * FROM (
+            const canonicalId = toCanonicalConvId(currentUserId, otherId);
+            const baseFilter = `
+        WHERE is_deleted = 0
+          AND (
+            conversation_id = ?
+            OR conversation_id = ?
+            OR conversation_id = ?
+            OR conversation_id = ?
+            OR (sender_id = ? AND recipient_id = ?)
+            OR (sender_id = ? AND recipient_id = ?)
+          )
+      `;
+            const baseParams = [
+                conversationId,
+                canonicalId,
+                `conv_${otherId}`,
+                `conv_${currentUserId}`,
+                currentUserId,
+                otherId,
+                otherId,
+                currentUserId
+            ];
+            if (after) {
+                rows = this.db.prepare(`
           SELECT * FROM direct_chat_messages
-          WHERE is_deleted = 0
-            AND (
-              conversation_id = ?
-              OR conversation_id = ?
-              OR conversation_id = ?
-              OR conversation_id = ?
-              OR (sender_id = ? AND recipient_id = ?)
-              OR (sender_id = ? AND recipient_id = ?)
-            )
-          ORDER BY created_at DESC
+          ${baseFilter}
+            AND created_at > ?
+          ORDER BY created_at ASC
           LIMIT ?
-        ) ORDER BY created_at ASC
-      `).all(conversationId, canonicalId, `conv_${otherId}`, `conv_${currentUserId}`, currentUserId, otherId, otherId, currentUserId, limit);
+        `).all(...baseParams, after, limit);
+            }
+            else if (before) {
+                rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+              AND created_at < ?
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, before, limit);
+            }
+            else {
+                rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, limit);
+            }
         }
         else {
-            rows = this.db.prepare(`
-        SELECT * FROM (
+            const baseFilter = `
+        WHERE is_deleted = 0
+          AND (
+            conversation_id = ?
+            OR conversation_id = ?
+            ${otherId ? `OR (sender_id = ? OR recipient_id = ?)` : ''}
+          )
+      `;
+            const baseParams = [
+                conversationId,
+                otherId && currentUserId ? toCanonicalConvId(currentUserId, otherId) : conversationId,
+                ...(otherId ? [otherId, otherId] : [])
+            ];
+            if (after) {
+                rows = this.db.prepare(`
           SELECT * FROM direct_chat_messages
-          WHERE conversation_id = ? AND is_deleted = 0
-          ORDER BY created_at DESC
+          ${baseFilter}
+            AND created_at > ?
+          ORDER BY created_at ASC
           LIMIT ?
-        ) ORDER BY created_at ASC
-      `).all(conversationId, limit);
+        `).all(...baseParams, after, limit);
+            }
+            else if (before) {
+                rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+              AND created_at < ?
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, before, limit);
+            }
+            else {
+                rows = this.db.prepare(`
+          SELECT * FROM (
+            SELECT * FROM direct_chat_messages
+            ${baseFilter}
+            ORDER BY created_at DESC
+            LIMIT ?
+          ) ORDER BY created_at ASC
+        `).all(...baseParams, limit);
+            }
         }
         return rows.map((r) => ({
             id: r.id,
@@ -1011,20 +1114,11 @@ export class DatabaseService {
         return messages;
     }
     markDirectMessagesAsRead(conversationId, readerUserId) {
-        let otherId = null;
-        if (conversationId.startsWith('conv_')) {
-            const stripped = conversationId.replace('conv_', '');
-            const parts = stripped.split('_');
-            if (parts.length >= 2 && readerUserId) {
-                otherId = parts[0] === readerUserId ? parts[1] : parts[0];
-            }
-            else {
-                otherId = stripped;
-            }
-        }
+        const { userIds, otherUserId } = extractParticipantIdsFromConvId(conversationId, readerUserId);
+        const otherId = otherUserId || (userIds.length === 2 ? (userIds[0] === readerUserId ? userIds[1] : userIds[0]) : (userIds[0] !== readerUserId ? userIds[0] : null));
         let messages;
         if (otherId && otherId !== readerUserId) {
-            const canonicalId = `conv_${[readerUserId, otherId].sort().join('_')}`;
+            const canonicalId = toCanonicalConvId(readerUserId, otherId);
             messages = this.db.prepare(`
         SELECT id, sender_id as senderId
         FROM direct_chat_messages

@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import fastifyWebsocket from '@fastify/websocket';
 import { nanoid } from 'nanoid';
-import { DatabaseService } from './db/database.js';
+import { DatabaseService, extractParticipantIdsFromConvId, toCanonicalConvId } from './db/database.js';
 import { RoomSyncManager } from './sync/RoomSyncManager.js';
 import { GameRoomManager } from './games/GameRoomManager.js';
 import { GAME_DEFINITIONS } from './games/GameDefinitions.js';
@@ -612,13 +612,23 @@ export async function createServer(dbPath = './synccinema.db') {
     app.get('/api/chat/messages', async (request, reply) => {
         const user = await getRequestUser(request);
         presenceManager.recordHeartbeat(user.id);
-        const { conversationId, limit } = request.query;
+        const { conversationId, limit, before, after } = request.query;
         if (!conversationId) {
             return reply.code(400).send({ error: 'conversationId is required' });
         }
-        const maxLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 500, 1), 1000) : 500;
-        const messages = db.getDirectChatMessages(conversationId, user.id, maxLimit);
-        return { success: true, messages };
+        const maxLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500) : 100;
+        const messages = db.getDirectChatMessages(conversationId, user.id, {
+            limit: maxLimit,
+            before,
+            after
+        });
+        return {
+            success: true,
+            messages,
+            hasMore: messages.length >= maxLimit,
+            latestTimestamp: messages.length > 0 ? messages[messages.length - 1].createdAt : null,
+            earliestTimestamp: messages.length > 0 ? messages[0].createdAt : null
+        };
     });
     app.post('/api/chat/messages', async (request, reply) => {
         const user = await getRequestUser(request);
@@ -628,18 +638,14 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(400).send({ error: 'conversationId and content are required' });
         }
         let recipientId = body.recipientId;
-        if (!recipientId && body.conversationId.startsWith('conv_')) {
-            const stripped = body.conversationId.replace('conv_', '');
-            const parts = stripped.split('_');
-            if (parts.length >= 2) {
-                recipientId = parts[0] === user.id ? parts[1] : parts[0];
-            }
-            else {
-                recipientId = stripped;
+        if (!recipientId && body.conversationId) {
+            const { otherUserId } = extractParticipantIdsFromConvId(body.conversationId, user.id);
+            if (otherUserId) {
+                recipientId = otherUserId;
             }
         }
         const canonicalConvId = (recipientId && user.id)
-            ? `conv_${[user.id, recipientId].sort().join('_')}`
+            ? toCanonicalConvId(user.id, recipientId)
             : body.conversationId;
         const isRecipientOnline = recipientId ? presenceManager.isUserOnline(recipientId) : false;
         const status = isRecipientOnline ? 'delivered' : 'sent';
