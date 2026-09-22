@@ -479,17 +479,60 @@ export class ChatStore {
     } catch {}
   }
 
+  private static getOpenedViewOnceSet(): Set<string> {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem('watchparty_opened_view_once_ids');
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return new Set(arr);
+      }
+    } catch {}
+    return new Set();
+  }
+
+  private static recordOpenedViewOnceId(messageId: string): void {
+    if (typeof window === 'undefined' || !messageId) return;
+    try {
+      const set = this.getOpenedViewOnceSet();
+      if (!set.has(messageId)) {
+        set.add(messageId);
+        localStorage.setItem('watchparty_opened_view_once_ids', JSON.stringify(Array.from(set)));
+      }
+    } catch {}
+  }
+
+  static isViewOnceOpened(messageId: string): boolean {
+    if (!messageId) return false;
+    return this.getOpenedViewOnceSet().has(messageId);
+  }
+
   static getMessages(conversationId: string): ChatMessage[] {
     if (typeof window === 'undefined') return INITIAL_MESSAGES[conversationId] || [];
+    let msgs: ChatMessage[] = [];
     try {
       const stored = localStorage.getItem(`${this.getStorageKey()}_msgs_${conversationId}`);
       if (stored) {
-        return JSON.parse(stored);
+        msgs = JSON.parse(stored);
+      } else {
+        msgs = INITIAL_MESSAGES[conversationId] || [];
+        this.saveMessages(conversationId, msgs);
       }
-    } catch {}
-    const init = INITIAL_MESSAGES[conversationId] || [];
-    this.saveMessages(conversationId, init);
-    return init;
+    } catch {
+      msgs = INITIAL_MESSAGES[conversationId] || [];
+    }
+
+    // Apply permanent view-once opened flags
+    const openedSet = this.getOpenedViewOnceSet();
+    if (openedSet.size > 0 && Array.isArray(msgs)) {
+      for (const m of msgs) {
+        if (openedSet.has(m.id)) {
+          if (!m.metadata) m.metadata = {};
+          m.metadata.viewOnceOpened = true;
+        }
+      }
+    }
+    return msgs;
   }
 
   static saveMessages(conversationId: string, messages: ChatMessage[]): void {
@@ -978,20 +1021,75 @@ export class ChatStore {
     }
   }
 
-  static markViewOnceOpened(conversationId: string, messageId: string): void {
-    const msgs = this.getMessages(conversationId);
-    const msg = msgs.find(m => m.id === messageId);
-    if (!msg) return;
-    if (!msg.metadata) msg.metadata = {};
-    msg.metadata.viewOnceOpened = true;
-    msg.metadata.viewOnceOpenedAt = new Date().toISOString();
-    this.saveMessages(conversationId, msgs);
+  static markViewOnceOpened(conversationId: string, messageId: string, notifyServer = true): void {
+    if (!messageId) return;
 
-    const convs = this.getConversations();
-    const conv = convs.find(c => c.id === conversationId);
-    if (conv && conv.lastMessage?.id === messageId) {
-      conv.lastMessage = msg;
-      this.saveConversations(convs);
+    // 1. Record permanently in local opened set so it can NEVER revert on this client
+    this.recordOpenedViewOnceId(messageId);
+
+    // 2. Update message in target conversation
+    if (conversationId) {
+      const msgs = this.getMessages(conversationId);
+      const msg = msgs.find(m => m.id === messageId);
+      if (msg) {
+        if (!msg.metadata) msg.metadata = {};
+        msg.metadata.viewOnceOpened = true;
+        msg.metadata.viewOnceOpenedAt = new Date().toISOString();
+        this.saveMessages(conversationId, msgs);
+
+        const convs = this.getConversations();
+        const conv = convs.find(c => c.id === conversationId);
+        if (conv && conv.lastMessage?.id === messageId) {
+          conv.lastMessage = msg;
+          this.saveConversations(convs);
+        }
+      }
+    } else {
+      // Find across all conversations if conversationId was omitted
+      const convs = this.getConversations();
+      for (const c of convs) {
+        const msgs = this.getMessages(c.id);
+        const msg = msgs.find(m => m.id === messageId);
+        if (msg) {
+          if (!msg.metadata) msg.metadata = {};
+          msg.metadata.viewOnceOpened = true;
+          msg.metadata.viewOnceOpenedAt = new Date().toISOString();
+          this.saveMessages(c.id, msgs);
+          if (c.lastMessage?.id === messageId) {
+            c.lastMessage = msg;
+            this.saveConversations(convs);
+          }
+          break;
+        }
+      }
+    }
+
+    // 3. Notify all reactive components immediately
+    notify();
+
+    // 4. Notify server and partner via WebSocket & REST API
+    if (notifyServer) {
+      if (this.socketSender) {
+        try {
+          this.socketSender({
+            type: 'chat:view_once_opened',
+            conversationId,
+            messageId
+          });
+        } catch {}
+      }
+
+      const s = getStoredSession();
+      if (s?.token) {
+        fetch(`${API_BASE}/api/chat/view-once-opened`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${s.token}`
+          },
+          body: JSON.stringify({ messageId, conversationId })
+        }).catch(() => {});
+      }
     }
   }
 
@@ -1075,11 +1173,30 @@ export class ChatStore {
     const existingIndex = msgs.findIndex((m) => m.id === normalizedMsg.id);
     const isNewMessage = existingIndex < 0;
 
-    if (existingIndex >= 0) {
-      // Message already exists — just update fields (e.g. status), don't duplicate
-      msgs[existingIndex] = { ...msgs[existingIndex], ...normalizedMsg };
+    const existingMsg = existingIndex >= 0 ? msgs[existingIndex] : null;
+    const isOpened = Boolean(
+      existingMsg?.metadata?.viewOnceOpened ||
+      normalizedMsg.metadata?.viewOnceOpened ||
+      this.isViewOnceOpened(normalizedMsg.id)
+    );
+    const mergedMetadata = {
+      ...(existingMsg?.metadata || {}),
+      ...(normalizedMsg.metadata || {}),
+      ...(isOpened ? { viewOnceOpened: true } : {})
+    };
+
+    if (existingIndex >= 0 && existingMsg) {
+      // Message already exists — update fields and preserve opened state
+      msgs[existingIndex] = {
+        ...existingMsg,
+        ...normalizedMsg,
+        metadata: mergedMetadata
+      };
     } else {
-      msgs.push(normalizedMsg);
+      msgs.push({
+        ...normalizedMsg,
+        metadata: mergedMetadata
+      });
     }
     this.saveMessages(targetConvId, msgs);
 
@@ -1183,10 +1300,27 @@ export class ChatStore {
           localMsgs.forEach((m) => msgMap.set(m.id, m));
           data.messages.forEach((m: ChatMessage) => {
             const existing = msgMap.get(m.id);
+            const isOpened = Boolean(
+              existing?.metadata?.viewOnceOpened ||
+              m.metadata?.viewOnceOpened ||
+              this.isViewOnceOpened(m.id)
+            );
+            const mergedMeta = {
+              ...(existing?.metadata || {}),
+              ...(m.metadata || {}),
+              ...(isOpened ? { viewOnceOpened: true } : {})
+            };
             if (existing) {
-              msgMap.set(m.id, { ...existing, ...m });
+              msgMap.set(m.id, {
+                ...existing,
+                ...m,
+                metadata: mergedMeta
+              });
             } else {
-              msgMap.set(m.id, m);
+              msgMap.set(m.id, {
+                ...m,
+                metadata: mergedMeta
+              });
             }
           });
           const merged = Array.from(msgMap.values()).sort(

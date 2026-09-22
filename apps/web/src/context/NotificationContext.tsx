@@ -365,6 +365,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               ChatStore.updateMessageStatus(data.messageId, data.conversationId, data.status, data.messageIds);
             }
 
+            // Handle View Once Opened event
+            if (data.type === 'chat:view_once_opened' && data.messageId) {
+              ChatStore.markViewOnceOpened(data.conversationId, data.messageId, false);
+            }
+
             // Handle Real-Time User Online/Offline updates
             if (data.type === 'presence:user_status') {
               ChatStore.setUserOnline(data.userId, data.isOnline, data.lastSeen);

@@ -1246,6 +1246,43 @@ export class DatabaseService {
     return messages;
   }
 
+  markDirectMessageViewOnceOpened(messageId: string): { conversationId: string; senderId: string; recipientId: string } | null {
+    try {
+      const row = this.db.prepare(`
+        SELECT conversation_id as conversationId, sender_id as senderId, recipient_id as recipientId, metadata
+        FROM direct_chat_messages
+        WHERE id = ? AND is_deleted = 0
+      `).get(messageId) as any;
+
+      if (!row) return null;
+
+      let meta: any = {};
+      if (row.metadata) {
+        try {
+          meta = JSON.parse(row.metadata);
+        } catch {
+          meta = {};
+        }
+      }
+      meta.viewOnceOpened = true;
+      meta.viewOnceOpenedAt = new Date().toISOString();
+
+      this.db.prepare(`
+        UPDATE direct_chat_messages
+        SET metadata = ?
+        WHERE id = ?
+      `).run(JSON.stringify(meta), messageId);
+
+      return {
+        conversationId: row.conversationId,
+        senderId: row.senderId,
+        recipientId: row.recipientId
+      };
+    } catch {
+      return null;
+    }
+  }
+
   // --- Privacy & GDPR Data Deletion ---
   deleteUserData(userId: string): void {
     const hostedRooms = this.db.prepare(`SELECT id FROM rooms WHERE host_id = ?`).all(userId) as any[];

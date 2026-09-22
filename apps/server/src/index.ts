@@ -735,6 +735,28 @@ export async function createServer(dbPath = './synccinema.db') {
     return { success: true, count: updatedMessages.length };
   });
 
+  app.post('/api/chat/view-once-opened', async (request, reply) => {
+    const user = await getRequestUser(request);
+    presenceManager.recordHeartbeat(user.id);
+    const body = (request.body || {}) as { messageId?: string; conversationId?: string };
+    if (!body.messageId) {
+      return reply.code(400).send({ error: 'messageId is required' });
+    }
+    const details = db.markDirectMessageViewOnceOpened(body.messageId);
+    if (details) {
+      const targetUser = details.senderId === user.id ? details.recipientId : details.senderId;
+      if (targetUser) {
+        presenceManager.sendToUser(targetUser, {
+          type: 'chat:view_once_opened',
+          conversationId: details.conversationId || body.conversationId,
+          messageId: body.messageId,
+          openedBy: user.id
+        });
+      }
+    }
+    return { success: true };
+  });
+
   app.post('/api/streaks/record', async (request, reply) => {
     const user = await getRequestUser(request);
     presenceManager.recordHeartbeat(user.id);

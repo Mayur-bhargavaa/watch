@@ -111,18 +111,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     (message.type as string) === 'view_once' ||
     (rawMeta?.viewOnceOpened !== undefined && rawMeta?.viewOnceOpened !== null)
   );
-  const isViewOnceOpened = Boolean(rawMeta?.viewOnceOpened);
+  const isViewOnceOpened = Boolean(
+    rawMeta?.viewOnceOpened ||
+    ChatStore.isViewOnceOpened(message.id)
+  );
 
   const handleOpenViewOnce = () => {
     if (isViewOnceOpened) return;
+    ChatStore.markViewOnceOpened(message.conversationId, message.id);
     setIsViewOnceModalOpen(true);
   };
 
   const handleCloseViewOnce = () => {
     setIsViewOnceModalOpen(false);
-    if (!isViewOnceOpened) {
-      ChatStore.markViewOnceOpened(message.conversationId, message.id);
-    }
+    ChatStore.markViewOnceOpened(message.conversationId, message.id);
   };
 
   const formattedTime = new Date(message.createdAt).toLocaleTimeString([], {

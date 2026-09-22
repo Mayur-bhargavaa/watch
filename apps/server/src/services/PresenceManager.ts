@@ -141,6 +141,27 @@ export class PresenceManager {
           }
         }
 
+        // View-once photo opened receipt
+        if (msg.type === 'chat:view_once_opened') {
+          const { conversationId, messageId } = msg;
+          if (messageId && this.db && typeof this.db.markDirectMessageViewOnceOpened === 'function') {
+            try {
+              const details = this.db.markDirectMessageViewOnceOpened(messageId);
+              if (details) {
+                const targetUser = details.senderId === user.id ? details.recipientId : details.senderId;
+                if (targetUser) {
+                  this.sendToUser(targetUser, {
+                    type: 'chat:view_once_opened',
+                    conversationId: details.conversationId || conversationId,
+                    messageId,
+                    openedBy: user.id
+                  });
+                }
+              }
+            } catch {}
+          }
+        }
+
         // Typing indicator
         if (msg.type === 'chat:typing' && msg.recipientId) {
           this.sendToUser(msg.recipientId, {
