@@ -33,9 +33,18 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({ voice, isSender }) =
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {
-          startSyntheticPlayback();
-        });
+        const audio = audioRef.current;
+        if (audio.ended || audio.currentTime >= (audio.duration || totalDuration) - 0.2) {
+          audio.currentTime = 0;
+          setCurrentTime(0);
+        }
+        audio
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch((err) => {
+            console.warn('Audio play error, falling back to simulated playback:', err);
+            startSyntheticPlayback();
+          });
       }
     } else {
       if (isPlaying) {
@@ -43,6 +52,15 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({ voice, isSender }) =
       } else {
         startSyntheticPlayback();
       }
+    }
+  };
+
+  const handleSeek = (index: number) => {
+    const ratio = (index + 1) / waveformBars.length;
+    const target = ratio * totalDuration;
+    setCurrentTime(target);
+    if (audioRef.current && voice.audioUrl) {
+      audioRef.current.currentTime = target;
     }
   };
 
@@ -126,14 +144,15 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({ voice, isSender }) =
 
       {/* Waveform & Timeline */}
       <div className="flex-1 flex flex-col gap-1.5 justify-center">
-        <div className="flex items-center gap-0.5 h-7">
+        <div className="flex items-center gap-0.5 h-7 cursor-pointer">
           {waveformBars.map((height, i) => {
             const barRatio = (i + 1) / waveformBars.length;
             const isFilled = barRatio <= progressRatio;
             return (
               <div
                 key={i}
-                className={`flex-1 rounded-full transition-all duration-100 ${
+                onClick={() => handleSeek(i)}
+                className={`flex-1 rounded-full transition-all duration-100 hover:opacity-80 active:scale-110 ${
                   isSender
                     ? isFilled
                       ? 'bg-white'
@@ -145,6 +164,7 @@ export const VoiceMessage: React.FC<VoiceMessageProps> = ({ voice, isSender }) =
                 style={{
                   height: `${Math.max(15, (height / 100) * 26)}px`,
                 }}
+                title={`Seek to ${formatTime(((i + 1) / waveformBars.length) * totalDuration)}`}
               />
             );
           })}

@@ -669,7 +669,7 @@ export async function createServer(dbPath = './synccinema.db') {
     if (!conversationId) {
       return reply.code(400).send({ error: 'conversationId is required' });
     }
-    const messages = db.getDirectChatMessages(conversationId, 100);
+    const messages = db.getDirectChatMessages(conversationId, user.id, 100);
     return { success: true, messages };
   });
 

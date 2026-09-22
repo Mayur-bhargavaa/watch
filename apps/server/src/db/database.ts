@@ -1154,13 +1154,42 @@ export class DatabaseService {
     );
   }
 
-  getDirectChatMessages(conversationId: string, limit = 100): any[] {
-    const rows = this.db.prepare(`
-      SELECT * FROM direct_chat_messages
-      WHERE conversation_id = ? AND is_deleted = 0
-      ORDER BY created_at ASC
-      LIMIT ?
-    `).all(conversationId, limit) as any[];
+  getDirectChatMessages(conversationId: string, currentUserId?: string, limit = 100): any[] {
+    let otherId: string | null = null;
+    if (conversationId.startsWith('conv_')) {
+      otherId = conversationId.replace('conv_', '');
+    }
+
+    let rows: any[];
+    if (currentUserId && otherId && otherId !== currentUserId) {
+      rows = this.db.prepare(`
+        SELECT * FROM direct_chat_messages
+        WHERE is_deleted = 0
+          AND (
+            conversation_id = ?
+            OR conversation_id = ?
+            OR (sender_id = ? AND recipient_id = ?)
+            OR (sender_id = ? AND recipient_id = ?)
+          )
+        ORDER BY created_at ASC
+        LIMIT ?
+      `).all(
+        conversationId,
+        `conv_${currentUserId}`,
+        currentUserId,
+        otherId,
+        otherId,
+        currentUserId,
+        limit
+      ) as any[];
+    } else {
+      rows = this.db.prepare(`
+        SELECT * FROM direct_chat_messages
+        WHERE conversation_id = ? AND is_deleted = 0
+        ORDER BY created_at ASC
+        LIMIT ?
+      `).all(conversationId, limit) as any[];
+    }
 
     return rows.map((r) => ({
       id: r.id,

@@ -35,7 +35,7 @@ interface MessageComposerProps {
     mediaUrl?: string,
     metadata?: ChatMessageMetadata
   ) => void;
-  onSendVoice?: (duration: number, audioUrl?: string) => void;
+  onSendVoice?: (duration: number, audioUrl?: string, waveform?: number[]) => void;
   onSendPlan?: (plan: ChatPlanPayload) => void;
   onSendGame?: (game: ChatGamePayload) => void;
   onSendMovie?: (movie: ChatMoviePayload) => void;
@@ -64,10 +64,18 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const [showViewOnceModal, setShowViewOnceModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Voice recording state
+  // Voice recording state & audio references
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [liveVolumeBars, setLiveVolumeBars] = useState<number[]>([25, 40, 60, 45, 25]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const waveformSamplesRef = useRef<number[]>([]);
 
   // Quick modals for plan/game/movie
   const [showPlanPrompt, setShowPlanPrompt] = useState(false);
@@ -223,27 +231,181 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     }
   };
 
-  // Voice Recording Simulator / Handlers
-  const startRecording = () => {
-    setIsRecording(true);
-    setRecordingSeconds(0);
-    recordingTimerRef.current = setInterval(() => {
-      setRecordingSeconds((prev) => prev + 1);
-    }, 1000);
+  // Cleanup audio tracks and timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Real Voice Recording with MediaRecorder
+  const startRecording = async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      alert('Microphone recording is not supported in this browser environment.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      // Select best supported audio format
+      let mimeType = '';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+          mimeType = 'audio/ogg;codecs=opus';
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      audioChunksRef.current = [];
+      waveformSamplesRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      // Set up live AudioContext to sample real voice levels and animate waveform
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx();
+          audioContextRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 64;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const sampleAudio = () => {
+            if (!analyserRef.current) return;
+            analyserRef.current.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            const normalized = Math.min(100, Math.max(15, Math.round((avg / 255) * 100)));
+            waveformSamplesRef.current.push(normalized);
+            setLiveVolumeBars((prev) => [...prev.slice(1), normalized]);
+            animationFrameRef.current = requestAnimationFrame(sampleAudio);
+          };
+          animationFrameRef.current = requestAnimationFrame(sampleAudio);
+        }
+      } catch (err) {
+        console.warn('AudioContext visualization setup error:', err);
+      }
+
+      recorder.start(100);
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err: any) {
+      console.error('Microphone access failed:', err);
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        alert('Microphone access was denied. Please allow microphone permission in your browser address bar to record and send voice notes.');
+      } else {
+        alert('Could not access microphone: ' + (err.message || 'Please check your microphone connection.'));
+      }
+    }
   };
 
   const stopAndSendRecording = () => {
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-    const duration = Math.max(recordingSeconds, 3);
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+
+    const recorder = mediaRecorderRef.current;
+    const finalDuration = Math.max(recordingSeconds, 1);
+
+    // Downsample collected waveform into 22 bars
+    let finalWaveform = [30, 45, 75, 90, 60, 40, 80, 100, 70, 50, 65, 85, 45, 95, 60, 40, 70, 85, 60, 35, 50, 40];
+    if (waveformSamplesRef.current.length > 5) {
+      const samples = waveformSamplesRef.current;
+      const step = samples.length / 22;
+      finalWaveform = Array.from({ length: 22 }, (_, i) => samples[Math.floor(i * step)] || 30);
+    }
+
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = () => {
+        const blobType = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+
+        // Release hardware mic stream
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+          mediaStreamRef.current = null;
+        }
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+
+        // Convert audio to data URL for complete self-contained persistence & cross-device playback
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const audioDataUrl = reader.result as string;
+          if (onSendVoice && audioDataUrl) {
+            onSendVoice(finalDuration, audioDataUrl, finalWaveform);
+          }
+        };
+      };
+
+      recorder.stop();
+    } else {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+      }
+      if (onSendVoice) {
+        onSendVoice(finalDuration);
+      }
+    }
+
     setIsRecording(false);
     setRecordingSeconds(0);
-    if (onSendVoice) {
-      onSendVoice(duration);
-    }
+    mediaRecorderRef.current = null;
   };
 
   const cancelRecording = () => {
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+
+    audioChunksRef.current = [];
+    waveformSamplesRef.current = [];
+    mediaRecorderRef.current = null;
     setIsRecording(false);
     setRecordingSeconds(0);
   };
@@ -406,14 +568,25 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
       {/* Voice Recording Active Mode */}
       {isRecording ? (
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-rose-500/10 dark:bg-rose-500/20 border border-rose-500/30">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#ee1d49] animate-ping" />
-            <span className="text-sm font-bold text-[#ee1d49]">
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-rose-500/10 dark:bg-rose-500/20 border border-rose-500/30 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="w-3 h-3 rounded-full bg-[#ee1d49] animate-ping shrink-0" />
+            <span className="text-sm font-bold text-[#ee1d49] tabular-nums shrink-0">
               Recording: {Math.floor(recordingSeconds / 60)}:
               {recordingSeconds % 60 < 10 ? '0' : ''}
               {recordingSeconds % 60}
             </span>
+
+            {/* Live Volume Bars */}
+            <div className="flex items-center gap-0.5 h-6 pl-1">
+              {liveVolumeBars.map((val, idx) => (
+                <div
+                  key={idx}
+                  className="w-1 bg-[#ee1d49] rounded-full transition-all duration-75"
+                  style={{ height: `${Math.max(4, (val / 100) * 22)}px` }}
+                />
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

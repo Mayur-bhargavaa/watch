@@ -138,7 +138,7 @@ export const ChatLayout: React.FC = () => {
     setReplyingTo(null);
   };
 
-  const handleSendVoice = (duration: number, audioUrl?: string) => {
+  const handleSendVoice = (duration: number, audioUrl?: string, waveform?: number[]) => {
     if (!activeConversationId) return;
     ChatStore.sendMessage({
       conversationId: activeConversationId,
@@ -147,10 +147,12 @@ export const ChatLayout: React.FC = () => {
       senderAvatar: myAvatar,
       content: '🎤 Voice message',
       type: 'voice',
+      mediaUrl: audioUrl,
       metadata: {
         voice: {
           duration,
           audioUrl,
+          waveform: waveform || [30, 45, 75, 90, 60, 40, 80, 100, 70, 50, 65, 85, 45, 95, 60, 40, 70, 85, 60, 35, 50, 40],
         },
       },
     });
