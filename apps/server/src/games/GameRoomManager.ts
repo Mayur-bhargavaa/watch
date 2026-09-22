@@ -269,7 +269,8 @@ export class GameRoomManager {
       initialState = BingoDuelEngine.createInitialState(
         room.id,
         playerConfigs.map(p => p.userId),
-        config
+        config,
+        (room.gameState as any)?.boards
       );
     } else if (room.gameType === 'tambola') {
       this.stopBingoAutoCall(room.id);
@@ -1017,6 +1018,18 @@ export class GameRoomManager {
   public handleBingoSelectNumber(roomId: string, userId: string, numberToCall: number): void {
     const room = this.db.getGameRoomById(roomId);
     if (!room || !room.gameState || room.gameType !== 'bingo') return;
+
+    // Self-healing: if an existing room is stuck in SETUP phase or has missing boards, heal into PLAYING
+    if (room.gameState.phase === 'SETUP' || !room.gameState.boards || !room.gameState.boards[userId] || room.gameState.boards[userId].length === 0) {
+      room.gameState.phase = 'PLAYING';
+      if (!room.gameState.boards) room.gameState.boards = {};
+      room.players.forEach(p => {
+        if (!room.gameState.boards[p.userId] || room.gameState.boards[p.userId].length !== 5) {
+          room.gameState.boards[p.userId] = BingoDuelEngine.generateBoard();
+        }
+      });
+      this.db.updateGameRoomState(room.id, room.gameState);
+    }
 
     const playerUserIds = room.players.map(p => p.userId);
     const result = BingoDuelEngine.selectNumber(room.gameState, userId, numberToCall, playerUserIds);

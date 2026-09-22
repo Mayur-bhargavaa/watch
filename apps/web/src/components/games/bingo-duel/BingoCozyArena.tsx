@@ -50,6 +50,7 @@ export interface BingoCozyArenaProps {
   unreadChatCount?: number;
   onLeave?: () => void;
   leaveLabel?: string;
+  toast?: { message: string; valid?: boolean } | null;
 }
 
 export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
@@ -76,7 +77,8 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
   isChatOpen = false,
   unreadChatCount = 0,
   onLeave,
-  leaveLabel
+  leaveLabel,
+  toast
 }) => {
   // Audio Mute and Fullscreen states
   const [isSoundMuted, setIsSoundMuted] = useState(false);
@@ -571,6 +573,19 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
               </div>
             )}
           </div>
+
+          {/* Turn Guidance / Toast Alert */}
+          {toast?.message && (
+            <div
+              className={`w-full mt-3 py-2 px-4 rounded-2xl text-center text-xs font-bold shadow-xs animate-in fade-in slide-in-from-bottom-2 duration-200 ${
+                toast.valid
+                  ? 'bg-emerald-50 border border-emerald-200/80 text-emerald-700'
+                  : 'bg-rose-50 border border-rose-200/80 text-rose-700'
+              }`}
+            >
+              {toast.message}
+            </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN: CURRENT NUMBER & WINNING LINES GUIDE */}

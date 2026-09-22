@@ -333,7 +333,8 @@ function BingoDuelGameContent() {
     sendWebRTCSignal,
     registerWebRTCListener,
     registerCameraListener,
-    registerVoiceListener
+    registerVoiceListener,
+    error: gameRoomError
   } = useGameRoom(roomCodeParam);
 
   const gameState = rawGameState as BingoDuelGameState | null;
@@ -375,13 +376,30 @@ function BingoDuelGameContent() {
 
   const myBoard = gameState?.boards?.[effectiveUserId] || [];
   const myMarks = gameState?.playerMarks?.[effectiveUserId] || [];
+  const myPicks = (gameState as any)?.playerPicks?.[effectiveUserId] || [];
   const myProgress = gameState?.playerProgress?.[effectiveUserId];
   const myWins = gameState?.roundsWon?.[effectiveUserId] || 0;
 
   const opponentUserId = opponent?.userId || '';
   const opponentMarks = gameState?.playerMarks?.[opponentUserId] || [];
+  const opponentPicks = (gameState as any)?.playerPicks?.[opponentUserId] || [];
   const opponentProgress = gameState?.playerProgress?.[opponentUserId];
   const opponentWins = gameState?.roundsWon?.[opponentUserId] || 0;
+
+  // Surface server error if any
+  useEffect(() => {
+    if (gameRoomError) {
+      setClaimToast({
+        valid: false,
+        message: `⚠️ ${gameRoomError}`,
+        timestamp: Date.now()
+      });
+      const timer = setTimeout(() => {
+        setClaimToast(curr => (curr?.message?.includes(gameRoomError) ? null : curr));
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameRoomError]);
 
   // Alternating Turn Calculation
   const currentTurnUserId = gameState?.currentTurnUserId || room?.hostUserId;
@@ -396,7 +414,7 @@ function BingoDuelGameContent() {
 
   const winningIndices = gameState?.phase === 'ROUND_OVER' || gameState?.phase === 'FINISHED'
     ? (lastBingoConditionWon?.winningIndices || lastBingoClaimResult?.winningIndices)
-    : undefined;
+    : myProgress?.matchedIndices;
 
   // Alternating Turn Number Picking / Marking
   const handleCellClick = (num: number) => {
@@ -1269,8 +1287,8 @@ function BingoDuelGameContent() {
             <BingoCozyArena
               roomCode={room?.roomCode || (isPreview ? 'COZY-DEMO' : roomCodeParam || '')}
               board={myBoard.length === 5 ? myBoard : demoBoard}
-              playerMarks={myMarks.length > 0 || !isPreview ? myMarks : demoP1Marks}
-              opponentMarks={opponentMarks.length > 0 || !isPreview ? opponentMarks : demoP2Marks}
+              playerMarks={myPicks.length > 0 || opponentPicks.length > 0 ? myPicks : (myMarks.length > 0 ? myMarks : (isPreview ? demoP1Marks : []))}
+              opponentMarks={myPicks.length > 0 || opponentPicks.length > 0 ? opponentPicks : (opponentMarks.length > 0 ? opponentMarks : (isPreview ? demoP2Marks : []))}
               currentNumber={gameState?.currentNumber ?? (isPreview ? 17 : null)}
               calledNumbers={gameState?.calledNumbers ?? (isPreview ? [1, 5, 7, 9, 13, 16, 17, 19, 22, 25] : [])}
               completedLines={myProgress?.completedLines ?? (isPreview ? [{ id: 'diag-main', name: 'Diagonal 1', type: 'diag', index: 0, indices: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]] }] : [])}
@@ -1306,6 +1324,7 @@ function BingoDuelGameContent() {
               canClaimBingo={Boolean(myProgress?.isCompleted)}
               isFinished={Boolean(isFinished)}
               isRoundOver={isRoundOver}
+              toast={claimToast}
               onOpenSettings={() => setShowSettingsModal(true)}
               onToggleChat={() => setIsChatOpen(!isChatOpen)}
               isChatOpen={isChatOpen}

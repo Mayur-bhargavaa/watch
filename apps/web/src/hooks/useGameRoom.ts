@@ -743,6 +743,12 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         break;
       }
 
+      case 'bingo:error': {
+        const { message } = msg.payload || {};
+        if (message) setError(message);
+        break;
+      }
+
       case 'doodle:state_sync':
       case 'doodle:role_selected': {
         const nextState = msg.payload?.gameState;

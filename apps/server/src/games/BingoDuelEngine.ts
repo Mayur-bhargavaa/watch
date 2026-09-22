@@ -362,7 +362,8 @@ export class BingoDuelEngine {
   public static createInitialState(
     roomId: string,
     playerUserIds: string[],
-    config: Partial<BingoDuelConfig> = {}
+    config: Partial<BingoDuelConfig> = {},
+    existingBoards?: Record<string, number[][]>
   ): BingoDuelGameState {
     const fullConfig: BingoDuelConfig = {
       ...DEFAULT_BINGO_DUEL_CONFIG,
@@ -376,14 +377,20 @@ export class BingoDuelEngine {
     const boards: Record<string, number[][]> = {};
     const boardsReady: Record<string, boolean> = {};
     const playerMarks: Record<string, number[]> = {};
+    const playerPicks: Record<string, number[]> = {};
     const playerProgress: Record<string, BingoDuelPatternProgress> = {};
     const roundsWon: Record<string, number> = {};
 
     playerUserIds.forEach(userId => {
-      // Boards start empty for manual filling; boardsReady tracks when player locks their ticket
-      boards[userId] = [];
-      boardsReady[userId] = false;
+      // Use existing valid custom board if provided, otherwise generate a fresh randomized 5x5 board
+      if (existingBoards?.[userId] && Array.isArray(existingBoards[userId]) && existingBoards[userId].length === 5) {
+        boards[userId] = existingBoards[userId];
+      } else {
+        boards[userId] = this.generateBoard();
+      }
+      boardsReady[userId] = true;
       playerMarks[userId] = [];
+      playerPicks[userId] = [];
       playerProgress[userId] = { current: 0, total: 5, isCompleted: false };
       roundsWon[userId] = 0;
     });
@@ -401,9 +408,10 @@ export class BingoDuelEngine {
       currentNumberWord: null,
       lastCalledNumbers: [],
       playerMarks,
+      playerPicks,
       playerProgress,
       currentTurnUserId: playerUserIds[0] || null, // Host selects first
-      phase: 'SETUP', // Starts in manual setup phase
+      phase: 'PLAYING',
       currentRound: 1,
       targetRounds,
       roundsWon,
@@ -413,7 +421,7 @@ export class BingoDuelEngine {
       falseBingoPenaltyUntil: {},
       callingPaused: false,
       startedAt: Date.now(),
-      statusMessage: 'Fill your 5×5 ticket with numbers 1 to 25 to begin!'
+      statusMessage: 'Game started! Pick numbers alternatively.'
     };
   }
 
@@ -523,6 +531,13 @@ export class BingoDuelEngine {
     state.currentNumberWord = this.getNumberWord(numberToCall);
     state.lastCalledNumbers = [numberToCall, ...state.lastCalledNumbers.filter(n => n !== numberToCall)].slice(0, 5);
     state.callerUserId = userId;
+
+    // Track which player picked this number
+    if (!state.playerPicks) state.playerPicks = {};
+    if (!state.playerPicks[userId]) state.playerPicks[userId] = [];
+    if (!state.playerPicks[userId].includes(numberToCall)) {
+      state.playerPicks[userId].push(numberToCall);
+    }
 
     // Automatically mark the called number for ALL players who have it on their board
     playerUserIds.forEach(pId => {
@@ -737,9 +752,11 @@ export class BingoDuelEngine {
     state.statusMessage = `Round ${state.currentRound} started! Calling numbers 1–25...`;
 
     // Re-shuffle 5x5 boards for all players
+    const picks = (state.playerPicks = state.playerPicks || {});
     Object.keys(state.boards).forEach(uid => {
       state.boards[uid] = this.generateBoard();
       state.playerMarks[uid] = [];
+      picks[uid] = [];
       state.playerProgress[uid] = { current: 0, total: 5, isCompleted: false };
     });
 
