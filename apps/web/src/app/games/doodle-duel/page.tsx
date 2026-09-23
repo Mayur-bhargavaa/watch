@@ -8,7 +8,6 @@ import {
   Settings,
   Palette,
   Brain,
-  Sparkles,
   Trophy,
   AlertTriangle,
   RotateCcw,
@@ -181,7 +180,14 @@ function DoodleDuelGameContent() {
     }
   }, [roomCodeParam, room?.gameType, room?.roomCode, router]);
 
-  const currentUserId = myUserId || session?.user.id || '';
+  // currentUserId: prefer WebSocket-confirmed userId, then React session state,
+  // then read directly from localStorage as a synchronous fallback (avoids race where
+  // session useState hasn't loaded yet when WORD_CHOICE modal needs to render).
+  const storedSessionId = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    try { return JSON.parse(localStorage.getItem('synccinema_session') || '{}')?.user?.id || ''; } catch { return ''; }
+  }, []);
+  const currentUserId = myUserId || session?.user.id || storedSessionId || '';
   const dState = gameState as DoodleGameState | null;
 
   // Sync theme when room sends roomTheme
@@ -283,7 +289,12 @@ function DoodleDuelGameContent() {
       dState?.phase || ''
     ) &&
       room.status === 'WAITING');
-  const isChoosingWord = dState?.phase === 'CHOOSING_WORD' || dState?.phase === 'WORD_CHOICE';
+  // Show word picker for all matching phase names (be generous in case server uses different casing)
+  const isChoosingWord =
+    dState?.phase === 'CHOOSING_WORD' ||
+    dState?.phase === 'WORD_CHOICE' ||
+    (dState?.phase as string)?.toUpperCase() === 'WORD_CHOICE' ||
+    (dState?.phase as string)?.toUpperCase() === 'CHOOSING_WORD';
   const isRoundIntro = dState?.phase === 'ROUND_INTRO';
   const isDrawing = dState?.phase === 'DRAWING';
   const isGuessing = dState?.phase === 'GUESSING';
@@ -602,7 +613,9 @@ function DoodleDuelGameContent() {
 
                     <div className="overflow-hidden flex-1">
                       <span className="text-sm font-extrabold text-[#1e1435] dark:text-white truncate block">
-                        {dState.drawerDisplayName || 'Mayur Bhargava'}
+                        {dState.drawerDisplayName ||
+                          players.find(p => p.userId === dState.drawerUserId)?.displayName ||
+                          'Player 1'}
                       </span>
                       <span className="text-xs font-bold text-[#ff3864] block">
                         {dState.scores[dState.drawerUserId] || 0} pts
@@ -666,7 +679,9 @@ function DoodleDuelGameContent() {
 
                     <div className="overflow-hidden flex-1">
                       <span className="text-sm font-extrabold text-[#1e1435] dark:text-white truncate block">
-                        {dState.guesserDisplayName || 'abcdghijk552'}
+                        {dState.guesserDisplayName ||
+                          players.find(p => p.userId === dState.guesserUserId)?.displayName ||
+                          'Player 2'}
                       </span>
                       <span className="text-xs font-bold text-purple-600 block">
                         {dState.scores[dState.guesserUserId] || 0} pts
@@ -914,37 +929,17 @@ function DoodleDuelGameContent() {
         />
       )}
 
-      {/* Drawer Secret Word Picker Modal */}
-      {isChoosingWord && isDrawer && (
+      {/* Secret Word Picker Modal - shown for drawer (to pick) and guesser (to wait) during WORD_CHOICE */}
+      {isChoosingWord && dState && (
         <SecretWordPicker
           isDrawer={isDrawer}
           wordChoices={dState.wordChoices || []}
-          drawerDisplayName={dState.drawerDisplayName || 'Drawer'}
-          guesserDisplayName={dState.guesserDisplayName || 'Guesser'}
-          timeLeft={dState.timeLeftSeconds ?? 15}
+          drawerDisplayName={dState.drawerDisplayName || players.find(p => p.userId === dState.drawerUserId)?.displayName || 'Drawer'}
+          guesserDisplayName={dState.guesserDisplayName || players.find(p => p.userId === dState.guesserUserId)?.displayName || 'Guesser'}
+          timeLeft={dState.timeLeftSeconds ?? 30}
+          totalTime={30}
           onChooseWord={(word: string) => chooseDoodleWord(word)}
         />
-      )}
-
-      {/* Guesser Waiting Modal while Drawer chooses */}
-      {isChoosingWord && !isDrawer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-          <div
-            className={`p-6 rounded-3xl border shadow-2xl text-center max-w-sm w-full animate-in zoom-in-95 ${
-              isDark ? 'bg-[#101424] border-white/10 text-white' : 'bg-white border-slate-200 text-slate-900'
-            }`}
-          >
-            <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-500">
-              <Sparkles className="w-6 h-6 animate-spin" />
-            </div>
-            <h3 className="text-base font-black">
-              {dState.drawerDisplayName} is picking a word...
-            </h3>
-            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
-              Get your thinking cap on! The round starts soon.
-            </p>
-          </div>
-        </div>
       )}
 
       {/* Round Result Modal */}

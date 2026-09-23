@@ -1660,7 +1660,9 @@ export class GameRoomManager {
   public handleDoodleRequestHint(roomId: string, userId: string): void {
     const room = this.db.getGameRoomById(roomId);
     if (!room || !room.gameState) return;
-    if (room.gameState.drawerUserId !== userId) return;
+    // Only the guesser can request a hint (not the drawer who already knows the word)
+    if (room.gameState.guesserUserId !== userId) return;
+    if (!room.gameState.hintAvailable) return;
 
     room.gameState.hintUsed = true;
     this.db.updateGameRoomState(room.id, room.gameState);
@@ -2030,11 +2032,25 @@ export class GameRoomManager {
       const chatHistory = this.roomChatHistory.get(roomId) || [];
       currentRoom.chatHistory = chatHistory;
 
+      // For doodle-duel during active play, prepare role-specific gameState for game:sync
+      let syncGameState = currentRoom.gameState;
+      if (currentRoom.gameType === 'doodle-duel' && currentRoom.gameState) {
+        const gs = currentRoom.gameState;
+        const isDrawerUser = user.id === gs.drawerUserId;
+        if (!isDrawerUser && gs.phase !== 'ROUND_RESULT' && gs.phase !== 'FINISHED') {
+          syncGameState = DoodleDuelEngine.sanitizeStateForGuesser({ ...gs });
+        }
+      }
+
+      const syncRoom = syncGameState !== currentRoom.gameState
+        ? { ...currentRoom, gameState: syncGameState }
+        : currentRoom;
+
       socket.send(JSON.stringify({
         type: 'game:sync',
         roomId,
         payload: {
-          room: currentRoom,
+          room: syncRoom,
           theme,
           chatHistory,
           myUserId: user.id,
@@ -2051,6 +2067,14 @@ export class GameRoomManager {
       // Ensure doodle timer is actively running if match is in progress (e.g. after server restart)
       if (currentRoom.gameType === 'doodle-duel' && currentRoom.status === 'PLAYING' && !this.doodleTimers.has(roomId)) {
         this.startDoodleTimer(roomId);
+      }
+
+      // For active doodle games, immediately push the current state to the newly connected client
+      if (currentRoom.gameType === 'doodle-duel' && currentRoom.status === 'PLAYING' && currentRoom.gameState) {
+        // Small delay to ensure client is fully connected before pushing state
+        setTimeout(() => {
+          this.broadcastDoodleState(roomId);
+        }, 200);
       }
     }
 

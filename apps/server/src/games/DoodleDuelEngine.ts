@@ -298,8 +298,8 @@ export class DoodleDuelEngine {
       category: c.category,
       difficulty: c.difficulty
     }));
-    state.timeRemaining = 15; // 15 seconds to pick word
-    state.timeLeftSeconds = 15;
+    state.timeRemaining = 30; // 30 seconds to pick word
+    state.timeLeftSeconds = 30;
     state.statusMessage = 'Drawer is choosing a secret word...';
 
     return { state, choices };

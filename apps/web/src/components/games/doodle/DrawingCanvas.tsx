@@ -221,7 +221,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawer || disabled || phase !== 'DRAWING') return;
+    if (!isDrawer || disabled) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     isDrawingRef.current = true;
     const pt = getNormalizedPoint(e);
@@ -232,7 +232,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawingRef.current || !isDrawer || disabled || phase !== 'DRAWING') return;
+    if (!isDrawingRef.current || !isDrawer || disabled) return;
     const pt = getNormalizedPoint(e);
     if (!pt) return;
 
@@ -382,7 +382,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           className={`w-full h-full block ${
-            isDrawer && !disabled && phase === 'DRAWING' ? 'cursor-crosshair' : 'cursor-default pointer-events-none'
+            isDrawer && !disabled ? 'cursor-crosshair' : 'cursor-default pointer-events-none'
           }`}
           style={{ touchAction: 'none' }}
         />
