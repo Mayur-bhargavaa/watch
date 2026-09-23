@@ -137,34 +137,34 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
     >
       {/* Top Tabs matching Mockup: "Guesses" and "Chat" with pink underline indicator */}
       <div
-        className={`px-4 pt-3 pb-0 border-b flex items-center justify-start gap-6 ${
+        className={`px-4 pt-3 pb-0 border-b flex items-center justify-start gap-6 select-none ${
           isDark ? 'border-white/10 bg-[#111625]' : 'border-slate-100 bg-white'
         }`}
       >
         <button
           type="button"
           onClick={() => handleTabChange('guesses')}
-          className={`pb-3 text-xs font-bold flex items-center gap-1.5 transition-all relative ${
+          className={`pb-2.5 text-xs font-bold flex items-center gap-1.5 transition-all relative ${
             activeTab === 'guesses'
-              ? 'text-rose-500'
+              ? 'text-[#ff3864]'
               : isDark
               ? 'text-zinc-400 hover:text-white'
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Palette className="w-3.5 h-3.5 text-rose-500" />
+          <MessageCircle className="w-3.5 h-3.5 text-[#ff3864]" />
           <span>Guesses</span>
           {activeTab === 'guesses' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ff3864] rounded-full" />
           )}
         </button>
 
         <button
           type="button"
           onClick={() => handleTabChange('chat')}
-          className={`pb-3 text-xs font-bold flex items-center gap-1.5 transition-all relative ${
+          className={`pb-2.5 text-xs font-bold flex items-center gap-1.5 transition-all relative ${
             activeTab === 'chat'
-              ? 'text-rose-500'
+              ? 'text-[#ff3864]'
               : isDark
               ? 'text-zinc-400 hover:text-white'
               : 'text-slate-500 hover:text-slate-800'
@@ -173,10 +173,10 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
           <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
           <span>Chat</span>
           {unreadChatCount > 0 && (
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-[#ff3864]" />
           )}
           {activeTab === 'chat' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ff3864] rounded-full" />
           )}
         </button>
       </div>
@@ -186,7 +186,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
         <>
           {/* Masked Word Indicator (compact) */}
           <div
-            className={`px-4 py-2.5 border-b flex items-center justify-between ${
+            className={`px-4 py-2 border-b flex items-center justify-between ${
               isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'
             }`}
           >
@@ -206,34 +206,30 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
           </div>
 
           {/* Guesses Feed */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-2.5 min-h-[260px] max-h-[380px] flex flex-col justify-center">
+          <div className="flex-1 p-4 overflow-y-auto space-y-2 min-h-[220px] max-h-[340px] flex flex-col justify-center">
             {guesses.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center py-10 pointer-events-none select-none">
-                {/* Brain illustration with soft sparkle dots */}
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-6 pointer-events-none select-none">
+                {/* Cute pink speech bubble illustration with dots & sparkles matching mockup */}
                 <div className="relative mb-3 flex items-center justify-center">
-                  <div
-                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-                      isDark ? 'bg-white/5 text-sky-400' : 'bg-sky-50 text-sky-400'
-                    }`}
-                  >
-                    <Brain className="w-8 h-8" />
+                  <div className="w-14 h-12 rounded-2xl bg-[#fff5f8] dark:bg-rose-500/10 border-2 border-[#ff3864] flex items-center justify-center shadow-xs relative">
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff3864]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff3864]" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#ff3864]" />
+                    </div>
+                    {/* Tail */}
+                    <div className="absolute -bottom-1.5 left-3 w-3 h-3 bg-[#fff5f8] dark:bg-[#111625] border-r-2 border-b-2 border-[#ff3864] rotate-45" />
                   </div>
-                  <Sparkles className="w-3.5 h-3.5 text-sky-300 absolute -top-1 -right-1" />
-                  <Sparkles className="w-2.5 h-2.5 text-sky-300 absolute -bottom-1 -left-1" />
+                  {/* Surrounding sparkles & exclamations */}
+                  <span className="absolute -top-1.5 -right-3 text-xs text-[#ff3864] font-black">✦</span>
+                  <span className="absolute -top-2 left-0 text-xs text-[#ff3864] font-black rotate-[-15deg]">!</span>
+                  <span className="absolute bottom-0 -right-2 text-[10px] text-[#ff3864]">✨</span>
                 </div>
-                <span
-                  className={`text-sm font-bold block ${
-                    isDark ? 'text-zinc-200' : 'text-slate-800'
-                  }`}
-                >
-                  No guesses yet
+                <span className="text-sm font-extrabold text-[#1e1435] dark:text-white block">
+                  No guesses yet!
                 </span>
-                <span
-                  className={`text-xs mt-0.5 ${
-                    isDark ? 'text-zinc-500' : 'text-slate-400'
-                  }`}
-                >
-                  Be the first to guess!
+                <span className="text-xs text-[#8a80a0] dark:text-zinc-400 mt-0.5">
+                  Be the first to guess what's being drawn!
                 </span>
               </div>
             ) : (
@@ -243,10 +239,10 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                   return (
                     <div
                       key={g.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-500 font-bold animate-in zoom-in-95"
+                      className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-500 font-bold animate-in zoom-in-95"
                     >
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         <span className="text-xs">{g.displayName}:</span>
                         <span className="text-xs uppercase tracking-wider font-black">
                           {guessString}
@@ -268,7 +264,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                       className="flex items-center justify-between p-2 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-500 font-semibold"
                     >
                       <div className="flex items-center gap-2">
-                        <Flame className="w-4 h-4 text-amber-500 shrink-0" />
+                        <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                         <span className="text-xs">{g.displayName}:</span>
                         <span className="text-xs">{guessString}</span>
                       </div>
@@ -305,13 +301,13 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
 
           {/* Guesses Input or Drawer Notice */}
           <div
-            className={`p-3 border-t ${
-              isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50/50'
+            className={`p-2.5 border-t ${
+              isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'
             }`}
           >
             {isDrawer ? (
               <div
-                className={`flex items-center justify-center p-2.5 rounded-2xl border text-center ${
+                className={`flex items-center justify-center p-2 rounded-2xl border text-center ${
                   isDark
                     ? 'bg-white/5 border-white/10 text-zinc-400'
                     : 'bg-slate-50 border-slate-200 text-slate-500'
@@ -322,11 +318,11 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                 </span>
               </div>
             ) : hasGuessedCorrectly ? (
-              <div className="flex items-center justify-center p-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-center text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+              <div className="flex items-center justify-center p-2 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-center text-emerald-600 dark:text-emerald-400 font-bold text-xs">
                 🎉 You guessed correctly! Waiting for round to finish...
               </div>
             ) : (
-              <form onSubmit={handleGuessSubmit} className="flex items-center gap-2">
+              <form onSubmit={handleGuessSubmit} className="flex items-center gap-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-1.5 pl-3 focus-within:border-[#ff3864] transition">
                 <input
                   ref={inputRef}
                   type="text"
@@ -335,30 +331,30 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                   disabled={disabled}
                   placeholder="Type your guess..."
                   maxLength={40}
-                  className={`flex-1 border rounded-2xl px-4 py-2.5 text-xs sm:text-sm outline-none transition-all disabled:opacity-50 ${
-                    isDark
-                      ? 'bg-white/5 border-white/15 focus:border-rose-500 text-white placeholder-zinc-500'
-                      : 'bg-slate-50 border-slate-200 focus:border-rose-500 text-slate-900 placeholder-slate-400'
-                  }`}
+                  className="flex-1 bg-transparent text-xs sm:text-sm outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
                 />
+
+                <span className="text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition cursor-pointer p-1">
+                  <Smile className="w-4 h-4" />
+                </span>
 
                 {onRequestHint && canRequestHint && (
                   <button
                     type="button"
                     onClick={onRequestHint}
                     title="Ask for a letter hint"
-                    className="p-2.5 rounded-xl bg-violet-500/20 text-violet-400 hover:bg-violet-500/30 border border-violet-500/30 active:scale-95 transition-all"
+                    className="p-1.5 rounded-xl bg-violet-500/20 text-violet-400 hover:bg-violet-500/30 border border-violet-500/30 active:scale-95 transition-all"
                   >
-                    <HelpCircle className="w-4 h-4" />
+                    <HelpCircle className="w-3.5 h-3.5" />
                   </button>
                 )}
 
                 <button
                   type="submit"
                   disabled={!inputValue.trim() || disabled}
-                  className="w-10 h-10 rounded-2xl bg-[#f43f5e] hover:bg-rose-600 active:scale-95 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-[0_4px_14px_rgba(244,63,94,0.35)] shrink-0"
+                  className="w-7 h-7 rounded-xl bg-[#ff3864] hover:bg-[#e6005c] active:scale-95 text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs shrink-0"
                 >
-                  <Send className="w-4 h-4" />
+                  <Send className="w-3 h-3" />
                 </button>
               </form>
             )}

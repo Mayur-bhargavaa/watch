@@ -1,17 +1,20 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Palette, Trash2 } from 'lucide-react';
 import { DoodleStroke, DoodlePoint } from '@synccinema/common';
+import { DoodleToolType } from './DrawingToolbar';
 
 interface DrawingCanvasProps {
   isDrawer: boolean;
   strokes: DoodleStroke[];
-  currentTool: 'brush' | 'eraser';
+  currentTool: DoodleToolType;
   currentColor: string;
   currentBrushSize: number;
   onStrokeComplete?: (stroke: DoodleStroke) => void;
   onUndo?: () => void;
   onClear?: () => void;
+  onBrushSizeChange?: (size: number) => void;
   canUndo?: boolean;
   disabled?: boolean;
   isDark?: boolean;
@@ -29,6 +32,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   onStrokeComplete,
   onUndo,
   onClear,
+  onBrushSizeChange,
   canUndo = false,
   disabled = false,
   isDark = false
@@ -44,6 +48,35 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   });
 
   const canvasBg = isDark ? CANVAS_BG_DARK : CANVAS_BG_LIGHT;
+
+  // Helper to generate circle points
+  const generateCirclePoints = (p1: DoodlePoint, p2: DoodlePoint): DoodlePoint[] => {
+    const cx = (p1.x + p2.x) / 2;
+    const cy = (p1.y + p2.y) / 2;
+    const rx = Math.abs(p2.x - p1.x) / 2;
+    const ry = Math.abs(p2.y - p1.y) / 2;
+    const pts: DoodlePoint[] = [];
+    const steps = 36;
+    for (let i = 0; i <= steps; i++) {
+      const theta = (i / steps) * 2 * Math.PI;
+      pts.push({
+        x: cx + rx * Math.cos(theta),
+        y: cy + ry * Math.sin(theta)
+      });
+    }
+    return pts;
+  };
+
+  // Helper to generate rectangle points
+  const generateRectPoints = (p1: DoodlePoint, p2: DoodlePoint): DoodlePoint[] => {
+    return [
+      { x: p1.x, y: p1.y },
+      { x: p2.x, y: p1.y },
+      { x: p2.x, y: p2.y },
+      { x: p1.x, y: p2.y },
+      { x: p1.x, y: p1.y }
+    ];
+  };
 
   // Resize canvas according to container
   useEffect(() => {
@@ -179,9 +212,23 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawingRef.current || !isDrawer || disabled) return;
     const pt = getNormalizedPoint(e);
-    if (pt) {
+    if (!pt) return;
+
+    if (currentTool === 'line') {
+      const start = currentPointsRef.current[0];
+      const previewPts = [start, pt];
+      setActivePoints(previewPts);
+    } else if (currentTool === 'circle') {
+      const start = currentPointsRef.current[0];
+      const previewPts = generateCirclePoints(start, pt);
+      setActivePoints(previewPts);
+    } else if (currentTool === 'rectangle') {
+      const start = currentPointsRef.current[0];
+      const previewPts = generateRectPoints(start, pt);
+      setActivePoints(previewPts);
+    } else {
+      // Freehand brush or eraser
       currentPointsRef.current.push(pt);
-      // Sample update every 2 points to avoid React re-render lag during rapid drawing
       if (currentPointsRef.current.length % 2 === 0) {
         setActivePoints([...currentPointsRef.current]);
       }
@@ -195,20 +242,31 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {}
 
-    const pts = currentPointsRef.current;
+    const pt = getNormalizedPoint(e);
+    let finalPts: DoodlePoint[] = [];
+
+    if (currentTool === 'line' && pt && currentPointsRef.current.length > 0) {
+      finalPts = [currentPointsRef.current[0], pt];
+    } else if (currentTool === 'circle' && pt && currentPointsRef.current.length > 0) {
+      finalPts = generateCirclePoints(currentPointsRef.current[0], pt);
+    } else if (currentTool === 'rectangle' && pt && currentPointsRef.current.length > 0) {
+      finalPts = generateRectPoints(currentPointsRef.current[0], pt);
+    } else {
+      finalPts = currentPointsRef.current;
+    }
+
     currentPointsRef.current = [];
     setActivePoints([]);
 
-    if (pts.length > 0) {
+    if (finalPts.length > 0) {
       const stroke: DoodleStroke = {
         id: `strk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         color: currentColor,
         size: currentBrushSize,
-        points: pts,
+        points: finalPts,
         isEraser: currentTool === 'eraser',
         timestamp: Date.now()
       };
-      // Immediately render with this stroke included so there is never a single frame of disappearance
       renderAllStrokes([...strokes, stroke], [], canvasDimensions.width, canvasDimensions.height);
       if (onStrokeComplete) {
         onStrokeComplete(stroke);
@@ -220,128 +278,97 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
   return (
     <div
-      ref={containerRef}
-      className={`relative w-full h-full min-h-[360px] flex items-center justify-center rounded-[28px] overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.06)] border transition-colors ${
+      className={`w-full h-full flex flex-col justify-between rounded-3xl p-3 border transition-colors ${
         isDark
-          ? 'bg-[#141927] border-white/10'
-          : 'bg-white border-slate-200/80 shadow-slate-100'
+          ? 'bg-[#111625] border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.4)]'
+          : 'bg-white border-slate-200/80 shadow-[0_4px_20px_rgba(240,160,200,0.08)]'
       }`}
-      style={{ touchAction: 'none' }}
     >
-      <canvas
-        ref={canvasRef}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className={`w-full h-full block ${
-          isDrawer && !disabled ? 'cursor-crosshair' : 'cursor-default pointer-events-none'
-        }`}
+      {/* 1. Inner Canvas Drawing Surface with subtle dashed border */}
+      <div
+        ref={containerRef}
+        className="relative flex-1 w-full min-h-[340px] rounded-2xl border-2 border-dashed border-slate-100 dark:border-white/5 overflow-hidden flex items-center justify-center bg-white dark:bg-[#141927]"
         style={{ touchAction: 'none' }}
-      />
+      >
+        <canvas
+          ref={canvasRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className={`w-full h-full block ${
+            isDrawer && !disabled ? 'cursor-crosshair' : 'cursor-default pointer-events-none'
+          }`}
+          style={{ touchAction: 'none' }}
+        />
 
-      {/* Top Right Floating Canvas Controls: Undo, Redo, Clear */}
-      {isDrawer && !disabled && (
-        <div className="absolute top-4 right-4 flex items-center gap-1.5 z-20">
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo"
-            className={`w-9 h-9 rounded-full flex items-center justify-center border transition active:scale-90 ${
-              canUndo
-                ? isDark
-                  ? 'bg-white/10 hover:bg-white/15 border-white/10 text-zinc-200'
-                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm'
-                : isDark
-                ? 'opacity-30 cursor-not-allowed text-zinc-500 border-transparent'
-                : 'opacity-30 cursor-not-allowed text-slate-300 border-transparent'
-            }`}
-          >
-            <span className="text-sm">↺</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={true}
-            title="Redo"
-            className={`w-9 h-9 rounded-full flex items-center justify-center border transition opacity-30 cursor-not-allowed ${
-              isDark
-                ? 'text-zinc-500 border-transparent'
-                : 'text-slate-300 border-transparent'
-            }`}
-          >
-            <span className="text-sm">↻</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={!canUndo}
-            title="Clear"
-            className={`flex items-center gap-1.5 px-3 h-9 rounded-full border text-xs font-semibold transition active:scale-95 ${
-              canUndo
-                ? isDark
-                  ? 'bg-white/10 hover:bg-white/15 border-white/10 text-zinc-200'
-                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm'
-                : isDark
-                ? 'opacity-30 cursor-not-allowed text-zinc-500 border-transparent'
-                : 'opacity-30 cursor-not-allowed text-slate-300 border-transparent'
-            }`}
-          >
-            <span className="text-xs">🗑</span>
-            <span>Clear</span>
-          </button>
-        </div>
-      )}
-
-      {/* Center Empty State Watermark matching Mockup: Pencil icon + "Start drawing... Bring your idea to life!" */}
-      {!hasStrokes && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-10">
-          <div
-            className={`w-14 h-14 rounded-full flex items-center justify-center border mb-3 transition-colors ${
-              isDark
-                ? 'bg-white/5 border-white/10 text-zinc-400'
-                : 'bg-slate-50/80 border-slate-200 text-slate-400'
-            }`}
-          >
+        {/* Center Empty State Placeholder matching Mockup */}
+        {!hasStrokes && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none z-10">
+            <div className="w-13 h-13 rounded-full bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 flex items-center justify-center mb-2 shadow-xs">
+              <Palette className="w-6 h-6 text-slate-400 dark:text-zinc-500" />
+            </div>
+            <span className="text-sm font-extrabold text-[#1e1435] dark:text-white mb-0.5">
+              Start drawing...
+            </span>
+            <span className="text-[11px] text-[#8a80a0] dark:text-zinc-400">
+              Bring your idea to life!
+            </span>
+            {/* Cute hand-drawn curved arrow pointing down-right */}
             <svg
-              className="w-6 h-6 rotate-[-45deg]"
+              className="w-7 h-7 text-slate-300 dark:text-zinc-600 mt-2 ml-8"
+              viewBox="0 0 40 40"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
-              viewBox="0 0 24 24"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l7-7 3 3-7 7-3-3z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2 2l7.586 7.586" />
-              <circle cx="11" cy="11" r="2" />
+              <path d="M10 8 C 24 14, 28 24, 24 33" />
+              <path d="M19 29 L 24 34 L 28 28" />
             </svg>
           </div>
-          <span
-            className={`text-base font-bold mb-1 ${
-              isDark ? 'text-zinc-300' : 'text-slate-700'
-            }`}
-          >
-            Start drawing...
-          </span>
-          <span
-            className={`text-xs ${
-              isDark ? 'text-zinc-500' : 'text-slate-400'
-            }`}
-          >
-            Bring your idea to life!
-          </span>
-        </div>
-      )}
+        )}
 
-      {/* Floating Live Drawing badge for Guesser */}
-      {!isDrawer && (
-        <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] font-bold text-zinc-300 flex items-center gap-1.5 pointer-events-none select-none">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-          <span>LIVE DRAWING</span>
+        {/* Floating Live Drawing badge for Guesser */}
+        {!isDrawer && (
+          <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] font-bold text-zinc-300 flex items-center gap-1.5 pointer-events-none select-none">
+            <span className="w-2 h-2 rounded-full bg-[#ff3864] animate-ping" />
+            <span>LIVE DRAWING</span>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Bottom Controls Bar: Brush Size Slider + Clear Canvas */}
+      <div className="flex items-center justify-between px-2 pt-2.5 select-none">
+        {/* Left: Brush Size */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-slate-600 dark:text-zinc-400">
+            Brush Size
+          </span>
+          <input
+            type="range"
+            min={2}
+            max={24}
+            value={currentBrushSize}
+            onChange={e => onBrushSizeChange?.(Number(e.target.value))}
+            disabled={!isDrawer || disabled}
+            className="w-24 sm:w-32 accent-[#ff3864] h-1.5 bg-slate-200 dark:bg-white/10 rounded-lg cursor-pointer"
+          />
         </div>
-      )}
+
+        {/* Right: Clear Canvas */}
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={!isDrawer || disabled || strokes.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 text-xs font-bold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          <span>Clear Canvas</span>
+        </button>
+      </div>
     </div>
   );
 };
+
