@@ -41,6 +41,7 @@ import { DoodleGameTimer } from '../../../../components/games/doodle/DoodleGameT
 import { RoundIntro } from '../../../../components/games/doodle/RoundIntro';
 import { RoundResultModal } from '../../../../components/games/doodle/RoundResultModal';
 import { DoodleVictory } from '../../../../components/games/doodle/DoodleVictory';
+import { PartyPoppers } from '../../../../components/games/common/PartyPoppers';
 import { DoodleLobby } from '../../../../components/games/doodle/DoodleLobby';
 import { DoodlePreRoomLobby } from '../../../../components/games/doodle/DoodlePreRoomLobby';
 import { DoodleBottomDock } from '../../../../components/games/doodle/DoodleBottomDock';
@@ -306,6 +307,22 @@ function DoodleDuelGameContent() {
   const isGuessing = dState?.phase === 'GUESSING';
   const isRoundResult = dState?.phase === 'ROUND_RESULT';
   const isFinished = room?.status === 'FINISHED' || dState?.phase === 'FINISHED';
+
+  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
+
+  useEffect(() => {
+    if (isFinished) {
+      setShowPartyPoppers(true);
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
+    }
+  }, [isFinished]);
 
   const handleLeave = () => {
     sendLeave();
@@ -602,19 +619,25 @@ function DoodleDuelGameContent() {
                           isSelf={isDrawerMe}
                           displayName={dState.drawerDisplayName || 'Drawer'}
                         />
-                      ) : (
-                        <img
-                          src={
-                            players.find(p => p.userId === dState.drawerUserId)?.avatarUrl ||
-                            (players.find(p => p.userId === dState.drawerUserId) as any)?.photoURL ||
-                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-                              dState.drawerDisplayName || 'Mayur'
-                            )}&accessories=round&top=shortFlat&clothing=graphicShirt`
-                          }
-                          alt={dState.drawerDisplayName || 'Drawer'}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
+                      ) : (() => {
+                        const p = players.find(player => player.userId === dState.drawerUserId);
+                        const rawAvatar = p?.avatarUrl || (p as any)?.photoURL;
+                        const avatar = (rawAvatar && !rawAvatar.includes('dicebear') && !rawAvatar.includes('bottts')) ? rawAvatar : null;
+                        if (avatar) {
+                          return (
+                            <img
+                              src={avatar}
+                              alt={dState.drawerDisplayName || 'Drawer'}
+                              className="w-full h-full object-cover"
+                            />
+                          );
+                        }
+                        return (
+                          <div className="w-full h-full bg-gradient-to-br from-[#ff3864] to-[#ff6b8b] flex items-center justify-center text-white font-extrabold text-base">
+                            {(dState.drawerDisplayName || p?.displayName || 'D')[0].toUpperCase()}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="overflow-hidden flex-1">
@@ -668,19 +691,25 @@ function DoodleDuelGameContent() {
                           isSelf={isGuesserMe}
                           displayName={dState.guesserDisplayName || 'Guesser'}
                         />
-                      ) : (
-                        <img
-                          src={
-                            players.find(p => p.userId === dState.guesserUserId)?.avatarUrl ||
-                            (players.find(p => p.userId === dState.guesserUserId) as any)?.photoURL ||
-                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-                              dState.guesserDisplayName || 'Guesser'
-                            )}&top=longStraight&clothing=shirtCrewNeck`
-                          }
-                          alt={dState.guesserDisplayName || 'Guesser'}
-                          className="w-full h-full object-cover"
-                        />
-                      )}
+                      ) : (() => {
+                        const p = players.find(player => player.userId === dState.guesserUserId);
+                        const rawAvatar = p?.avatarUrl || (p as any)?.photoURL;
+                        const avatar = (rawAvatar && !rawAvatar.includes('dicebear') && !rawAvatar.includes('bottts')) ? rawAvatar : null;
+                        if (avatar) {
+                          return (
+                            <img
+                              src={avatar}
+                              alt={dState.guesserDisplayName || 'Guesser'}
+                              className="w-full h-full object-cover"
+                            />
+                          );
+                        }
+                        return (
+                          <div className="w-full h-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-extrabold text-base">
+                            {(dState.guesserDisplayName || p?.displayName || 'G')[0].toUpperCase()}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="overflow-hidden flex-1">
@@ -976,8 +1005,11 @@ function DoodleDuelGameContent() {
         />
       )}
 
-      {/* Victory / Game Over Screen */}
-      {isFinished && dState && (
+      {/* 1. Grand Party Poppers Celebration (Fires Immediately inside Game) */}
+      {showPartyPoppers && <PartyPoppers />}
+
+      {/* Victory / Game Over Screen (Appears After 3s Delay) */}
+      {isFinished && showDelayedWinModal && dState && (
         <DoodleVictory
           gameState={dState}
           myUserId={currentUserId}

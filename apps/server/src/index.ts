@@ -1573,10 +1573,11 @@ export async function createServer(dbPath = './synccinema.db') {
       if (!decoded || decoded.isAnonymous) {
         throw new Error('Anonymous users not allowed');
       }
+      const dbUser = (await mongoDb.getUserById(decoded.id)) || db.getUserById(decoded.id);
       user = {
         id: decoded.id,
-        displayName: decoded.displayName || 'Player',
-        avatarUrl: decoded.avatarUrl
+        displayName: dbUser?.displayName || decoded.displayName || 'Player',
+        avatarUrl: dbUser?.avatarUrl || decoded.avatarUrl || null
       };
       await mongoDb.ensureUserPartnerCode(user.id, user.displayName, user.avatarUrl || undefined, false, decoded.email);
     } catch {

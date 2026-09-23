@@ -193,7 +193,7 @@ export class MongoDatabaseService {
       email: user.email ? user.email.trim().toLowerCase() : undefined,
       passwordHash: passwordHash || null,
       displayName: user.displayName,
-      avatarUrl: user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`,
+      avatarUrl: user.avatarUrl || null,
       isAnonymous: Boolean(user.isAnonymous),
       partnerCode,
       dateOfBirth: user.dateOfBirth || null,

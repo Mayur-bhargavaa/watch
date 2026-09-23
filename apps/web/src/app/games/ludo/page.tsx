@@ -93,6 +93,7 @@ import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebr
 import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
 import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
+import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 import { FriendWithStreak } from '../../../lib/api';
 import { getRandomRoast } from '../../../lib/roastMessages';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
@@ -455,9 +456,19 @@ function LudoPageContent() {
   }, [sendNudge]);
 
   const [dismissVictoryModal, setDismissVictoryModal] = useState<boolean>(false);
+  const [showPartyPoppers, setShowPartyPoppers] = useState<boolean>(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState<boolean>(false);
 
   useEffect(() => {
-    if (gameState && !gameState.winnerColor) {
+    if (gameState?.winnerColor) {
+      setShowPartyPoppers(true);
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
       setDismissVictoryModal(false);
     }
   }, [gameState?.winnerColor]);
@@ -2609,10 +2620,13 @@ function LudoPageContent() {
       )}
 
 
+      {/* 1. Grand Party Poppers Celebration (Fires Immediately inside Game) */}
+      {showPartyPoppers && <PartyPoppers />}
+
       {/* =========================================================================
-          VICTORY / ROUND OVER POPUP MODAL (2-Player Agreement, Waiting Screen, Nudge & Home)
+          VICTORY / ROUND OVER POPUP MODAL (Appears After 3s Delay)
          ========================================================================= */}
-      {gameState?.winnerColor && !dismissVictoryModal && (
+      {gameState?.winnerColor && showDelayedWinModal && !dismissVictoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
           <div className="w-full max-w-sm p-6 rounded-3xl bg-[#140a15]/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-center space-y-4 relative">
             {/* Close button to inspect winning board */}

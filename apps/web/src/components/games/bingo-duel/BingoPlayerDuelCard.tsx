@@ -56,11 +56,17 @@ export const BingoPlayerDuelCard: React.FC<BingoPlayerDuelCardProps> = ({
                 : 'border-pink-400/50'
             }`}
           >
-            <img
-              src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`}
-              alt={displayName}
-              className="w-full h-full object-cover rounded-lg bg-slate-950"
-            />
+            {avatarUrl && !avatarUrl.includes('dicebear') && !avatarUrl.includes('bottts') ? (
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="w-full h-full object-cover rounded-lg bg-slate-950"
+              />
+            ) : (
+              <div className="w-full h-full rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white font-extrabold text-xs">
+                {(displayName?.[0] || 'P').toUpperCase()}
+              </div>
+            )}
           </div>
 
           <div className="min-w-0">

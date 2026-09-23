@@ -67,7 +67,7 @@ export const ChessPlayerCard: React.FC<ChessPlayerCardProps> = ({
                 : 'bg-gradient-to-tr from-slate-900 to-slate-800 text-white border-white/20'
             }`}
           >
-            {player.avatarUrl ? (
+            {player.avatarUrl && !player.avatarUrl.includes('bottts') ? (
               <img
                 src={player.avatarUrl}
                 alt={player.displayName}

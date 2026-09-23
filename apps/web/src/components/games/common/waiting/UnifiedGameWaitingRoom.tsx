@@ -252,12 +252,23 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
   const preset = GAME_PRESETS[gameType] || GAME_PRESETS['doodle-duel'];
   const Icon = preset.icon;
 
-  const myPlayer = room.players.find(p => p.userId === myUserId) || {
+  let myStoredAvatar = '';
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = JSON.parse(localStorage.getItem('synccinema_session') || '{}');
+      myStoredAvatar = stored?.user?.avatarUrl || '';
+    } catch {}
+  }
+
+  const rawMyPlayer = room.players.find(p => p.userId === myUserId);
+  const myPlayer = {
     userId: myUserId,
-    displayName: 'You',
-    avatarUrl: '',
-    seat: 0,
-    isConnected: true
+    displayName: rawMyPlayer?.displayName || 'You',
+    avatarUrl: (rawMyPlayer?.avatarUrl && !rawMyPlayer.avatarUrl.includes('/bottts/'))
+      ? rawMyPlayer.avatarUrl
+      : myStoredAvatar,
+    seat: rawMyPlayer?.seat ?? 0,
+    isConnected: rawMyPlayer?.isConnected ?? true
   };
 
   const opponentPlayer = room.players.find(p => p.userId !== myUserId) || null;
@@ -449,12 +460,18 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
                       {p ? (
                         <>
                           <div className="relative shrink-0">
-                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#ff2b70] to-amber-400 flex items-center justify-center">
-                              <img
-                                src={p.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(p.displayName || p.userId)}`}
-                                alt={p.displayName}
-                                className="w-full h-full rounded-full object-cover bg-white dark:bg-slate-800"
-                              />
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#ff2b70] to-amber-400 flex items-center justify-center overflow-hidden">
+                              {p.avatarUrl && !p.avatarUrl.includes('/bottts/') ? (
+                                <img
+                                  src={p.avatarUrl}
+                                  alt={p.displayName}
+                                  className="w-full h-full rounded-full object-cover bg-white dark:bg-slate-800"
+                                />
+                              ) : (
+                                <div className="w-full h-full rounded-full bg-gradient-to-br from-[#ff2b70] to-[#f43f5e] flex items-center justify-center text-white font-black text-xs">
+                                  {(p.displayName?.[0] || 'P').toUpperCase()}
+                                </div>
+                              )}
                             </div>
                             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-1 ring-white" />
                           </div>

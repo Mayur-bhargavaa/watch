@@ -38,6 +38,7 @@ import { BingoVictory } from '../../../components/games/bingo/BingoVictory';
 import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
 import { BingoRoomConfig } from '@synccinema/common';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
+import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 
 const ONES = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
 const TENS = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
@@ -268,6 +269,22 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   const isWaiting = Boolean(room && room.status === 'WAITING');
   const isPlaying = Boolean(room && room.status === 'PLAYING' && gameState !== null);
   const isFinished = Boolean(room && (room.status === 'FINISHED' || gameState?.phase === 'FINISHED'));
+
+  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
+
+  useEffect(() => {
+    if (isFinished) {
+      setShowPartyPoppers(true);
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
+    }
+  }, [isFinished]);
 
   // WebRTC Setup
   const webRTCMembers = useMemo(() => {
@@ -745,7 +762,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           {/* Left Player Card (You) */}
           <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 px-3 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-3">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-[#ff3864] text-sm">
-              {me?.avatarUrl ? (
+              {me?.avatarUrl && !me.avatarUrl.includes('bottts') ? (
                 <img src={me.avatarUrl} alt={me.displayName} className="w-full h-full object-cover" />
               ) : (
                 me?.displayName?.charAt(0).toUpperCase() || 'Y'
@@ -788,7 +805,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           {/* Right Player Card (Real Opponent) */}
           <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 px-3 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-purple-600 text-sm">
-              {opponent?.avatarUrl ? (
+              {opponent?.avatarUrl && !opponent.avatarUrl.includes('bottts') ? (
                 <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
               ) : (
                 opponent?.displayName?.charAt(0).toUpperCase() || 'O'
@@ -1430,8 +1447,11 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         </div>
       )}
 
-      {/* Victory Celebration Modal */}
-      {isFinished && (
+      {/* 1. Grand Party Poppers Celebration (Fires Immediately inside Game) */}
+      {showPartyPoppers && <PartyPoppers />}
+
+      {/* Victory Celebration Modal (Appears After 3s Delay) */}
+      {isFinished && showDelayedWinModal && (
         <BingoVictory
           conditionWon={lastBingoConditionWon}
           isHousefull={Boolean(gameState?.claimedConditions?.housefull)}

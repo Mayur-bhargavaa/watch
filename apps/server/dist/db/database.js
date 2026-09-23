@@ -1271,7 +1271,7 @@ export class DatabaseService {
             this.db.prepare(`
         INSERT INTO users (id, email, password_hash, display_name, avatar_url, is_anonymous, partner_code, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(userId, email || null, null, name, avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`, isAnonymous ? 1 : 0, newCode, new Date().toISOString());
+      `).run(userId, email || null, null, name, avatarUrl || null, isAnonymous ? 1 : 0, newCode, new Date().toISOString());
         }
         else {
             this.db.prepare('UPDATE users SET partner_code = ? WHERE id = ?').run(newCode, userId);
@@ -1827,7 +1827,7 @@ export class DatabaseService {
     // =====================================================================
     createGameRoom(room) {
         if (!this.getUserById(room.hostUserId)) {
-            this.ensureUserPartnerCode(room.hostUserId, 'Host Player', `https://api.dicebear.com/7.x/bottts/svg?seed=${room.hostUserId}`, true);
+            this.ensureUserPartnerCode(room.hostUserId, 'Host Player', '', true);
         }
         const stmt = this.db.prepare(`
       INSERT INTO game_rooms (
@@ -1976,7 +1976,7 @@ export class DatabaseService {
     }
     addPlayerToGameRoom(roomId, user, seat, color) {
         if (!this.getUserById(user.id)) {
-            this.ensureUserPartnerCode(user.id, user.displayName || 'Player', user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.id}`, true);
+            this.ensureUserPartnerCode(user.id, user.displayName || 'Player', user.avatarUrl || null, true);
         }
         const id = `gplayer_${nanoid(10)}`;
         const now = new Date().toISOString();
@@ -2008,6 +2008,10 @@ export class DatabaseService {
     setGamePlayerConnected(roomId, userId, isConnected) {
         this.db.prepare('UPDATE game_room_players SET is_connected = ? WHERE room_id = ? AND user_id = ?')
             .run(isConnected ? 1 : 0, roomId, userId);
+    }
+    updateGamePlayerProfile(roomId, userId, displayName, avatarUrl) {
+        this.db.prepare('UPDATE game_room_players SET display_name = ?, avatar_url = ? WHERE room_id = ? AND user_id = ?')
+            .run(displayName, avatarUrl, roomId, userId);
     }
     updateGameRoomStatus(roomId, status, startedAt, finishedAt) {
         if (startedAt && finishedAt) {

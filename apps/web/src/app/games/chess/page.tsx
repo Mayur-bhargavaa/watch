@@ -46,6 +46,7 @@ import { ChessPlayerCard } from '../../../components/games/chess/ChessPlayerCard
 import { ChessWaitingRoom } from '../../../components/games/chess/ChessWaitingRoom';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 import { ChessGameEnd } from '../../../components/games/chess/ChessGameEnd';
+import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 import { ChessReview } from '../../../components/games/chess/ChessReview';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { ChessMoveHistory } from '../../../components/games/chess/ChessMoveHistory';
@@ -417,6 +418,22 @@ function ChessGameContent() {
   // Active or Finished Game View
   const isGameOver = gameState?.status && ['CHECKMATE', 'DRAW', 'STALEMATE', 'TIMEOUT', 'RESIGNED', 'ABANDONED', 'COMPLETED'].includes(gameState.status);
   const isMyTurn = gameState?.turn === playerColor;
+
+  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
+
+  useEffect(() => {
+    if (isGameOver) {
+      setShowPartyPoppers(true);
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
+    }
+  }, [isGameOver]);
 
   return (
     <div className="relative min-h-screen bg-[#08070d] text-white flex flex-col select-none font-sans overflow-x-hidden">
@@ -830,8 +847,11 @@ function ChessGameContent() {
         />
       )}
 
-      {/* Game End Modal */}
-      {isGameOver && gameState && (
+      {/* 1. Grand Party Poppers Celebration (Fires Immediately inside Game) */}
+      {showPartyPoppers && <PartyPoppers />}
+
+      {/* Game End Modal (Appears After 3s Delay) */}
+      {isGameOver && showDelayedWinModal && gameState && (
         <ChessGameEnd
           gameState={gameState}
           myUserId={effectiveUserId}

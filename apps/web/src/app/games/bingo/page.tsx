@@ -469,10 +469,10 @@ function BingoDuelGameContent() {
       // 1. Fire party poppers immediately
       setShowPartyPoppers(true);
 
-      // 2. Wait 4 seconds before presenting the victory/defeat modal
+      // 2. Wait 3 seconds before presenting the victory/defeat modal
       const timer = setTimeout(() => {
         setShowDelayedWinModal(true);
-      }, 4000);
+      }, 3000);
 
       return () => clearTimeout(timer);
     } else {

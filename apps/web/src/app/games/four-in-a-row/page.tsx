@@ -88,6 +88,7 @@ import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { FriendWithStreak } from '../../../lib/api';
 import { getRandomRoast } from '../../../lib/roastMessages';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
+import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 
 export interface BoardTheme {
   id: string;
@@ -965,6 +966,23 @@ function FourInARowContent() {
   }, [gameState]);
 
   const isDraw = Boolean(gameState?.isDraw);
+
+  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
+
+  useEffect(() => {
+    if (winnerInfo || isDraw) {
+      setShowPartyPoppers(true);
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
+      setDismissVictoryModal(false);
+    }
+  }, [winnerInfo, isDraw]);
 
   const isOpponentDisconnected = useMemo(() => {
     if (opponentPlayer && !opponentPlayer.isConnected) return true;
@@ -2259,7 +2277,7 @@ function FourInARowContent() {
                     <div className="w-12 h-12 rounded-full p-0.5 border-2 border-rose-400 bg-black/60 flex items-center justify-center overflow-hidden">
                       {hasHostLiveVideo && hostActiveStream ? (
                         <VideoAvatar stream={hostActiveStream} isSelf={isHostMe} displayName={hostPlayer?.displayName || 'Host'} />
-                      ) : hostPlayer?.avatarUrl ? (
+                      ) : (hostPlayer?.avatarUrl && !hostPlayer.avatarUrl.includes('bottts')) ? (
                         <img src={hostPlayer.avatarUrl} alt="Host" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-tr from-rose-600 to-amber-600 flex items-center justify-center text-white font-black text-sm">
@@ -2323,7 +2341,7 @@ function FourInARowContent() {
                     <div className="w-12 h-12 rounded-full p-0.5 border-2 border-yellow-400 bg-black/60 flex items-center justify-center overflow-hidden">
                       {hasGuestLiveVideo && guestActiveStream ? (
                         <VideoAvatar stream={guestActiveStream} isSelf={isGuestMe} displayName={guestPlayer?.displayName || 'Guest'} />
-                      ) : guestPlayer?.avatarUrl ? (
+                      ) : (guestPlayer?.avatarUrl && !guestPlayer.avatarUrl.includes('bottts')) ? (
                         <img src={guestPlayer.avatarUrl} alt="Guest" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-tr from-amber-500 to-yellow-600 flex items-center justify-center text-slate-950 font-black text-sm">
@@ -2668,10 +2686,13 @@ function FourInARowContent() {
         )}
       </main>
 
+      {/* 1. Grand Party Poppers Celebration (Fires Immediately inside Game) */}
+      {showPartyPoppers && <PartyPoppers />}
+
       {/* =========================================================================
-          VICTORY / ROUND OVER POPUP MODAL (2-Player Agreement, Waiting Screen, Nudge & Home)
+          VICTORY / ROUND OVER POPUP MODAL (Appears After 3s Delay)
          ========================================================================= */}
-      {(winnerInfo || isDraw) && !dismissVictoryModal && (
+      {(winnerInfo || isDraw) && showDelayedWinModal && !dismissVictoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
           <div className="w-full max-w-sm p-6 rounded-3xl bg-[#140a15]/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-center space-y-4 relative">
             {/* Close button to inspect winning board */}
@@ -2899,11 +2920,17 @@ function FourInARowContent() {
               {partner ? (
                 <div className="p-3.5 rounded-2xl bg-gradient-to-r from-rose-950/40 to-black/40 border border-rose-500/30 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <img
-                      src={partner.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${partner.id}`}
-                      alt={partner.displayName}
-                      className="w-9 h-9 rounded-xl object-cover border border-rose-400 shadow"
-                    />
+                    {partner.avatarUrl && !partner.avatarUrl.includes('bottts') ? (
+                      <img
+                        src={partner.avatarUrl}
+                        alt={partner.displayName}
+                        className="w-9 h-9 rounded-xl object-cover border border-rose-400 shadow"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white font-black text-xs border border-rose-400 shadow">
+                        {(partner.displayName?.[0] || 'P').toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <h4 className="text-xs font-bold text-white">{partner.displayName}</h4>
                       <p className="text-[10px] text-zinc-400 font-mono">Code: {partner.partnerCode}</p>

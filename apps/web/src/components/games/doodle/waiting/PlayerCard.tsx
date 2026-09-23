@@ -52,9 +52,18 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
     );
   }
 
-  const avatarUrl =
-    player.avatarUrl ||
-    `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(player.displayName || player.userId)}`;
+  // Resolve user profile picture (filtering out generic robots)
+  let rawAvatar = player.avatarUrl;
+  if (!rawAvatar && isCurrentUser && typeof window !== 'undefined') {
+    try {
+      const stored = JSON.parse(localStorage.getItem('synccinema_session') || '{}');
+      rawAvatar = stored?.user?.avatarUrl;
+    } catch {}
+  }
+
+  const hasGenericRobot = typeof rawAvatar === 'string' && rawAvatar.includes('/bottts/');
+  const effectiveAvatar = hasGenericRobot ? null : rawAvatar;
+  const initial = (player.displayName?.[0] || 'P').toUpperCase();
 
   return (
     <div
@@ -80,15 +89,28 @@ export const PlayerCard: React.FC<PlayerCardProps> = ({
 
       {/* Avatar Container with glowing ring */}
       <div className="relative mb-2 mt-1">
-        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full p-0.5 bg-gradient-to-tr from-[#ff2b70] to-amber-400 shadow-sm flex items-center justify-center">
-          <img
-            src={avatarUrl}
-            alt={player.displayName}
-            className="w-full h-full rounded-full object-cover bg-white dark:bg-slate-800"
-            onError={e => {
-              (e.currentTarget as HTMLElement).style.display = 'none';
-            }}
-          />
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full p-0.5 bg-gradient-to-tr from-[#ff2b70] to-amber-400 shadow-sm flex items-center justify-center overflow-hidden">
+          {effectiveAvatar ? (
+            <img
+              src={effectiveAvatar}
+              alt={player.displayName}
+              className="w-full h-full rounded-full object-cover bg-white dark:bg-slate-800"
+              onError={e => {
+                const parent = (e.currentTarget as HTMLElement).parentElement;
+                if (parent) {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                  const fallback = parent.querySelector('.avatar-initial-fallback') as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }
+              }}
+            />
+          ) : null}
+          <div
+            className="avatar-initial-fallback w-full h-full rounded-full bg-gradient-to-br from-[#ff2b70] via-[#f43f5e] to-amber-400 flex items-center justify-center text-white font-black text-xl shadow-inner select-none"
+            style={{ display: effectiveAvatar ? 'none' : 'flex' }}
+          >
+            {initial}
+          </div>
         </div>
 
         {/* Ready checkmark overlay */}

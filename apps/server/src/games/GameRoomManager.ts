@@ -267,6 +267,13 @@ export class GameRoomManager {
     // Check if user is already in the room
     const existingPlayer = room.players.find(p => p.userId === user.id);
     if (existingPlayer) {
+      const cleanAvatar = (user.avatarUrl && !user.avatarUrl.includes('bottts') && !user.avatarUrl.includes('dicebear'))
+        ? user.avatarUrl
+        : null;
+      if (existingPlayer.avatarUrl !== cleanAvatar) {
+        existingPlayer.avatarUrl = cleanAvatar;
+        this.db.updateGamePlayerProfile(room.id, user.id, existingPlayer.displayName, cleanAvatar || '');
+      }
       // Rejoining own slot
       return room;
     }
@@ -2032,6 +2039,16 @@ export class GameRoomManager {
             type: 'error:notification',
             payload: { code: 'JOIN_FAILED', message: e?.message || 'Failed to join game room' }
           }));
+        }
+      }
+
+      if (myPlayer) {
+        const cleanAvatar = (user.avatarUrl && !user.avatarUrl.includes('bottts') && !user.avatarUrl.includes('dicebear'))
+          ? user.avatarUrl
+          : null;
+        if (myPlayer.avatarUrl !== cleanAvatar) {
+          myPlayer.avatarUrl = cleanAvatar;
+          this.db.updateGamePlayerProfile(room.id, user.id, myPlayer.displayName, cleanAvatar || '');
         }
       }
 

@@ -1575,7 +1575,7 @@ export class DatabaseService {
         email || null,
         null,
         name,
-        avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}`,
+        avatarUrl || null,
         isAnonymous ? 1 : 0,
         newCode,
         new Date().toISOString()
@@ -2226,7 +2226,7 @@ export class DatabaseService {
       this.ensureUserPartnerCode(
         room.hostUserId,
         'Host Player',
-        `https://api.dicebear.com/7.x/bottts/svg?seed=${room.hostUserId}`,
+        '',
         true
       );
     }
@@ -2395,7 +2395,7 @@ export class DatabaseService {
       this.ensureUserPartnerCode(
         user.id,
         user.displayName || 'Player',
-        user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.id}`,
+        user.avatarUrl || null,
         true
       );
     }
@@ -2433,6 +2433,11 @@ export class DatabaseService {
   setGamePlayerConnected(roomId: string, userId: string, isConnected: boolean): void {
     this.db.prepare('UPDATE game_room_players SET is_connected = ? WHERE room_id = ? AND user_id = ?')
       .run(isConnected ? 1 : 0, roomId, userId);
+  }
+
+  updateGamePlayerProfile(roomId: string, userId: string, displayName: string, avatarUrl: string | null): void {
+    this.db.prepare('UPDATE game_room_players SET display_name = ?, avatar_url = ? WHERE room_id = ? AND user_id = ?')
+      .run(displayName, avatarUrl, roomId, userId);
   }
 
   updateGameRoomStatus(roomId: string, status: GameRoomStatus, startedAt?: string, finishedAt?: string): void {

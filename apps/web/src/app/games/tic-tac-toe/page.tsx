@@ -86,6 +86,7 @@ import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { getRandomRoast } from '../../../lib/roastMessages';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
+import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 
 export interface BoardTheme {
   id: string;
@@ -263,6 +264,8 @@ function TicTacToeContent() {
 
   // Dismiss Victory Modal
   const [dismissVictoryModal, setDismissVictoryModal] = useState(false);
+  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
 
   // Alert modal state
   const [alertModalState, setAlertModalState] = useState<{
@@ -381,6 +384,20 @@ function TicTacToeContent() {
 
   const isWaiting = room?.status === 'WAITING';
   const isPlayingOrFinished = room?.status === 'PLAYING' || room?.status === 'FINISHED';
+
+  useEffect(() => {
+    if (isPlayingOrFinished && (gameState?.winner || gameState?.isDraw)) {
+      setShowPartyPoppers(true);
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
+      setDismissVictoryModal(false);
+    }
+  }, [isPlayingOrFinished, gameState?.winner, gameState?.isDraw]);
 
   // WebRTC Video/Voice
   const webRTCMembers = useMemo(() => {
@@ -1409,8 +1426,11 @@ function TicTacToeContent() {
         </div>
       )}
 
-      {/* Victory / Game Over Celebration Modal */}
-      {isPlayingOrFinished && (gameState?.winner || gameState?.isDraw) && !dismissVictoryModal && (
+      {/* 1. Grand Party Poppers Celebration (Fires Immediately inside Game) */}
+      {showPartyPoppers && <PartyPoppers />}
+
+      {/* Victory / Game Over Celebration Modal (Appears After 3s Delay) */}
+      {isPlayingOrFinished && (gameState?.winner || gameState?.isDraw) && showDelayedWinModal && !dismissVictoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-300">
           <div className="w-full max-w-sm rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-white/25 text-white shadow-2xl text-center space-y-4 relative overflow-hidden">
             {/* Ambient glow */}
@@ -1418,7 +1438,7 @@ function TicTacToeContent() {
 
             <button
               onClick={() => setDismissVictoryModal(true)}
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white transition"
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white transition cursor-pointer"
               title="Close modal and view board"
             >
               <CloseIcon className="w-4 h-4" />
@@ -1450,26 +1470,39 @@ function TicTacToeContent() {
               </>
             )}
 
-            {/* Rematch Button */}
-            <button
-              onClick={() => {
-                rematch();
-                setDismissVictoryModal(true);
-              }}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] text-white font-bold text-sm rounded-2xl shadow-lg shadow-rose-500/30 transition active:scale-95 flex items-center justify-center gap-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>
-                {rematchStatus
-                  ? `Vote Rematch (${rematchStatus.votedCount}/${rematchStatus.totalNeeded})`
-                  : 'Play Rematch 🔄'}
-              </span>
-            </button>
+            {/* Action Buttons: Leave Game & Rematch */}
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  sendLeave();
+                  router.push('/games');
+                }}
+                className="flex-1 py-3 px-3 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-white text-xs font-bold border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4 text-zinc-400" />
+                <span>Leave Game 🚪</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  rematch();
+                }}
+                className="flex-1 py-3 px-3 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] text-white font-bold text-xs rounded-2xl shadow-lg shadow-rose-500/30 transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>
+                  {rematchStatus
+                    ? `Rematch (${rematchStatus.votedCount}/${rematchStatus.totalNeeded})`
+                    : 'Play Rematch 🔄'}
+                </span>
+              </button>
+            </div>
 
             {/* Roast Opponent button */}
             <button
               onClick={handleNudgeOpponent}
-              className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-rose-300 rounded-xl transition flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-rose-300 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Flame className="w-3.5 h-3.5" />
               <span>Send Friendly Roast 🔥</span>
@@ -2557,7 +2590,7 @@ function TicTacToeContent() {
                       <div className="w-11 h-11 rounded-full p-0.5 border-2 border-rose-400 bg-black/60 flex items-center justify-center overflow-hidden">
                         {hostStream?.stream && hostStream.isCameraOn ? (
                           <VideoAvatar stream={hostStream.stream} isSelf={hostStream.isSelf} displayName={hostPlayer?.displayName || 'Host'} />
-                        ) : hostPlayer?.avatarUrl ? (
+                        ) : (hostPlayer?.avatarUrl && !hostPlayer.avatarUrl.includes('bottts')) ? (
                           <img src={hostPlayer.avatarUrl} alt="Host" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-tr from-rose-600 to-amber-600 flex items-center justify-center text-white font-black text-sm">
@@ -2619,7 +2652,7 @@ function TicTacToeContent() {
                       <div className="w-11 h-11 rounded-full p-0.5 border-2 border-cyan-400 bg-black/60 flex items-center justify-center overflow-hidden">
                         {guestStream?.stream && guestStream.isCameraOn ? (
                           <VideoAvatar stream={guestStream.stream} isSelf={guestStream.isSelf} displayName={guestPlayer?.displayName || 'Guest'} />
-                        ) : guestPlayer?.avatarUrl ? (
+                        ) : (guestPlayer?.avatarUrl && !guestPlayer.avatarUrl.includes('bottts')) ? (
                           <img src={guestPlayer.avatarUrl} alt="Guest" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-sm">
