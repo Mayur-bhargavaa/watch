@@ -859,21 +859,23 @@ function DoodleDuelGameContent() {
           )}
         </main>
 
-        {/* Floating Bottom Social Dock */}
-        <footer className="relative z-20 w-full p-2.5 sm:p-3 flex justify-center">
-          <DoodleBottomDock
-            isMuted={isMicMuted}
-            isCameraOn={isCameraOn}
-            unreadChatCount={0}
-            onToggleMic={toggleMic}
-            onToggleCamera={toggleCamera}
-            onToggleChat={() => setIsChatOpen(prev => !prev)}
-            onSendReaction={emoji => sendReaction(emoji)}
-            onOpenSettings={() => setShowSettingsModal(true)}
-            onLeave={handleLeave}
-            isDark={isDark}
-          />
-        </footer>
+        {/* Floating Bottom Social Dock - only shown during active match so it does not overlap the lobby start button */}
+        {!isLobby && (
+          <footer className="relative z-20 w-full p-2.5 sm:p-3 flex justify-center">
+            <DoodleBottomDock
+              isMuted={isMicMuted}
+              isCameraOn={isCameraOn}
+              unreadChatCount={0}
+              onToggleMic={toggleMic}
+              onToggleCamera={toggleCamera}
+              onToggleChat={() => setIsChatOpen(prev => !prev)}
+              onSendReaction={emoji => sendReaction(emoji)}
+              onOpenSettings={() => setShowSettingsModal(true)}
+              onLeave={handleLeave}
+              isDark={isDark}
+            />
+          </footer>
+        )}
 
         {/* Hand-drawn Doodles & Romantic Quote Background Watermarks matching mockup */}
         <div className="fixed bottom-4 left-6 pointer-events-none select-none z-0 hidden lg:block">

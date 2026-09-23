@@ -5,15 +5,11 @@ const isRemoteClient = isClient && window.location.hostname !== 'localhost' && w
 
 export const API_BASE = isRemoteClient
   ? window.location.origin
-  : (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')
-      ? process.env.NEXT_PUBLIC_API_URL
-      : (isClient ? window.location.origin : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000')));
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000');
 
 export const WS_BASE = isRemoteClient
   ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
-  : (process.env.NEXT_PUBLIC_WS_URL && !process.env.NEXT_PUBLIC_WS_URL.includes('localhost')
-      ? process.env.NEXT_PUBLIC_WS_URL
-      : (isClient ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : (process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000')));
+  : (process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000');
 
 export interface UserSession {
   token: string;
