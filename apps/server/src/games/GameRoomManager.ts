@@ -313,7 +313,8 @@ export class GameRoomManager {
     });
 
     // Check if room is now full of real human players -> auto-start immediately without manual click
-    if (room.players.length >= room.maxPlayers) {
+    // Note: doodle-duel and tambola are lobby-based where host configures settings/roles and clicks Start
+    if (room.players.length >= room.maxPlayers && room.gameType !== 'doodle-duel' && room.gameType !== 'tambola') {
       this.startGame(room);
     }
 
@@ -365,6 +366,13 @@ export class GameRoomManager {
       this.stopDoodleTimer(room.id);
       const config = (room as any).doodleConfig || DEFAULT_DOODLE_CONFIG;
       initialState = DoodleDuelEngine.createInitialState(playerConfigs, config);
+      const p1 = playerConfigs[0] || { userId: 'p1', displayName: 'Player 1' };
+      const p2 = playerConfigs[1] || p1;
+      DoodleDuelEngine.startRoundIntro(initialState, p1.userId, p2.userId);
+      initialState.drawerDisplayName = p1.displayName;
+      initialState.guesserDisplayName = p2.displayName;
+      initialState.currentRound = 1;
+      initialState.timeLeftSeconds = 3;
     } else if (room.gameType === 'chess') {
       this.stopChessClock(room.id);
       const config = (room as any).chessConfig || DEFAULT_CHESS_CONFIG;
@@ -399,7 +407,9 @@ export class GameRoomManager {
           ? 'Bingo Duel started! Numbers calling...'
           : room.gameType === 'tambola'
             ? 'Tambola started! Numbers calling...'
-            : 'All human players connected! Game starting now!'
+            : room.gameType === 'doodle-duel'
+              ? 'Doodle Duel started! Round intro begins.'
+              : 'All human players connected! Game starting now!'
       }
     });
 
@@ -407,6 +417,9 @@ export class GameRoomManager {
       this.startBingoAutoCall(room.id, initialState.config.callingSpeed);
     } else if (room.gameType === 'chess') {
       this.startChessClock(room.id);
+    } else if (room.gameType === 'doodle-duel') {
+      this.startDoodleTimer(room.id);
+      this.broadcastDoodleState(room.id);
     }
   }
 
@@ -2022,7 +2035,7 @@ export class GameRoomManager {
         }
       }
 
-      if (room.status === 'WAITING' && room.players.length >= room.maxPlayers) {
+      if (room.status === 'WAITING' && room.players.length >= room.maxPlayers && room.gameType !== 'doodle-duel' && room.gameType !== 'tambola') {
         this.startGame(room);
       }
 
@@ -2031,6 +2044,23 @@ export class GameRoomManager {
       currentRoom.theme = theme;
       const chatHistory = this.roomChatHistory.get(roomId) || [];
       currentRoom.chatHistory = chatHistory;
+
+      // For doodle-duel: If room was saved in DB with PLAYING status but phase is still LOBBY, unstick it!
+      if (currentRoom.gameType === 'doodle-duel' && currentRoom.status === 'PLAYING') {
+        if (!currentRoom.gameState || currentRoom.gameState.phase === 'LOBBY' || currentRoom.gameState.phase === 'ROLE_SELECTION') {
+          const p1 = currentRoom.players[0] || { userId: user.id, displayName: user.displayName };
+          const p2 = currentRoom.players[1] || p1;
+          if (!currentRoom.gameState) {
+            currentRoom.gameState = DoodleDuelEngine.createInitialState(currentRoom.players, DEFAULT_DOODLE_CONFIG);
+          }
+          DoodleDuelEngine.startRoundIntro(currentRoom.gameState, p1.userId, p2.userId);
+          currentRoom.gameState.drawerDisplayName = p1.displayName;
+          currentRoom.gameState.guesserDisplayName = p2.displayName;
+          currentRoom.gameState.currentRound = 1;
+          currentRoom.gameState.timeLeftSeconds = 3;
+          this.db.updateGameRoomState(roomId, currentRoom.gameState);
+        }
+      }
 
       // For doodle-duel during active play, prepare role-specific gameState for game:sync
       let syncGameState = currentRoom.gameState;

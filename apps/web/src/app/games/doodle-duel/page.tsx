@@ -285,10 +285,12 @@ function DoodleDuelGameContent() {
   const isHost = room?.hostUserId === currentUserId;
   const isLobby =
     !room ||
-    (!['ROUND_INTRO', 'WORD_CHOICE', 'CHOOSING_WORD', 'DRAWING', 'GUESSING', 'ROUND_RESULT', 'FINISHED'].includes(
-      dState?.phase || ''
-    ) &&
-      room.status === 'WAITING');
+    !dState ||
+    dState.phase === 'LOBBY' ||
+    dState.phase === 'ROLE_SELECTION' ||
+    !['ROUND_INTRO', 'WORD_CHOICE', 'CHOOSING_WORD', 'DRAWING', 'GUESSING', 'ROUND_RESULT', 'FINISHED'].includes(
+      dState.phase || ''
+    );
   // Show word picker for all matching phase names (be generous in case server uses different casing)
   const isChoosingWord =
     dState?.phase === 'CHOOSING_WORD' ||
