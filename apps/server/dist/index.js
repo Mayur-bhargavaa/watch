@@ -806,101 +806,118 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(err.statusCode || 500).send({ error: err.message || 'Failed to fetch active friends in games' });
         }
     });
-    // Play with Partner / Friend (Deterministic Smart Pairing)
+    // Play with Partner / Friend (Deterministic Smart Pairing or Custom Room Creation)
     app.post('/api/games/partner/play', async (request, reply) => {
-        const user = await getRequestUser(request);
-        const body = (request.body || {});
-        const gameType = resolveGameType(body.gameType);
-        let targetUser = null;
-        const targetId = body.targetUserId || body.friendUserId;
-        if (targetId) {
-            targetUser = await mongoDb.getUserById(targetId);
-        }
-        else if (body.partnerCode) {
-            targetUser = await mongoDb.getUserByPartnerCode(body.partnerCode);
-        }
-        let partnerUserId;
-        if (targetUser && targetUser.id !== user.id) {
-            partnerUserId = targetUser.id;
-            // Also ensure connected in partner_connections so updated_at makes them primary
-            try {
-                if (targetUser.partnerCode) {
-                    await mongoDb.connectPartner(user.id, targetUser.partnerCode);
+        try {
+            const user = await getRequestUser(request);
+            const body = (request.body || {});
+            const gameType = resolveGameType(body.gameType);
+            let targetUser = null;
+            const targetId = body.targetUserId || body.friendUserId;
+            if (targetId) {
+                targetUser = await mongoDb.getUserById(targetId);
+            }
+            else if (body.partnerCode) {
+                targetUser = await mongoDb.getUserByPartnerCode(body.partnerCode);
+            }
+            let partnerUserId = null;
+            if (targetUser && targetUser.id !== user.id) {
+                partnerUserId = targetUser.id;
+                try {
+                    if (targetUser.partnerCode) {
+                        await mongoDb.connectPartner(user.id, targetUser.partnerCode);
+                    }
+                }
+                catch { }
+            }
+            else {
+                const partner = await mongoDb.getPartner(user.id);
+                if (partner) {
+                    partnerUserId = partner.partnerUserId;
                 }
             }
-            catch { }
-        }
-        else {
-            const partner = await mongoDb.getPartner(user.id);
-            if (!partner) {
-                return reply.code(400).send({ error: 'No partner or friend selected. Please choose a friend to play with.' });
+            const gameBasePath = getGameBasePath(gameType);
+            // 1. Check if partner is ALREADY waiting in an open game room
+            if (partnerUserId) {
+                const partnerWaitingRoom = db.findUserWaitingGameRoom(partnerUserId);
+                if (partnerWaitingRoom &&
+                    partnerWaitingRoom.gameType === gameType &&
+                    partnerWaitingRoom.status === 'WAITING' &&
+                    partnerWaitingRoom.players.length < partnerWaitingRoom.maxPlayers) {
+                    try {
+                        const joined = gameRoomManager.joinRoom(partnerWaitingRoom.roomCode, user);
+                        return {
+                            success: true,
+                            room: joined,
+                            joinedPartnerRoom: true,
+                            inviteUrl: `${gameBasePath}?room=${joined.roomCode}`
+                        };
+                    }
+                    catch (joinErr) {
+                        console.warn(`[PartnerPlay] Failed to join partner's waiting room ${partnerWaitingRoom.roomCode}:`, joinErr);
+                    }
+                }
             }
-            partnerUserId = partner.partnerUserId;
-        }
-        const gameBasePath = getGameBasePath(gameType);
-        // 1. Check if partner is ALREADY waiting in an open game room
-        const partnerWaitingRoom = db.findUserWaitingGameRoom(partnerUserId);
-        if (partnerWaitingRoom &&
-            partnerWaitingRoom.gameType === gameType &&
-            partnerWaitingRoom.status === 'WAITING' &&
-            partnerWaitingRoom.players.length < partnerWaitingRoom.maxPlayers) {
-            const joined = gameRoomManager.joinRoom(partnerWaitingRoom.roomCode, user);
-            return {
-                success: true,
-                room: joined,
-                joinedPartnerRoom: true,
-                inviteUrl: `${gameBasePath}?room=${joined.roomCode}`
-            };
-        }
-        // 2. Check if current user ALREADY has an open waiting game room
-        const myWaitingRoom = db.findUserWaitingGameRoom(user.id);
-        if (myWaitingRoom && myWaitingRoom.gameType === gameType && myWaitingRoom.status === 'WAITING') {
-            const invitePayload = {
-                id: `ginvite_${nanoid(8)}`,
-                fromUserId: user.id,
-                fromDisplayName: user.displayName,
-                fromPartnerCode: user.partnerCode,
-                roomCode: myWaitingRoom.roomCode,
-                gameType: myWaitingRoom.gameType,
-                timestamp: Date.now()
-            };
-            presenceManager.sendToUser(partnerUserId, {
-                type: 'partner:game_invite',
-                payload: invitePayload
+            // 2. Check if current user ALREADY has an open waiting game room
+            const myWaitingRoom = db.findUserWaitingGameRoom(user.id);
+            if (myWaitingRoom && myWaitingRoom.gameType === gameType && myWaitingRoom.status === 'WAITING') {
+                if (partnerUserId) {
+                    const invitePayload = {
+                        id: `ginvite_${nanoid(8)}`,
+                        fromUserId: user.id,
+                        fromDisplayName: user.displayName,
+                        fromPartnerCode: user.partnerCode,
+                        roomCode: myWaitingRoom.roomCode,
+                        gameType: myWaitingRoom.gameType,
+                        timestamp: Date.now()
+                    };
+                    presenceManager.sendToUser(partnerUserId, {
+                        type: 'partner:game_invite',
+                        payload: invitePayload
+                    });
+                }
+                return {
+                    success: true,
+                    room: myWaitingRoom,
+                    joinedPartnerRoom: false,
+                    inviteUrl: `${gameBasePath}?room=${myWaitingRoom.roomCode}`
+                };
+            }
+            // 3. Otherwise, create a dedicated 2-player game room for the host
+            const created = gameRoomManager.createGameRoom({
+                hostUser: user,
+                gameType,
+                maxPlayers: 2,
+                isPrivate: true
             });
+            if (partnerUserId) {
+                const invitePayload = {
+                    id: `ginvite_${nanoid(8)}`,
+                    fromUserId: user.id,
+                    fromDisplayName: user.displayName,
+                    fromPartnerCode: user.partnerCode,
+                    roomCode: created.roomCode,
+                    gameType,
+                    timestamp: Date.now()
+                };
+                presenceManager.sendToUser(partnerUserId, {
+                    type: 'partner:game_invite',
+                    payload: invitePayload
+                });
+            }
             return {
                 success: true,
-                room: myWaitingRoom,
+                room: created,
                 joinedPartnerRoom: false,
-                inviteUrl: `${gameBasePath}?room=${myWaitingRoom.roomCode}`
+                inviteUrl: `${gameBasePath}?room=${created.roomCode}`
             };
         }
-        // 3. Otherwise, create a dedicated 2-player game room for the partners
-        const created = gameRoomManager.createGameRoom({
-            hostUser: user,
-            gameType,
-            maxPlayers: 2,
-            isPrivate: true
-        });
-        const invitePayload = {
-            id: `ginvite_${nanoid(8)}`,
-            fromUserId: user.id,
-            fromDisplayName: user.displayName,
-            fromPartnerCode: user.partnerCode,
-            roomCode: created.roomCode,
-            gameType,
-            timestamp: Date.now()
-        };
-        presenceManager.sendToUser(partnerUserId, {
-            type: 'partner:game_invite',
-            payload: invitePayload
-        });
-        return {
-            success: true,
-            room: created,
-            joinedPartnerRoom: false,
-            inviteUrl: `${gameBasePath}?room=${created.roomCode}`
-        };
+        catch (err) {
+            console.error('[PartnerPlay] Error creating/joining partner game:', err);
+            return reply.code(err.statusCode || 500).send({
+                error: err.message || 'Failed to start match with partner'
+            });
+        }
     });
     // Join Any Room / Matchmaking (2, 3, or 4 players - ZERO BOTS)
     app.post('/api/games/matchmake', async (request, reply) => {
