@@ -750,6 +750,38 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         break;
       }
 
+      case 'bingo:number_marked': {
+        const { userId, number, playerMarked, playerMarks, playerProgress, gameState: nextState } = msg.payload || {};
+        if (nextState) {
+          setGameState(nextState);
+        } else if (userId) {
+          setGameState((prev: any) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (playerMarked) {
+              updated.playerMarked = {
+                ...(prev.playerMarked || {}),
+                [userId]: playerMarked
+              };
+            }
+            if (playerMarks) {
+              updated.playerMarks = {
+                ...(prev.playerMarks || {}),
+                [userId]: playerMarks
+              };
+            }
+            if (playerProgress) {
+              updated.playerProgress = {
+                ...(prev.playerProgress || {}),
+                [userId]: playerProgress
+              };
+            }
+            return updated;
+          });
+        }
+        break;
+      }
+
       case 'bingo:claim_result': {
         const result = msg.payload;
         if (result?.gameState) setGameState(result.gameState);
@@ -1283,12 +1315,12 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     );
   }, []);
 
-  const markBingoNumber = useCallback((number: number) => {
+  const markBingoNumber = useCallback((number: number, forceMark?: boolean) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
       JSON.stringify({
         type: 'bingo:mark',
-        payload: { number }
+        payload: { number, forceMark: Boolean(forceMark) }
       })
     );
   }, []);

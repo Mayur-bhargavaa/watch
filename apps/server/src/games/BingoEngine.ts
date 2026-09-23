@@ -348,12 +348,14 @@ export class BingoEngine {
   }
 
   /**
-   * Toggles or marks a number on the player's ticket
+   * Toggles or marks a number on the player's ticket.
+   * If forceMark is true, ensures the number is marked without toggling it off.
    */
   public static markNumber(
     state: BingoGameState,
     userId: string,
-    numberToMark: number
+    numberToMark: number,
+    forceMark?: boolean
   ): BingoGameState {
     if (!state.playerMarked[userId]) {
       state.playerMarked[userId] = [];
@@ -361,7 +363,9 @@ export class BingoEngine {
     const list = state.playerMarked[userId];
     const idx = list.indexOf(numberToMark);
     if (idx >= 0) {
-      list.splice(idx, 1);
+      if (!forceMark) {
+        list.splice(idx, 1);
+      }
     } else {
       list.push(numberToMark);
     }

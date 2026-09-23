@@ -445,19 +445,63 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
     ? serverTicket.cells
     : previewTicketGrid;
 
-  // Real Marked numbers
-  const myMarkedList: number[] = gameState?.playerMarked?.[me?.userId || ''] || [];
-  const myMarkedSet = useMemo(() => new Set(myMarkedList), [myMarkedList]);
+  // Optimistic local marking for 0ms instant feedback
+  const [localMarked, setLocalMarked] = useState<Set<number>>(new Set());
+  const markedSentRef = useRef<Set<number>>(new Set());
+
+  // Real Marked numbers from server
+  const serverMarkedList: number[] = gameState?.playerMarked?.[me?.userId || ''] || [];
+  const myMarkedSet = useMemo(() => {
+    const s = new Set<number>(serverMarkedList);
+    localMarked.forEach((n: number) => s.add(n));
+    return s;
+  }, [serverMarkedList, localMarked]);
+
   const calledSet = useMemo(() => new Set<number>(gameState?.calledNumbers || []), [gameState?.calledNumbers]);
 
-  // Auto-mark effect
+  // Sync server marks to local marks when server state arrives
+  useEffect(() => {
+    if (serverMarkedList.length > 0) {
+      setLocalMarked(prev => {
+        let changed = false;
+        const next = new Set(prev);
+        serverMarkedList.forEach((n: number) => {
+          if (!next.has(n)) {
+            next.add(n);
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+      serverMarkedList.forEach((n: number) => markedSentRef.current.add(n));
+    }
+  }, [serverMarkedList]);
+
+  // Full working Auto-Mark effect: scans called numbers on ticket and marks them instantly
   useEffect(() => {
     if (autoMark && isPlaying && ticketCells) {
-      ticketCells.flat().forEach((num: number | null) => {
-        if (num !== null && calledSet.has(num) && !myMarkedSet.has(num)) {
-          markBingoNumber(num);
+      const allNums: number[] = ticketCells.flat().filter((n: number | null): n is number => n !== null);
+      const toMark: number[] = [];
+      allNums.forEach((num: number) => {
+        if (calledSet.has(num) && !myMarkedSet.has(num) && !markedSentRef.current.has(num)) {
+          toMark.push(num);
+          markedSentRef.current.add(num);
         }
       });
+
+      if (toMark.length > 0) {
+        // Optimistically mark all instantly on screen
+        setLocalMarked(prev => {
+          const next = new Set(prev);
+          toMark.forEach((n: number) => next.add(n));
+          return next;
+        });
+
+        // Dispatch forceMark to server for all numbers
+        toMark.forEach((num: number) => {
+          markBingoNumber(num, true);
+        });
+      }
     }
   }, [autoMark, calledSet, myMarkedSet, isPlaying, ticketCells, markBingoNumber]);
 
@@ -485,11 +529,29 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   const fourCornersCount = cornerNums.filter((n: number) => myMarkedSet.has(n)).length;
   const housefullCount = myMarkedCount;
 
-  // Handler for clicking a number on ticket
+  // Handler for clicking a number on ticket (Instant optimistic response)
   const handleCellClick = (num: number | null) => {
     if (num === null) return;
     if (isPlaying) {
-      markBingoNumber(num);
+      if (myMarkedSet.has(num)) {
+        // Optimistic unmark
+        setLocalMarked(prev => {
+          const next = new Set(prev);
+          next.delete(num);
+          return next;
+        });
+        markedSentRef.current.delete(num);
+        markBingoNumber(num, false);
+      } else {
+        // Optimistic mark
+        setLocalMarked(prev => {
+          const next = new Set(prev);
+          next.add(num);
+          return next;
+        });
+        markedSentRef.current.add(num);
+        markBingoNumber(num, true);
+      }
     } else {
       if (myMarkedSet.has(num)) {
         myMarkedSet.delete(num);

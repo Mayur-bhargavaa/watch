@@ -1064,7 +1064,7 @@ export class GameRoomManager {
     }
   }
 
-  public handleBingoMark(roomId: string, userId: string, numberToMark: number): void {
+  public handleBingoMark(roomId: string, userId: string, numberToMark: number, forceMark?: boolean): void {
     const room = this.db.getGameRoomById(roomId);
     if (!room || !room.gameState || (room.gameType !== 'bingo' && room.gameType !== 'tambola')) return;
 
@@ -1087,7 +1087,7 @@ export class GameRoomManager {
         });
       }
     } else {
-      const updatedState = BingoEngine.markNumber(room.gameState, userId, numberToMark);
+      const updatedState = BingoEngine.markNumber(room.gameState, userId, numberToMark, forceMark);
       room.gameState = updatedState;
       this.db.updateGameRoomState(room.id, updatedState);
 
@@ -1097,7 +1097,8 @@ export class GameRoomManager {
         payload: {
           userId,
           number: numberToMark,
-          playerMarked: updatedState.playerMarked[userId]
+          playerMarked: updatedState.playerMarked[userId],
+          gameState: updatedState
         }
       });
     }
@@ -2065,7 +2066,7 @@ export class GameRoomManager {
 
       case 'bingo:mark':
       case 'tambola:mark':
-        this.handleBingoMark(client.roomId, client.userId, Number(msg.payload?.number));
+        this.handleBingoMark(client.roomId, client.userId, Number(msg.payload?.number), Boolean(msg.payload?.forceMark));
         break;
 
       case 'bingo:set_board':
