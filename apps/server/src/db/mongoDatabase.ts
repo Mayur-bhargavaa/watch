@@ -16,7 +16,35 @@ import {
   GameRoomStatus,
   LudoColor
 } from '@synccinema/common';
-import { extractParticipantIdsFromConvId, toCanonicalConvId } from './database.js';
+export function extractParticipantIdsFromConvId(
+  convId: string,
+  currentUserId?: string
+): { userIds: string[]; otherUserId?: string } {
+  if (!convId || !convId.startsWith('conv_')) {
+    return { userIds: [] };
+  }
+  const raw = convId.slice(5); // strip 'conv_'
+
+  const matchTwoUsr = raw.match(/^(usr_[a-zA-Z0-9_-]+?)_(usr_[a-zA-Z0-9_-]+)$/);
+  if (matchTwoUsr) {
+    const userIds = [matchTwoUsr[1], matchTwoUsr[2]];
+    const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
+    return { userIds, otherUserId };
+  }
+
+  const parts = raw.split('_');
+  if (parts.length >= 2) {
+    const userIds = [parts[0], parts[1]];
+    const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
+    return { userIds, otherUserId };
+  }
+
+  return { userIds: [] };
+}
+
+export function toCanonicalConvId(userA: string, userB: string): string {
+  return `conv_${[userA, userB].sort().join('_')}`;
+}
 
 export interface FriendStreak {
   id: string;
@@ -80,6 +108,17 @@ export class MongoDatabaseService {
   private readonly defaultUri = 'mongodb+srv://DBmayur:Mayur%402608@cluster0.ytcpzbb.mongodb.net/';
   private readonly dbName = 'stitchbyte_watch_party';
 
+  // In-memory cache for ultra-fast, zero-latency real-time room and game state
+  private activeGameRooms = new Map<string, GameRoom>();
+  private gameRoomsByCode = new Map<string, string>(); // roomCode -> roomId
+  private activeRooms = new Map<string, Room>();
+  private roomsBySlug = new Map<string, string>(); // slug -> roomId
+  private roomMembers = new Map<string, Map<string, RoomMember>>(); // roomId -> (userId -> RoomMember)
+  private mediaItems = new Map<string, MediaItem>();
+  private playbackStates = new Map<string, RoomPlaybackState>();
+  private reactions = new Map<string, Reaction[]>();
+  private chatMessages = new Map<string, ChatMessage[]>();
+
   constructor(uri?: string) {
     const mongoUri = uri || process.env.MONGODB_URI || this.defaultUri;
     this.client = new MongoClient(mongoUri);
@@ -90,6 +129,35 @@ export class MongoDatabaseService {
     if (this.client) {
       await this.client.connect();
       console.log('🍃 MongoDatabaseService connected to', this.dbName);
+
+      try {
+        await this.usersCol.createIndex({ email: 1 }, { unique: true, sparse: true });
+        await this.usersCol.createIndex({ partnerCode: 1 }, { unique: true, sparse: true });
+        await this.gameRoomsCol.createIndex({ roomCode: 1 });
+        await this.roomsCol.createIndex({ slug: 1 });
+      } catch {}
+
+      // Preload active games and watch rooms
+      try {
+        const gameDocs = await this.gameRoomsCol.find({ status: { $in: ['WAITING', 'PLAYING'] } }).toArray();
+        for (const doc of gameDocs) {
+          const room = this.mapGameRoomDoc(doc);
+          this.activeGameRooms.set(room.id, room);
+          if (room.roomCode) {
+            this.gameRoomsByCode.set(room.roomCode.toUpperCase(), room.id);
+          }
+        }
+        const roomDocs = await this.roomsCol.find({ endedAt: null }).toArray();
+        for (const doc of roomDocs) {
+          const room = this.mapRoomDoc(doc);
+          this.activeRooms.set(room.id, room);
+          if (room.slug) {
+            this.roomsBySlug.set(room.slug.toLowerCase(), room.id);
+          }
+        }
+      } catch (err) {
+        console.error('MongoDB preload notice:', err);
+      }
     }
   }
 
@@ -119,6 +187,38 @@ export class MongoDatabaseService {
 
   get partnerConnectionsCol(): Collection<any> {
     return this.db!.collection('partner_connections');
+  }
+
+  get roomsCol(): Collection<any> {
+    return this.db!.collection('rooms');
+  }
+
+  get roomMembersCol(): Collection<any> {
+    return this.db!.collection('room_members');
+  }
+
+  get mediaCol(): Collection<any> {
+    return this.db!.collection('media');
+  }
+
+  get playbackStatesCol(): Collection<any> {
+    return this.db!.collection('playback_states');
+  }
+
+  get playbackEventsCol(): Collection<any> {
+    return this.db!.collection('playback_events');
+  }
+
+  get reactionsCol(): Collection<any> {
+    return this.db!.collection('reactions');
+  }
+
+  get chatMessagesCol(): Collection<any> {
+    return this.db!.collection('chat_messages');
+  }
+
+  get gameRoomsCol(): Collection<any> {
+    return this.db!.collection('game_rooms');
   }
 
   // ==========================================
@@ -956,6 +1056,459 @@ export class MongoDatabaseService {
     });
   }
 
+  // ==========================================
+  // DOCUMENT MAPPERS & HELPERS
+  // ==========================================
+
+  private mapGameRoomDoc(doc: any): GameRoom {
+    return {
+      id: doc.id || doc._id,
+      roomCode: doc.roomCode || doc.room_code,
+      gameType: doc.gameType || doc.game_type,
+      hostUserId: doc.hostUserId || doc.host_user_id,
+      maxPlayers: doc.maxPlayers || doc.max_players || 2,
+      minPlayers: doc.minPlayers || doc.min_players || 2,
+      isPrivate: Boolean(doc.isPrivate ?? doc.is_private),
+      status: doc.status || 'WAITING',
+      players: Array.isArray(doc.players) ? doc.players : [],
+      gameState: doc.gameState || (doc.game_state ? (typeof doc.game_state === 'string' ? JSON.parse(doc.game_state) : doc.game_state) : null),
+      theme: doc.theme,
+      createdAt: doc.createdAt || doc.created_at || new Date().toISOString(),
+      startedAt: doc.startedAt || doc.started_at || null,
+      finishedAt: doc.finishedAt || doc.finished_at || null
+    };
+  }
+
+  private mapRoomDoc(doc: any): Room {
+    return {
+      id: doc.id || doc._id,
+      slug: doc.slug,
+      title: doc.title,
+      description: doc.description,
+      hostId: doc.hostId || doc.host_id,
+      privacy: doc.privacy || 'INVITE_ONLY',
+      isLocked: Boolean(doc.isLocked ?? doc.is_locked),
+      currentMedia: doc.currentMedia || null,
+      playbackState: doc.playbackState || {
+        roomId: doc.id || doc._id,
+        state: 'PAUSED',
+        position: 0,
+        serverTimestamp: Date.now(),
+        playbackRate: 1.0,
+        version: 0,
+        updatedBy: doc.hostId || doc.host_id
+      },
+      activityMode: doc.activityMode || doc.activity_mode || 'CINEMA',
+      themeId: doc.themeId || doc.theme_id || 'default',
+      createdAt: doc.createdAt || doc.created_at || new Date().toISOString(),
+      endedAt: doc.endedAt || doc.ended_at || null
+    };
+  }
+
+  // ==========================================
+  // MEDIA & WATCH ROOMS
+  // ==========================================
+
+  createOrGetMedia(media: MediaItem): MediaItem {
+    this.mediaItems.set(media.id, media);
+    this.mediaCol.updateOne(
+      { sourceUrl: media.sourceUrl },
+      { $setOnInsert: { ...media, _id: media.id, createdAt: new Date().toISOString() } },
+      { upsert: true }
+    ).catch(err => console.error('MongoDB createOrGetMedia notice:', err));
+    return media;
+  }
+
+  getMediaById(id: string): MediaItem | null {
+    return this.mediaItems.get(id) || null;
+  }
+
+  createRoom(room: Room): void {
+    this.activeRooms.set(room.id, room);
+    if (room.slug) {
+      this.roomsBySlug.set(room.slug.toLowerCase(), room.id);
+    }
+    if (room.playbackState) {
+      this.updatePlaybackState(room.playbackState);
+    }
+    this.roomsCol.updateOne(
+      { id: room.id },
+      { $set: { ...room, _id: room.id } },
+      { upsert: true }
+    ).catch(err => console.error('MongoDB createRoom notice:', err));
+  }
+
+  getRoomBySlug(slug: string): Room | null {
+    const cleanSlug = (slug || '').toLowerCase();
+    const id = this.roomsBySlug.get(cleanSlug);
+    if (id && this.activeRooms.has(id)) {
+      return this.activeRooms.get(id)!;
+    }
+    if (this.activeRooms.has(slug)) {
+      return this.activeRooms.get(slug)!;
+    }
+    return null;
+  }
+
+  getRoomById(id: string): Room | null {
+    return this.activeRooms.get(id) || null;
+  }
+
+  updateRoomMedia(roomId: string, mediaId: string): void {
+    const room = this.activeRooms.get(roomId);
+    const media = this.getMediaById(mediaId);
+    if (room) {
+      room.currentMedia = media;
+    }
+    this.roomsCol.updateOne({ id: roomId }, { $set: { currentMedia: media, mediaId } }).catch(console.error);
+  }
+
+  updateRoomTheme(roomId: string, themeId: string): void {
+    const room = this.activeRooms.get(roomId);
+    if (room) room.themeId = themeId;
+    this.roomsCol.updateOne({ id: roomId }, { $set: { themeId } }).catch(console.error);
+  }
+
+  updateRoomHost(roomId: string, newHostId: string): void {
+    const room = this.activeRooms.get(roomId);
+    if (room) room.hostId = newHostId;
+    this.roomsCol.updateOne({ id: roomId }, { $set: { hostId: newHostId } }).catch(console.error);
+  }
+
+  endRoom(roomId: string): void {
+    const now = new Date().toISOString();
+    const room = this.activeRooms.get(roomId);
+    if (room) {
+      room.endedAt = now;
+    }
+    this.roomsCol.updateOne({ id: roomId }, { $set: { endedAt: now } }).catch(console.error);
+  }
+
+  getRoomsByHost(userId: string): Room[] {
+    const res: Room[] = [];
+    for (const room of this.activeRooms.values()) {
+      if (room.hostId === userId) res.push(room);
+    }
+    return res;
+  }
+
+  updatePlaybackState(state: RoomPlaybackState): void {
+    this.playbackStates.set(state.roomId, state);
+    const room = this.activeRooms.get(state.roomId);
+    if (room) room.playbackState = state;
+    this.playbackStatesCol.updateOne(
+      { roomId: state.roomId },
+      { $set: { ...state, _id: state.roomId } },
+      { upsert: true }
+    ).catch(console.error);
+  }
+
+  getPlaybackState(roomId: string): RoomPlaybackState | null {
+    return this.playbackStates.get(roomId) || null;
+  }
+
+  logPlaybackEvent(eventId: string, state: RoomPlaybackState, action: string): void {
+    this.playbackEventsCol.insertOne({
+      _id: eventId,
+      id: eventId,
+      roomId: state.roomId,
+      actorId: state.updatedBy,
+      action,
+      position: state.position,
+      playbackRate: state.playbackRate,
+      serverTimestamp: state.serverTimestamp,
+      version: state.version,
+      createdAt: new Date().toISOString()
+    }).catch(console.error);
+  }
+
+  upsertMember(member: RoomMember): void {
+    let membersMap = this.roomMembers.get(member.roomId);
+    if (!membersMap) {
+      membersMap = new Map();
+      this.roomMembers.set(member.roomId, membersMap);
+    }
+    membersMap.set(member.userId, { ...member, isConnected: true });
+    this.roomMembersCol.updateOne(
+      { roomId: member.roomId, userId: member.userId },
+      { $set: { ...member, isConnected: true, leftAt: null, _id: member.id } },
+      { upsert: true }
+    ).catch(console.error);
+  }
+
+  setMemberDisconnected(roomId: string, userId: string): void {
+    const membersMap = this.roomMembers.get(roomId);
+    if (membersMap && membersMap.has(userId)) {
+      const m = membersMap.get(userId)!;
+      m.isConnected = false;
+      m.status = 'DISCONNECTED';
+    }
+    this.roomMembersCol.updateOne(
+      { roomId, userId },
+      { $set: { isConnected: false, status: 'DISCONNECTED', leftAt: new Date().toISOString() } }
+    ).catch(console.error);
+  }
+
+  updateMemberRole(roomId: string, userId: string, role: Role): void {
+    const membersMap = this.roomMembers.get(roomId);
+    if (membersMap && membersMap.has(userId)) {
+      membersMap.get(userId)!.role = role;
+    }
+    this.roomMembersCol.updateOne({ roomId, userId }, { $set: { role } }).catch(console.error);
+  }
+
+  getRoomMembers(roomId: string): RoomMember[] {
+    const membersMap = this.roomMembers.get(roomId);
+    if (!membersMap) return [];
+    return Array.from(membersMap.values()).filter(m => m.isConnected);
+  }
+
+  insertReaction(reaction: Reaction): void {
+    let list = this.reactions.get(reaction.roomId);
+    if (!list) {
+      list = [];
+      this.reactions.set(reaction.roomId, list);
+    }
+    list.push(reaction);
+    if (list.length > 500) list.shift();
+    this.reactionsCol.insertOne({ ...reaction, _id: reaction.id }).catch(console.error);
+  }
+
+  getRecentReactions(roomId: string, limit = 50): Reaction[] {
+    const list = this.reactions.get(roomId) || [];
+    return list.slice(-limit);
+  }
+
+  getReactionHeatmap(roomId: string, bucketSeconds = 15): Array<{
+    bucketStart: number;
+    count: number;
+    topEmoji: string;
+    reactionCounts: Record<string, number>;
+  }> {
+    const list = this.reactions.get(roomId) || [];
+    const buckets = new Map<number, { count: number; emojis: Record<string, number> }>();
+
+    for (const r of list) {
+      const pos = r.mediaTimestamp || 0;
+      const bucket = Math.floor(pos / bucketSeconds) * bucketSeconds;
+      if (!buckets.has(bucket)) {
+        buckets.set(bucket, { count: 0, emojis: {} });
+      }
+      const b = buckets.get(bucket)!;
+      b.count++;
+      b.emojis[r.emoji] = (b.emojis[r.emoji] || 0) + 1;
+    }
+
+    return Array.from(buckets.entries()).map(([bucketStart, data]) => {
+      let topEmoji = '🔥';
+      let maxCount = 0;
+      for (const [emoji, cnt] of Object.entries(data.emojis)) {
+        if (cnt > maxCount) {
+          maxCount = cnt;
+          topEmoji = emoji;
+        }
+      }
+      return {
+        bucketStart,
+        count: data.count,
+        topEmoji,
+        reactionCounts: data.emojis
+      };
+    });
+  }
+
+  insertChatMessage(msg: ChatMessage): void {
+    let list = this.chatMessages.get(msg.roomId);
+    if (!list) {
+      list = [];
+      this.chatMessages.set(msg.roomId, list);
+    }
+    list.push(msg);
+    if (list.length > 500) list.shift();
+    this.chatMessagesCol.insertOne({ ...msg, _id: msg.id }).catch(console.error);
+  }
+
+  getRecentChatMessages(roomId: string, limit = 100): ChatMessage[] {
+    const list = this.chatMessages.get(roomId) || [];
+    return list.slice(-limit);
+  }
+
+  deleteChatMessage(messageId: string): void {
+    for (const list of this.chatMessages.values()) {
+      const idx = list.findIndex(m => m.id === messageId);
+      if (idx !== -1) list.splice(idx, 1);
+    }
+    this.chatMessagesCol.deleteOne({ id: messageId }).catch(console.error);
+  }
+
+  // ==========================================
+  // GAME ROOMS (100% MONGODB + ULTRA-FAST IN-MEMORY CACHE)
+  // ==========================================
+
+  createGameRoom(room: GameRoom): GameRoom {
+    const cleanRoom: GameRoom = {
+      ...room,
+      players: Array.isArray(room.players) ? [...room.players] : [],
+      status: room.status || 'WAITING'
+    };
+    this.activeGameRooms.set(cleanRoom.id, cleanRoom);
+    if (cleanRoom.roomCode) {
+      this.gameRoomsByCode.set(cleanRoom.roomCode.toUpperCase(), cleanRoom.id);
+    }
+    this.gameRoomsCol.updateOne(
+      { id: cleanRoom.id },
+      { $set: { ...cleanRoom, _id: cleanRoom.id } },
+      { upsert: true }
+    ).catch(err => console.error('MongoDB createGameRoom notice:', err));
+    return cleanRoom;
+  }
+
+  getGameRoomByCode(code: string): GameRoom | null {
+    const cleanCode = (code || '').trim().toUpperCase();
+    const id = this.gameRoomsByCode.get(cleanCode);
+    if (id && this.activeGameRooms.has(id)) {
+      return this.activeGameRooms.get(id)!;
+    }
+    return null;
+  }
+
+  getGameRoomById(id: string): GameRoom | null {
+    return this.activeGameRooms.get(id) || null;
+  }
+
+  findOpenWaitingGameRoom(gameType: string, maxPlayers: number, excludeUserId?: string): GameRoom | null {
+    for (const room of this.activeGameRooms.values()) {
+      if (
+        room.gameType === gameType &&
+        room.maxPlayers === maxPlayers &&
+        room.status === 'WAITING' &&
+        !room.isPrivate &&
+        room.players.length < room.maxPlayers
+      ) {
+        if (!excludeUserId || !room.players.some(p => p.userId === excludeUserId)) {
+          return room;
+        }
+      }
+    }
+    return null;
+  }
+
+  findUserWaitingGameRoom(userId: string): GameRoom | null {
+    for (const room of this.activeGameRooms.values()) {
+      if (room.status === 'WAITING' && room.players.some(p => p.userId === userId)) {
+        return room;
+      }
+    }
+    return null;
+  }
+
+  findUserActiveGameRoom(userId: string): GameRoom | null {
+    for (const room of this.activeGameRooms.values()) {
+      if (
+        (room.status === 'WAITING' || room.status === 'PLAYING') &&
+        room.players.some(p => p.userId === userId && p.isConnected)
+      ) {
+        return room;
+      }
+    }
+    return null;
+  }
+
+  getGameRoomPlayers(roomId: string): GameRoomPlayer[] {
+    const room = this.getGameRoomById(roomId);
+    return room ? room.players : [];
+  }
+
+  addPlayerToGameRoom(
+    roomId: string,
+    user: { id: string; displayName: string; avatarUrl?: string | null },
+    seat: number,
+    color: LudoColor
+  ): GameRoomPlayer {
+    const room = this.getGameRoomById(roomId);
+    const now = new Date().toISOString();
+    const existing = room?.players.find(p => p.userId === user.id);
+    if (existing) {
+      existing.isConnected = true;
+      existing.displayName = user.displayName;
+      if (user.avatarUrl) existing.avatarUrl = user.avatarUrl;
+      this.gameRoomsCol.updateOne(
+        { id: roomId },
+        { $set: { players: room!.players } }
+      ).catch(console.error);
+      return existing;
+    }
+
+    const newPlayer: GameRoomPlayer = {
+      id: `gplayer_${nanoid(10)}`,
+      roomId,
+      userId: user.id,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl || null,
+      seat,
+      color,
+      status: 'WAITING',
+      isConnected: true,
+      joinedAt: now
+    };
+
+    if (room) {
+      room.players.push(newPlayer);
+      this.gameRoomsCol.updateOne(
+        { id: roomId },
+        { $set: { players: room.players } }
+      ).catch(console.error);
+    }
+    return newPlayer;
+  }
+
+  removePlayerFromGameRoom(roomId: string, userId: string): void {
+    const room = this.getGameRoomById(roomId);
+    if (room) {
+      room.players = room.players.filter(p => p.userId !== userId);
+      this.gameRoomsCol.updateOne(
+        { id: roomId },
+        { $set: { players: room.players } }
+      ).catch(console.error);
+    }
+  }
+
+  setGamePlayerConnected(roomId: string, userId: string, isConnected: boolean): void {
+    const room = this.getGameRoomById(roomId);
+    if (room) {
+      const p = room.players.find(pl => pl.userId === userId);
+      if (p) p.isConnected = isConnected;
+      this.gameRoomsCol.updateOne(
+        { id: roomId },
+        { $set: { players: room.players } }
+      ).catch(console.error);
+    }
+  }
+
+  updateGameRoomStatus(roomId: string, status: GameRoomStatus, startedAt?: string, finishedAt?: string): void {
+    const room = this.getGameRoomById(roomId);
+    if (room) {
+      room.status = status;
+      if (startedAt) room.startedAt = startedAt;
+      if (finishedAt) room.finishedAt = finishedAt;
+      const updates: any = { status };
+      if (startedAt) updates.startedAt = startedAt;
+      if (finishedAt) updates.finishedAt = finishedAt;
+      this.gameRoomsCol.updateOne({ id: roomId }, { $set: updates }).catch(console.error);
+    }
+  }
+
+  updateGameRoomState(roomId: string, gameState: any, currentTurnSeat?: number, winnerSeat?: number): void {
+    const room = this.getGameRoomById(roomId);
+    if (room) {
+      room.gameState = gameState;
+      const updates: any = { gameState };
+      if (currentTurnSeat !== undefined) updates.currentTurnSeat = currentTurnSeat;
+      if (winnerSeat !== undefined) updates.winnerSeat = winnerSeat;
+      this.gameRoomsCol.updateOne({ id: roomId }, { $set: updates }).catch(console.error);
+    }
+  }
+
   async deleteUserData(userId: string): Promise<void> {
     await this.usersCol.deleteOne({ _id: userId });
     await this.directMessagesCol.deleteMany({
@@ -966,6 +1519,19 @@ export class MongoDatabaseService {
     await this.partnerConnectionsCol.deleteMany({
       $or: [{ userId }, { partnerUserId: userId }]
     });
+    await this.roomsCol.deleteMany({ hostId: userId });
+    await this.roomMembersCol.deleteMany({ userId });
+    await this.gameRoomsCol.deleteMany({ hostUserId: userId });
+    await this.chatMessagesCol.deleteMany({ userId });
+    await this.reactionsCol.deleteMany({ userId });
+
+    // In-memory cache cleanup
+    for (const [id, room] of this.activeRooms.entries()) {
+      if (room.hostId === userId) this.activeRooms.delete(id);
+    }
+    for (const [id, gr] of this.activeGameRooms.entries()) {
+      if (gr.hostUserId === userId) this.activeGameRooms.delete(id);
+    }
   }
 
   async close(): Promise<void> {

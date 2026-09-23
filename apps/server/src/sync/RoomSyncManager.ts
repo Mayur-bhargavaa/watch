@@ -18,7 +18,7 @@ import {
   VoiceStatePayload,
   calculateAuthoritativePosition
 } from '@synccinema/common';
-import { DatabaseService } from '../db/database.js';
+import { MongoDatabaseService } from '../db/mongoDatabase.js';
 import { mongoLogger } from '../services/mongoLogger.js';
 
 export interface ConnectedClient {
@@ -36,7 +36,7 @@ export interface ConnectedClient {
 }
 
 export class RoomSyncManager {
-  private db: DatabaseService;
+  private db: MongoDatabaseService;
   // roomId -> Set of connected clients
   private roomClients = new Map<string, Set<ConnectedClient>>();
   // userId -> ConnectedClient
@@ -47,7 +47,7 @@ export class RoomSyncManager {
   private activeScreenPresenters = new Map<string, { userId: string; displayName: string }>();
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
-  constructor(db: DatabaseService) {
+  constructor(db: MongoDatabaseService) {
     this.db = db;
     this.startHeartbeat();
   }
@@ -183,17 +183,19 @@ export class RoomSyncManager {
       isConnected: true
     };
 
-    // Ensure user exists in users table (for foreign key constraints)
-    if (!this.db.getUserById(user.id)) {
-      this.db.createUser({
-        id: user.id,
-        email: undefined,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl || undefined,
-        isAnonymous: true,
-        createdAt: new Date().toISOString()
-      });
-    }
+    // Ensure user exists in users table (non-blocking)
+    this.db.getUserById(user.id).then(existing => {
+      if (!existing) {
+        this.db.createUser({
+          id: user.id,
+          email: undefined,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl || undefined,
+          isAnonymous: true,
+          createdAt: new Date().toISOString()
+        }).catch(console.error);
+      }
+    }).catch(console.error);
 
     // Save to database
     this.db.upsertMember(member);

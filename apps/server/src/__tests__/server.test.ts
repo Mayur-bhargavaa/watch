@@ -9,7 +9,7 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
   let baseUrl = '';
   let wsBaseUrl = '';
   try {
-    const serverObj = await createServer(':memory:');
+    const serverObj = await createServer();
     app = serverObj.app;
     db = serverObj.db;
     const address = await app.listen({ port: 0, host: '127.0.0.1' });

@@ -9,7 +9,7 @@ import {
   GameType,
   DoodleConfig
 } from '@synccinema/common';
-import { DatabaseService } from '../db/database.js';
+import { MongoDatabaseService, mongoDb } from '../db/mongoDatabase.js';
 import { GAME_DEFINITIONS } from './GameDefinitions.js';
 import { LudoEngine } from './LudoEngine.js';
 import { FourInARowEngine } from './FourInARowEngine.js';
@@ -19,7 +19,6 @@ import { BingoDuelEngine, DEFAULT_BINGO_DUEL_CONFIG } from './BingoDuelEngine.js
 import { DoodleDuelEngine, DEFAULT_DOODLE_CONFIG, DOODLE_WORDS } from './DoodleDuelEngine.js';
 import { ChessEngine } from './ChessEngine.js';
 import { DEFAULT_CHESS_CONFIG, ChessGameState } from '@synccinema/common';
-import { mongoDb } from '../db/mongoDatabase.js';
 
 interface ConnectedGameClient {
   socket: WebSocket;
@@ -32,7 +31,7 @@ interface ConnectedGameClient {
 }
 
 export class GameRoomManager {
-  private db: DatabaseService;
+  private db: MongoDatabaseService;
   // roomId -> Set of connected WebSocket clients
   private roomClients = new Map<string, Set<ConnectedGameClient>>();
   // userId -> ConnectedGameClient
@@ -52,7 +51,7 @@ export class GameRoomManager {
   // roomId -> chess clock ticker timer
   private chessTimers = new Map<string, NodeJS.Timeout>();
 
-  constructor(db: DatabaseService) {
+  constructor(db: MongoDatabaseService) {
     this.db = db;
   }
 
@@ -1398,7 +1397,19 @@ export class GameRoomManager {
 
     const players = room.players;
     if (players.length < 2) {
-      throw new Error('Need 2 players to start Doodle Duel');
+      const botPlayer = this.db.addPlayerToGameRoom(
+        room.id,
+        {
+          id: 'bot_duelist',
+          displayName: 'Doodle Buddy 🤖',
+          avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=doodle_bot'
+        },
+        1,
+        'blue' as any
+      );
+      if (!room.players.some(p => p.userId === botPlayer.userId)) {
+        room.players.push(botPlayer);
+      }
     }
 
     const def = GAME_DEFINITIONS[room.gameType];
