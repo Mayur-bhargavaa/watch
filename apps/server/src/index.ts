@@ -3,7 +3,8 @@ import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import fastifyWebsocket from '@fastify/websocket';
 import { nanoid } from 'nanoid';
-import { mongoDb, extractParticipantIdsFromConvId, toCanonicalConvId } from './db/mongoDatabase.js';
+import { DatabaseService, extractParticipantIdsFromConvId, toCanonicalConvId } from './db/database.js';
+import { mongoDb } from './db/mongoDatabase.js';
 import { RoomSyncManager } from './sync/RoomSyncManager.js';
 import { GameRoomManager } from './games/GameRoomManager.js';
 import { GAME_DEFINITIONS } from './games/GameDefinitions.js';
@@ -36,7 +37,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'synccinema-development-super-secre
 const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-export async function createServer() {
+export async function createServer(dbPath = './synccinema.db') {
   const app = fastify({
     logger: {
       level: process.env.LOG_LEVEL || 'info'
@@ -49,8 +50,9 @@ export async function createServer() {
     console.error('MongoDB connection notice:', err);
   }
 
-  const syncManager = new RoomSyncManager(mongoDb);
-  const gameRoomManager = new GameRoomManager(mongoDb);
+  const db = new DatabaseService(dbPath);
+  const syncManager = new RoomSyncManager(db);
+  const gameRoomManager = new GameRoomManager(db);
   const presenceManager = new PresenceManager(mongoDb);
 
   await app.register(cors, {
@@ -337,7 +339,7 @@ export async function createServer() {
   app.get('/api/user/rooms', async (request, reply) => {
     try {
       const payload = (await request.jwtVerify()) as any;
-      const rooms = mongoDb.getRoomsByHost(payload.id);
+      const rooms = db.getRoomsByHost(payload.id);
       return { rooms };
     } catch {
       return reply.code(401).send({ error: 'Unauthorized' });
@@ -372,7 +374,7 @@ export async function createServer() {
     const sourceUrl = body.sourceUrl?.trim() || '';
     const detected = sourceUrl ? detectProviderFromUrl(sourceUrl) : null;
 
-    const media = (sourceUrl && detected) ? mongoDb.createOrGetMedia({
+    const media = (sourceUrl && detected) ? db.createOrGetMedia({
       id: `med_${nanoid(10)}`,
       provider: detected.provider,
       providerMediaId: detected.providerMediaId,
@@ -404,7 +406,7 @@ export async function createServer() {
       createdAt: new Date().toISOString()
     };
 
-    mongoDb.createRoom(room);
+    db.createRoom(room);
     syncManager.registerRoom(room);
 
     await mongoLogger.logRoomCreated(room.id, room.slug, user.id, room.title, room.activityMode);
@@ -421,7 +423,7 @@ export async function createServer() {
     if (!room) {
       return reply.code(404).send({ error: 'Room not found or has ended' });
     }
-    const members = mongoDb.getRoomMembers(room.id);
+    const members = db.getRoomMembers(room.id);
     const activeCount = syncManager.getConnectedClientsCount(room.id);
     return {
       room,
@@ -440,9 +442,9 @@ export async function createServer() {
       return reply.code(404).send({ error: 'Room not found' });
     }
 
-    const heatmap = mongoDb.getReactionHeatmap(room.id, 15);
-    const recentChat = mongoDb.getRecentChatMessages(room.id, 100);
-    const members = mongoDb.getRoomMembers(room.id);
+    const heatmap = db.getReactionHeatmap(room.id, 15);
+    const recentChat = db.getRecentChatMessages(room.id, 100);
+    const members = db.getRoomMembers(room.id);
 
     return {
       room,
@@ -457,6 +459,7 @@ export async function createServer() {
   app.delete('/api/privacy/data', async (request, reply) => {
     const user = await request.jwtVerify() as { id: string };
     await mongoDb.deleteUserData(user.id);
+    db.deleteUserData(user.id);
     return { success: true, message: 'All personal viewing and chat records permanently erased' };
   });
 
@@ -976,7 +979,7 @@ export async function createServer() {
     const gameBasePath = getGameBasePath(gameType);
 
     // 1. Check if partner is ALREADY waiting in an open game room
-    const partnerWaitingRoom = mongoDb.findUserWaitingGameRoom(partnerUserId);
+    const partnerWaitingRoom = db.findUserWaitingGameRoom(partnerUserId);
     if (
       partnerWaitingRoom &&
       partnerWaitingRoom.gameType === gameType &&
@@ -993,7 +996,7 @@ export async function createServer() {
     }
 
     // 2. Check if current user ALREADY has an open waiting game room
-    const myWaitingRoom = mongoDb.findUserWaitingGameRoom(user.id);
+    const myWaitingRoom = db.findUserWaitingGameRoom(user.id);
     if (myWaitingRoom && myWaitingRoom.gameType === gameType && myWaitingRoom.status === 'WAITING') {
       const invitePayload = {
         id: `ginvite_${nanoid(8)}`,
@@ -1058,7 +1061,7 @@ export async function createServer() {
       // If user has a partner who is waiting in a matching room, pair them together!
       const partner = await mongoDb.getPartner(user.id);
       if (partner) {
-        const partnerRoom = mongoDb.findUserWaitingGameRoom(partner.partnerUserId);
+        const partnerRoom = db.findUserWaitingGameRoom(partner.partnerUserId);
         if (
           partnerRoom &&
           partnerRoom.gameType === gameType &&
@@ -1126,7 +1129,7 @@ export async function createServer() {
   app.get('/api/games/rooms/:code', async (request, reply) => {
     const { code } = request.params as { code: string };
     const cleanCode = (code || '').trim().toUpperCase();
-    const room = gameRoomManager.getRoomByCode(cleanCode) || mongoDb.getGameRoomByCode(cleanCode);
+    const room = gameRoomManager.getRoomByCode(cleanCode) || db.getGameRoomByCode(cleanCode);
     if (!room) {
       return reply.code(404).send({ error: `Game room "${cleanCode}" not found or expired` });
     }
@@ -1643,7 +1646,7 @@ export async function createServer() {
     presenceManager.registerSocket(ws, user);
   });
 
-  return { app, db: mongoDb, syncManager, gameRoomManager, presenceManager };
+  return { app, db, syncManager, gameRoomManager, presenceManager };
 }
 
 // Direct execution entrypoint

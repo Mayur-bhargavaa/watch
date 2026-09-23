@@ -337,16 +337,20 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (isStarting) return;
+              if (isStarting || !p2) return;
               setIsStarting(true);
               onStartGame(config);
               setTimeout(() => setIsStarting(false), 5000);
             }}
-            disabled={isStarting}
-            className={`w-full py-3.5 sm:py-4 px-6 rounded-2xl font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white shadow-[0_4px_20px_rgba(255,43,94,0.4)] active:scale-[0.98] ${isStarting ? 'opacity-80 animate-pulse' : ''}`}
+            disabled={!p2 || isStarting}
+            className={`w-full py-3.5 sm:py-4 px-6 rounded-2xl font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              p2
+                ? 'bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white shadow-[0_4px_20px_rgba(255,43,94,0.4)] active:scale-[0.98]'
+                : 'bg-white/10 text-zinc-500 cursor-not-allowed'
+            } ${isStarting ? 'opacity-80 animate-pulse' : ''}`}
           >
             <Play className={`w-4 h-4 fill-current ${isStarting ? 'animate-spin' : ''}`} />
-            <span>{isStarting ? 'Starting Duel... 🚀' : p2 ? 'Start Doodle Duel 🚀' : 'Start Duel (with AI Buddy 🤖) 🚀'}</span>
+            <span>{isStarting ? 'Starting Duel... 🚀' : p2 ? 'Start Doodle Duel 🚀' : 'Waiting for Player 2 to Join...'}</span>
           </button>
         ) : (
           <div className="w-full py-3.5 px-6 rounded-2xl bg-[#161220]/90 border border-white/10 text-center">

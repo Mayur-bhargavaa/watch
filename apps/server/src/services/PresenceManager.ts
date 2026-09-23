@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
-import { extractParticipantIdsFromConvId, toCanonicalConvId, MongoDatabaseService } from '../db/mongoDatabase.js';
+import { extractParticipantIdsFromConvId, toCanonicalConvId } from '../db/database.js';
+import { MongoDatabaseService } from '../db/mongoDatabase.js';
 
 export class PresenceManager {
   private db?: MongoDatabaseService;
