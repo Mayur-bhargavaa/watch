@@ -11,6 +11,7 @@ export type DoodlePhase =
   | 'WORD_CHOICE'
   | 'CHOOSING_WORD'
   | 'DRAWING'
+  | 'GUESSING'
   | 'ROUND_RESULT'
   | 'FINISHED';
 

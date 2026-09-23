@@ -8,13 +8,15 @@ interface DoodleGameTimerProps {
   totalTime?: number;
   currentRound: number;
   totalRounds: number;
+  phase?: string;
 }
 
 export const DoodleGameTimer: React.FC<DoodleGameTimerProps> = ({
   timeLeft,
   totalTime = 60,
   currentRound,
-  totalRounds
+  totalRounds,
+  phase
 }) => {
   const percentage = Math.max(0, Math.min(100, (timeLeft / totalTime) * 100));
 
@@ -23,9 +25,23 @@ export const DoodleGameTimer: React.FC<DoodleGameTimerProps> = ({
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="flex items-center gap-3 select-none">
+    <div className="flex items-center gap-2.5 sm:gap-3 select-none">
+      {/* Phase Badge if active */}
+      {phase === 'DRAWING' && (
+        <span className="px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-[#ff3864] text-[10px] font-black tracking-wide uppercase hidden sm:inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#ff3864] animate-ping" />
+          Drawing
+        </span>
+      )}
+      {phase === 'GUESSING' && (
+        <span className="px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-500 text-[10px] font-black tracking-wide uppercase hidden sm:inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-ping" />
+          Guessing
+        </span>
+      )}
+
       {/* Round Pill: "Round 1 / 6" */}
-      <div className="px-4 py-2 rounded-full bg-slate-100/90 dark:bg-white/10 flex items-center gap-1.5 shadow-xs">
+      <div className="px-3.5 sm:px-4 py-2 rounded-full bg-slate-100/90 dark:bg-white/10 flex items-center gap-1.5 shadow-xs">
         <span className="text-xs font-bold text-slate-700 dark:text-zinc-200">
           Round {currentRound}
         </span>

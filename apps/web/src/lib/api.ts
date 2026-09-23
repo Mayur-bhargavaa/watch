@@ -1,7 +1,19 @@
 import type { GameRoom, User, GameType } from '@synccinema/common';
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-export const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000';
+const isClient = typeof window !== 'undefined';
+const isRemoteClient = isClient && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+export const API_BASE = isRemoteClient
+  ? window.location.origin
+  : (process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('localhost')
+      ? process.env.NEXT_PUBLIC_API_URL
+      : (isClient ? window.location.origin : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000')));
+
+export const WS_BASE = isRemoteClient
+  ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
+  : (process.env.NEXT_PUBLIC_WS_URL && !process.env.NEXT_PUBLIC_WS_URL.includes('localhost')
+      ? process.env.NEXT_PUBLIC_WS_URL
+      : (isClient ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : (process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000')));
 
 export interface UserSession {
   token: string;
@@ -625,19 +637,28 @@ export async function playWithPartner(
   joinedPartnerRoom: boolean;
   inviteUrl: string;
 }> {
-  const res = await fetch(`${API_BASE}/api/games/partner/play`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify({ gameType, friendUserId, targetUserId: friendUserId })
-  });
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || 'Failed to start match with partner');
+  const base = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? window.location.origin
+    : API_BASE;
+
+  try {
+    const res = await fetch(`${base}/api/games/partner/play`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ gameType, friendUserId, targetUserId: friendUserId })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to start match with partner');
+    }
+    return res.json();
+  } catch (err: any) {
+    console.error('Error in playWithPartner:', err);
+    throw new Error(err.message || 'Network error connecting to partner service');
   }
-  return res.json();
 }
 
 export async function createGameRoomWithPartner(

@@ -168,6 +168,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   const [lastBingoClaimResult, setLastBingoClaimResult] = useState<any | null>(null);
   const [lastBingoConditionWon, setLastBingoConditionWon] = useState<any | null>(null);
   const [lastDoodleStroke, setLastDoodleStroke] = useState<DoodleStroke | null>(null);
+  const [liveDoodleStroke, setLiveDoodleStroke] = useState<any | null>(null);
   const [lastDoodleGuess, setLastDoodleGuess] = useState<DoodleGuess | null>(null);
   const [lastChessMove, setLastChessMove] = useState<any | null>(null);
   const [chessMoveError, setChessMoveError] = useState<string | null>(null);
@@ -845,7 +846,14 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         break;
       }
 
+      case 'doodle:live_draw': {
+        const live = msg.payload?.liveStroke;
+        setLiveDoodleStroke(live);
+        break;
+      }
+
       case 'doodle:stroke_added': {
+        setLiveDoodleStroke(null);
         const stroke = msg.payload?.stroke;
         if (stroke) {
           setLastDoodleStroke(stroke);
@@ -1465,6 +1473,26 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     );
   }, []);
 
+  const sendDoodleLiveDraw = useCallback((liveStroke: any) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:live_draw',
+        payload: { liveStroke }
+      })
+    );
+  }, []);
+
+  const sendDoodleDoneDrawing = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'doodle:done_drawing',
+        payload: {}
+      })
+    );
+  }, []);
+
   const sendDoodleGuess = useCallback((guess: string) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
@@ -1615,6 +1643,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     lastBingoClaimResult,
     lastBingoConditionWon,
     lastDoodleStroke,
+    liveDoodleStroke,
     lastDoodleGuess,
     chatMessages,
     typingUsers,
@@ -1643,6 +1672,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     startDoodleGame,
     chooseDoodleWord,
     sendDoodleStroke,
+    sendDoodleLiveDraw,
+    sendDoodleDoneDrawing,
     undoDoodleStroke,
     clearDoodleCanvas,
     sendDoodleGuess,

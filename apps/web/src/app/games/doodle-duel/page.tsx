@@ -133,6 +133,7 @@ function DoodleDuelGameContent() {
     myPlayer,
     myUserId,
     lastDoodleStroke,
+    liveDoodleStroke,
     lastDoodleGuess,
     chatMessages,
     floatingReactions,
@@ -143,6 +144,8 @@ function DoodleDuelGameContent() {
     startDoodleGame,
     chooseDoodleWord,
     sendDoodleStroke,
+    sendDoodleLiveDraw,
+    sendDoodleDoneDrawing,
     undoDoodleStroke,
     clearDoodleCanvas,
     sendDoodleGuess,
@@ -276,13 +279,14 @@ function DoodleDuelGameContent() {
   const isHost = room?.hostUserId === currentUserId;
   const isLobby =
     !room ||
-    (!['ROUND_INTRO', 'WORD_CHOICE', 'CHOOSING_WORD', 'DRAWING', 'ROUND_RESULT', 'FINISHED'].includes(
+    (!['ROUND_INTRO', 'WORD_CHOICE', 'CHOOSING_WORD', 'DRAWING', 'GUESSING', 'ROUND_RESULT', 'FINISHED'].includes(
       dState?.phase || ''
     ) &&
       room.status === 'WAITING');
   const isChoosingWord = dState?.phase === 'CHOOSING_WORD' || dState?.phase === 'WORD_CHOICE';
   const isRoundIntro = dState?.phase === 'ROUND_INTRO';
   const isDrawing = dState?.phase === 'DRAWING';
+  const isGuessing = dState?.phase === 'GUESSING';
   const isRoundResult = dState?.phase === 'ROUND_RESULT';
   const isFinished = room?.status === 'FINISHED' || dState?.phase === 'FINISHED';
 
@@ -439,9 +443,14 @@ function DoodleDuelGameContent() {
               <div className="ml-2 sm:ml-4 flex items-center">
                 <DoodleGameTimer
                   timeLeft={dState.timeLeftSeconds ?? dState.timeRemaining ?? 60}
-                  totalTime={dState.config?.drawTimeSeconds || dState.config?.drawTime || 60}
+                  totalTime={
+                    dState.phase === 'GUESSING'
+                      ? dState.config?.guessTime || 60
+                      : dState.config?.drawTimeSeconds || dState.config?.drawTime || 60
+                  }
                   currentRound={dState.currentRound ?? dState.round ?? 1}
                   totalRounds={dState.totalRounds || dState.config?.rounds || 6}
+                  phase={dState.phase}
                 />
               </div>
             )}
@@ -716,17 +725,24 @@ function DoodleDuelGameContent() {
                 {/* Canvas Card */}
                 <div className="w-full flex-1 min-h-[360px]">
                   <DrawingCanvas
-                    isDrawer={isDrawer && isDrawing}
+                    isDrawer={isDrawer}
                     strokes={dState.strokes || []}
                     currentTool={currentTool}
                     currentColor={currentColor}
                     currentBrushSize={currentBrushSize}
                     onStrokeComplete={stroke => sendDoodleStroke(stroke)}
+                    onLiveDraw={live => sendDoodleLiveDraw(live)}
+                    liveDrawingStroke={liveDoodleStroke}
                     onUndo={undoDoodleStroke}
                     onClear={clearDoodleCanvas}
                     onBrushSizeChange={sz => setCurrentBrushSize(sz)}
+                    onDoneDrawing={sendDoodleDoneDrawing}
                     canUndo={(dState.strokes || []).length > 0}
                     disabled={!isDrawing || !isDrawer}
+                    phase={dState.phase}
+                    drawerName={dState.drawerDisplayName}
+                    guesserName={dState.guesserDisplayName}
+                    timeRemaining={dState.timeLeftSeconds ?? dState.timeRemaining ?? 60}
                     isDark={isDark}
                   />
                 </div>
@@ -750,7 +766,7 @@ function DoodleDuelGameContent() {
                     hasGuessedCorrectly={Boolean(
                       dState.currentGuesses?.some(g => g.isCorrect && g.userId === currentUserId)
                     )}
-                    disabled={!isDrawing}
+                    disabled={!isDrawing && !isGuessing}
                     isDark={isDark}
                     chatMessages={chatMessages}
                     myUserId={currentUserId}

@@ -12,12 +12,19 @@ interface DrawingCanvasProps {
   currentColor: string;
   currentBrushSize: number;
   onStrokeComplete?: (stroke: DoodleStroke) => void;
+  onLiveDraw?: (liveStroke: any) => void;
+  liveDrawingStroke?: any;
   onUndo?: () => void;
   onClear?: () => void;
   onBrushSizeChange?: (size: number) => void;
+  onDoneDrawing?: () => void;
   canUndo?: boolean;
   disabled?: boolean;
   isDark?: boolean;
+  phase?: string;
+  drawerName?: string;
+  guesserName?: string;
+  timeRemaining?: number;
 }
 
 const CANVAS_BG_LIGHT = '#FFFFFF';
@@ -30,18 +37,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   currentColor,
   currentBrushSize,
   onStrokeComplete,
+  onLiveDraw,
+  liveDrawingStroke,
   onUndo,
   onClear,
   onBrushSizeChange,
+  onDoneDrawing,
   canUndo = false,
   disabled = false,
-  isDark = false
+  isDark = false,
+  phase = 'DRAWING',
+  drawerName,
+  guesserName,
+  timeRemaining = 60
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [activePoints, setActivePoints] = useState<DoodlePoint[]>([]);
   const isDrawingRef = useRef<boolean>(false);
   const currentPointsRef = useRef<DoodlePoint[]>([]);
+  const lastLiveEmitRef = useRef<number>(0);
   const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({
     width: 800,
     height: 600
@@ -178,15 +193,22 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           size: currentBrushSize,
           isEraser: currentTool === 'eraser'
         });
+      } else if (!isDrawer && liveDrawingStroke && liveDrawingStroke.points?.length > 0) {
+        drawStrokeOnCtx({
+          points: liveDrawingStroke.points,
+          color: liveDrawingStroke.color || '#ff3864',
+          size: liveDrawingStroke.size || 4,
+          isEraser: Boolean(liveDrawingStroke.isEraser)
+        });
       }
     },
-    [currentColor, currentBrushSize, currentTool, canvasBg]
+    [currentColor, currentBrushSize, currentTool, canvasBg, isDrawer, liveDrawingStroke]
   );
 
   // Re-render when strokes change or active points update
   useEffect(() => {
     renderAllStrokes(strokes, activePoints, canvasDimensions.width, canvasDimensions.height);
-  }, [strokes, activePoints, canvasDimensions, renderAllStrokes]);
+  }, [strokes, activePoints, liveDrawingStroke, canvasDimensions, renderAllStrokes]);
 
   // Pointer event handlers for Drawer
   const getNormalizedPoint = (e: React.PointerEvent<HTMLCanvasElement>): DoodlePoint | null => {
@@ -199,7 +221,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawer || disabled) return;
+    if (!isDrawer || disabled || phase !== 'DRAWING') return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     isDrawingRef.current = true;
     const pt = getNormalizedPoint(e);
@@ -210,7 +232,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawingRef.current || !isDrawer || disabled) return;
+    if (!isDrawingRef.current || !isDrawer || disabled || phase !== 'DRAWING') return;
     const pt = getNormalizedPoint(e);
     if (!pt) return;
 
@@ -218,19 +240,38 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       const start = currentPointsRef.current[0];
       const previewPts = [start, pt];
       setActivePoints(previewPts);
+      if (onLiveDraw) {
+        onLiveDraw({ points: previewPts, color: currentColor, size: currentBrushSize, isEraser: false });
+      }
     } else if (currentTool === 'circle') {
       const start = currentPointsRef.current[0];
       const previewPts = generateCirclePoints(start, pt);
       setActivePoints(previewPts);
+      if (onLiveDraw) {
+        onLiveDraw({ points: previewPts, color: currentColor, size: currentBrushSize, isEraser: false });
+      }
     } else if (currentTool === 'rectangle') {
       const start = currentPointsRef.current[0];
       const previewPts = generateRectPoints(start, pt);
       setActivePoints(previewPts);
+      if (onLiveDraw) {
+        onLiveDraw({ points: previewPts, color: currentColor, size: currentBrushSize, isEraser: false });
+      }
     } else {
       // Freehand brush or eraser
       currentPointsRef.current.push(pt);
       if (currentPointsRef.current.length % 2 === 0) {
         setActivePoints([...currentPointsRef.current]);
+      }
+      const now = Date.now();
+      if (onLiveDraw && now - lastLiveEmitRef.current > 35) {
+        lastLiveEmitRef.current = now;
+        onLiveDraw({
+          points: currentPointsRef.current,
+          color: currentColor,
+          size: currentBrushSize,
+          isEraser: currentTool === 'eraser'
+        });
       }
     }
   };
@@ -241,6 +282,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {}
+
+    if (onLiveDraw) {
+      onLiveDraw(null);
+    }
 
     const pt = getNormalizedPoint(e);
     let finalPts: DoodlePoint[] = [];
@@ -274,7 +319,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   };
 
-  const hasStrokes = strokes.length > 0 || activePoints.length > 0;
+  const hasStrokes = strokes.length > 0 || activePoints.length > 0 || Boolean(liveDrawingStroke?.points?.length > 0);
 
   return (
     <div
@@ -284,6 +329,46 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           : 'bg-white border-slate-200/80 shadow-[0_4px_20px_rgba(240,160,200,0.08)]'
       }`}
     >
+      {/* Phase status indicator banner */}
+      <div className="flex items-center justify-between px-2 pb-2 select-none">
+        <div className="flex items-center gap-2">
+          {phase === 'DRAWING' ? (
+            <span className="px-2.5 py-0.5 rounded-full bg-[#ff3864]/10 border border-[#ff3864]/25 text-[#ff3864] text-[11px] font-black tracking-wide flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#ff3864] animate-pulse" />
+              PHASE 1: DRAWING ({timeRemaining}s)
+            </span>
+          ) : phase === 'GUESSING' ? (
+            <span className="px-2.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/25 text-violet-400 text-[11px] font-black tracking-wide flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+              PHASE 2: GUESSING ({timeRemaining}s)
+            </span>
+          ) : null}
+
+          <span className="text-xs font-semibold text-slate-500 dark:text-zinc-400 hidden sm:inline">
+            {phase === 'DRAWING'
+              ? isDrawer
+                ? 'Your turn to draw! Opponent sees strokes live in real time.'
+                : `${drawerName || 'Opponent'} is drawing live! Watch carefully.`
+              : phase === 'GUESSING'
+              ? isDrawer
+                ? `${guesserName || 'Opponent'} is guessing what you drew!`
+                : 'Your turn to guess! Type your guess in the chat.'
+              : ''}
+          </span>
+        </div>
+
+        {/* If drawer in Phase 1, show Done Drawing button */}
+        {isDrawer && phase === 'DRAWING' && onDoneDrawing && (
+          <button
+            type="button"
+            onClick={onDoneDrawing}
+            className="flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-[#ff3864] to-[#f43f5e] hover:brightness-110 text-white text-[11px] font-black uppercase tracking-wider shadow-sm transition active:scale-95 cursor-pointer"
+          >
+            <span>Done Drawing ➔</span>
+          </button>
+        )}
+      </div>
+
       {/* 1. Inner Canvas Drawing Surface with subtle dashed border */}
       <div
         ref={containerRef}
@@ -297,7 +382,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           className={`w-full h-full block ${
-            isDrawer && !disabled ? 'cursor-crosshair' : 'cursor-default pointer-events-none'
+            isDrawer && !disabled && phase === 'DRAWING' ? 'cursor-crosshair' : 'cursor-default pointer-events-none'
           }`}
           style={{ touchAction: 'none' }}
         />
@@ -331,7 +416,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         )}
 
         {/* Floating Live Drawing badge for Guesser */}
-        {!isDrawer && (
+        {!isDrawer && phase === 'DRAWING' && (
           <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] font-bold text-zinc-300 flex items-center gap-1.5 pointer-events-none select-none">
             <span className="w-2 h-2 rounded-full bg-[#ff3864] animate-ping" />
             <span>LIVE DRAWING</span>
@@ -352,8 +437,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             max={24}
             value={currentBrushSize}
             onChange={e => onBrushSizeChange?.(Number(e.target.value))}
-            disabled={!isDrawer || disabled}
-            className="w-24 sm:w-32 accent-[#ff3864] h-1.5 bg-slate-200 dark:bg-white/10 rounded-lg cursor-pointer"
+            disabled={!isDrawer || disabled || phase !== 'DRAWING'}
+            className="w-24 sm:w-32 accent-[#ff3864] h-1.5 bg-slate-200 dark:bg-white/10 rounded-lg cursor-pointer disabled:opacity-40"
           />
         </div>
 
@@ -361,7 +446,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         <button
           type="button"
           onClick={onClear}
-          disabled={!isDrawer || disabled || strokes.length === 0}
+          disabled={!isDrawer || disabled || phase !== 'DRAWING' || strokes.length === 0}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 text-xs font-bold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Trash2 className="w-3.5 h-3.5" />

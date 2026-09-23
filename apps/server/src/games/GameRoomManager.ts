@@ -1289,6 +1289,47 @@ export class GameRoomManager {
         const now = new Date().toISOString();
         this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
       }
+
+      // Bot duelist automated behavior if room player is bot_duelist
+      const hasBot = room.players.some(p => p.userId === 'bot_duelist');
+      if (hasBot) {
+        if (state.phase === 'WORD_CHOICE' && state.drawerUserId === 'bot_duelist') {
+          if (state.timeRemaining <= 13) {
+            const choices = state.wordChoices || [];
+            const choice = choices[0] || 'Rocket';
+            const word = typeof choice === 'object' ? choice.word : choice;
+            this.handleDoodleChooseWord(roomId, 'bot_duelist', word);
+          }
+        } else if (state.phase === 'DRAWING' && state.drawerUserId === 'bot_duelist') {
+          if (state.timeRemaining === 55 || state.timeRemaining === 48) {
+            const sampleStroke = {
+              id: `strk_bot_${Date.now()}_${state.timeRemaining}`,
+              color: '#ff3864',
+              size: 5,
+              points: [
+                { x: 0.25, y: 0.35 },
+                { x: 0.35, y: 0.65 },
+                { x: 0.5, y: 0.35 },
+                { x: 0.65, y: 0.65 },
+                { x: 0.75, y: 0.35 }
+              ],
+              isEraser: false,
+              timestamp: Date.now()
+            };
+            this.handleDoodleStroke(roomId, 'bot_duelist', sampleStroke);
+          } else if (state.timeRemaining === 40) {
+            this.handleDoodleDoneDrawing(roomId, 'bot_duelist');
+          }
+        } else if (state.phase === 'GUESSING' && state.guesserUserId === 'bot_duelist') {
+          if (state.timeRemaining === 45) {
+            this.handleDoodleGuess(roomId, 'bot_duelist', 'tree?');
+          } else if (state.timeRemaining === 28) {
+            this.handleDoodleGuess(roomId, 'bot_duelist', 'maybe a rocket');
+          } else if (state.timeRemaining === 12 && state.strokes.length > 0 && state.secretWord) {
+            this.handleDoodleGuess(roomId, 'bot_duelist', state.secretWord);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error in tickDoodleTimer:', err);
     }
@@ -1398,7 +1439,14 @@ export class GameRoomManager {
 
     const players = room.players;
     if (players.length < 2) {
-      throw new Error('Need 2 players to start Doodle Duel');
+      // Auto-inject friendly AI companion duelist so host can play immediately
+      const botPlayer = this.db.addPlayerToGameRoom(
+        room.id,
+        { id: 'bot_duelist', displayName: 'Doodle Buddy 🤖' },
+        1,
+        'blue' as any
+      );
+      room.players.push(botPlayer);
     }
 
     const def = GAME_DEFINITIONS[room.gameType];
@@ -1479,9 +1527,10 @@ export class GameRoomManager {
     if (!room || !room.gameState) return;
     if (room.gameState.drawerUserId !== userId) return;
 
-    const raw = chosenWord.replace(/^[^\w\s]+\s*/, '').trim();
-    const wordItem = DOODLE_WORDS.find(w => w.word.toLowerCase() === raw.toLowerCase()) || {
-      word: raw,
+    const raw = chosenWord.replace(/^[^\w\s]+\s*/, '').trim() || chosenWord.trim();
+    const existing = DOODLE_WORDS.find(w => w.word.toLowerCase() === raw.toLowerCase());
+    const wordItem = existing || {
+      word: raw || 'Doodle',
       emoji: '🎨',
       category: 'Drawing',
       difficulty: 'easy' as const,
@@ -1491,6 +1540,29 @@ export class GameRoomManager {
     DoodleDuelEngine.startDrawing(room.gameState, wordItem);
     this.db.updateGameRoomState(room.id, room.gameState);
     this.broadcastDoodleState(room.id);
+  }
+
+  public handleDoodleDoneDrawing(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.gameState.drawerUserId !== userId) return;
+    if (room.gameState.phase !== 'DRAWING') return;
+
+    DoodleDuelEngine.startGuessing(room.gameState);
+    this.db.updateGameRoomState(room.id, room.gameState);
+    this.broadcastDoodleState(room.id);
+  }
+
+  public handleDoodleLiveDraw(roomId: string, userId: string, liveStroke: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || !room.gameState) return;
+    if (room.gameState.drawerUserId !== userId) return;
+
+    this.broadcast(room.id, {
+      type: 'doodle:live_draw',
+      roomId: room.id,
+      payload: { liveStroke }
+    });
   }
 
   public handleDoodleStroke(roomId: string, userId: string, stroke: any): void {
@@ -2096,6 +2168,14 @@ export class GameRoomManager {
 
       case 'doodle:stroke':
         this.handleDoodleStroke(client.roomId, client.userId, msg.payload?.stroke);
+        break;
+
+      case 'doodle:live_draw':
+        this.handleDoodleLiveDraw(client.roomId, client.userId, msg.payload?.liveStroke);
+        break;
+
+      case 'doodle:done_drawing':
+        this.handleDoodleDoneDrawing(client.roomId, client.userId);
         break;
 
       case 'doodle:undo':

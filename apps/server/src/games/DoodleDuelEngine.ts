@@ -311,9 +311,9 @@ export class DoodleDuelEngine {
   public static startDrawing(state: DoodleGameState, wordItem: WordItem): DoodleGameState {
     state.phase = 'DRAWING';
     state.secretWord = wordItem.word;
-    state.secretWordCategory = `${wordItem.emoji} ${wordItem.category}`;
+    state.secretWordCategory = `${wordItem.emoji || '🎨'} ${wordItem.category || 'General'}`;
     state.maskedWord = this.maskWord(wordItem.word);
-    state.hint = wordItem.hint;
+    state.hint = wordItem.hint || 'Creative sketch';
     state.hintAvailable = false;
     state.hintUsed = false;
     state.timeRemaining = state.config.drawTime || 60;
@@ -321,7 +321,19 @@ export class DoodleDuelEngine {
     state.currentRound = state.round;
     state.strokes = [];
     state.guesses = [];
-    state.statusMessage = 'Round in progress! Guesser, what is it?';
+    state.statusMessage = 'Phase 1: Drawing Time (60s) — Drawer is drawing live!';
+    return state;
+  }
+
+  /**
+   * Advances from Drawing Phase to Guessing Phase
+   */
+  public static startGuessing(state: DoodleGameState): DoodleGameState {
+    state.phase = 'GUESSING';
+    state.timeRemaining = state.config.guessTime || 60;
+    state.timeLeftSeconds = state.timeRemaining;
+    state.hintAvailable = false;
+    state.statusMessage = 'Phase 2: Guessing Time (60s) — Guess what was drawn!';
     return state;
   }
 
@@ -339,7 +351,7 @@ export class DoodleDuelEngine {
     points: number;
     completed: boolean;
   } {
-    if (state.phase !== 'DRAWING' || !state.secretWord) {
+    if ((state.phase !== 'DRAWING' && state.phase !== 'GUESSING') || !state.secretWord) {
       return { isCorrect: false, state, points: 0, completed: false };
     }
 
@@ -357,10 +369,16 @@ export class DoodleDuelEngine {
     state.guesses.push(guess);
 
     if (isCorrect) {
-      const timeTaken = Math.max(1, (state.config.drawTime || 60) - state.timeRemaining);
+      const totalPhaseTime = state.phase === 'GUESSING' ? (state.config.guessTime || 60) : (state.config.drawTime || 60);
+      const timeTaken = Math.max(1, totalPhaseTime - state.timeRemaining);
       const points = this.calculatePoints(timeTaken, state.config.scoringMode, state.hintUsed);
+      const drawerBonus = 50;
 
       state.scores[userId] = (state.scores[userId] || 0) + points;
+      if (state.drawerUserId) {
+        state.scores[state.drawerUserId] = (state.scores[state.drawerUserId] || 0) + drawerBonus;
+      }
+
       state.roundWinnerUserId = userId;
       state.roundWinnerDisplayName = displayName;
       state.roundPointsEarned = points;
@@ -379,7 +397,7 @@ export class DoodleDuelEngine {
         drawerUserId: state.drawerUserId,
         drawerName: state.drawerDisplayName || 'Drawer',
         drawerDisplayName: state.drawerDisplayName || 'Drawer',
-        drawerPoints: 0,
+        drawerPoints: drawerBonus,
         guesserUserId: state.guesserUserId,
         guesserName: state.guesserDisplayName || displayName || 'Guesser',
         guesserDisplayName: state.guesserDisplayName || displayName || 'Guesser',
@@ -414,8 +432,8 @@ export class DoodleDuelEngine {
     state.timeRemaining = Math.max(0, state.timeRemaining - 1);
     state.timeLeftSeconds = state.timeRemaining;
 
-    // Check hint availability in drawing phase after 30 seconds
-    if (state.phase === 'DRAWING' && !state.hintAvailable && state.timeRemaining <= (state.config.drawTime - 30)) {
+    // Check hint availability in guessing phase after 30 seconds
+    if (state.phase === 'GUESSING' && !state.hintAvailable && state.timeRemaining <= (state.config.guessTime - 30)) {
       state.hintAvailable = true;
     }
 
@@ -448,7 +466,13 @@ export class DoodleDuelEngine {
       }
 
       if (state.phase === 'DRAWING') {
-        // Time expired without correct guess
+        // Phase 1 (Drawing) ends after 60s! Transition directly to Phase 2 (Guessing, 60s)!
+        this.startGuessing(state);
+        return { state, phaseChanged: true, isTimeUp: false };
+      }
+
+      if (state.phase === 'GUESSING') {
+        // Phase 2 (Guessing) timer expired without correct guess -> Round Result
         state.phase = 'ROUND_RESULT';
         state.timeRemaining = 5;
         state.timeLeftSeconds = 5;
@@ -473,8 +497,8 @@ export class DoodleDuelEngine {
           guesserPoints: 0,
           guessedCorrectly: false,
           guessed: false,
-          timeTaken: state.config.drawTime,
-          timeTakenSeconds: state.config.drawTime,
+          timeTaken: state.config.guessTime || 60,
+          timeTakenSeconds: state.config.guessTime || 60,
           pointsEarned: 0
         };
         state.roundHistory.push(summary);

@@ -133,19 +133,17 @@ export class RoomSyncManager {
             joinedAt: new Date().toISOString(),
             isConnected: true
         };
-        // Ensure user exists in users table (non-blocking)
-        this.db.getUserById(user.id).then(existing => {
-            if (!existing) {
-                this.db.createUser({
-                    id: user.id,
-                    email: undefined,
-                    displayName: user.displayName,
-                    avatarUrl: user.avatarUrl || undefined,
-                    isAnonymous: true,
-                    createdAt: new Date().toISOString()
-                }).catch(console.error);
-            }
-        }).catch(console.error);
+        // Ensure user exists in users table (for foreign key constraints)
+        if (!this.db.getUserById(user.id)) {
+            this.db.createUser({
+                id: user.id,
+                email: undefined,
+                displayName: user.displayName,
+                avatarUrl: user.avatarUrl || undefined,
+                isAnonymous: true,
+                createdAt: new Date().toISOString()
+            });
+        }
         // Save to database
         this.db.upsertMember(member);
         const client = {

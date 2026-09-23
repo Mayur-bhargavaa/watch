@@ -26,6 +26,7 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
+  const [customWord, setCustomWord] = React.useState('');
 
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / totalTime) * 100));
 
@@ -158,6 +159,46 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
                 );
               })}
             </div>
+
+            {/* Divider or custom input */}
+            <div className="w-full flex items-center gap-3 my-3">
+              <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
+              <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
+                Or draw anything you want
+              </span>
+              <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
+            </div>
+
+            {/* Custom word/phrase input form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (customWord.trim()) {
+                  onChooseWord(customWord.trim());
+                }
+              }}
+              className="w-full flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={customWord}
+                onChange={(e) => setCustomWord(e.target.value)}
+                placeholder="Enter any drawing idea (e.g. Castle, Coffee cup...)"
+                maxLength={40}
+                className={`flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all ${
+                  isDark
+                    ? 'bg-white/5 border-white/10 text-white placeholder-zinc-500 focus:border-[#ff3864]'
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#ff3864]'
+                }`}
+              />
+              <button
+                type="submit"
+                disabled={!customWord.trim()}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#ff3864] to-[#f43f5e] text-white text-xs font-bold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+              >
+                Draw This 🎨
+              </button>
+            </form>
           </>
         ) : (
           <>
