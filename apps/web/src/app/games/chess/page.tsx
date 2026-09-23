@@ -322,6 +322,28 @@ function ChessGameContent() {
     }
   }, [gameState?.status]);
 
+  // Active or Finished Game State (Declared before any early returns)
+  const isGameOver = Boolean(
+    gameState?.status &&
+      ['CHECKMATE', 'DRAW', 'STALEMATE', 'TIMEOUT', 'RESIGNED', 'ABANDONED', 'COMPLETED'].includes(gameState.status)
+  );
+
+  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
+  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
+
+  useEffect(() => {
+    if (isGameOver) {
+      setShowPartyPoppers(true);
+      const timer = setTimeout(() => {
+        setShowDelayedWinModal(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPartyPoppers(false);
+      setShowDelayedWinModal(false);
+    }
+  }, [isGameOver]);
+
   // If loading
   if (!room) {
     return (
@@ -416,24 +438,7 @@ function ChessGameContent() {
   }
 
   // Active or Finished Game View
-  const isGameOver = gameState?.status && ['CHECKMATE', 'DRAW', 'STALEMATE', 'TIMEOUT', 'RESIGNED', 'ABANDONED', 'COMPLETED'].includes(gameState.status);
   const isMyTurn = gameState?.turn === playerColor;
-
-  const [showPartyPoppers, setShowPartyPoppers] = useState(false);
-  const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
-
-  useEffect(() => {
-    if (isGameOver) {
-      setShowPartyPoppers(true);
-      const timer = setTimeout(() => {
-        setShowDelayedWinModal(true);
-      }, 3000);
-      return () => clearTimeout(timer);
-    } else {
-      setShowPartyPoppers(false);
-      setShowDelayedWinModal(false);
-    }
-  }, [isGameOver]);
 
   return (
     <div className="relative min-h-screen bg-[#08070d] text-white flex flex-col select-none font-sans overflow-x-hidden">
