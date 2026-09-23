@@ -95,6 +95,7 @@ import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { FriendWithStreak } from '../../../lib/api';
 import { getRandomRoast } from '../../../lib/roastMessages';
+import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 
 export interface BoardTheme {
   id: string;
@@ -1013,6 +1014,30 @@ function LudoPageContent() {
         </div>
       );
     }
+  }
+
+  // Unified Waiting Room Screen
+  if (roomParam && isWaiting && room) {
+    return (
+      <UnifiedGameWaitingRoom
+        gameType="ludo"
+        room={room}
+        myUserId={session?.user?.id || ''}
+        gameState={gameState}
+        chatMessages={chatMessages}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onSendChat={sendChat}
+        onSendReaction={sendReaction}
+        onStartGame={() => {}}
+        onLeave={() => {
+          sendLeave();
+          router.push('/games/ludo');
+        }}
+      />
+    );
   }
 
   return (

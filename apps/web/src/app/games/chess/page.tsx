@@ -44,6 +44,7 @@ import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSe
 import { ChessBoard } from '../../../components/games/chess/ChessBoard';
 import { ChessPlayerCard } from '../../../components/games/chess/ChessPlayerCard';
 import { ChessWaitingRoom } from '../../../components/games/chess/ChessWaitingRoom';
+import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 import { ChessGameEnd } from '../../../components/games/chess/ChessGameEnd';
 import { ChessReview } from '../../../components/games/chess/ChessReview';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
@@ -58,7 +59,8 @@ import {
   ChessGameState,
   ChessGameConfig,
   DEFAULT_CHESS_CONFIG,
-  ChessColor
+  ChessColor,
+  CHESS_TIME_PRESETS
 } from '@synccinema/common';
 
 function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
@@ -332,40 +334,83 @@ function ChessGameContent() {
   // Waiting Room state (before game starts)
   const isLobby = !isPracticeMode && (room.status === 'WAITING' || gameState?.status === 'WAITING' || !gameState);
   if (isLobby) {
-    return (
-      <>
-        <ChessWaitingRoom
-          room={room}
-          myUserId={effectiveUserId}
-          config={chessConfig}
-          onStartGame={() => startChessGame(chessConfig)}
-          onUpdateConfig={cfg => {
-            setChessConfig(cfg);
-            updateChessConfig(cfg);
-          }}
-          onLeave={handleLeave}
-          onInviteFriend={() => setShowFriendDrawer(true)}
-          onStartPractice={() => {
-            setIsPracticeMode(true);
-            setPracticeFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-            setPracticeTurn('w');
-            setPracticeLastMove(null);
-            setPracticeCheck(false);
-            setPracticeCheckSquare(undefined);
-            setPracticeCheckmate(false);
-          }}
-          onRematch={handleRematch}
-          rematchStatus={rematchStatus}
-        />
+    const isHost = room.hostUserId === effectiveUserId;
+    const chessSettingsNode = (
+      <div className="space-y-4">
+        <div>
+          <h4 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-zinc-400 mb-2 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-[#ff2b70]" />
+            <span>Time Control Preset</span>
+          </h4>
+          {!isHost && (
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-2">
+              Only the room host can change the time control.
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { id: 'rapid-10-5', label: '10 min + 5s', desc: 'Rapid' },
+                { id: 'blitz-3-2', label: '3 min + 2s', desc: 'Blitz' },
+                { id: 'bullet-1-0', label: '1 min', desc: 'Bullet' },
+                { id: 'classical-30-0', label: '30 min', desc: 'Classical' }
+              ] as const
+            ).map(preset => {
+              const isSelected = chessConfig.presetId === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  disabled={!isHost}
+                  onClick={() => {
+                    const presetDef = (CHESS_TIME_PRESETS as any)[preset.id];
+                    if (!presetDef) return;
+                    const newCfg: ChessGameConfig = {
+                      ...chessConfig,
+                      presetId: preset.id,
+                      baseTimeMs: presetDef.baseTimeMs,
+                      incrementMs: presetDef.incrementMs
+                    };
+                    setChessConfig(newCfg);
+                    updateChessConfig(newCfg);
+                  }}
+                  className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center cursor-pointer ${
+                    isSelected
+                      ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-400 dark:border-pink-500/80 text-[#ff2b70] ring-1 ring-pink-400/50'
+                      : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-600 dark:text-zinc-400 hover:bg-slate-100'
+                  } ${!isHost ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  <span className="text-xs font-bold leading-tight">{preset.label}</span>
+                  <span className="text-[10px] opacity-75 uppercase tracking-wide mt-0.5">{preset.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
 
-        <GameFriendSelectorDrawer
-          isOpen={showFriendDrawer}
-          onClose={() => setShowFriendDrawer(false)}
-          token={session?.token}
-          gameTitle="Chess"
-          onSelectFriend={() => setShowFriendDrawer(false)}
-        />
-      </>
+    return (
+      <UnifiedGameWaitingRoom
+        gameType="chess"
+        room={room}
+        myUserId={effectiveUserId}
+        gameState={gameState}
+        chatMessages={chatMessages}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onSendChat={sendChat}
+        onSendReaction={sendReaction}
+        onStartGame={() => startChessGame(chessConfig)}
+        onUpdateConfig={cfg => {
+          setChessConfig(cfg);
+          updateChessConfig(cfg);
+        }}
+        onLeave={handleLeave}
+        customSettingsComponent={chessSettingsNode}
+      />
     );
   }
 

@@ -37,6 +37,7 @@ import { BingoLobby } from '../../../components/games/bingo/BingoLobby';
 import { BingoVictory } from '../../../components/games/bingo/BingoVictory';
 import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
 import { BingoRoomConfig } from '@synccinema/common';
+import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 
 const ONES = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
 const TENS = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
@@ -591,191 +592,22 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   // 2. WAITING ROOM SCREEN (MATCHING LUDO / 6 GAMES STYLE)
   // =========================================================================
   if (isWaiting && room) {
-    const isReadyToStart = room.players.length >= 2;
-
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#120e20] via-[#161226] to-[#0c0915] text-white flex flex-col justify-between selection:bg-[#ff3b77] selection:text-white relative overflow-x-hidden font-sans">
-        
-        {/* Background Ambience */}
-        <div className="fixed inset-0 pointer-events-none select-none z-0">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-rose-500/10 rounded-full blur-3xl" />
-        </div>
-
-        {/* Top Header */}
-        <header className="h-16 px-4 sm:px-8 border-b border-white/10 flex items-center justify-between bg-[#120e20]/80 backdrop-blur-xl z-30 sticky top-0">
-          <button
-            type="button"
-            onClick={handleLeave}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold transition active:scale-95 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Leave</span>
-          </button>
-
-          <div className="flex items-center gap-2">
-            <Ticket className="w-5 h-5 text-rose-400" />
-            <span className="text-sm font-black text-white tracking-wide">Tambola 1v1 Duel</span>
-          </div>
-
-          <div className="text-xs font-mono px-2.5 py-1 rounded-full bg-white/10 border border-white/10 text-zinc-300">
-            {room.roomCode}
-          </div>
-        </header>
-
-        {/* Center Glassmorphic Waiting Card (Ludo Style) */}
-        <main className="flex-1 flex items-center justify-center p-4 sm:p-6 z-10">
-          <div className="relative z-10 w-full max-w-xl my-auto rounded-[32px] sm:rounded-[36px] p-6 sm:p-8 bg-[#181326]/80 border border-white/20 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.7),0_0_35px_rgba(255,59,119,0.15)] text-center overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            
-            {/* Zero-Bots Matchmaking Pill */}
-            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#0d2a20]/90 border border-[#10b981]/50 text-[#34d399] text-[11px] font-semibold tracking-wide mb-4 shadow-sm">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#34d399]" />
-              <span>Strict Zero-Bots Matchmaking</span>
-            </div>
-
-            {/* Waiting for Players Heading */}
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
-              Waiting <span className="font-medium text-white/90">for</span> <span className="text-[#ff3864]">Opponent</span>
-            </h2>
-
-            {/* Match Subtitle */}
-            <p className="text-xs sm:text-[13px] text-zinc-300 font-normal leading-relaxed max-w-sm mx-auto mb-6">
-              Match will begin when <span className="text-[#ff3864] font-semibold">2 human players</span> join.
-              <br />
-              No bots will ever be injected.
-            </p>
-
-            {/* Room Code Card */}
-            <div className="w-full bg-[#201933]/90 border border-white/10 rounded-2xl p-4 sm:p-4.5 flex items-center justify-between gap-3 mb-5 shadow-inner">
-              <div className="text-left min-w-0">
-                <span className="text-[10px] font-bold text-zinc-400 tracking-wider uppercase block">
-                  ROOM CODE
-                </span>
-                <span className="text-2xl sm:text-3xl font-mono font-black text-[#ff3864] tracking-wider block mt-0.5 leading-tight">
-                  {room.roomCode}
-                </span>
-                <span className="text-[11px] text-zinc-400 block mt-0.5 truncate">
-                  Share this code with your friend
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition cursor-pointer active:scale-95"
-                  title="Copy Code"
-                >
-                  {copiedCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="py-2.5 px-4 sm:px-5 bg-gradient-to-r from-[#ff3864] to-[#ff6699] hover:brightness-110 text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(255,56,100,0.4)] transition active:scale-95 flex items-center gap-2 cursor-pointer"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span>{copiedLink ? 'Link Copied!' : 'Share Link'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Joined Seats Section */}
-            <div className="w-full mb-5">
-              <div className="flex items-center justify-between text-xs font-semibold text-white/90 mb-3 px-0.5">
-                <span>Joined Seats ({room.players.length}/2)</span>
-                <span className="text-[11px] text-zinc-300 flex items-center gap-1.5 font-normal">
-                  <span className="w-2.5 h-2.5 rounded-full border border-rose-400/80 inline-block shrink-0" />
-                  <span>{2 - room.players.length} seat remaining</span>
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                {/* Seat 1: Host */}
-                <div className="bg-[#201933]/90 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[120px]">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff3864] to-[#e6005c] text-white font-black text-lg flex items-center justify-center mb-2 shadow-sm">
-                    {(room.players[0]?.displayName?.[0] || 'P').toUpperCase()}
-                  </div>
-                  <span className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
-                    {room.players[0]?.displayName || 'Host'}
-                  </span>
-                  <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
-                    <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Host
-                  </span>
-                </div>
-
-                {/* Seat 2: Opponent / Waiting */}
-                {room.players[1] ? (
-                  <div className="bg-[#201933]/90 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[120px]">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] text-white font-black text-lg flex items-center justify-center mb-2 shadow-sm">
-                      {(room.players[1]?.displayName?.[0] || 'O').toUpperCase()}
-                    </div>
-                    <span className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
-                      {room.players[1]?.displayName}
-                    </span>
-                    <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-                      <User className="w-3.5 h-3.5" /> Player 2
-                    </span>
-                  </div>
-                ) : (
-                  <div className="bg-[#181326]/60 border border-dashed border-white/20 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-inner min-h-[120px]">
-                    <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-zinc-400 flex items-center justify-center mb-2 animate-pulse">
-                      <User className="w-5 h-5 text-zinc-400" />
-                    </div>
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-300">Waiting...</span>
-                    <span className="text-[11px] text-zinc-500 mt-0.5">Player 2</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Invite Button */}
-            <div className="w-full flex flex-col gap-2.5">
-              {isHost && isReadyToStart ? (
-                <button
-                  type="button"
-                  onClick={() => startBingoGame(roomConfig)}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 text-white font-extrabold text-sm uppercase tracking-wider shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 cursor-pointer animate-bounce"
-                >
-                  <Play className="w-4 h-4 fill-white" />
-                  <span>Start Tambola Match</span>
-                </button>
-              ) : isHost ? (
-                <button
-                  type="button"
-                  onClick={() => setShowFriendDrawer(true)}
-                  className="w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer transition"
-                >
-                  <UserPlus className="w-4 h-4 text-[#ff3864]" />
-                  <span>Invite from Online Friends</span>
-                </button>
-              ) : (
-                <div className="w-full py-3 px-4 rounded-2xl bg-white/5 border border-white/10 text-zinc-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
-                  <span>⏳ Waiting for Host to start match...</span>
-                </div>
-              )}
-            </div>
-
-          </div>
-        </main>
-
-        {/* Friend Selector Drawer */}
-        <GameFriendSelectorDrawer
-          isOpen={showFriendDrawer}
-          onClose={() => setShowFriendDrawer(false)}
-          token={session?.token}
-          gameTitle="Tambola"
-          onSelectFriend={async (friend: any) => {
-            try {
-              const res = await createGameRoomWithPartner('tambola', friend.friendUser.id);
-              if (res?.room?.roomCode) {
-                router.push(`/games/tambola?room=${res.room.roomCode}`);
-              }
-            } catch (e) {
-              console.error(e);
-            }
-          }}
-        />
-      </div>
+      <UnifiedGameWaitingRoom
+        gameType="tambola"
+        room={room}
+        myUserId={effectiveUserId}
+        gameState={gameState}
+        chatMessages={chatMessages}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onSendChat={sendChat}
+        onSendReaction={sendReaction}
+        onStartGame={() => startBingoGame(roomConfig)}
+        onLeave={handleLeave}
+      />
     );
   }
 

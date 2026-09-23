@@ -109,23 +109,22 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
   };
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden transition-colors bg-[#fdf8f6] dark:bg-[#0c0f1d] text-slate-800 dark:text-white">
+    <div className="relative h-screen max-h-screen w-full flex flex-col justify-between overflow-hidden transition-colors bg-[#fdf8f6] dark:bg-[#0c0f1d] text-slate-800 dark:text-white select-none">
       {/* Warm creative workspace ambient background matching reference image */}
       <div className="fixed inset-0 pointer-events-none z-0 select-none overflow-hidden">
-        {/* Subtle photo layer */}
+        {/* Clean photo layer (no containers, pure workspace) */}
         <img
           src="/images/doodle-cozy-workspace.jpg"
           alt="Cozy Creative Workspace"
-          className="w-full h-full object-cover object-center opacity-30 dark:opacity-15 blur-[1px] transition-opacity"
+          className="w-full h-full object-cover object-center opacity-65 dark:opacity-25 transition-opacity"
         />
 
         {/* Soft pastel gradients blending photo into UI */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#fff7f9]/85 via-[#fff8f6]/75 to-[#fdf2f4]/90 dark:from-[#0c0f1d]/90 dark:via-[#0c0f1d]/80 dark:to-[#090b16]/95 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/35 via-white/15 to-white/45 dark:from-[#0c0f1d]/80 dark:via-[#0c0f1d]/60 dark:to-[#0c0f1d]/85" />
 
         {/* Ambient bokeh glows */}
-        <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full bg-pink-200/30 dark:bg-pink-900/15 blur-3xl" />
-        <div className="absolute top-1/3 -right-20 w-96 h-96 rounded-full bg-rose-200/25 dark:bg-rose-900/10 blur-3xl" />
-        <div className="absolute -bottom-20 left-1/4 w-96 h-96 rounded-full bg-amber-100/30 dark:bg-amber-950/10 blur-3xl" />
+        <div className="absolute -top-20 -left-20 w-96 h-96 rounded-full bg-pink-200/25 dark:bg-pink-900/15 blur-3xl" />
+        <div className="absolute top-1/3 -right-20 w-96 h-96 rounded-full bg-rose-200/20 dark:bg-rose-900/10 blur-3xl" />
       </div>
 
       {/* Main Container */}

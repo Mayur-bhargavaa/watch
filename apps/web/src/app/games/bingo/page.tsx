@@ -82,6 +82,7 @@ import { BingoDuelClaimButton } from '../../../components/games/bingo-duel/Bingo
 import { BingoDuelWinModal } from '../../../components/games/bingo-duel/BingoDuelWinModal';
 import { BingoPartyPoppers } from '../../../components/games/bingo-duel/BingoPartyPoppers';
 import { BingoCozyArena } from '../../../components/games/bingo-duel/BingoCozyArena';
+import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 import {
   BingoDuelConfig,
   BingoDuelGameState,
@@ -1009,6 +1010,27 @@ function BingoDuelGameContent() {
       setIsPingingPartner(false);
     }
   };
+
+  // Unified Waiting Room Screen
+  if (roomCodeParam && isWaiting && room) {
+    return (
+      <UnifiedGameWaitingRoom
+        gameType="bingo"
+        room={room}
+        myUserId={effectiveUserId}
+        gameState={gameState}
+        chatMessages={chatMessages}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onSendChat={sendChat}
+        onSendReaction={sendReaction}
+        onStartGame={() => startBingoGame(duelConfig)}
+        onLeave={handleLeave}
+      />
+    );
+  }
 
   // Unified Ludo-Style Return (Lobby, Waiting Room, and In-Game Arena)
   return (

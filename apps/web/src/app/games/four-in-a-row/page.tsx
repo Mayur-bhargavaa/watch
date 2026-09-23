@@ -87,6 +87,7 @@ import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { FriendWithStreak } from '../../../lib/api';
 import { getRandomRoast } from '../../../lib/roastMessages';
+import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 
 export interface BoardTheme {
   id: string;
@@ -1003,6 +1004,30 @@ function FourInARowContent() {
     guestActiveStream.getVideoTracks().length > 0 &&
     guestActiveStream.getVideoTracks().some(t => t.enabled && t.readyState !== 'ended')
   );
+
+  // Unified Waiting Room Screen
+  if (roomParam && isWaiting && room) {
+    return (
+      <UnifiedGameWaitingRoom
+        gameType="four-in-a-row"
+        room={room}
+        myUserId={session?.user?.id || ''}
+        gameState={gameState}
+        chatMessages={chatMessages}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onSendChat={sendChat}
+        onSendReaction={sendReaction}
+        onStartGame={() => {}}
+        onLeave={() => {
+          sendLeave();
+          router.push('/games/four-in-a-row');
+        }}
+      />
+    );
+  }
 
   return (
     <div className={`flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${

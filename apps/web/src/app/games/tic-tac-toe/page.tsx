@@ -85,6 +85,7 @@ import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSe
 import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { getRandomRoast } from '../../../lib/roastMessages';
+import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 
 export interface BoardTheme {
   id: string;
@@ -923,6 +924,30 @@ function TicTacToeContent() {
     return { x1: `${p1.x}%`, y1: `${p1.y}%`, x2: `${p3.x}%`, y2: `${p3.y}%` };
   }, [gameState?.winningLine]);
 
+  // Unified Waiting Room Screen
+  if (roomParam && isWaiting && room) {
+    return (
+      <UnifiedGameWaitingRoom
+        gameType="tic-tac-toe"
+        room={room}
+        myUserId={session?.user?.id || ''}
+        gameState={gameState}
+        chatMessages={chatMessages}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onSendChat={sendChat}
+        onSendReaction={sendReaction}
+        onStartGame={() => {}}
+        onLeave={() => {
+          sendLeave();
+          router.push('/games/tic-tac-toe');
+        }}
+      />
+    );
+  }
+
   return (
     <div className={`flex w-full min-h-screen transition-colors duration-200 relative ${
       roomParam ? 'bg-[#0c0a14] text-white' : (isDark ? 'bg-[#0c0d12] text-white' : 'bg-white text-zinc-900')
@@ -1459,7 +1484,6 @@ function TicTacToeContent() {
 
       {/* ========================================================================= */}
       {/* CENTRALIZED APPSIDEBAR NAVIGATION (WHEN IN LOBBY)                         */}
-      {/* ========================================================================= */}
       {!roomParam && (
         <AppSidebar
           activeNav="games"
