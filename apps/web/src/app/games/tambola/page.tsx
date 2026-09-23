@@ -783,7 +783,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   // 3. LIVE MATCH GAME ARENA (EXACT PIXEL-PERFECT MOCKUP)
   // =========================================================================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fcf7fa] via-[#faedf5] to-[#f4e2ee] text-[#1e1435] flex flex-col justify-between selection:bg-[#ff3b77] selection:text-white relative overflow-x-hidden font-sans">
+    <div className="min-h-screen lg:h-screen lg:max-h-screen bg-gradient-to-br from-[#fcf7fa] via-[#faedf5] to-[#f4e2ee] text-[#1e1435] flex flex-col justify-between selection:bg-[#ff3b77] selection:text-white relative overflow-y-auto lg:overflow-hidden font-sans">
       
       {/* Remote Audio Players */}
       {callParticipants.map(p => (
@@ -813,7 +813,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
       {claimToast && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-3 duration-200">
           <div
-            className={`px-5 py-3 rounded-2xl border shadow-2xl flex items-center gap-2.5 text-xs font-black ${
+            className={`px-5 py-2.5 rounded-2xl border shadow-2xl flex items-center gap-2.5 text-xs font-black ${
               claimToast.valid
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-emerald-200/50'
                 : 'bg-rose-50 border-rose-300 text-rose-800 shadow-rose-200/50'
@@ -827,7 +827,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
       {/* Condition Won Banner */}
       {lastBingoConditionWon && (
-        <div className="bg-gradient-to-r from-rose-100 via-pink-100 to-rose-100 border-b border-rose-300 px-4 py-2 text-center text-xs font-black text-[#1e1435] flex items-center justify-center gap-2 z-20 backdrop-blur-md">
+        <div className="bg-gradient-to-r from-rose-100 via-pink-100 to-rose-100 border-b border-rose-300 px-4 py-1.5 text-center text-xs font-black text-[#1e1435] flex items-center justify-center gap-2 z-20 backdrop-blur-md shrink-0">
           <Trophy className="w-3.5 h-3.5 text-amber-500" />
           <span>
             {lastBingoConditionWon.displayName} won {lastBingoConditionWon.conditionName}! (+{lastBingoConditionWon.points} pts)
@@ -835,34 +835,34 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         </div>
       )}
 
-      {/* MAIN CONTAINER */}
-      <div className="relative z-10 w-full max-w-[1440px] mx-auto p-3 sm:p-6 lg:p-8 flex flex-col gap-4">
+      {/* MAIN NO-SCROLL CONTAINER */}
+      <div className="relative z-10 w-full max-w-[1380px] mx-auto p-2 sm:p-3 lg:p-4 flex-1 flex flex-col justify-between gap-2 sm:gap-2.5 min-h-0">
         
         {/* 1. TOP HEADER BAR */}
-        <header className="flex items-center justify-between gap-4">
+        <header className="flex items-center justify-between gap-3 shrink-0">
           {/* Left: Ticket icon, Title & "Play Laugh Stay Together ♡" */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#ff2b70] via-[#ff3b77] to-[#ff6699] flex items-center justify-center text-white shadow-md shadow-pink-500/25 shrink-0">
-              <Ticket className="w-6 h-6 stroke-[2.2]" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-[#ff2b70] via-[#ff3b77] to-[#ff6699] flex items-center justify-center text-white shadow-md shadow-pink-500/25 shrink-0">
+              <Ticket className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-[#1e1435] tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-black text-[#1e1435] tracking-tight">
                   Tambola
                 </h1>
-                <div className="font-serif italic text-[11px] leading-[1.05] text-[#ff2b70] tracking-tight select-none">
+                <div className="hidden sm:block font-serif italic text-[10px] leading-[1.05] text-[#ff2b70] tracking-tight select-none">
                   Play<br />Laugh<br />Stay Together ♡
                 </div>
               </div>
-              <p className="text-xs text-[#8a80a0] font-medium tracking-wide">
+              <p className="text-[11px] text-[#8a80a0] font-medium tracking-wide">
                 1-90 Numbers • Classic Fun • 2 Players
               </p>
             </div>
           </div>
 
           {/* Right: "Same Numbers Different Hearts" Quote & Controls */}
-          <div className="flex items-center gap-3">
-            <span className="hidden md:inline-block font-serif italic text-base text-[#8d4b88] tracking-wide select-none mr-2">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <span className="hidden xl:inline-block font-serif italic text-sm text-[#8d4b88] tracking-wide select-none mr-1">
               “Same Numbers Different Hearts” ♡
             </span>
 
@@ -871,7 +871,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               <button
                 type="button"
                 onClick={() => setIsPipClosed(false)}
-                className="px-3 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                className="px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
                 title="Show Call Window"
               >
                 <Video className="w-3.5 h-3.5 text-rose-500" />
@@ -883,7 +883,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             <button
               type="button"
               onClick={() => setIsChatOpen(!isChatOpen)}
-              className={`relative px-3.5 py-1.5 rounded-full border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              className={`relative px-3 py-1 rounded-full border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
                 isChatOpen
                   ? 'bg-[#ff3864] text-white border-[#ff3864]'
                   : 'bg-white/80 hover:bg-white text-[#4a3e68] border-pink-100'
@@ -900,7 +900,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             {/* Leave Match */}
             <button
               onClick={handleLeave}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/80 hover:bg-white text-xs font-bold text-[#4a3e68] border border-pink-100 shadow-xs transition cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/80 hover:bg-white text-xs font-bold text-[#4a3e68] border border-pink-100 shadow-xs transition cursor-pointer"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               <span>Leave</span>
@@ -909,10 +909,10 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         </header>
 
         {/* 2. TOP DUEL PLAYERS BAR (REAL PLAYERS) */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3 shrink-0">
           {/* Left Player Card (You) */}
-          <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
-            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-sm shrink-0 flex items-center justify-center font-bold text-[#ff3864] text-lg">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 px-3 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-[#ff3864] text-sm">
               {me?.avatarUrl ? (
                 <img src={me.avatarUrl} alt={me.displayName} className="w-full h-full object-cover" />
               ) : (
@@ -921,14 +921,14 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
+                <span className="text-xs sm:text-sm font-extrabold text-[#1e1435] truncate">
                   {me?.displayName || session?.user?.displayName || 'You'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-[#ffe8f0] text-[#ff3864] text-[10px] font-black uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 rounded-full bg-[#ffe8f0] text-[#ff3864] text-[9px] font-black uppercase tracking-wider">
                   You
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs mt-1">
+              <div className="flex items-center justify-between text-[11px] mt-0.5">
                 <span className="font-bold text-[#1e1435]">
                   Score: <span className="font-extrabold text-[#1e1435]">{myScore} pts</span>
                 </span>
@@ -937,7 +937,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                 </span>
               </div>
               {/* Pink Progress Bar */}
-              <div className="w-full h-2 rounded-full bg-[#fdebf2] overflow-hidden mt-1.5">
+              <div className="w-full h-1.5 rounded-full bg-[#fdebf2] overflow-hidden mt-1">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#ff3864] to-[#ff6b8b] transition-all duration-300"
                   style={{ width: `${Math.min(100, (myMarkedCount / 15) * 100)}%` }}
@@ -948,17 +948,14 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
           {/* Center VS Chip */}
           <div className="flex flex-col items-center justify-center shrink-0">
-            <div className="w-10 h-10 rounded-full bg-[#ffeef4] border border-pink-200/80 flex items-center justify-center text-xs font-black text-[#ff3864] shadow-xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#ffeef4] border border-pink-200/80 flex items-center justify-center text-[10px] font-black text-[#ff3864] shadow-xs">
               VS
             </div>
-            <span className="text-[10px] text-[#8a80a0] font-medium mt-1">
-              1v1 Tambola Duel
-            </span>
           </div>
 
           {/* Right Player Card (Real Opponent) */}
-          <div className="bg-white/95 backdrop-blur-md rounded-[26px] p-3.5 sm:p-4 border border-white/80 shadow-[0_6px_25px_rgba(240,160,200,0.12)] flex items-center gap-3.5">
-            <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-sm shrink-0 flex items-center justify-center font-bold text-purple-600 text-lg">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 px-3 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-purple-600 text-sm">
               {opponent?.avatarUrl ? (
                 <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
               ) : (
@@ -967,14 +964,14 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm sm:text-base font-extrabold text-[#1e1435] truncate">
+                <span className="text-xs sm:text-sm font-extrabold text-[#1e1435] truncate">
                   {opponent ? opponent.displayName : 'Opponent'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 text-[10px] font-black uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-600 text-[9px] font-black uppercase tracking-wider">
                   Opponent
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs mt-1">
+              <div className="flex items-center justify-between text-[11px] mt-0.5">
                 <span className="font-bold text-[#1e1435]">
                   Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
                 </span>
@@ -983,7 +980,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                 </span>
               </div>
               {/* Lavender Progress Bar */}
-              <div className="w-full h-2 rounded-full bg-[#f3eafc] overflow-hidden mt-1.5">
+              <div className="w-full h-1.5 rounded-full bg-[#f3eafc] overflow-hidden mt-1">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] transition-all duration-300"
                   style={{ width: `${Math.min(100, (opponentMarkedCount / 15) * 100)}%` }}
@@ -993,331 +990,299 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           </div>
         </div>
 
-        {/* 3. MAIN ARENA */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+        {/* 3. MAIN ARENA (TICKET + CALLER ROW) */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 items-stretch flex-1 min-h-0">
           
-          {/* TICKET & CALLER ROW (12 COLS OR ADAPTIVE) */}
-          <div className="lg:col-span-12 flex flex-col gap-4">
-            
-            {/* TICKET + CALLER ROW */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              
-              {/* YOUR TAMBOLA TICKET CARD (7 COLS OF 12) */}
-              <div className="md:col-span-7 bg-white/95 backdrop-blur-md rounded-[30px] p-5 sm:p-6 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)] flex flex-col justify-between">
-                
-                {/* Ticket Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-[#ffe8f0] text-[#ff3864] flex items-center justify-center shadow-xs">
-                      <Crown className="w-3.5 h-3.5 stroke-[2.5]" />
-                    </div>
-                    <h2 className="text-base sm:text-lg font-black text-[#1e1435]">
-                      Your Tambola Ticket
-                    </h2>
-                  </div>
-
-                  {!isPlaying && (
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTicketGrid(generateRandomTambolaGrid())}
-                      className="flex items-center gap-1 text-xs font-bold text-[#4a3e68] hover:text-[#ff3864] transition cursor-pointer"
-                    >
-                      <Shuffle className="w-3.5 h-3.5" />
-                      <span>New Ticket</span>
-                    </button>
-                  )}
+          {/* YOUR TAMBOLA TICKET CARD (7 COLS OF 12) */}
+          <div className="md:col-span-7 bg-white/95 backdrop-blur-md rounded-[22px] sm:rounded-[26px] p-3 sm:p-4 border border-white/90 shadow-[0_6px_25px_rgba(240,160,200,0.10)] flex flex-col justify-between">
+            {/* Ticket Header */}
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-md bg-[#ffe8f0] text-[#ff3864] flex items-center justify-center shadow-xs">
+                  <Crown className="w-3 h-3 stroke-[2.5]" />
                 </div>
-
-                {/* The 3x9 Ticket Grid */}
-                <div className="space-y-1.5 sm:space-y-2 select-none my-auto">
-                  {ticketCells.map((row: (number | null)[], rIdx: number) => (
-                    <div key={`row-${rIdx}`} className="grid grid-cols-9 gap-1 sm:gap-1.5">
-                      {row.map((num: number | null, cIdx: number) => {
-                        if (num === null) {
-                          return (
-                            <div
-                              key={`blank-${rIdx}-${cIdx}`}
-                              className="aspect-square rounded-xl bg-[#f7f8fc] border border-slate-200/50 flex items-center justify-center"
-                            />
-                          );
-                        }
-
-                        const isMarked = myMarkedSet.has(num);
-                        const isCalled = calledSet.has(num);
-
-                        return (
-                          <button
-                            key={`cell-${rIdx}-${cIdx}`}
-                            type="button"
-                            onClick={() => handleCellClick(num)}
-                            className={`aspect-square rounded-xl border flex items-center justify-center font-mono text-xs sm:text-base font-black transition-all cursor-pointer ${
-                              isMarked
-                                ? 'bg-[#ffe4ec] border-2 border-[#ff3864] text-[#1e1435] shadow-xs scale-98'
-                                : isCalled
-                                ? 'bg-amber-50 border-amber-300 text-[#1e1435] ring-2 ring-amber-300/60 animate-pulse hover:bg-amber-100 hover:scale-105'
-                                : 'bg-white border-slate-200/80 text-[#1e1435] hover:border-pink-300 hover:scale-105 shadow-xs'
-                            }`}
-                          >
-                            {num}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Ticket Footer Legend & Auto Mark */}
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 text-xs">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#ff3864]" />
-                      <span className="font-bold text-[#1e1435]">
-                        Marked ({myMarkedCount}/15)
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                      <span className="text-[#8a80a0] font-medium">
-                        Not in your ticket
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Auto Mark Toggle */}
-                  <div className="flex items-center gap-2">
-                    <ScanLine className="w-3.5 h-3.5 text-[#4a3e68]" />
-                    <span className="text-xs font-bold text-[#1e1435]">
-                      Auto Mark: <span className="font-extrabold">{autoMark ? 'ON' : 'OFF'}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setAutoMark(!autoMark)}
-                      className={`w-10 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
-                        autoMark ? 'bg-[#ff3864]' : 'bg-slate-300'
-                      }`}
-                    >
-                      <div
-                        className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-200 ease-in-out ${
-                          autoMark ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
+                <h2 className="text-xs sm:text-sm font-black text-[#1e1435]">
+                  Your Tambola Ticket
+                </h2>
               </div>
 
-              {/* CURRENT NUMBER CALLER CARD (5 COLS OF 12) */}
-              <div className="md:col-span-5 bg-white/95 backdrop-blur-md rounded-[30px] p-5 sm:p-6 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)] flex flex-col items-center justify-between text-center">
-                
-                <h3 className="text-sm sm:text-base font-extrabold text-[#1e1435]">
-                  Current Number
-                </h3>
-
-                {isPlaying && currentNum !== null ? (
-                  <>
-                    {/* Big Glowing Dial with Sunburst Rays */}
-                    <div className="relative my-3 flex items-center justify-center">
-                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                        <span className="absolute -left-3 w-3 h-0.5 bg-amber-400 rounded-full" />
-                        <span className="absolute -right-3 w-3 h-0.5 bg-amber-400 rounded-full" />
-                        <span className="absolute -top-1 -left-1 w-3 h-0.5 bg-amber-400 rounded-full -rotate-45" />
-                        <span className="absolute -top-1 -right-1 w-3 h-0.5 bg-amber-400 rounded-full rotate-45" />
-                      </div>
-
-                      <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full border-4 border-[#ff3864] flex flex-col items-center justify-center bg-white shadow-[0_4px_25px_rgba(255,56,100,0.18)]">
-                        <span className="text-4xl sm:text-5xl font-black text-[#1e1435] tracking-tight font-mono">
-                          {currentNum}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-xs font-black tracking-widest text-[#ff3864] uppercase -mt-1 mb-2">
-                      {currentWord}
-                    </div>
-
-                    {/* Real Last Numbers */}
-                    <div className="w-full">
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-[#8a80a0] mb-1.5 px-1">
-                        <span>Last Numbers</span>
-                        <span>{remaining} Left</span>
-                      </div>
-
-                      <div className="flex items-center justify-center gap-1.5">
-                        {lastCalled.length > 0 ? (
-                          lastCalled.slice(0, 5).map((num: number, idx: number) => (
-                            <div
-                              key={`${num}-${idx}`}
-                              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center font-mono text-xs sm:text-sm font-bold ${
-                                idx === 0
-                                  ? 'bg-[#ffe4ec] border-[#ff3864]/40 text-[#ff3864] shadow-xs'
-                                  : 'bg-[#f7f8fc] border-slate-200/80 text-[#1e1435]'
-                              }`}
-                            >
-                              {num}
-                            </div>
-                          ))
-                        ) : (
-                          <span className="text-xs text-slate-400 py-1 font-medium">Numbers will appear here</span>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  /* Dial when waiting / ready */
-                  <div className="my-auto flex flex-col items-center justify-center py-4">
-                    <div className="w-24 h-24 rounded-full border-3 border-dashed border-[#ff3864]/40 bg-[#fff5f8] flex flex-col items-center justify-center mb-2">
-                      <Sparkles className="w-8 h-8 text-[#ff3864] animate-pulse" />
-                      <span className="text-[10px] font-black uppercase tracking-wider text-[#ff3864] mt-1">Ready</span>
-                    </div>
-                    <span className="text-xs font-bold text-[#1e1435]">Tambola Duel Arena</span>
-                    <span className="text-[11px] text-[#8a80a0] mt-0.5">
-                      Ready to start the match!
-                    </span>
-                  </div>
-                )}
-
-                {/* Primary Action Button */}
+              {!isPlaying && (
                 <button
                   type="button"
-                  onClick={handleClaimOrStart}
-                  className="w-full mt-4 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition shadow-[0_8px_25px_rgba(255,56,100,0.35)] cursor-pointer"
+                  onClick={() => setPreviewTicketGrid(generateRandomTambolaGrid())}
+                  className="flex items-center gap-1 text-[11px] font-bold text-[#4a3e68] hover:text-[#ff3864] transition cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 fill-white" />
-                  <span>
-                    {!isPlaying && isHost
-                      ? '🚀 START TAMBOLA MATCH'
-                      : '🎉 CLAIM TAMBOLA!'}
-                  </span>
+                  <Shuffle className="w-3 h-3" />
+                  <span>New Ticket</span>
                 </button>
-
-              </div>
+              )}
             </div>
 
-            {/* WINNING PROGRESS CARD (2 ROWS X 3 COLS) */}
-            <div className="bg-white/95 backdrop-blur-md rounded-[30px] p-5 sm:p-6 border border-white/90 shadow-[0_8px_30px_rgba(240,160,200,0.12)]">
-              
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shadow-xs">
-                  <Trophy className="w-3.5 h-3.5" />
+            {/* The 3x9 Ticket Grid */}
+            <div className="space-y-1 sm:space-y-1.5 select-none my-auto">
+              {ticketCells.map((row: (number | null)[], rIdx: number) => (
+                <div key={`row-${rIdx}`} className="grid grid-cols-9 gap-1 sm:gap-1.5">
+                  {row.map((num: number | null, cIdx: number) => {
+                    if (num === null) {
+                      return (
+                        <div
+                          key={`blank-${rIdx}-${cIdx}`}
+                          className="aspect-square rounded-lg sm:rounded-xl bg-[#f7f8fc] border border-slate-200/50 flex items-center justify-center"
+                        />
+                      );
+                    }
+
+                    const isMarked = myMarkedSet.has(num);
+                    const isCalled = calledSet.has(num);
+
+                    return (
+                      <button
+                        key={`cell-${rIdx}-${cIdx}`}
+                        type="button"
+                        onClick={() => handleCellClick(num)}
+                        className={`aspect-square rounded-lg sm:rounded-xl border flex items-center justify-center font-mono text-xs sm:text-sm lg:text-base font-black transition-all cursor-pointer ${
+                          isMarked
+                            ? 'bg-[#ffe4ec] border-2 border-[#ff3864] text-[#1e1435] shadow-xs scale-98'
+                            : isCalled
+                            ? 'bg-amber-50 border-amber-300 text-[#1e1435] ring-2 ring-amber-300/60 animate-pulse hover:bg-amber-100 hover:scale-105'
+                            : 'bg-white border-slate-200/80 text-[#1e1435] hover:border-pink-300 hover:scale-105 shadow-xs'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    );
+                  })}
                 </div>
-                <h3 className="text-sm sm:text-base font-extrabold text-[#1e1435]">
-                  Winning Progress
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3.5">
-                {/* Early 5 */}
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
-                    <span>Early 5</span>
-                    <span className="text-[#8a80a0] font-medium">{early5Count} / 5</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                    <div
-                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
-                      style={{ width: `${Math.min(100, (early5Count / 5) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Top Line */}
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
-                    <span>Top Line</span>
-                    <span className="text-[#8a80a0] font-medium">{topLineCount} / 5</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                    <div
-                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
-                      style={{ width: `${Math.min(100, (topLineCount / 5) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Middle Line */}
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
-                    <span>Middle Line</span>
-                    <span className="text-[#8a80a0] font-medium">{middleLineCount} / 5</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                    <div
-                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
-                      style={{ width: `${Math.min(100, (middleLineCount / 5) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Bottom Line */}
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
-                    <span>Bottom Line</span>
-                    <span className="text-[#8a80a0] font-medium">{bottomLineCount} / 5</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                    <div
-                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
-                      style={{ width: `${Math.min(100, (bottomLineCount / 5) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Four Corners */}
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
-                    <span>Four Corners</span>
-                    <span className="text-[#8a80a0] font-medium">{fourCornersCount} / 4</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                    <div
-                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
-                      style={{ width: `${Math.min(100, (fourCornersCount / 4) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Housefull */}
-                <div>
-                  <div className="flex items-center justify-between text-xs font-bold text-[#1e1435]">
-                    <span>Housefull</span>
-                    <span className="text-[#8a80a0] font-medium">{housefullCount} / 15</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1.5">
-                    <div
-                      className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
-                      style={{ width: `${Math.min(100, (housefullCount / 15) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-              </div>
-
+              ))}
             </div>
 
-            {/* Bottom Row: Romantic script quote + Popcorn Container */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="font-serif italic text-base sm:text-lg text-[#8d4b88] tracking-wide select-none">
-                Good Games<br />Better Company ♡
-              </div>
-
-              {/* Popcorn Bucket Decor */}
-              <div className="relative w-16 h-20 select-none pointer-events-none">
-                <div className="absolute bottom-0 w-14 h-14 bg-gradient-to-b from-pink-100 to-rose-200 rounded-b-2xl rounded-t-sm border border-rose-300 shadow-lg flex flex-col items-center justify-center text-center p-1">
-                  <span className="font-serif italic font-black text-[9px] text-[#ff2b70] leading-tight">
-                    Good<br />Vibes<br />Only
+            {/* Ticket Footer Legend & Auto Mark */}
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px]">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#ff3864]" />
+                  <span className="font-bold text-[#1e1435]">
+                    Marked ({myMarkedCount}/15)
                   </span>
                 </div>
-                <div className="absolute -top-1 left-1 flex gap-0.5">
-                  <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs" />
-                  <span className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 shadow-xs -ml-1 -mt-1" />
-                  <span className="w-4 h-4 rounded-full bg-amber-200 border border-amber-300 shadow-xs -ml-1" />
+                <div className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-slate-300" />
+                  <span className="text-[#8a80a0] font-medium hidden sm:inline">
+                    Not in your ticket
+                  </span>
                 </div>
               </div>
-            </div>
 
+              {/* Auto Mark Toggle */}
+              <div className="flex items-center gap-1.5">
+                <ScanLine className="w-3 h-3 text-[#4a3e68]" />
+                <span className="text-[11px] font-bold text-[#1e1435]">
+                  Auto Mark: <span className="font-extrabold">{autoMark ? 'ON' : 'OFF'}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAutoMark(!autoMark)}
+                  className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
+                    autoMark ? 'bg-[#ff3864]' : 'bg-slate-300'
+                  }`}
+                >
+                  <div
+                    className={`w-3.5 h-3.5 rounded-full bg-white shadow-xs transform transition-transform duration-200 ease-in-out ${
+                      autoMark ? 'translate-x-3.5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
           </div>
 
+          {/* CURRENT NUMBER CALLER CARD (5 COLS OF 12) */}
+          <div className="md:col-span-5 bg-white/95 backdrop-blur-md rounded-[22px] sm:rounded-[26px] p-3 sm:p-4 border border-white/90 shadow-[0_6px_25px_rgba(240,160,200,0.10)] flex flex-col items-center justify-between text-center">
+            <h3 className="text-xs sm:text-sm font-extrabold text-[#1e1435]">
+              Current Number
+            </h3>
+
+            {isPlaying && currentNum !== null ? (
+              <>
+                {/* Glowing Dial */}
+                <div className="relative my-1.5 flex items-center justify-center">
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <span className="absolute -left-2.5 w-2.5 h-0.5 bg-amber-400 rounded-full" />
+                    <span className="absolute -right-2.5 w-2.5 h-0.5 bg-amber-400 rounded-full" />
+                    <span className="absolute -top-1 -left-1 w-2.5 h-0.5 bg-amber-400 rounded-full -rotate-45" />
+                    <span className="absolute -top-1 -right-1 w-2.5 h-0.5 bg-amber-400 rounded-full rotate-45" />
+                  </div>
+
+                  <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full border-3 border-[#ff3864] flex flex-col items-center justify-center bg-white shadow-[0_3px_20px_rgba(255,56,100,0.18)]">
+                    <span className="text-3xl sm:text-4xl font-black text-[#1e1435] tracking-tight font-mono">
+                      {currentNum}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[10px] sm:text-xs font-black tracking-widest text-[#ff3864] uppercase mb-1">
+                  {currentWord}
+                </div>
+
+                {/* Real Last Numbers */}
+                <div className="w-full">
+                  <div className="flex items-center justify-between text-[10px] font-semibold text-[#8a80a0] mb-1 px-1">
+                    <span>Last Numbers</span>
+                    <span>{remaining} Left</span>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-1">
+                    {lastCalled.length > 0 ? (
+                      lastCalled.slice(0, 5).map((num: number, idx: number) => (
+                        <div
+                          key={`${num}-${idx}`}
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center font-mono text-xs font-bold ${
+                            idx === 0
+                              ? 'bg-[#ffe4ec] border-[#ff3864]/40 text-[#ff3864] shadow-xs'
+                              : 'bg-[#f7f8fc] border-slate-200/80 text-[#1e1435]'
+                          }`}
+                        >
+                          {num}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-[11px] text-slate-400 py-0.5 font-medium">Numbers will appear here</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Dial when waiting / ready */
+              <div className="my-auto flex flex-col items-center justify-center py-2">
+                <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-full border-2 border-dashed border-[#ff3864]/40 bg-[#fff5f8] flex flex-col items-center justify-center mb-1">
+                  <Sparkles className="w-6 h-6 text-[#ff3864] animate-pulse" />
+                  <span className="text-[9px] font-black uppercase tracking-wider text-[#ff3864] mt-0.5">Ready</span>
+                </div>
+                <span className="text-xs font-bold text-[#1e1435]">Tambola Duel Arena</span>
+                <span className="text-[10px] text-[#8a80a0] mt-0.5">
+                  Ready to start the match!
+                </span>
+              </div>
+            )}
+
+            {/* Primary Action Button */}
+            <button
+              type="button"
+              onClick={handleClaimOrStart}
+              className="w-full mt-2 py-2 sm:py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition shadow-[0_6px_20px_rgba(255,56,100,0.30)] cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 fill-white" />
+              <span>
+                {!isPlaying && isHost
+                  ? '🚀 START TAMBOLA MATCH'
+                  : '🎉 CLAIM TAMBOLA!'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4. WINNING PROGRESS CARD (HORIZONTAL 6-COL STRIP) */}
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 px-3.5 sm:px-4 border border-white/90 shadow-[0_4px_20px_rgba(240,160,200,0.10)] shrink-0">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="w-4.5 h-4.5 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center shadow-xs">
+              <Trophy className="w-3 h-3" />
+            </div>
+            <h3 className="text-xs font-extrabold text-[#1e1435]">
+              Winning Progress
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-1.5">
+            {/* Early 5 */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#1e1435]">
+                <span>Early 5</span>
+                <span className="text-[#8a80a0] font-medium text-[10px]">{early5Count} / 5</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (early5Count / 5) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Top Line */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#1e1435]">
+                <span>Top Line</span>
+                <span className="text-[#8a80a0] font-medium text-[10px]">{topLineCount} / 5</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (topLineCount / 5) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Middle Line */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#1e1435]">
+                <span>Middle Line</span>
+                <span className="text-[#8a80a0] font-medium text-[10px]">{middleLineCount} / 5</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (middleLineCount / 5) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Bottom Line */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#1e1435]">
+                <span>Bottom Line</span>
+                <span className="text-[#8a80a0] font-medium text-[10px]">{bottomLineCount} / 5</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (bottomLineCount / 5) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Four Corners */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#1e1435]">
+                <span>Four Corners</span>
+                <span className="text-[#8a80a0] font-medium text-[10px]">{fourCornersCount} / 4</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (fourCornersCount / 4) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Housefull */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold text-[#1e1435]">
+                <span>Housefull</span>
+                <span className="text-[#8a80a0] font-medium text-[10px]">{housefullCount} / 15</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                <div
+                  className="h-full rounded-full bg-[#ff3864] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (housefullCount / 15) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. Bottom Quote Bar */}
+        <div className="flex items-center justify-between text-[11px] font-serif italic text-[#8d4b88] px-1 shrink-0 select-none">
+          <span>“Good Games, Better Company” ♡</span>
+          <span className="text-[10px] text-[#ff3864] font-sans font-bold">Good Vibes Only 🍿</span>
         </div>
 
       </div>
