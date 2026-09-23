@@ -15,6 +15,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react';
+import { GameSettings } from './waiting/GameSettings';
 
 export interface BoardTheme {
   id: string;
@@ -69,26 +70,32 @@ interface DoodleSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   roomCode: string;
-  soundEnabled: boolean;
-  onToggleSound: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
   onLeaveRoom: () => void;
   selectedTheme?: string;
   onSelectTheme?: (themeId: string) => void;
   isDark?: boolean;
   onToggleTheme?: () => void;
+  config?: any;
+  isHost?: boolean;
+  onUpdateConfig?: (partial: any) => void;
 }
 
 export const DoodleSettingsModal: React.FC<DoodleSettingsModalProps> = ({
   isOpen,
   onClose,
   roomCode,
-  soundEnabled,
+  soundEnabled = true,
   onToggleSound,
   onLeaveRoom,
   selectedTheme = 'romantic',
   onSelectTheme,
   isDark = true,
-  onToggleTheme
+  onToggleTheme,
+  config,
+  isHost = true,
+  onUpdateConfig
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -136,6 +143,18 @@ export const DoodleSettingsModal: React.FC<DoodleSettingsModalProps> = ({
         </div>
 
         <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+          {/* Game Rules & Matchmaking Settings (Host Configurable) */}
+          {config && (
+            <div className="mb-2">
+              <GameSettings
+                config={config}
+                isHost={Boolean(isHost)}
+                onUpdateConfig={onUpdateConfig}
+                isDark={isDark}
+              />
+            </div>
+          )}
+
           {/* Room Code */}
           <div
             className={`flex items-center justify-between p-3.5 rounded-2xl border ${
