@@ -976,67 +976,67 @@ export default function RoomPage() {
 
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
         {/* Top Header Bar: Branding, Room Title, Seats Count, Theme, Invite Link & Dedicated Red Leave Button */}
-        <div className="flex-shrink-0 flex items-center justify-between pb-2 px-1">
+        <div className="flex-shrink-0 flex items-center justify-between pb-2 px-1 gap-1 sm:gap-2">
           {/* Left: Branding & Room Title */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-1.5 sm:space-x-3 min-w-0">
+            <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
               <div className="flex flex-col leading-none">
-                <span className="text-base sm:text-lg font-black tracking-tighter text-[#E50914] select-none">watch.</span>
-                <span className="text-[7.5px] font-semibold tracking-wider text-zinc-400/80 uppercase select-none mt-0.5">watch · stitchbyte</span>
+                <span className="text-sm sm:text-lg font-black tracking-tighter text-[#E50914] select-none">watch.</span>
+                <span className="text-[6.5px] sm:text-[7.5px] font-semibold tracking-wider text-zinc-400/80 uppercase select-none mt-0.5 hidden xs:inline">stitchbyte</span>
               </div>
-              <span className="text-zinc-600 text-sm hidden sm:inline">/</span>
-              <span className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate max-w-[130px] sm:max-w-[280px]">
+              <span className="text-zinc-600 text-xs hidden sm:inline">/</span>
+              <span className="text-[11px] sm:text-sm font-semibold text-white tracking-wide truncate max-w-[80px] xs:max-w-[120px] sm:max-w-[280px]">
                 {room.title || 'Watch Party'}
               </span>
             </div>
 
-            <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[11px] text-zinc-300 font-medium">
+            <div className="hidden md:flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[11px] text-zinc-300 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>{Math.min(6, activeMembers.length)}/6 connected</span>
             </div>
           </div>
 
-          {/* Right: Round Action Button Dock matching media_1788953825116.png */}
-          <div className="flex items-center gap-2">
+          {/* Right: Round Action Button Dock */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Mic Toggle */}
             <button
               onClick={toggleMic}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition border ${
+              className={`w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border ${
                 isMicMuted
                   ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30'
                   : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
               }`}
               title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
             >
-              {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isMicMuted ? <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             {/* Video Toggle */}
             <button
               onClick={toggleCamera}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition border ${
+              className={`w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border ${
                 !isCameraOn
                   ? 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/15'
                   : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
               }`}
               title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
             >
-              {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+              {isCameraOn ? <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VideoOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             {/* Chat Bubble Toggle Button with active highlight ring */}
             <button
               onClick={() => setIsChatOpen((prev) => !prev)}
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition border relative active:scale-95 ${
+              className={`w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border relative active:scale-95 ${
                 isChatOpen
                   ? 'bg-rose-600/30 text-rose-300 border-rose-500 ring-2 ring-rose-500/50 shadow-md shadow-rose-600/30'
                   : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
               }`}
               title={isChatOpen ? 'Close Chat' : 'Open Chat'}
             >
-              <MessageSquare className="w-4 h-4" />
+              <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               {unreadCount > 0 && !isChatOpen && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-black bg-amber-400 text-black flex items-center justify-center animate-pulse">
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full text-[8px] sm:text-[9px] font-black bg-amber-400 text-black flex items-center justify-center animate-pulse">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
@@ -1045,25 +1045,25 @@ export default function RoomPage() {
             {/* Theme Selector */}
             <button
               onClick={() => setShowThemeModal(true)}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-amber-400 border border-white/10 flex items-center justify-center transition active:scale-95"
+              className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 text-amber-400 border border-white/10 flex items-center justify-center transition active:scale-95"
               title="Room Themes"
             >
-              <Palette className="w-4 h-4" />
+              <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             {/* Invite Friends */}
             <button
               onClick={handleCopyInvite}
-              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 flex items-center justify-center transition active:scale-95"
+              className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 flex items-center justify-center transition active:scale-95"
               title="Copy Room Link"
             >
-              {copiedInvite ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+              {copiedInvite ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             {/* Dedicated Red Leave Button */}
             <button
               onClick={handleLeaveRoom}
-              className="px-3.5 h-9 bg-[#E50914] hover:bg-red-600 text-white text-xs font-bold rounded-full transition shadow-md shadow-red-600/30 flex items-center space-x-1.5 active:scale-95"
+              className="w-7.5 h-7.5 sm:w-auto px-0 sm:px-3.5 h-7.5 sm:h-9 bg-[#E50914] hover:bg-red-600 text-white text-xs font-bold rounded-full transition shadow-md shadow-red-600/30 flex items-center justify-center space-x-1.5 active:scale-95"
               title="Leave Room"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -1213,13 +1213,13 @@ export default function RoomPage() {
           </div>
         </div>
 
-        {/* Right Column: Game Chat & Controls Window (adjusts into sleek floating drawer in 3D Theater Mode) */}
+        {/* Right Column: Game Chat & Controls Window */}
         {isChatOpen && (
           <div
             className={
               isTheaterMode
                 ? 'fixed right-3 top-3 bottom-3 z-[60] w-80 sm:w-96 bg-[#1c0c16]/95 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 min-h-0'
-                : 'w-full lg:w-80 xl:w-96 shrink-0 bg-[#1c0c16]/60 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.65)] flex flex-col h-full backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 min-h-0'
+                : 'fixed inset-x-3 bottom-3 top-16 z-[60] lg:relative lg:inset-auto lg:top-auto lg:bottom-auto w-auto lg:w-80 xl:w-96 shrink-0 bg-[#1c0c16]/95 lg:bg-[#1c0c16]/60 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col h-[calc(100vh-80px)] lg:h-full backdrop-blur-2xl lg:backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 lg:slide-in-from-right-4 min-h-0'
             }
           >
             {/* Header */}

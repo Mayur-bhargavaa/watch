@@ -19,6 +19,8 @@ interface ChessBoardProps {
   isCheckmate?: boolean;
   theme?: 'wood' | 'slate' | 'charcoal';
   isPracticeMode?: boolean;
+  showHints?: boolean;
+  isFlipped?: boolean;
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -35,19 +37,22 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   disabled = false,
   isCheckmate = false,
   theme = 'wood',
-  isPracticeMode = false
+  isPracticeMode = false,
+  showHints = true,
+  isFlipped: propIsFlipped
 }) => {
-  const [isFlipped, setIsFlipped] = useState<boolean>(playerColor === 'b');
+  const [internalFlipped, setInternalFlipped] = useState<boolean>(playerColor === 'b');
+  const isFlipped = propIsFlipped !== undefined ? propIsFlipped : internalFlipped;
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null);
   const [boardNotice, setBoardNotice] = useState<string | null>(null);
 
   // Sync flip orientation when player color changes
   React.useEffect(() => {
-    if (!isPracticeMode) {
-      setIsFlipped(playerColor === 'b');
+    if (!isPracticeMode && propIsFlipped === undefined) {
+      setInternalFlipped(playerColor === 'b');
     }
-  }, [playerColor, isPracticeMode]);
+  }, [playerColor, isPracticeMode, propIsFlipped]);
 
   // Notice auto-dismiss timer
   const triggerNotice = useCallback((msg: string) => {
@@ -194,26 +199,26 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     }
     // Classic Warm Wood (Default)
     return {
-      light: 'bg-[#f0d9b5] text-[#b58863]',
-      dark: 'bg-[#b58863] text-[#f0d9b5]'
+      light: 'bg-[#f4ebd0] text-[#b88755]',
+      dark: 'bg-[#b88755] text-[#f4ebd0]'
     };
   }, [theme]);
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-2 select-none">
       {/* 8x8 Board Container */}
-      <div className="relative w-full aspect-square p-2 sm:p-3 rounded-2xl sm:rounded-3xl bg-[#14121d] border-2 border-white/15 shadow-[0_25px_60px_rgba(0,0,0,0.85)] backdrop-blur-2xl flex flex-col justify-between">
+      <div className="relative w-full aspect-square p-2.5 sm:p-3.5 rounded-[26px] sm:rounded-[30px] bg-white/95 dark:bg-[#1a1628]/95 border-2 border-pink-100/70 dark:border-white/10 shadow-[0_20px_50px_rgba(25,18,44,0.08)] backdrop-blur-xl flex flex-col justify-between">
         
         {/* Floating Notice / Error Banner */}
         {boardNotice && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 max-w-[90%] px-3.5 py-1.5 rounded-full bg-black/90 border border-amber-500/60 text-amber-300 text-[11px] sm:text-xs font-black shadow-2xl flex items-center gap-1.5 backdrop-blur-md animate-fadeIn pointer-events-none">
-            <span className="text-amber-400 text-sm">♟</span>
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 max-w-[90%] px-3.5 py-1.5 rounded-full bg-[#16132b]/95 border border-pink-500/40 text-pink-200 text-[11px] sm:text-xs font-black shadow-2xl flex items-center gap-1.5 backdrop-blur-md animate-fadeIn pointer-events-none">
+            <span className="text-pink-400 text-sm">♟</span>
             <span>{boardNotice}</span>
           </div>
         )}
 
         {/* 8x8 Grid */}
-        <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-xl sm:rounded-2xl overflow-hidden border border-black/30 shadow-inner">
+        <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-[18px] sm:rounded-[22px] overflow-hidden border border-black/15 shadow-inner">
           {displayRanks.map((rank, rIdx) =>
             displayFiles.map((file, fIdx) => {
               const square = `${file}${rank}`;
@@ -269,13 +274,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                   )}
 
                   {/* Legal Move Dot (Empty Square) */}
-                  {isLegalTarget && !piece && (
-                    <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-slate-900/35 ring-2 ring-white/40 shadow-sm pointer-events-none z-20" />
+                  {showHints && isLegalTarget && !piece && (
+                    <span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#16132b]/35 ring-2 ring-white/60 shadow-xs pointer-events-none z-20" />
                   )}
 
                   {/* Legal Capture Ring (Enemy Piece) */}
-                  {isLegalTarget && piece && (
-                    <span className="absolute inset-0.5 sm:inset-1 rounded-full border-2 sm:border-4 border-rose-500/70 pointer-events-none z-20 animate-pulse" />
+                  {showHints && isLegalTarget && piece && (
+                    <span className="absolute inset-0.5 sm:inset-1 rounded-full border-2 sm:border-4 border-[#ff2b70]/80 pointer-events-none z-20 animate-pulse" />
                   )}
 
                   {/* King In Check Indicator */}
@@ -291,27 +296,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           )}
         </div>
       </div>
-
-      {/* Board Controls (Flip Board) */}
-      <div className="flex items-center justify-between w-full px-1">
-        <button
-          type="button"
-          onClick={() => setIsFlipped(prev => !prev)}
-          className="py-1 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition cursor-pointer active:scale-95"
-          title="Flip Board Perspective"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Flip Board ({isFlipped ? 'Black' : 'White'})</span>
-        </button>
-
-        {inCheck && !isCheckmate && (
-          <span className="text-xs font-black text-rose-400 flex items-center gap-1.5 animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
-            King is under check!
-          </span>
-        )}
-      </div>
-
       {/* Pawn Promotion Modal */}
       {pendingPromotion && (
         <ChessPromotionModal

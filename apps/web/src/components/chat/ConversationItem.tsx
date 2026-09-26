@@ -35,21 +35,23 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
 }) => {
   const isGroup = conversation.type === 'group';
   const name = isGroup
-    ? conversation.title || 'Group Chat'
-    : otherUser?.name || conversation.title || 'Chat';
+    ? conversation.title || conversation.name || 'Group Chat'
+    : otherUser?.displayName || otherUser?.name || conversation.title || conversation.name || 'Chat';
 
   const avatar = isGroup
-    ? conversation.avatar
-    : otherUser?.avatar || conversation.avatar;
+    ? conversation.avatar || conversation.avatarUrl
+    : otherUser?.avatarUrl || otherUser?.avatar || conversation.avatarUrl || conversation.avatar;
 
-  const isOnline = !isGroup && otherUser?.isOnline;
-  const streak = !isGroup ? otherUser?.streakDays : undefined;
+  const isOnline = !isGroup && (otherUser?.isOnline || otherUser?.onlineStatus === 'ONLINE');
+  const streak = !isGroup ? (otherUser?.streakDays && otherUser.streakDays > 0 ? otherUser.streakDays : undefined) : undefined;
 
   const lastMsg = conversation.lastMessage;
 
-  // Render rich preview snippet
+  // Render rich preview snippet safely
   const renderPreview = () => {
     if (!lastMsg) return <span className="italic">No messages yet</span>;
+
+    const content = typeof lastMsg.content === 'string' ? lastMsg.content : '';
 
     if (lastMsg.type === 'voice') {
       return (
@@ -85,11 +87,11 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
     }
     if (
       lastMsg.type === 'sticker' ||
-      lastMsg.content.startsWith('[sticker:') ||
-      lastMsg.content.startsWith('[draw:') ||
-      lastMsg.content.startsWith('[custom_img:') ||
-      lastMsg.content.startsWith('[gif:') ||
-      STICKER_PACK.some((s) => s.id.toLowerCase() === lastMsg.content.trim().toLowerCase())
+      content.startsWith('[sticker:') ||
+      content.startsWith('[draw:') ||
+      content.startsWith('[custom_img:') ||
+      content.startsWith('[gif:') ||
+      (content.trim() !== '' && STICKER_PACK.some((s) => s.id.toLowerCase() === content.trim().toLowerCase()))
     ) {
       return (
         <span className="flex items-center gap-1 text-[#00a884] dark:text-[#00a884] font-medium">
@@ -106,7 +108,7 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
         </span>
       );
     }
-    return lastMsg.content;
+    return content || 'Message';
   };
 
   return (

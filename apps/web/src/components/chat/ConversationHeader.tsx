@@ -33,16 +33,16 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
 }) => {
   const isGroup = conversation.type === 'group';
   const name = isGroup
-    ? conversation.title || 'Group Chat'
-    : otherUser?.name || conversation.title || 'Chat';
+    ? conversation.title || conversation.name || 'Group Chat'
+    : otherUser?.displayName || otherUser?.name || conversation.title || conversation.name || 'Chat';
 
   const avatar = isGroup
-    ? conversation.avatar
-    : otherUser?.avatar || conversation.avatar;
+    ? conversation.avatar || conversation.avatarUrl
+    : otherUser?.avatarUrl || otherUser?.avatar || conversation.avatarUrl || conversation.avatar;
 
   const statusText = isGroup
     ? `${conversation.participants.length} members`
-    : otherUser?.isOnline
+    : (otherUser?.isOnline || otherUser?.onlineStatus === 'ONLINE')
     ? 'Active now'
     : otherUser?.lastSeen
     ? `Last seen ${otherUser.lastSeen}`
@@ -92,10 +92,10 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
             <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
               {name}
             </h3>
-            {otherUser?.streakDays && otherUser.streakDays > 0 && (
+            {Boolean(otherUser?.streakDays && otherUser.streakDays > 0) && (
               <span className="flex items-center gap-0.5 text-[11px] font-bold text-amber-500 px-1.5 py-0.2 rounded-full bg-amber-500/10">
                 <Flame className="w-3 h-3 fill-current" />
-                {otherUser.streakDays}
+                {otherUser?.streakDays}
               </span>
             )}
           </div>

@@ -49,7 +49,13 @@ import { ChessGameEnd } from '../../../components/games/chess/ChessGameEnd';
 import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 import { ChessReview } from '../../../components/games/chess/ChessReview';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
-import { ChessMoveHistory } from '../../../components/games/chess/ChessMoveHistory';
+import { ChessHeader } from '../../../components/games/chess/ChessHeader';
+import { ChessLeftPanel } from '../../../components/games/chess/ChessLeftPanel';
+import { ChessCallingModal } from '../../../components/games/chess/ChessCallingModal';
+import { ChessChatDrawer } from '../../../components/games/chess/ChessChatDrawer';
+import { ChessPlayersPanel } from '../../../components/games/chess/ChessPlayersPanel';
+import { ChessInfoDrawer } from '../../../components/games/chess/ChessInfoDrawer';
+
 import {
   ChessResignModal,
   ChessDrawOfferModal,
@@ -107,7 +113,11 @@ function ChessGameContent() {
   // Chat bar state
   const [chatMessage, setChatMessage] = useState('');
   const [showChatPanel, setShowChatPanel] = useState(false);
+  const [showInfoPanel, setShowInfoPanel] = useState(false);
+
   const [boardTheme, setBoardTheme] = useState<'wood' | 'slate' | 'charcoal'>('wood');
+  const [showHints, setShowHints] = useState<boolean>(true);
+  const [isCallClosed, setIsCallClosed] = useState<boolean>(false);
 
   // Load session
   useEffect(() => {
@@ -253,6 +263,15 @@ function ChessGameContent() {
   const whitePlayer = gameState?.whitePlayer || null;
   const blackPlayer = gameState?.blackPlayer || null;
 
+  // Board Flip Orientation state
+  const [isFlipped, setIsFlipped] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isPracticeMode) {
+      setIsFlipped(playerColor === 'b');
+    }
+  }, [playerColor, isPracticeMode]);
+
   // Handle move emission (Practice vs Multiplayer)
   const handleMove = (from: string, to: string, promotion?: 'q' | 'r' | 'b' | 'n') => {
     if (isPracticeMode) {
@@ -309,28 +328,30 @@ function ChessGameContent() {
     router.push('/games');
   };
 
-  // Rematch action
-  const handleRematch = () => {
-    setRematchRequested(true);
-    rematch();
-  };
-
-  // Reset rematch state when game starts anew
-  useEffect(() => {
-    if (gameState?.status === 'ACTIVE' || gameState?.status === 'CHECK') {
-      setRematchRequested(false);
-    }
-  }, [gameState?.status]);
-
-  // Active or Finished Game State (Declared before any early returns)
-  const isGameOver = Boolean(
-    gameState?.status &&
-      ['CHECKMATE', 'DRAW', 'STALEMATE', 'TIMEOUT', 'RESIGNED', 'ABANDONED', 'COMPLETED'].includes(gameState.status)
-  );
-
+  // State for celebration poppers and delayed rematch modal
   const [showPartyPoppers, setShowPartyPoppers] = useState(false);
   const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
 
+  // Active or Finished Game State (Declared before any early returns)
+  const isGameOver = Boolean(
+    !isPracticeMode &&
+      gameState?.status &&
+      ['CHECKMATE', 'DRAW', 'STALEMATE', 'TIMEOUT', 'RESIGNED', 'ABANDONED', 'COMPLETED'].includes(gameState.status) &&
+      !rematchStatus?.allVoted
+  );
+
+  const currentGameId = gameState?.gameId || '';
+
+  // Reset celebration & win modal when game restarts, gameId changes, or rematch is agreed
+  useEffect(() => {
+    if (gameState?.status === 'ACTIVE' || gameState?.status === 'CHECK' || rematchStatus?.allVoted) {
+      setRematchRequested(false);
+      setShowDelayedWinModal(false);
+      setShowPartyPoppers(false);
+    }
+  }, [gameState?.status, currentGameId, rematchStatus?.allVoted]);
+
+  // Handle game end poppers and 3-second delayed rematch modal
   useEffect(() => {
     if (isGameOver) {
       setShowPartyPoppers(true);
@@ -342,7 +363,24 @@ function ChessGameContent() {
       setShowPartyPoppers(false);
       setShowDelayedWinModal(false);
     }
-  }, [isGameOver]);
+  }, [isGameOver, currentGameId]);
+
+  // Rematch action
+  const handleRematch = () => {
+    if (isPracticeMode) {
+      setPracticeFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+      setPracticeTurn('w');
+      setPracticeCheck(false);
+      setPracticeCheckSquare(undefined);
+      setPracticeCheckmate(false);
+      setPracticeLastMove(null);
+      setShowDelayedWinModal(false);
+      setShowPartyPoppers(false);
+      return;
+    }
+    setRematchRequested(true);
+    rematch();
+  };
 
   // If loading
   if (!room) {
@@ -441,364 +479,290 @@ function ChessGameContent() {
   const isMyTurn = gameState?.turn === playerColor;
 
   return (
-    <div className="relative min-h-screen bg-[#08070d] text-white flex flex-col select-none font-sans overflow-x-hidden">
-      
-      {/* Background ambient lighting */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/3 w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[140px]" />
-        <div className="absolute bottom-1/4 right-1/3 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[160px]" />
-      </div>
+    <div
+      className="relative h-screen overflow-hidden text-white flex flex-col select-none font-sans"
+      style={{ backgroundImage: 'url(/images/chess-cozy-workspace.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+    >
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 z-0 bg-[#16132b]/65 backdrop-blur-[1px]" />
 
       {/* Top Header */}
-      <header className="relative z-20 h-14 sm:h-16 border-b border-white/10 px-3 sm:px-6 flex items-center justify-between bg-black/40 backdrop-blur-md">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            onClick={handleLeave}
-            className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition border border-white/10 active:scale-95 cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Leave</span>
-          </button>
+      <ChessHeader
+        roomCode={room.roomCode}
+        playerCount={room.players?.length || 2}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        isChatOpen={showChatPanel}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onToggleChat={() => setShowChatPanel(prev => !prev)}
+        onOpenInfo={() => setShowInfoPanel(prev => !prev)}
+        isInfoOpen={showInfoPanel}
+        onOpenSettings={() => {}}
+        onLeave={handleLeave}
+        isCallClosed={isCallClosed}
+        onOpenCall={() => setIsCallClosed(false)}
+        chatCount={chatMessages.length}
+      />
 
-          <div className="flex items-center gap-2 text-xs font-bold text-zinc-400">
-            <span className="text-amber-400 text-sm">♟</span>
-            <span className="text-white font-extrabold tracking-wide">Chess</span>
-            <span className="text-zinc-600">·</span>
-            <span className="text-zinc-400 font-mono">{room.roomCode}</span>
+      {/* Main Game Layout (fills remaining viewport height, no scroll, with top space) */}
+      <main className="relative z-10 flex-1 min-h-0 max-w-[1530px] w-full mx-auto px-3 sm:px-5 lg:px-6 pt-3 sm:pt-4 pb-3 sm:pb-4 flex flex-col">
+        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_300px] xl:grid-cols-[300px_minmax(0,1fr)_320px] items-stretch gap-3 lg:gap-5 w-full">
+
+          {/* Left Column: Branding + Game Actions */}
+          <div className="min-h-0 overflow-y-auto overflow-x-hidden hidden lg:block">
+            <ChessLeftPanel
+              onOfferDraw={() => offerChessDraw()}
+              onRequestTakeback={() => requestChessTakeback()}
+              onResign={() => setShowResignModal(true)}
+              isDrawDisabled={isGameOver || !isMyTurn}
+              isTakebackDisabled={isGameOver || (gameState?.moves?.length || 0) === 0}
+              isResignDisabled={isGameOver}
+            />
           </div>
-        </div>
 
-        {/* Video / Audio Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <button
-            type="button"
-            onClick={toggleCamera}
-            className={`p-2 sm:p-2.5 rounded-xl border transition cursor-pointer active:scale-95 ${
-              isCameraOn
-                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-            }`}
-            title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
-          >
-            {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-          </button>
+          {/* Center Column: Turn Banner + ChessBoard + Controls */}
+          <div className="min-h-0 flex flex-col items-center justify-start max-w-[620px] mx-auto w-full overflow-y-auto overflow-x-hidden">
+            
+            {/* Turn Status Banner + Flip Board (Single Black Glass Row) */}
+            <div className="w-full mb-2 p-3 rounded-[20px] flex items-center justify-between border border-white/15 bg-[#120f1d]/90 text-white backdrop-blur-md shadow-lg shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className={`w-3 h-3 rounded-full shrink-0 ${
+                  isGameOver
+                    ? 'bg-white/50'
+                    : isPracticeMode
+                      ? 'bg-purple-400'
+                      : isMyTurn
+                        ? 'bg-[#ff2b70] animate-pulse'
+                        : 'bg-amber-400 animate-ping'
+                }`} />
+                <div className="min-w-0">
+                  <div className="text-xs sm:text-sm font-black tracking-tight flex items-center gap-1.5 truncate">
+                    {isGameOver ? (
+                      <span>Match Over · {gameState?.winnerReason || 'Completed'}</span>
+                    ) : isPracticeMode ? (
+                      <span>Solo Practice · {practiceTurn === 'w' ? 'White' : 'Black'} to Move</span>
+                    ) : isMyTurn ? (
+                      <span>👑 Your Turn — Move {playerColor === 'w' ? 'White' : 'Black'} Pieces</span>
+                    ) : (
+                      <span>⏳ Opponent&apos;s Turn — {gameState?.turn === 'w' ? 'White' : 'Black'} is thinking...</span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-white/50 mt-0.5 truncate">
+                    {isGameOver ? (
+                      'Review moves or request a rematch'
+                    ) : isPracticeMode ? (
+                      'Free play mode. Click any piece to play.'
+                    ) : isMyTurn ? (
+                      'Click a piece to show legal moves, then click target square.'
+                    ) : (
+                      'The board will unlock automatically once your opponent moves.'
+                    )}
+                  </div>
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={toggleMic}
-            className={`p-2 sm:p-2.5 rounded-xl border transition cursor-pointer active:scale-95 ${
-              !isMicMuted
-                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                : 'bg-rose-500/20 border-rose-500/40 text-rose-400'
-            }`}
-            title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
-          >
-            {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </button>
+              {/* Right: Flip Board Button */}
+              <div className="flex items-center gap-2 shrink-0">
+                {isPracticeMode && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFriendDrawer(true)}
+                    className="hidden sm:inline-flex px-2.5 py-1 rounded-xl bg-[#ff2b70] hover:bg-[#e11d48] text-[11px] font-bold text-white transition shadow-xs cursor-pointer"
+                  >
+                    Invite
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsFlipped(prev => !prev)}
+                  className="py-1.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 border border-white/15 text-xs font-bold text-white flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                  title="Flip Board Perspective"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-[#ff2b70]" />
+                  <span>Flip Board ({isFlipped ? 'Black' : 'White'})</span>
+                </button>
+              </div>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setShowChatPanel(prev => !prev)}
-            className={`p-2 sm:p-2.5 rounded-xl border transition cursor-pointer active:scale-95 ${
-              showChatPanel
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-400'
-                : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
-            }`}
-            title="Toggle Match Chat"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+            {/* Chess Error Toast */}
+            {chessMoveError && (
+              <div className="w-full mb-2 p-2.5 rounded-xl bg-rose-900/50 border border-rose-400/40 text-rose-200 text-xs font-bold flex items-center gap-2 shrink-0">
+                <span>⚠️</span>
+                <span>{chessMoveError}</span>
+              </div>
+            )}
 
-      {/* Main Game Layout */}
-      <main className="relative z-10 flex-1 flex flex-col lg:flex-row items-center justify-center p-2 sm:p-4 md:p-6 gap-4 sm:gap-6 max-w-7xl mx-auto w-full">
-        
-        {/* Left Side (Opponent Card & Left Controls) */}
-        <div className="w-full lg:w-72 flex flex-row lg:flex-col justify-between items-center lg:items-stretch gap-3 order-1 lg:order-1">
-          {/* Opponent Player Card */}
-          <div className="w-full">
-            {opponentPlayerInfo && gameState && (
-              <ChessPlayerCard
-                player={opponentPlayerInfo}
-                isCurrentTurn={gameState.turn === opponentPlayerInfo.color}
-                isMe={false}
-                capturedPieces={gameState.capturedPieces?.[opponentPlayerInfo.color === 'w' ? 'white' : 'black'] || []}
-                opponentCapturedPieces={gameState.capturedPieces?.[playerColor === 'w' ? 'white' : 'black'] || []}
+            {/* Mobile Top Player Bar (lg:hidden) */}
+            <div className="w-full lg:hidden mb-2 p-2.5 rounded-2xl bg-white dark:bg-[#191527] border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-[#ff2b70]/20 flex items-center justify-center font-bold text-xs text-[#ff2b70]">
+                  {((isFlipped ? whitePlayer : blackPlayer)?.displayName?.[0] || (isFlipped ? 'W' : 'B')).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block truncate">
+                    {isFlipped ? 'White' : 'Black'}
+                  </span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white truncate block max-w-[120px]">
+                    {(isFlipped ? whitePlayer : blackPlayer)?.displayName || (isPracticeMode ? (isFlipped ? 'White' : 'Black') : 'Waiting...')}
+                  </span>
+                </div>
+              </div>
+              <div className={`px-2 py-1 rounded-lg font-mono font-bold text-xs ${
+                (isFlipped ? gameState?.turn === 'w' : gameState?.turn === 'b')
+                  ? 'bg-[#ff2b70] text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300'
+              }`}>
+                {((isFlipped ? whitePlayer : blackPlayer)?.timeRemainingMs !== undefined) ? `${Math.floor(((isFlipped ? whitePlayer : blackPlayer)?.timeRemainingMs || 600000) / 60000)}:${Math.floor((((isFlipped ? whitePlayer : blackPlayer)?.timeRemainingMs || 600000) % 60000) / 1000).toString().padStart(2, '0')}` : '10:00'}
+              </div>
+            </div>
+
+            {/* Chessboard Hero */}
+            {(gameState || isPracticeMode) && (
+              <ChessBoard
+                fen={isPracticeMode ? practiceFen : gameState!.fen}
+                turn={isPracticeMode ? practiceTurn : gameState!.turn}
+                playerColor={playerColor}
+                inCheck={isPracticeMode ? practiceCheck : gameState!.inCheck}
+                checkSquare={isPracticeMode ? practiceCheckSquare : gameState!.checkSquare}
+                lastMove={isPracticeMode ? practiceLastMove : (lastChessMove ? { from: lastChessMove.from, to: lastChessMove.to } : null)}
+                onMove={handleMove}
+                disabled={isGameOver || !isMyTurn}
+                isCheckmate={isPracticeMode ? practiceCheckmate : (gameState?.status === 'CHECKMATE')}
+                theme={boardTheme}
+                isPracticeMode={isPracticeMode}
+                showHints={showHints}
+                isFlipped={isFlipped}
               />
             )}
-          </div>
 
-          {/* Quick Actions (Resign, Draw, Takeback) */}
-          {!isGameOver && (
-            <div className="hidden lg:flex flex-col gap-2 p-3 bg-[#110f1c]/80 border border-white/10 rounded-2xl">
-              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider px-1">
-                Match Actions
-              </span>
-              <div className="grid grid-cols-2 gap-2">
+            {/* Mobile Bottom Player & Actions Bar (lg:hidden) */}
+            <div className="w-full lg:hidden mt-2 space-y-2">
+              <div className="p-2.5 rounded-2xl bg-white dark:bg-[#191527] border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-[#ff2b70]/20 flex items-center justify-center font-bold text-xs text-[#ff2b70]">
+                    {((isFlipped ? blackPlayer : whitePlayer)?.displayName?.[0] || (isFlipped ? 'B' : 'W')).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block truncate">
+                      {isFlipped ? 'Black' : 'White'} (You)
+                    </span>
+                    <span className="text-xs font-black text-slate-900 dark:text-white truncate block max-w-[120px]">
+                      {(isFlipped ? blackPlayer : whitePlayer)?.displayName || displayName}
+                    </span>
+                  </div>
+                </div>
+                <div className={`px-2 py-1 rounded-lg font-mono font-bold text-xs ${
+                  (isFlipped ? gameState?.turn === 'b' : gameState?.turn === 'w')
+                    ? 'bg-[#ff2b70] text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300'
+                }`}>
+                  {((isFlipped ? blackPlayer : whitePlayer)?.timeRemainingMs !== undefined) ? `${Math.floor(((isFlipped ? blackPlayer : whitePlayer)?.timeRemainingMs || 600000) / 60000)}:${Math.floor((((isFlipped ? blackPlayer : whitePlayer)?.timeRemainingMs || 600000) % 60000) / 1000).toString().padStart(2, '0')}` : '10:00'}
+                </div>
+              </div>
+
+              {/* Mobile Quick Action Buttons */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => offerChessDraw()}
-                  disabled={!isMyTurn}
-                  className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-white/5 border border-white/10 text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  disabled={isGameOver || !isMyTurn}
+                  className="py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-xs text-center disabled:opacity-40 transition cursor-pointer"
                 >
-                  <Handshake className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Offer Draw</span>
+                  🤝 Draw
                 </button>
-
                 <button
                   type="button"
                   onClick={() => requestChessTakeback()}
-                  disabled={gameState?.moves?.length === 0}
-                  className="py-2 px-2.5 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-white/5 border border-white/10 text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  disabled={isGameOver || (gameState?.moves?.length || 0) === 0}
+                  className="py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-xs text-center disabled:opacity-40 transition cursor-pointer"
                 >
-                  <Undo2 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Takeback</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowResignModal(true)}
-                className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-300 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Flag className="w-3.5 h-3.5" />
-                <span>Resign Game</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Center: The Chess Board (Hero Focus) */}
-        <div className="w-full max-w-[540px] flex flex-col items-center justify-center order-2 lg:order-2">
-          {/* Turn / Mode Status Banner */}
-          <div className={`w-full mb-2.5 p-3 rounded-2xl flex items-center justify-between border transition-all ${
-            isGameOver
-              ? 'bg-zinc-800/80 border-white/10 text-zinc-300'
-              : isPracticeMode
-                ? 'bg-indigo-500/15 border-indigo-500/30 text-indigo-200'
-                : isMyTurn
-                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_25px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-          }`}>
-            <div className="flex items-center gap-2.5">
-              <span className={`w-3 h-3 rounded-full shrink-0 ${
-                isGameOver
-                  ? 'bg-zinc-500'
-                  : isPracticeMode
-                    ? 'bg-indigo-400'
-                    : isMyTurn
-                      ? 'bg-emerald-400 animate-pulse'
-                      : 'bg-amber-400 animate-ping'
-              }`} />
-              <div>
-                <div className="text-xs font-black tracking-wide flex items-center gap-1.5">
-                  {isGameOver ? (
-                    <span>Match Over · {gameState?.winnerReason || 'Completed'}</span>
-                  ) : isPracticeMode ? (
-                    <span>🎮 Solo Practice · {practiceTurn === 'w' ? 'White' : 'Black'} to Move</span>
-                  ) : isMyTurn ? (
-                    <span>👑 YOUR TURN · Move {playerColor === 'w' ? 'White' : 'Black'} Pieces</span>
-                  ) : (
-                    <span>⏳ OPPONENT&apos;S TURN · {gameState?.turn === 'w' ? 'White' : 'Black'} is Thinking...</span>
-                  )}
-                </div>
-                <div className="text-[10px] text-zinc-400 mt-0.5">
-                  {isGameOver ? (
-                    'Review moves below or request a rematch'
-                  ) : isPracticeMode ? (
-                    'Free play mode. Click any piece to move both White and Black sides.'
-                  ) : isMyTurn ? (
-                    'Click any of your pieces to show legal moves, then click a target square.'
-                  ) : (
-                    'The board will unlock automatically once your opponent moves.'
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {isPracticeMode && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowFriendDrawer(true)}
-                  className="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-[11px] font-bold text-amber-300 transition border border-amber-500/30 cursor-pointer"
-                >
-                  Invite
+                  ↩️ Takeback
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsPracticeMode(false)}
-                  className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-[11px] font-bold text-white transition border border-white/10 cursor-pointer"
+                  onClick={() => setShowResignModal(true)}
+                  disabled={isGameOver}
+                  className="py-2 px-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 font-bold text-xs text-center disabled:opacity-40 transition cursor-pointer"
                 >
-                  Lobby
+                  🏳️ Resign
                 </button>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Server Move Error Toast if any */}
-          {chessMoveError && (
-            <div className="w-full mb-2.5 p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-2 animate-shake">
-              <span className="text-sm">⚠️</span>
-              <span>{chessMoveError}</span>
-            </div>
-          )}
-
-          {(gameState || isPracticeMode) && (
-            <ChessBoard
-              fen={isPracticeMode ? practiceFen : gameState!.fen}
-              turn={isPracticeMode ? practiceTurn : gameState!.turn}
-              playerColor={playerColor}
-              inCheck={isPracticeMode ? practiceCheck : gameState!.inCheck}
-              checkSquare={isPracticeMode ? practiceCheckSquare : gameState!.checkSquare}
-              lastMove={isPracticeMode ? practiceLastMove : (lastChessMove ? { from: lastChessMove.from, to: lastChessMove.to } : null)}
-              onMove={handleMove}
-              disabled={isGameOver || !isMyTurn}
-              isCheckmate={isPracticeMode ? practiceCheckmate : (gameState?.status === 'CHECKMATE')}
-              theme={boardTheme}
-              isPracticeMode={isPracticeMode}
+          {/* Right Column: Players Panel & Board Controls */}
+          <div className="min-h-0 overflow-y-auto overflow-x-hidden hidden lg:block">
+            <ChessPlayersPanel
+              whitePlayer={
+                isPracticeMode
+                  ? {
+                      userId: 'practice_w',
+                      displayName: `${displayName} (White)`,
+                      avatarUrl: session?.user?.avatarUrl || null,
+                      color: 'w',
+                      timeRemainingMs: 600000
+                    }
+                  : whitePlayer
+              }
+              blackPlayer={
+                isPracticeMode
+                  ? {
+                      userId: 'practice_b',
+                      displayName: 'Solo Black',
+                      avatarUrl: null,
+                      color: 'b',
+                      timeRemainingMs: 600000
+                    }
+                  : blackPlayer
+              }
+              turn={isPracticeMode ? practiceTurn : (gameState?.turn || 'w')}
+              myUserId={effectiveUserId}
+              showHints={showHints}
+              onToggleHints={setShowHints}
+              onSendReaction={handleSendReaction}
+              isGameOver={isGameOver}
+              onReview={() => setShowReviewModal(true)}
             />
-          )}
-
-          {/* Quick Floating Reaction Bar */}
-          <div className="flex items-center gap-2 mt-3 p-1.5 rounded-2xl bg-[#141220]/80 border border-white/10 backdrop-blur-md">
-            {['👏', '🔥', '🧠', '😱', '👑', '💀'].map(emoji => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => handleSendReaction(emoji)}
-                className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/15 hover:scale-110 active:scale-95 transition flex items-center justify-center text-sm cursor-pointer"
-              >
-                {emoji}
-              </button>
-            ))}
           </div>
+
         </div>
-
-        {/* Right Side (My Player Card & Move History / Chat) */}
-        <div className="w-full lg:w-72 flex flex-col gap-3 order-3 lg:order-3">
-          {/* My Player Card */}
-          {myPlayerInfo && gameState && (
-            <ChessPlayerCard
-              player={myPlayerInfo}
-              isCurrentTurn={gameState.turn === myPlayerInfo.color}
-              isMe={true}
-              capturedPieces={gameState.capturedPieces?.[playerColor === 'w' ? 'white' : 'black'] || []}
-              opponentCapturedPieces={gameState.capturedPieces?.[playerColor === 'w' ? 'black' : 'white'] || []}
-            />
-          )}
-
-          {/* Mobile Resign / Draw Bar */}
-          {!isGameOver && (
-            <div className="flex lg:hidden items-center gap-2 w-full">
-              <button
-                type="button"
-                onClick={() => offerChessDraw()}
-                disabled={!isMyTurn}
-                className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-300 flex items-center justify-center gap-1.5"
-              >
-                <Handshake className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Draw</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => requestChessTakeback()}
-                className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-zinc-300 flex items-center justify-center gap-1.5"
-              >
-                <Undo2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Takeback</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowResignModal(true)}
-                className="flex-1 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-bold text-rose-300 flex items-center justify-center gap-1.5"
-              >
-                <Flag className="w-3.5 h-3.5" />
-                <span>Resign</span>
-              </button>
-            </div>
-          )}
-
-          {/* Move History / Chat Panel */}
-          {showChatPanel ? (
-            <div className="flex flex-col h-64 sm:h-80 bg-[#120f20]/90 border border-white/10 rounded-2xl p-3 shadow-inner">
-              <div className="flex items-center justify-between pb-2 border-b border-white/10 mb-2">
-                <span className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
-                  Live Duel Chat
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowChatPanel(false)}
-                  className="text-zinc-400 hover:text-white p-1"
-                >
-                  <CloseIcon className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Messages list */}
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
-                {chatMessages.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-zinc-500 italic text-[11px]">
-                    No messages yet. Send good luck!
-                  </div>
-                ) : (
-                  chatMessages.map(msg => (
-                    <div
-                      key={msg.id}
-                      className={`p-2 rounded-xl max-w-[85%] ${
-                        msg.userId === effectiveUserId
-                          ? 'ml-auto bg-amber-500/20 text-amber-200 border border-amber-500/30'
-                          : 'mr-auto bg-white/5 text-zinc-200 border border-white/10'
-                      }`}
-                    >
-                      <span className="text-[10px] font-bold block opacity-75">{msg.userName}</span>
-                      <span>{msg.content}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* Message input */}
-              <form onSubmit={handleSendChat} className="pt-2 border-t border-white/10 flex gap-2">
-                <input
-                  type="text"
-                  value={chatMessage}
-                  onChange={e => setChatMessage(e.target.value)}
-                  placeholder="Chat with opponent..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-amber-500/50"
-                />
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-black text-xs transition"
-                >
-                  Send
-                </button>
-              </form>
-            </div>
-          ) : (
-            <ChessMoveHistory
-              moves={gameState?.moves || []}
-              className="h-64 sm:h-80"
-            />
-          )}
-
-          {/* Game Review button (if ended) */}
-          {isGameOver && (
-            <button
-              type="button"
-              onClick={() => setShowReviewModal(true)}
-              className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-200 transition flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5 text-amber-400" />
-              <span>Review Completed Game</span>
-            </button>
-          )}
-        </div>
-
       </main>
+
+      {/* Slide-over Game Info Drawer */}
+      <ChessInfoDrawer
+        isOpen={showInfoPanel}
+        onClose={() => setShowInfoPanel(false)}
+        roomCode={room.roomCode}
+        timeControl={chessConfig?.presetId ? `${chessConfig.presetId}` : '10 min'}
+        increment={`${Math.floor((chessConfig?.incrementMs || 0) / 1000)} sec`}
+        gameType="Casual"
+        moves={gameState?.moves || []}
+      />
+
+      {/* Floating Moveable & Rotatable Video Call PIP Window */}
+      <ChessCallingModal
+        videoGridParticipants={videoGridParticipants}
+        isMicMuted={isMicMuted}
+        isCameraOn={isCameraOn}
+        onToggleMic={toggleMic}
+        onToggleCamera={toggleCamera}
+        onToggleChat={() => setShowChatPanel(prev => !prev)}
+        isChatOpen={showChatPanel}
+        isOpen={!isCallClosed}
+        onClose={() => setIsCallClosed(true)}
+      />
+
+      {/* Slide-over Match Chat Drawer */}
+      <ChessChatDrawer
+        isOpen={showChatPanel}
+        onClose={() => setShowChatPanel(false)}
+        messages={chatMessages}
+        myUserId={effectiveUserId}
+        onSendMessage={text => sendChat(text)}
+        onSendReaction={handleSendReaction}
+      />
+
 
       {/* Floating Reactions Overlay */}
       {floatingReactions && floatingReactions.map(r => (
@@ -864,6 +828,7 @@ function ChessGameContent() {
           onReview={() => setShowReviewModal(true)}
           onLeave={handleLeave}
           rematchRequested={rematchRequested}
+          rematchStatus={rematchStatus}
         />
       )}
 

@@ -33,46 +33,54 @@ export function extractParticipantIdsFromConvId(
   convId: string,
   currentUserId?: string
 ): { userIds: string[]; otherUserId?: string } {
-  if (!convId || !convId.startsWith('conv_')) {
+  if (!convId) {
     return { userIds: [] };
   }
-  const raw = convId.slice(5); // strip 'conv_'
+  const raw = convId.startsWith('conv_') ? convId.slice(5) : convId; // strip 'conv_'
+  const realMyId = (currentUserId && currentUserId !== 'current-user')
+    ? currentUserId
+    : (typeof window !== 'undefined' ? getStoredSession()?.user?.id : undefined);
 
-  // Pattern 1: conv_usr_AAA_usr_BBB
-  const matchTwoUsr = raw.match(/^(usr_[a-zA-Z0-9_-]+?)_(usr_[a-zA-Z0-9_-]+)$/);
-  if (matchTwoUsr) {
-    const userIds = [matchTwoUsr[1], matchTwoUsr[2]];
-    const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
+  // Pattern: usr_AAA_usr_BBB or AAA_usr_BBB
+  if (raw.includes('_usr_')) {
+    const idx = raw.indexOf('_usr_');
+    const u1 = raw.slice(0, idx);
+    const u2 = raw.slice(idx + 1); // includes 'usr_'
+    const userIds = [u1, u2];
+    const otherUserId = realMyId ? (u1 === realMyId ? u2 : (u2 === realMyId ? u1 : u2)) : u2;
     return { userIds, otherUserId };
   }
 
-  // Pattern 2: single conv_usr_AAA
-  const matchOneUsr = raw.match(/^(usr_[a-zA-Z0-9_-]+)$/);
-  if (matchOneUsr) {
-    const userIds = [matchOneUsr[1]];
-    const otherUserId = currentUserId && userIds[0] === currentUserId ? undefined : userIds[0];
-    return { userIds, otherUserId };
-  }
-
-  // Pattern 3: mixed usr_ / guest_
-  const matchMixed = raw.match(/^((?:usr|guest)_[a-zA-Z0-9_-]+?)_((?:usr|guest)_[a-zA-Z0-9_-]+)$/);
-  if (matchMixed) {
-    const userIds = [matchMixed[1], matchMixed[2]];
-    const otherUserId = currentUserId ? (userIds[0] === currentUserId ? userIds[1] : userIds[0]) : undefined;
-    return { userIds, otherUserId };
-  }
-
-  // Fallback: If currentUserId is inside raw
-  if (currentUserId && raw.includes(currentUserId)) {
-    let remainder = raw.replace(currentUserId, '');
+  // Fallback: If realMyId is inside raw
+  if (realMyId && raw.includes(realMyId)) {
+    let remainder = raw.replace(realMyId, '');
     if (remainder.startsWith('_')) remainder = remainder.slice(1);
     if (remainder.endsWith('_')) remainder = remainder.slice(0, -1);
     if (remainder) {
-      return { userIds: [currentUserId, remainder], otherUserId: remainder };
+      return { userIds: [realMyId, remainder], otherUserId: remainder };
     }
   }
 
-  return { userIds: [raw], otherUserId: raw !== currentUserId ? raw : undefined };
+  if (raw.includes('_')) {
+    const parts = raw.split('_');
+    // Single user ID with prefix usr_ (e.g. usr_qu8M4HFI04)
+    if (parts.length === 2 && parts[0] === 'usr') {
+      const singleUserId = `usr_${parts[1]}`;
+      const otherUserId = (realMyId && singleUserId === realMyId) ? undefined : singleUserId;
+      return { userIds: [singleUserId], otherUserId };
+    }
+    // General two-part ID: AAA_BBB
+    if (parts.length === 2 && parts[0] !== 'usr') {
+      const u1 = parts[0];
+      const u2 = parts[1];
+      const userIds = [u1, u2];
+      const otherUserId = realMyId ? (u1 === realMyId ? u2 : (u2 === realMyId ? u1 : u2)) : u2;
+      return { userIds, otherUserId };
+    }
+  }
+
+  const otherUserId = (realMyId && raw === realMyId) ? undefined : raw;
+  return { userIds: [raw], otherUserId };
 }
 
 export function toCanonicalConvId(userA: string, userB: string): string {
@@ -142,13 +150,19 @@ export class ChatStore {
   static purgeMockData(): void {
     if (typeof window === 'undefined') return;
     try {
+      const s = getStoredSession();
+      const myId = s?.user?.id;
       const storageKey = this.getStorageKey() + '_conversations';
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
-            const clean = parsed.filter((c: any) => !isMockConversation(c));
+            const clean = parsed.filter((c: any) => {
+              if (isMockConversation(c)) return false;
+              if (myId && (c.id === `conv_${myId}` || c.id === `conv_${myId}_${myId}`)) return false;
+              return true;
+            });
             localStorage.setItem(storageKey, JSON.stringify(clean));
           }
         } catch {}
@@ -193,19 +207,18 @@ export class ChatStore {
       }
 
       // Identify the other participant in this 1-on-1 direct chat
-      const otherParticipant = c.participants?.find((p) => p.id && p.id !== myId) || c.participants?.[0];
+      const otherParticipant = c.participants?.find((p) => p && p.id && myId && p.id !== myId);
       const { otherUserId } = extractParticipantIdsFromConvId(c.id, myId);
-      const friendId = otherParticipant?.id || otherUserId;
-      const friendName = (c.name || c.title || otherParticipant?.displayName || '').trim().toLowerCase();
-      const friendKey = friendId || friendName;
+      const friendId = (otherParticipant?.id && otherParticipant.id !== myId) ? otherParticipant.id : (otherUserId && otherUserId !== myId ? otherUserId : undefined);
 
-      if (!friendKey) {
+      if (!friendId || friendId === myId) {
         deduplicated.push(c);
         continue;
       }
+      const friendKey = friendId;
 
       // Canonical 1-on-1 ID
-      const canonicalId = (myId && friendId) ? toCanonicalConvId(myId, friendId) : c.id;
+      const canonicalId = (myId && friendId && friendId !== myId) ? toCanonicalConvId(myId, friendId) : c.id;
 
       if (seenFriendMap.has(friendKey)) {
         hadDuplicates = true;
@@ -250,6 +263,59 @@ export class ChatStore {
       } catch {}
     }
     convs = deduplicated;
+
+    // Auto-merge all authenticated friends into convs if missing
+    if (myId && realFriendsMap && Object.keys(realFriendsMap).length > 0) {
+      const myUser: ChatUser = {
+        id: myId,
+        displayName: s?.user?.displayName || 'You',
+        name: s?.user?.displayName || 'You',
+        avatarUrl: s?.user?.avatarUrl || null,
+        avatar: s?.user?.avatarUrl || undefined,
+        onlineStatus: 'ONLINE',
+        isOnline: true
+      };
+
+      for (const [friendId, chatUser] of Object.entries(realFriendsMap)) {
+        if (!friendId || friendId === myId) continue;
+        const canonicalId = toCanonicalConvId(myId, friendId);
+
+        const existing = convs.find(
+          (c) =>
+            c.type === 'direct' &&
+            (c.id === canonicalId ||
+              c.id === `conv_${friendId}` ||
+              c.participants?.some((p) => p && p.id === friendId))
+        );
+
+        if (!existing) {
+          const msgs = this.getMessages(canonicalId);
+          const lastMsg = msgs[msgs.length - 1] || null;
+          const unreadCount = msgs.filter((m) => m.senderId === friendId && m.status !== 'read').length;
+          const newConv: ChatConversation = {
+            id: canonicalId,
+            type: 'direct',
+            name: chatUser.displayName || chatUser.name || 'Friend',
+            title: chatUser.displayName || chatUser.name || 'Friend',
+            avatarUrl: chatUser.avatarUrl || chatUser.avatar,
+            avatar: chatUser.avatarUrl || chatUser.avatar || undefined,
+            participants: [myUser, chatUser],
+            messages: msgs,
+            lastMessage: lastMsg,
+            unreadCount,
+            updatedAt: lastMsg?.createdAt || new Date().toISOString()
+          };
+          convs.push(newConv);
+        }
+      }
+    }
+
+    // Sort by newest activity first
+    convs.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+    });
 
     return convs.map(c => {
       const msgs = this.getMessages(c.id);
@@ -449,15 +515,33 @@ export class ChatStore {
             // Check if conversation already exists for this real friend
             const myId = s?.user?.id;
             const canonicalConvId = myId ? `conv_${[myId, friend.id].sort().join('_')}` : `conv_${friend.id}`;
+            const myUser: ChatUser | null = myId ? {
+              id: myId,
+              displayName: s?.user?.displayName || 'You',
+              name: s?.user?.displayName || 'You',
+              avatarUrl: s?.user?.avatarUrl || null,
+              avatar: s?.user?.avatarUrl || undefined,
+              onlineStatus: 'ONLINE',
+              isOnline: true
+            } : null;
+            const participants = myUser ? [myUser, chatUser] : [chatUser];
+
+            // Fetch latest messages from remote server in background for this friend
+            this.fetchRemoteMessages(canonicalConvId, { limit: 20 }).catch(() => {});
+
             let existing = cleanConvs.find(
               (c) =>
                 c.type === 'direct' &&
                 (c.id === canonicalConvId ||
                   c.id === `conv_${friend.id}` ||
-                  c.participants.some((p) => p.id === friend.id))
+                  c.participants.some((p) => p && p.id === friend.id))
             );
+
+            const msgs = this.getMessages(canonicalConvId);
+            const lastMsg = msgs[msgs.length - 1] || null;
+            const unreadCount = msgs.filter((m) => m.senderId === friend.id && m.status !== 'read').length;
+
             if (!existing) {
-              const msgs = this.getMessages(canonicalConvId);
               const newConv: ChatConversation = {
                 id: canonicalConvId,
                 type: 'direct',
@@ -465,11 +549,11 @@ export class ChatStore {
                 title: friend.displayName,
                 avatarUrl: friend.avatarUrl,
                 avatar: friend.avatarUrl || undefined,
-                participants: [chatUser],
+                participants,
                 messages: msgs,
-                lastMessage: msgs[msgs.length - 1] || null,
-                unreadCount: 0,
-                updatedAt: msgs[msgs.length - 1]?.createdAt || item.createdAt || new Date().toISOString()
+                lastMessage: lastMsg,
+                unreadCount,
+                updatedAt: lastMsg?.createdAt || item.createdAt || new Date().toISOString()
               };
               cleanConvs.push(newConv);
               changed = true;
@@ -479,11 +563,12 @@ export class ChatStore {
               existing.title = friend.displayName;
               existing.avatarUrl = friend.avatarUrl;
               existing.avatar = friend.avatarUrl || undefined;
-              existing.participants = [chatUser];
-              const msgs = this.getMessages(canonicalConvId);
+              existing.participants = participants;
               existing.messages = msgs;
-              if (msgs.length > 0) {
-                existing.lastMessage = msgs[msgs.length - 1];
+              existing.lastMessage = lastMsg;
+              existing.unreadCount = unreadCount;
+              if (lastMsg?.createdAt) {
+                existing.updatedAt = lastMsg.createdAt;
               }
               changed = true;
             }
@@ -504,11 +589,7 @@ export class ChatStore {
           realRequestsList = [];
         }
 
-        if (changed) {
-          this.saveConversations(cleanConvs);
-        } else {
-          notify();
-        }
+        this.saveConversations(cleanConvs);
       }
     } catch (err) {
       console.warn('Friends sync non-blocking error:', err);
@@ -577,28 +658,77 @@ export class ChatStore {
         c.type === 'direct' &&
         (c.id === canonicalId ||
           c.id === `conv_${targetUser.id}` ||
-          (myId && c.id === `conv_${myId}`) ||
-          c.participants?.some((p) => p.id === targetUser.id) ||
-          (targetUser.displayName &&
-            (c.name || c.title || '').trim().toLowerCase() === targetUser.displayName.trim().toLowerCase()))
+          c.participants?.some((p) => p && p.id === targetUser.id))
     );
+
+    const targetDisplayName = targetUser.displayName || targetUser.name || 'Friend';
+    const targetAvatar = targetUser.avatarUrl || targetUser.avatar || null;
+
     if (existing) {
-      if (existing.id !== canonicalId) {
-        existing.id = canonicalId;
-        this.saveConversations(convs);
+      existing.id = canonicalId;
+      if (targetDisplayName && targetDisplayName !== 'Friend') {
+        existing.name = targetDisplayName;
+        existing.title = targetDisplayName;
       }
+      if (targetAvatar) {
+        existing.avatarUrl = targetAvatar;
+        existing.avatar = targetAvatar || undefined;
+      }
+      existing.updatedAt = new Date().toISOString();
+
+      if (myId) {
+        const myUser: ChatUser = {
+          id: myId,
+          displayName: s?.user?.displayName || 'You',
+          name: s?.user?.displayName || 'You',
+          avatarUrl: s?.user?.avatarUrl || null,
+          avatar: s?.user?.avatarUrl || undefined,
+          onlineStatus: 'ONLINE',
+          isOnline: true
+        };
+        const updatedTarget = {
+          ...targetUser,
+          displayName: targetDisplayName,
+          name: targetDisplayName,
+          avatarUrl: targetAvatar,
+          avatar: targetAvatar || undefined
+        };
+        existing.participants = [myUser, updatedTarget];
+      }
+
+      const filtered = convs.filter((c) => c.id !== existing!.id);
+      filtered.unshift(existing);
+      this.saveConversations(filtered);
       return existing;
     }
 
     const msgs = this.getMessages(canonicalId);
+    const myUser: ChatUser | null = myId ? {
+      id: myId,
+      displayName: s?.user?.displayName || 'You',
+      name: s?.user?.displayName || 'You',
+      avatarUrl: s?.user?.avatarUrl || null,
+      avatar: s?.user?.avatarUrl || undefined,
+      onlineStatus: 'ONLINE',
+      isOnline: true
+    } : null;
+    const updatedTarget: ChatUser = {
+      ...targetUser,
+      displayName: targetDisplayName,
+      name: targetDisplayName,
+      avatarUrl: targetAvatar,
+      avatar: targetAvatar || undefined
+    };
+    const participants = myUser ? [myUser, updatedTarget] : [updatedTarget];
+
     const newConv: ChatConversation = {
       id: canonicalId,
       type: 'direct',
-      name: targetUser.displayName || targetUser.name || 'Friend',
-      title: targetUser.displayName || targetUser.name || 'Friend',
-      avatarUrl: targetUser.avatarUrl || targetUser.avatar,
-      avatar: targetUser.avatarUrl || targetUser.avatar || undefined,
-      participants: [targetUser],
+      name: targetDisplayName,
+      title: targetDisplayName,
+      avatarUrl: targetAvatar,
+      avatar: targetAvatar || undefined,
+      participants,
       messages: msgs,
       lastMessage: msgs[msgs.length - 1] || null,
       unreadCount: 0,
@@ -706,30 +836,77 @@ export class ChatStore {
     this.saveMessages(conversationId, msgs);
 
     // Update conversation last message & time
-    const convs = this.getConversations();
-    const convIndex = convs.findIndex(c => c.id === conversationId);
-    if (convIndex >= 0) {
-      convs[convIndex].lastMessage = newMsg;
-      convs[convIndex].updatedAt = newMsg.createdAt;
-      // Re-sort with newest active conversation on top (unless pinned)
-      convs.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      });
-      this.saveConversations(convs);
-    }
+    let convs = this.getConversations();
+    let convIndex = convs.findIndex(
+      (c) =>
+        c.id === conversationId ||
+        (c.type === 'direct' &&
+          c.id &&
+          conversationId &&
+          (c.id.includes(conversationId) || conversationId.includes(c.id)))
+    );
 
     // Determine target recipient for live delivery
     let recipientId: string | undefined;
-    const currentConv = convs.find(c => c.id === conversationId);
-    const otherParticipant = currentConv?.participants.find(p => p.id !== senderId);
+    const currentConv = convIndex >= 0 ? convs[convIndex] : undefined;
+    const otherParticipant = currentConv?.participants.find((p) => p && p.id !== senderId);
     if (otherParticipant) {
       recipientId = otherParticipant.id;
     } else if (conversationId) {
       const { otherUserId } = extractParticipantIdsFromConvId(conversationId, senderId);
       recipientId = otherUserId;
     }
+
+    if (convIndex >= 0) {
+      convs[convIndex].lastMessage = newMsg;
+      convs[convIndex].updatedAt = newMsg.createdAt;
+      convs[convIndex].messages = msgs;
+    } else {
+      // Create new conversation in convs array so it appears immediately in Messages list
+      const otherUser = recipientId
+        ? realFriendsMap[recipientId] || {
+            id: recipientId,
+            displayName: senderName || 'Friend',
+            name: senderName || 'Friend',
+            onlineStatus: 'ONLINE' as const,
+            isOnline: true
+          }
+        : undefined;
+
+      const myUser: ChatUser = {
+        id: myId,
+        displayName: s?.user?.displayName || 'You',
+        name: s?.user?.displayName || 'You',
+        avatarUrl: s?.user?.avatarUrl || null,
+        avatar: s?.user?.avatarUrl || undefined,
+        onlineStatus: 'ONLINE',
+        isOnline: true
+      };
+      const participants = otherUser ? [myUser, otherUser] : [myUser];
+
+      const newConv: ChatConversation = {
+        id: conversationId,
+        type: 'direct',
+        name: otherUser?.displayName || otherUser?.name || 'Friend',
+        title: otherUser?.displayName || otherUser?.name || 'Friend',
+        avatarUrl: otherUser?.avatarUrl || otherUser?.avatar || null,
+        avatar: otherUser?.avatarUrl || otherUser?.avatar || undefined,
+        participants,
+        messages: msgs,
+        lastMessage: newMsg,
+        unreadCount: 0,
+        updatedAt: newMsg.createdAt
+      };
+      convs.unshift(newConv);
+    }
+
+    // Re-sort with newest active conversation on top (unless pinned)
+    convs.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+    });
+    this.saveConversations(convs);
 
     // 1. Dispatch live via WebSocket
     if (this.socketSender) {
@@ -957,8 +1134,24 @@ export class ChatStore {
     if (!conversationId && !incoming.senderId) return;
 
     const convs = this.getConversations();
-    const otherUserId = incoming.senderId === myId ? incoming.recipientId : incoming.senderId;
-    const canonicalConvId = (myId && otherUserId) ? `conv_${[myId, otherUserId].sort().join('_')}` : conversationId;
+    const { otherUserId: convOtherId } = extractParticipantIdsFromConvId(conversationId, myId);
+    const otherUserId = incoming.senderId === myId ? (incoming.recipientId || convOtherId) : incoming.senderId;
+    const canonicalConvId = (myId && otherUserId) ? toCanonicalConvId(myId, otherUserId) : (conversationId || `conv_${incoming.senderId}`);
+
+    // Ensure sender user is present in realFriendsMap so getUsers() picks them up
+    if (incoming.senderId && incoming.senderId !== myId) {
+      if (!realFriendsMap[incoming.senderId]) {
+        realFriendsMap[incoming.senderId] = {
+          id: incoming.senderId,
+          displayName: incoming.senderName || 'Friend',
+          name: incoming.senderName || 'Friend',
+          avatarUrl: incoming.senderAvatar || null,
+          avatar: incoming.senderAvatar || undefined,
+          onlineStatus: 'ONLINE',
+          isOnline: true
+        };
+      }
+    }
 
     // Find existing conversation: by canonical ID, by received ID, or by matching participant ID
     let conv = convs.find(
@@ -1009,6 +1202,25 @@ export class ChatStore {
     }
 
     if (!conv) {
+      const senderUser: ChatUser = {
+        id: incoming.senderId,
+        displayName: incoming.senderName || 'Friend',
+        name: incoming.senderName || 'Friend',
+        avatarUrl: incoming.senderAvatar || null,
+        avatar: incoming.senderAvatar || undefined,
+        onlineStatus: 'ONLINE',
+        isOnline: true
+      };
+      const myUser: ChatUser | null = myId ? {
+        id: myId,
+        displayName: s?.user?.displayName || 'You',
+        name: s?.user?.displayName || 'You',
+        avatarUrl: s?.user?.avatarUrl || null,
+        avatar: s?.user?.avatarUrl || undefined,
+        onlineStatus: 'ONLINE',
+        isOnline: true
+      } : null;
+
       conv = {
         id: targetConvId,
         type: 'direct',
@@ -1016,21 +1228,11 @@ export class ChatStore {
         title: incoming.senderName || 'Friend',
         avatarUrl: incoming.senderAvatar || null,
         avatar: incoming.senderAvatar || undefined,
-        participants: [
-          {
-            id: incoming.senderId,
-            displayName: incoming.senderName || 'Friend',
-            name: incoming.senderName || 'Friend',
-            avatarUrl: incoming.senderAvatar || null,
-            avatar: incoming.senderAvatar || undefined,
-            onlineStatus: 'ONLINE',
-            isOnline: true
-          }
-        ],
+        participants: myUser ? [myUser, senderUser] : [senderUser],
         messages: msgs,
         lastMessage: normalizedMsg,
         unreadCount: 1,
-        updatedAt: incoming.createdAt
+        updatedAt: incoming.createdAt || new Date().toISOString()
       };
       convs.unshift(conv);
     } else {

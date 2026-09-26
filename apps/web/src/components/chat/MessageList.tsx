@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { ChatMessage } from '@/types/chat';
+import { getStoredSession } from '@/lib/api';
 import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
@@ -140,7 +141,17 @@ export const MessageList: React.FC<MessageListProps> = ({
           </div>
         ) : (
           messages.map((message, index) => {
-            const isSender = message.senderId === currentUserId;
+            const s = typeof window !== 'undefined' ? getStoredSession() : null;
+            const realMyId = (currentUserId && currentUserId !== 'current-user')
+              ? currentUserId
+              : s?.user?.id;
+            const myDisplayName = s?.user?.displayName || 'You';
+
+            const isSender = Boolean(
+              (realMyId && message.senderId === realMyId) ||
+              message.senderId === 'current-user' ||
+              (message.senderName && (message.senderName === 'You' || (myDisplayName && message.senderName.trim().toLowerCase() === myDisplayName.trim().toLowerCase())))
+            );
             const prevMsg = messages[index - 1];
             const isNewDay =
               !prevMsg ||

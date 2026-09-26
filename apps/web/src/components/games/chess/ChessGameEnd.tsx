@@ -23,6 +23,11 @@ interface ChessGameEndProps {
   onReview?: () => void;
   onLeave?: () => void;
   rematchRequested?: boolean;
+  rematchStatus?: {
+    requesterId?: string;
+    requesterName?: string;
+    votedUserIds?: string[];
+  } | null;
 }
 
 export const ChessGameEnd: React.FC<ChessGameEndProps> = ({
@@ -31,9 +36,34 @@ export const ChessGameEnd: React.FC<ChessGameEndProps> = ({
   onRematch,
   onReview,
   onLeave,
-  rematchRequested = false
+  rematchRequested = false,
+  rematchStatus
 }) => {
   const [copiedPgn, setCopiedPgn] = useState(false);
+
+  const opponentRequestedRematch =
+    Boolean(
+      rematchStatus &&
+      rematchStatus.requesterId &&
+      rematchStatus.requesterId !== myUserId &&
+      !rematchStatus.votedUserIds?.includes(myUserId)
+    );
+
+  const iRequestedRematch =
+    rematchRequested || Boolean(rematchStatus?.votedUserIds?.includes(myUserId));
+
+  let rematchLabel = 'Request Rematch';
+  let rematchStyle =
+    'bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black shadow-amber-500/30';
+
+  if (opponentRequestedRematch) {
+    rematchLabel = `Accept Rematch from ${rematchStatus?.requesterName || 'Opponent'}`;
+    rematchStyle =
+      'bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 text-black shadow-emerald-500/40 ring-2 ring-emerald-300 animate-pulse';
+  } else if (iRequestedRematch) {
+    rematchLabel = 'Rematch Requested... (Waiting)';
+    rematchStyle = 'bg-amber-500/30 text-amber-200 border border-amber-500/40 cursor-wait';
+  }
 
   const isWinner = gameState.winnerUserId === myUserId;
   const isDraw = gameState.status === 'DRAW' || gameState.status === 'STALEMATE';
@@ -154,10 +184,10 @@ export const ChessGameEnd: React.FC<ChessGameEndProps> = ({
             <button
               type="button"
               onClick={onRematch}
-              className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/30 transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              className={`w-full py-3.5 px-4 rounded-xl font-black text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${rematchStyle}`}
             >
               <RotateCcw className="w-4 h-4" />
-              <span>{rematchRequested ? 'Rematch Requested... (Waiting)' : 'Request Rematch'}</span>
+              <span>{rematchLabel}</span>
             </button>
           )}
 

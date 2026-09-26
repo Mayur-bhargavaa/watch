@@ -37,7 +37,8 @@ import {
   ChevronRight,
   Send,
   Trash2,
-  Menu
+  Menu,
+  MessageSquare
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -1180,6 +1181,17 @@ function FriendsPageContent() {
                         {/* Action Toolbar */}
                         <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 flex-1 flex-wrap">
+                            {/* Direct Chat */}
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/chat?userId=${friend.friendUser.id}`)}
+                              className="py-2 px-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-[#ee1d49] font-bold text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                              title="Chat now"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>Chat</span>
+                            </button>
+
                             {/* Watch Together */}
                             <button
                               type="button"

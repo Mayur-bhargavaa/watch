@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ChatConversation, ChatUser, ChatMessageRequest } from '@/types/chat';
 import { ChatStore } from '@/lib/chatStore';
+import { getStoredSession } from '@/lib/api';
 import { ConversationList } from './ConversationList';
 import { ModalPortal } from './ModalPortal';
 
@@ -61,6 +62,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     setMyFriendCode(ChatStore.getMyFriendCode());
   }, [conversations]);
 
+  useEffect(() => {
+    if (activeConversationId) {
+      setActiveTab('chats');
+    }
+  }, [activeConversationId]);
+
   const handleAddFriendSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!friendCodeInput.trim()) return;
@@ -87,7 +94,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   };
 
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-  const friendsList = Object.values(users).filter((u) => u.id !== currentUserId);
+  const myId = currentUserId || (typeof window !== 'undefined' ? getStoredSession()?.user?.id : '');
+  const friendsList = Object.values(users).filter(
+    (u) => u && u.id && u.id !== myId && u.id !== 'current-user'
+  );
 
   return (
     <div className="w-full md:w-80 lg:w-96 h-full flex flex-col border-r border-slate-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md shrink-0 select-none">
@@ -243,7 +253,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               friendsList.map((friend) => (
                 <div
                   key={friend.id}
-                  onClick={() => onStartDirectChatWithUser(friend)}
+                  onClick={() => {
+                    onStartDirectChatWithUser(friend);
+                    setActiveTab('chats');
+                  }}
                   className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-slate-100 dark:hover:bg-zinc-800/80 cursor-pointer transition"
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -283,6 +296,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       onStartDirectChatWithUser(friend);
+                      setActiveTab('chats');
                     }}
                     className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-[#ee1d49] text-[11px] font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition cursor-pointer"
                   >

@@ -616,7 +616,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => router.forward()}
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none"
+              className="hidden sm:flex w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none"
               title="Forward"
             >
               <ChevronRight className="w-4 h-4" />
@@ -663,8 +663,8 @@ export default function DashboardPage() {
             <NotificationBell />
           </div>
 
-          {/* Top Right Header with Max 6 Indicator & Theme Toggle in exact original spot */}
-          <div className="flex items-center space-x-2.5 shrink-0 pr-36 sm:pr-44">
+          {/* Top Right Header with Max 6 Indicator & Theme Toggle */}
+          <div className="flex items-center space-x-2.5 shrink-0">
             {/* Live Room Limit Indicator (In exact original position) */}
             <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
               <Users className="w-3.5 h-3.5 text-rose-500" />
@@ -1020,17 +1020,6 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-
-            {/* Friends & Daily Streaks Widget */}
-            {session && (
-              <div className="pt-2">
-                <FriendsStreaksCard
-                  token={session.token}
-                  onStartWatchPartyWithFriend={(f) => handleDirectCreateRoom(`Watch with ${f.friendUser.displayName}`)}
-                  onPlayGameWithFriend={(f) => router.push(`/games/four-in-a-row?partnerCode=${f.friendUser.partnerCode}`)}
-                />
-              </div>
-            )}
           </div>
         )}
 

@@ -574,20 +574,20 @@ export const CinemaPlayer = memo(function CinemaPlayer({
 
         {/* Hero stage when movie is not playing: Share screen to start party */}
         {!screenStream && !isPlaying && countdownStep === null && (
-          <div className="absolute inset-0 z-20 bg-gradient-to-t from-black via-black/85 to-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center select-none animate-fadeIn">
-            <div className="max-w-md w-full bg-[#121622]/90 border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-5 flex flex-col items-center">
+          <div className="absolute inset-0 z-20 bg-gradient-to-t from-black via-black/85 to-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 sm:p-6 text-center select-none animate-fadeIn">
+            <div className="max-w-md w-full bg-[#121622]/90 border border-white/10 rounded-2xl p-4 sm:p-8 shadow-2xl space-y-3 sm:space-y-5 flex flex-col items-center">
               {/* Glowing Icon Badge */}
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#E50914] to-rose-600 flex items-center justify-center shadow-lg shadow-red-600/30 text-white">
-                <ScreenShare className="w-7 h-7" />
+              <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#E50914] to-rose-600 flex items-center justify-center shadow-lg shadow-red-600/30 text-white">
+                <ScreenShare className="w-5 h-5 sm:w-7 sm:h-7" />
               </div>
 
               {isHost ? (
                 <>
-                  <div className="space-y-1.5">
-                    <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                  <div className="space-y-1">
+                    <h3 className="text-base sm:text-xl font-bold text-white tracking-tight">
                       Share Screen to Start Movie Party
                     </h3>
-                    <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
+                    <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed max-w-sm">
                       Open Netflix, Prime Video, YouTube or any movie in your browser, then share your tab or screen with everyone.
                     </p>
                   </div>
@@ -602,7 +602,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                             onStartScreenShare();
                           }
                         }}
-                        className="w-full py-3 px-5 bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2"
+                        className="w-full py-2.5 sm:py-3 px-4 sm:px-5 bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2"
                       >
                         <ScreenShare className="w-4 h-4" />
                         <span>Share Screen &amp; Start</span>
@@ -611,14 +611,14 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   </div>
                 </>
               ) : (
-                <div className="space-y-2">
-                  <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                <div className="space-y-1.5">
+                  <h3 className="text-base sm:text-xl font-bold text-white tracking-tight">
                     Waiting for Host to Stream Movie
                   </h3>
-                  <p className="text-xs text-zinc-400 leading-relaxed max-w-sm">
+                  <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed max-w-sm">
                     The host will start sharing their screen or video stream shortly. Grab your popcorn and enjoy the party!
                   </p>
-                  <div className="pt-2 flex items-center justify-center gap-1.5 text-rose-400 text-xs font-semibold">
+                  <div className="pt-1 flex items-center justify-center gap-1.5 text-rose-400 text-[11px] sm:text-xs font-semibold">
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block"></span>
                     <span>Ready &amp; waiting for broadcast...</span>
                   </div>
@@ -756,7 +756,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
           </div>
 
           {/* Center: Integrated Call Controls Dock (Mic, Camera, Screen Share) */}
-          <div className="flex items-center space-x-2 sm:space-x-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-lg">
+          <div className="hidden sm:flex items-center space-x-2 sm:space-x-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 shadow-lg">
             {/* Mic Toggle Button */}
             {onToggleMic && (
               <button

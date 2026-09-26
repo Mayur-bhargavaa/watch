@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Phone, Video } from 'lucide-react';
 import { getStoredSession } from '@/lib/api';
 import {
@@ -25,6 +26,10 @@ import { ModalPortal } from './ModalPortal';
 import { useCall } from '@/context/CallContext';
 
 export const ChatLayout: React.FC = () => {
+  const searchParams = useSearchParams();
+  const urlUserId = searchParams.get('userId') || searchParams.get('u');
+  const urlConvId = searchParams.get('c') || searchParams.get('convId');
+
   const [session, setSession] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       return getStoredSession();
@@ -79,14 +84,36 @@ export const ChatLayout: React.FC = () => {
     };
   }, []);
 
-  // Update messages whenever active conversation changes
+  // Sync activeConversationId from URL parameters if provided
+  useEffect(() => {
+    if (urlUserId) {
+      const targetUser = users[urlUserId] || { id: urlUserId, displayName: 'Friend', onlineStatus: 'ONLINE' as const, isOnline: true };
+      const conv = ChatStore.getOrCreateDirectConversation(targetUser);
+      setActiveConversationId(conv.id);
+    } else if (urlConvId) {
+      setActiveConversationId(urlConvId);
+    }
+  }, [urlUserId, urlConvId, users]);
+
+  const realMyId = session?.user?.id || (typeof window !== 'undefined' ? getStoredSession()?.user?.id : '') || currentUserId;
+
+  const { userIds: activeUserIds, otherUserId: activeOtherId } = activeConversationId
+    ? extractParticipantIdsFromConvId(activeConversationId, realMyId)
+    : { userIds: [], otherUserId: undefined };
+  const activeTargetUserId = activeOtherId || activeUserIds.find((id) => id && id !== realMyId && id !== 'current-user');
+  const targetUserFromId = activeTargetUserId ? users[activeTargetUserId] : null;
+
+  // Update messages and ensure active conversation exists in store whenever active conversation changes
   useEffect(() => {
     if (activeConversationId) {
       setMessages(ChatStore.getMessages(activeConversationId));
+      if (targetUserFromId) {
+        ChatStore.getOrCreateDirectConversation(targetUserFromId);
+      }
     } else {
       setMessages([]);
     }
-  }, [activeConversationId]);
+  }, [activeConversationId, targetUserFromId]);
 
   // Fix poisoned activeConversationId with 'current-user'
   useEffect(() => {
@@ -96,33 +123,56 @@ export const ChatLayout: React.FC = () => {
     }
   }, [activeConversationId, currentUserId]);
 
-  // Default to first conversation on larger screens if none selected
+  // Default to first conversation on larger screens if none selected and no URL parameter provided
   useEffect(() => {
-    if (!activeConversationId && conversations.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768) {
+    if (!urlUserId && !urlConvId && !activeConversationId && conversations.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768) {
       const firstConv = conversations[0];
-      const targetOther = firstConv.participants?.find((p) => p && p.id !== currentUserId) || firstConv.participants?.[0];
-      const { otherUserId } = extractParticipantIdsFromConvId(firstConv.id, currentUserId);
-      const friendId = targetOther?.id || otherUserId;
-      const canonicalId = (currentUserId && currentUserId !== 'current-user' && friendId && firstConv.type === 'direct')
-        ? toCanonicalConvId(currentUserId, friendId)
-        : firstConv.id;
-      setActiveConversationId(canonicalId);
+      setActiveConversationId(firstConv.id);
     }
-  }, [conversations, activeConversationId, currentUserId]);
+  }, [conversations, activeConversationId, urlUserId, urlConvId]);
 
   const activeConversation = conversations.find((c) => {
+    if (!activeConversationId) return false;
+    // 1. Direct ID match
     if (c.id === activeConversationId) return true;
-    if (activeConversationId) {
-      const { otherUserId } = extractParticipantIdsFromConvId(activeConversationId, currentUserId);
-      if (otherUserId && (c.id.includes(otherUserId) || c.participants?.some((p) => p && p.id === otherUserId))) {
+
+    // 2. Extract partner target ID match
+    if (activeTargetUserId && activeTargetUserId !== realMyId && activeTargetUserId !== 'current-user') {
+      if (c.id.includes(activeTargetUserId) || c.participants?.some((p) => p && p.id === activeTargetUserId)) {
         return true;
       }
     }
-    return false;
-  });
 
-  const rawOtherUser = activeConversation?.participants?.find((p) => p && p.id !== currentUserId) || activeConversation?.participants?.[0];
-  const otherUser = rawOtherUser ? (users[rawOtherUser.id] || rawOtherUser) : undefined;
+    // 3. Substring / alias match
+    if (c.id && activeConversationId && (c.id.includes(activeConversationId) || activeConversationId.includes(c.id))) {
+      return true;
+    }
+
+    return false;
+  }) || (activeConversationId && targetUserFromId ? {
+    id: activeConversationId,
+    type: 'direct' as const,
+    name: targetUserFromId.displayName || targetUserFromId.name || 'Friend',
+    title: targetUserFromId.displayName || targetUserFromId.name || 'Friend',
+    avatarUrl: targetUserFromId.avatarUrl || targetUserFromId.avatar || null,
+    avatar: targetUserFromId.avatarUrl || targetUserFromId.avatar || undefined,
+    participants: [targetUserFromId],
+    messages: messages,
+    lastMessage: messages.length > 0 ? messages[messages.length - 1] : null,
+    unreadCount: 0,
+    updatedAt: new Date().toISOString()
+  } : undefined);
+
+  const rawOtherUser = activeConversation?.participants?.find((p) => p && p.id && p.id !== realMyId && p.id !== 'current-user') || activeConversation?.participants?.[0] || targetUserFromId;
+  const storeUser = rawOtherUser?.id ? users[rawOtherUser.id] : undefined;
+  const otherUser = rawOtherUser ? {
+    ...rawOtherUser,
+    ...(storeUser || {}),
+    displayName: storeUser?.displayName || storeUser?.name || rawOtherUser.displayName || rawOtherUser.name || 'Friend',
+    name: storeUser?.displayName || storeUser?.name || rawOtherUser.displayName || rawOtherUser.name || 'Friend',
+    avatarUrl: storeUser?.avatarUrl || storeUser?.avatar || rawOtherUser.avatarUrl || rawOtherUser.avatar || null,
+    avatar: storeUser?.avatarUrl || storeUser?.avatar || rawOtherUser.avatarUrl || rawOtherUser.avatar || undefined,
+  } : undefined;
 
   // Mark conversation as read and sync remote messages when opened
   useEffect(() => {
@@ -160,15 +210,12 @@ export const ChatLayout: React.FC = () => {
 
   // Mark conversation as read when opened
   const handleSelectConversation = (conv: ChatConversation) => {
-    const targetOther = conv.participants?.find((p) => p && p.id !== currentUserId) || conv.participants?.[0];
+    const targetOther = conv.participants?.find((p) => p && p.id !== currentUserId && (!session?.user?.id || p.id !== session.user.id)) || conv.participants?.[0];
     const { otherUserId } = extractParticipantIdsFromConvId(conv.id, currentUserId);
     const friendId = targetOther?.id || otherUserId;
-    const canonicalId = (currentUserId && friendId && conv.type === 'direct')
-      ? toCanonicalConvId(currentUserId, friendId)
-      : conv.id;
-    setActiveConversationId(canonicalId);
-    ChatStore.markAsRead(canonicalId, friendId);
-    ChatStore.fetchRemoteMessages(canonicalId);
+    setActiveConversationId(conv.id);
+    ChatStore.markAsRead(conv.id, friendId);
+    ChatStore.fetchRemoteMessages(conv.id);
   };
 
   const myName = session?.user?.displayName || 'You';
@@ -289,6 +336,8 @@ export const ChatLayout: React.FC = () => {
 
   const handleStartDirectChat = (targetUser: ChatUser) => {
     const conv = ChatStore.getOrCreateDirectConversation(targetUser);
+    setConversations(ChatStore.getConversations());
+    setUsers(ChatStore.getUsers());
     setActiveConversationId(conv.id);
   };
 

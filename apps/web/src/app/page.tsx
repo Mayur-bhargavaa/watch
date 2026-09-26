@@ -206,7 +206,7 @@ export default function LandingPage() {
                     const search = typeof window !== 'undefined' ? window.location.search : '';
                     router.push(`/dashboard${search}`);
                   }}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white rounded-xl shadow-md shadow-[#d2281e]/25 transition active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
+                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white rounded-xl shadow-md shadow-[#d2281e]/25 transition active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Dashboard</span>
@@ -223,13 +223,13 @@ export default function LandingPage() {
               <div className="flex flex-row items-center space-x-1.5 sm:space-x-2">
                 <button
                   onClick={() => router.push('/login')}
-                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-zinc-100 hover:bg-zinc-200 text-xs font-bold text-zinc-800 rounded-xl border border-zinc-200 transition whitespace-nowrap"
+                  className="hidden xs:inline-flex px-2.5 sm:px-4 py-1.5 sm:py-2 bg-zinc-100 hover:bg-zinc-200 text-xs font-bold text-zinc-800 rounded-xl border border-zinc-200 transition whitespace-nowrap"
                 >
                   Sign In
                 </button>
                 <button
                   onClick={handleGetStarted}
-                  className="px-3 sm:px-5 py-1.5 sm:py-2 bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white rounded-xl shadow-md shadow-[#d2281e]/30 transition transform active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
+                  className="px-2.5 sm:px-5 py-1.5 sm:py-2 bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white rounded-xl shadow-md shadow-[#d2281e]/30 transition transform active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5 hidden sm:inline" />
                   <span>Get Started</span>
@@ -251,6 +251,22 @@ export default function LandingPage() {
         {/* Mobile Dropdown Menu Sheet */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-zinc-200 mt-2.5 pt-2.5 pb-3 space-y-1.5 px-2 bg-white animate-in fade-in">
+            {(!session || session.user.isAnonymous) && (
+              <div className="flex items-center gap-2 pb-2 mb-2 border-b border-zinc-100 xs:hidden">
+                <button
+                  onClick={() => { setIsMobileMenuOpen(false); router.push('/login'); }}
+                  className="flex-1 py-2 text-center text-xs font-bold text-zinc-800 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => { setIsMobileMenuOpen(false); handleGetStarted(); }}
+                  className="flex-1 py-2 text-center text-xs font-bold text-white bg-[#d2281e] hover:bg-[#b82017] rounded-lg transition"
+                >
+                  Get Started
+                </button>
+              </div>
+            )}
             <a
               href="#features"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -490,7 +506,7 @@ export default function LandingPage() {
             <div className="pt-2 flex flex-row items-center gap-2 sm:gap-3.5 w-full">
               <button
                 onClick={handleGetStarted}
-                className="flex-1 sm:flex-initial px-4 sm:px-7 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-[#d2281e] hover:bg-[#b82017] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
+                className="flex-1 sm:flex-initial px-3 sm:px-7 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-[#d2281e] hover:bg-[#b82017] text-white font-black text-xs sm:text-sm shadow-lg shadow-[#d2281e]/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
               >
                 <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Get Watch free!</span>
@@ -499,7 +515,7 @@ export default function LandingPage() {
 
               <button
                 onClick={() => handlePlayGame('/games/ludo')}
-                className="flex-1 sm:flex-initial px-3.5 sm:px-6 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
+                className="flex-1 sm:flex-initial px-2.5 sm:px-6 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
               >
                 <Gamepad2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#d2281e]" />
                 <span>Play Games</span>
