@@ -63,8 +63,20 @@ export const MessageList: React.FC<MessageListProps> = ({
   const prevFirstMsgIdRef = useRef<string>('');
   const prevScrollHeightRef = useRef<number>(0);
 
-  // Auto scroll to bottom when new messages arrive at the bottom
-  const scrollToBottom = (smooth = true) => {
+  const isUserNearBottomRef = useRef(true);
+
+  // Auto scroll to bottom when new messages arrive or view opens
+  const scrollToBottom = (smooth = false) => {
+    if (scrollRef.current) {
+      if (smooth) {
+        scrollRef.current.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      } else {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   };
 
@@ -74,16 +86,24 @@ export const MessageList: React.FC<MessageListProps> = ({
   useEffect(() => {
     if (!lastMsgId) return;
 
-    if (lastMsgId !== prevLastMsgIdRef.current) {
-      // New message received at the bottom or conversation switched
-      scrollToBottom(false);
-    } else if (firstMsgId !== prevFirstMsgIdRef.current && scrollRef.current) {
-      // Older messages prepended at the top: preserve viewport scroll offset
+    // If older messages were prepended at top, preserve viewport scroll offset
+    if (firstMsgId !== prevFirstMsgIdRef.current && prevFirstMsgIdRef.current !== '' && scrollRef.current) {
       const currentScrollHeight = scrollRef.current.scrollHeight;
       const diff = currentScrollHeight - prevScrollHeightRef.current;
       if (diff > 0) {
         scrollRef.current.scrollTop += diff;
       }
+    } else {
+      // New message at bottom, or fresh conversation load
+      scrollToBottom(false);
+      const r1 = requestAnimationFrame(() => scrollToBottom(false));
+      const t1 = setTimeout(() => scrollToBottom(false), 50);
+      const t2 = setTimeout(() => scrollToBottom(false), 200);
+      return () => {
+        cancelAnimationFrame(r1);
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }
 
     prevLastMsgIdRef.current = lastMsgId;
@@ -93,14 +113,28 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length, lastMsgId, firstMsgId]);
 
+  // Keep pinned to bottom on container resize if user was near bottom
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const observer = new ResizeObserver(() => {
+      if (isUserNearBottomRef.current && scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    });
+    observer.observe(scrollRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   const handleScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-    const isUp = scrollHeight - scrollTop - clientHeight > 150;
+    const distanceToBottom = scrollHeight - scrollTop - clientHeight;
+    const isUp = distanceToBottom > 60;
+    isUserNearBottomRef.current = !isUp;
     setShowScrollBottom(isUp);
 
     // If scrolled near the top, trigger loading earlier messages
-    if (scrollTop < 40 && onLoadMore && !loadingMoreRef.current) {
+    if (scrollTop < 40 && onLoadMore && !loadingMoreRef.current && scrollHeight > clientHeight) {
       loadingMoreRef.current = true;
       onLoadMore();
       setTimeout(() => {
@@ -211,11 +245,15 @@ export const MessageList: React.FC<MessageListProps> = ({
       {showScrollBottom && (
         <button
           type="button"
-          onClick={() => scrollToBottom(true)}
-          className="absolute bottom-4 right-4 z-20 w-9 h-9 rounded-full bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 shadow-lg border border-slate-200/80 dark:border-zinc-700 flex items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer"
-          title="Scroll to bottom"
+          onClick={() => {
+            isUserNearBottomRef.current = true;
+            scrollToBottom(true);
+          }}
+          className="absolute bottom-4 right-4 z-30 px-3.5 py-1.5 rounded-full bg-[#d2281e] text-white shadow-xl hover:bg-[#b82017] flex items-center gap-1.5 text-xs font-bold transition-all hover:scale-105 active:scale-95 cursor-pointer animate-in fade-in"
+          title="Scroll to latest messages"
         >
-          <ArrowDown className="w-4 h-4" />
+          <span>Latest messages</span>
+          <ArrowDown className="w-3.5 h-3.5" />
         </button>
       )}
     </div>
