@@ -424,18 +424,30 @@ export class MongoDatabaseService {
       query.conversationId = conversationId;
     }
 
-    if (opts.before) {
-      query.createdAt = { ...query.createdAt, $lt: opts.before };
-    }
+    let docs: any[];
     if (opts.after) {
       query.createdAt = { ...query.createdAt, $gt: opts.after };
+      docs = await this.directMessagesCol
+        .find(query)
+        .sort({ createdAt: 1 })
+        .limit(limit)
+        .toArray();
+    } else if (opts.before) {
+      query.createdAt = { ...query.createdAt, $lt: opts.before };
+      const rawDocs = await this.directMessagesCol
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      docs = rawDocs.reverse();
+    } else {
+      const rawDocs = await this.directMessagesCol
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      docs = rawDocs.reverse();
     }
-
-    const docs = await this.directMessagesCol
-      .find(query)
-      .sort({ createdAt: 1 })
-      .limit(limit)
-      .toArray();
 
     return docs.map((d: any) => ({
       id: d._id || d.id,
@@ -553,7 +565,13 @@ export class MongoDatabaseService {
       if (!friendUser) continue;
 
       const pair = [userId, otherId].sort();
-      const streakDoc = await this.streaksCol.findOne({ userIds: { $all: pair } });
+      const deterministicStreakId = `stk_${pair.join('_')}`;
+      const streakDoc = await this.streaksCol.findOne({
+        $or: [
+          { _id: deterministicStreakId },
+          { userIds: { $all: pair } }
+        ]
+      });
 
       const today = new Date().toISOString().slice(0, 10);
       const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -748,7 +766,13 @@ export class MongoDatabaseService {
 
   async recordSessionBetweenUsers(userIdA: string, userIdB: string, minutes: number = 1) {
     const pair = [userIdA, userIdB].sort();
-    const streakDoc = await this.streaksCol.findOne({ userIds: { $all: pair } });
+    const deterministicStreakId = `stk_${pair.join('_')}`;
+    const streakDoc = await this.streaksCol.findOne({
+      $or: [
+        { _id: deterministicStreakId },
+        { userIds: { $all: pair } }
+      ]
+    });
 
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -772,8 +796,10 @@ export class MongoDatabaseService {
       status = 'RESET_STARTED';
     }
 
+    const streakId = streakDoc?._id || deterministicStreakId;
     const updated = {
-      _id: streakDoc?._id || `stk_${pair.join('_')}`,
+      _id: streakId,
+      id: streakId,
       userId1: pair[0],
       userId2: pair[1],
       userIds: pair,
@@ -784,7 +810,7 @@ export class MongoDatabaseService {
       updatedAt: new Date().toISOString()
     };
 
-    await this.streaksCol.updateOne({ userIds: { $all: pair } }, { $set: updated }, { upsert: true });
+    await this.streaksCol.updateOne({ _id: streakId }, { $set: updated }, { upsert: true });
 
     return {
       streak: {

@@ -527,7 +527,7 @@ export class ChatStore {
             const participants = myUser ? [myUser, chatUser] : [chatUser];
 
             // Fetch latest messages from remote server in background for this friend
-            this.fetchRemoteMessages(canonicalConvId, { limit: 20 }).catch(() => {});
+            this.fetchRemoteMessages(canonicalConvId, { limit: 50 }).catch(() => {});
 
             let existing = cleanConvs.find(
               (c) =>
