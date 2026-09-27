@@ -33,7 +33,23 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isPiPEnabled, setIsPiPEnabled] = useState(true);
 
   const setActiveParty = useCallback((party: ActiveWatchParty | null) => {
-    setActivePartyState(party);
+    setActivePartyState((prev) => {
+      if (!prev && !party) return null;
+      if (!prev || !party) return party;
+      if (
+        prev.slug === party.slug &&
+        prev.roomId === party.roomId &&
+        prev.title === party.title &&
+        prev.mediaUrl === party.mediaUrl &&
+        prev.mediaProvider === party.mediaProvider &&
+        prev.mediaTitle === party.mediaTitle &&
+        prev.isPlaying === party.isPlaying &&
+        prev.participantCount === party.participantCount
+      ) {
+        return prev;
+      }
+      return party;
+    });
   }, []);
 
   const updatePartyState = useCallback((updates: Partial<ActiveWatchParty>) => {
@@ -70,10 +86,17 @@ export const WatchPartyProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   return <WatchPartyContext.Provider value={value}>{children}</WatchPartyContext.Provider>;
 };
 
+const defaultWatchPartyContext: WatchPartyContextValue = {
+  activeParty: null,
+  isPiPEnabled: false,
+  setActiveParty: () => {},
+  updatePartyState: () => {},
+  togglePiP: () => {},
+  leaveParty: () => {},
+  returnToRoom: () => {},
+};
+
 export function useWatchParty() {
   const ctx = useContext(WatchPartyContext);
-  if (!ctx) {
-    throw new Error('useWatchParty must be used within a WatchPartyProvider');
-  }
-  return ctx;
+  return ctx || defaultWatchPartyContext;
 }

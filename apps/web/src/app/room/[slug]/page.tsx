@@ -634,7 +634,17 @@ export default function RoomPage() {
         participantCount: activeMembers.length || 1,
       });
     }
-  }, [room, slug, activeMembers.length, setActiveParty]);
+  }, [
+    slug,
+    room?.id,
+    room?.title,
+    room?.currentMedia?.sourceUrl,
+    room?.currentMedia?.provider,
+    room?.currentMedia?.title,
+    room?.playbackState?.state,
+    activeMembers.length,
+    setActiveParty
+  ]);
 
   // Friend streak celebration state
   const [streakCelebration, setStreakCelebration] = useState<{

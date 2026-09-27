@@ -1,16 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useWatchParty } from '../../context/WatchPartyContext';
 import { Maximize2, X, Users, Film, Radio } from 'lucide-react';
 
 export const FloatingRoomPiP: React.FC = () => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const pathname = usePathname();
   const { activeParty, isPiPEnabled, returnToRoom, leaveParty } = useWatchParty();
 
-  // If no active room, PiP disabled, or user is already inside a watch room, do not display
-  if (!activeParty || !isPiPEnabled || pathname?.startsWith('/room/')) {
+  // If not mounted yet (SSR), no active room, PiP disabled, or user is already inside a watch room, do not display
+  if (!mounted || !activeParty || !isPiPEnabled || pathname?.startsWith('/room/')) {
     return null;
   }
 
