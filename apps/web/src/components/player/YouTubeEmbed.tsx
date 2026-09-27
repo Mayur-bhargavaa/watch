@@ -35,68 +35,92 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
   const lastHardSeekTimeRef = useRef<number>(0);
   const isInternalUpdateRef = useRef<boolean>(false);
 
-  // 1. Load YouTube IFrame Player API script
+  // 1. Load YouTube IFrame Player API script and initialize
   useEffect(() => {
+    let isCancelled = false;
+
     if (!window.YT) {
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
+      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.async = true;
+        document.head.appendChild(tag);
+      }
     }
 
     const initPlayer = () => {
-      if (!containerRef.current) return;
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        videoId,
-        playerVars: {
-          autoplay: 0,
-          controls: isHost ? 1 : 0, // participants use social synchronized controls
-          disablekb: isHost ? 0 : 1,
-          modestbranding: 1,
-          rel: 0
-        },
-        events: {
-          onReady: (event: any) => {
-            setIsReady(true);
-            const authPos = getAuthoritativePosition();
-            if (authPos > 0 && typeof event?.target?.seekTo === 'function') {
-              isInternalUpdateRef.current = true;
-              event.target.seekTo(authPos, true);
-              setTimeout(() => {
-                isInternalUpdateRef.current = false;
-              }, 400);
-            }
-            if (playbackState.state === 'PLAYING' && typeof event?.target?.playVideo === 'function') {
-              event.target.playVideo();
-            }
-          },
-          onStateChange: (event: any) => {
-            if (!isHost || isInternalUpdateRef.current) return;
-            const currentTime =
-              playerRef.current && typeof playerRef.current.getCurrentTime === 'function'
-                ? playerRef.current.getCurrentTime()
-                : 0;
-            const playingState = window.YT?.PlayerState?.PLAYING ?? 1;
-            const pausedState = window.YT?.PlayerState?.PAUSED ?? 2;
+      if (isCancelled || !containerRef.current) return;
 
-            if (event.data === playingState) {
-              onHostCommand('PLAY', currentTime);
-            } else if (event.data === pausedState) {
-              onHostCommand('PAUSE', currentTime);
+      // Provide an unmanaged target element inside containerRef so YouTube replaces THAT element,
+      // leaving containerRef.current intact in React's DOM tree to prevent insertBefore DOM errors.
+      containerRef.current.innerHTML = '';
+      const targetDiv = document.createElement('div');
+      targetDiv.style.width = '100%';
+      targetDiv.style.height = '100%';
+      containerRef.current.appendChild(targetDiv);
+
+      try {
+        playerRef.current = new window.YT.Player(targetDiv, {
+          videoId,
+          playerVars: {
+            autoplay: 0,
+            controls: isHost ? 1 : 0, // participants use social synchronized controls
+            disablekb: isHost ? 0 : 1,
+            modestbranding: 1,
+            rel: 0
+          },
+          events: {
+            onReady: (event: any) => {
+              if (isCancelled) return;
+              setIsReady(true);
+              const authPos = getAuthoritativePosition();
+              if (authPos > 0 && typeof event?.target?.seekTo === 'function') {
+                isInternalUpdateRef.current = true;
+                event.target.seekTo(authPos, true);
+                setTimeout(() => {
+                  isInternalUpdateRef.current = false;
+                }, 400);
+              }
+              if (playbackState.state === 'PLAYING' && typeof event?.target?.playVideo === 'function') {
+                event.target.playVideo();
+              }
+            },
+            onStateChange: (event: any) => {
+              if (isCancelled || !isHost || isInternalUpdateRef.current) return;
+              const currentTime =
+                playerRef.current && typeof playerRef.current.getCurrentTime === 'function'
+                  ? playerRef.current.getCurrentTime()
+                  : 0;
+              const playingState = window.YT?.PlayerState?.PLAYING ?? 1;
+              const pausedState = window.YT?.PlayerState?.PAUSED ?? 2;
+
+              if (event.data === playingState) {
+                onHostCommand('PLAY', currentTime);
+              } else if (event.data === pausedState) {
+                onHostCommand('PAUSE', currentTime);
+              }
             }
           }
-        }
-      });
+        });
+      } catch (err) {
+        console.warn('Failed to initialize YouTube player:', err);
+      }
     };
 
     if (window.YT && window.YT.Player) {
       initPlayer();
     } else {
-      window.onYouTubeIframeAPIReady = initPlayer;
+      const prevHandler = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (prevHandler) prevHandler();
+        initPlayer();
+      };
     }
 
     return () => {
+      isCancelled = true;
       setIsReady(false);
+      setSyncBadge(null);
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
         try {
           playerRef.current.destroy();
@@ -104,6 +128,9 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
           // ignore
         }
         playerRef.current = null;
+      }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
       }
     };
   }, [videoId, isHost, onHostCommand]);
@@ -235,6 +262,8 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
 
   return (
     <div className="relative w-full h-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-cinema-border/50">
+      <div ref={containerRef} className="w-full h-full" />
+
       {/* Smart Sync Catch-up Indicator Badge */}
       {syncBadge && (
         <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[11px] font-semibold tracking-wide shadow-lg shadow-black/40 animate-pulse select-none pointer-events-none">
@@ -242,8 +271,6 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
           <span>{syncBadge.text}</span>
         </div>
       )}
-
-      <div ref={containerRef} className="w-full h-full" />
     </div>
   );
 });

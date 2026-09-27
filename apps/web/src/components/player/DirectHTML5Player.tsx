@@ -122,14 +122,6 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
 
   return (
     <div className="relative w-full h-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-cinema-border/50">
-      {/* Smart Sync Catch-up Indicator Badge */}
-      {syncBadge && (
-        <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[11px] font-semibold tracking-wide shadow-lg shadow-black/40 animate-pulse select-none pointer-events-none">
-          <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
-          <span>{syncBadge.text}</span>
-        </div>
-      )}
-
       <video
         ref={videoRef}
         src={sourceUrl}
@@ -165,6 +157,14 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
           }
         }}
       />
+
+      {/* Smart Sync Catch-up Indicator Badge */}
+      {syncBadge && (
+        <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[11px] font-semibold tracking-wide shadow-lg shadow-black/40 animate-pulse select-none pointer-events-none">
+          <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+          <span>{syncBadge.text}</span>
+        </div>
+      )}
     </div>
   );
 });
