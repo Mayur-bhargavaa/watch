@@ -128,6 +128,8 @@ function notify() {
 
 export class ChatStore {
   private static socketSender: ((msg: any) => void) | null = null;
+  private static memoryMessages: Map<string, ChatMessage[]> = new Map();
+  private static memoryConversations: ChatConversation[] = [];
 
   static registerSocketSender(sender: (msg: any) => void): void {
     this.socketSender = sender;
@@ -147,6 +149,34 @@ export class ChatStore {
     return `${STORAGE_PREFIX}${uid}`;
   }
 
+  private static safeSetLocalStorage(key: string, value: string): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(key, value);
+    } catch (e: any) {
+      console.warn('LocalStorage quota limit reached, pruning stale message caches...', e);
+      try {
+        const toDelete: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k !== key && k.startsWith(STORAGE_PREFIX) && k.includes('_msgs_')) {
+            toDelete.push(k);
+          }
+        }
+        toDelete.forEach((k) => localStorage.removeItem(k));
+        localStorage.setItem(key, value);
+      } catch {}
+    }
+  }
+
+  private static serializeConversations(convs: ChatConversation[]): string {
+    const stripped = convs.map((c) => {
+      const { messages, ...rest } = c;
+      return rest;
+    });
+    return JSON.stringify(stripped);
+  }
+
   static purgeMockData(): void {
     if (typeof window === 'undefined') return;
     try {
@@ -163,7 +193,7 @@ export class ChatStore {
               if (myId && (c.id === `conv_${myId}` || c.id === `conv_${myId}_${myId}`)) return false;
               return true;
             });
-            localStorage.setItem(storageKey, JSON.stringify(clean));
+            this.safeSetLocalStorage(storageKey, this.serializeConversations(clean));
           }
         } catch {}
       }
@@ -186,7 +216,7 @@ export class ChatStore {
           if (Array.isArray(parsed)) {
             convs = parsed.filter((c: any) => !isMockConversation(c));
             if (convs.length !== parsed.length) {
-              localStorage.setItem(key, JSON.stringify(convs));
+              this.safeSetLocalStorage(key, this.serializeConversations(convs));
             }
           }
         }
@@ -259,7 +289,7 @@ export class ChatStore {
 
     if (hadDuplicates && typeof window !== 'undefined') {
       try {
-        localStorage.setItem(this.getStorageKey() + '_conversations', JSON.stringify(deduplicated));
+        this.safeSetLocalStorage(this.getStorageKey() + '_conversations', this.serializeConversations(deduplicated));
       } catch {}
     }
     convs = deduplicated;
@@ -330,11 +360,15 @@ export class ChatStore {
   }
 
   static saveConversations(convs: ChatConversation[]): void {
+    this.memoryConversations = convs;
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(this.getStorageKey() + '_conversations', JSON.stringify(convs));
+      this.safeSetLocalStorage(this.getStorageKey() + '_conversations', this.serializeConversations(convs));
+    } catch (e) {
+      console.warn('saveConversations local storage error:', e);
+    } finally {
       notify();
-    } catch {}
+    }
   }
 
   private static getOpenedViewOnceSet(): Set<string> {
@@ -388,6 +422,13 @@ export class ChatStore {
 
   static getMessages(conversationId: string): ChatMessage[] {
     if (!conversationId) return [];
+
+    // 1. Check in-memory store first for instant access
+    const cached = this.memoryMessages.get(conversationId);
+    if (cached && cached.length > 0) {
+      return cached;
+    }
+
     if (typeof window === 'undefined') return INITIAL_MESSAGES[conversationId] || [];
 
     const msgMap = new Map<string, ChatMessage>();
@@ -435,24 +476,46 @@ export class ChatStore {
         }
       }
     }
+
+    // Populate in-memory cache
+    if (msgs.length > 0) {
+      this.memoryMessages.set(conversationId, msgs);
+      for (const alias of aliases) {
+        this.memoryMessages.set(alias, msgs);
+      }
+    }
+
     return msgs;
   }
 
   static saveMessages(conversationId: string, messages: ChatMessage[]): void {
-    if (typeof window === 'undefined' || !conversationId) return;
-    try {
-      localStorage.setItem(`${this.getStorageKey()}_msgs_${conversationId}`, JSON.stringify(messages));
-      // Also mirror to canonical ID if this was a legacy direct chat key
-      const aliases = this.getConversationAliases(conversationId);
-      for (const alias of aliases) {
-        if (alias !== conversationId) {
-          try {
-            localStorage.setItem(`${this.getStorageKey()}_msgs_${alias}`, JSON.stringify(messages));
-          } catch {}
+    if (!conversationId) return;
+
+    // 1. Always update memory cache immediately so UI gets instant updates
+    this.memoryMessages.set(conversationId, messages);
+    const aliases = this.getConversationAliases(conversationId);
+    for (const alias of aliases) {
+      this.memoryMessages.set(alias, messages);
+    }
+
+    // 2. Persist recent slice (latest 50 messages) to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const toStore = messages.slice(-50);
+        const serialized = JSON.stringify(toStore);
+        this.safeSetLocalStorage(`${this.getStorageKey()}_msgs_${conversationId}`, serialized);
+        for (const alias of aliases) {
+          if (alias !== conversationId) {
+            this.safeSetLocalStorage(`${this.getStorageKey()}_msgs_${alias}`, serialized);
+          }
         }
+      } catch (e) {
+        console.warn('saveMessages localStorage error:', e);
       }
-      notify();
-    } catch {}
+    }
+
+    // 3. Always notify subscribers regardless of storage state
+    notify();
   }
 
   // Real-time synchronization: Load actual friends and requests from existing getFriendsWithStreaks() without touching DB
@@ -599,6 +662,25 @@ export class ChatStore {
   static initialize(): void {
     if (typeof window !== 'undefined') {
       this.purgeMockData();
+
+      // Auto-purge any bloated keys (> 200KB) from localStorage so existing frozen users are freed immediately
+      try {
+        const toRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith(STORAGE_PREFIX) || k.startsWith('watch_chat_'))) {
+            const item = localStorage.getItem(k);
+            if (item && item.length > 200000) {
+              toRemove.push(k);
+            }
+          }
+        }
+        toRemove.forEach((k) => {
+          console.log(`[ChatStore] Purging bloated key to unblock quota: ${k}`);
+          localStorage.removeItem(k);
+        });
+      } catch {}
+
       const s = getStoredSession();
       const myId = s?.user?.id;
       if (myId) {
