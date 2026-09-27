@@ -209,6 +209,7 @@ export interface GameLoungeProps {
   registerGameListener?: (listener: (senderId: string, payload: any) => void) => () => void;
   onBackToCinema?: () => void;
   onLaunchParty?: () => void;
+  onSelectInRoomGame?: (gameId: 'tictactoe' | 'connect4') => void;
   isCompact?: boolean;
   hideHeader?: boolean;
 }
@@ -216,6 +217,7 @@ export interface GameLoungeProps {
 export const GameLounge: React.FC<GameLoungeProps> = ({
   onBackToCinema,
   onLaunchParty,
+  onSelectInRoomGame,
   isCompact = false,
   hideHeader = true
 }) => {
@@ -232,6 +234,15 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
   }, []);
 
   const handleGameCardClick = (game: GameItem) => {
+    if (onSelectInRoomGame && (game.id === 'tic-tac-toe' || game.id === 'tictactoe')) {
+      onSelectInRoomGame('tictactoe');
+      return;
+    }
+    if (onSelectInRoomGame && (game.id === 'connect4' || game.id === 'four-in-a-row')) {
+      onSelectInRoomGame('connect4');
+      return;
+    }
+
     if (game.id === 'ludo') {
       router.push('/games/ludo');
       return;

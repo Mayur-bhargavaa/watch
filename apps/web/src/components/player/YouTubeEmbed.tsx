@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, memo } from 'react';
-import { RoomPlaybackState, evaluateDriftCorrection } from '@synccinema/common';
+import { RoomPlaybackState } from '@synccinema/common';
+import { Zap } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -30,6 +31,7 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [isReady, setIsReady] = useState(false);
+  const [syncBadge, setSyncBadge] = useState<{ isCatchingUp: boolean; text: string } | null>(null);
   const lastHardSeekTimeRef = useRef<number>(0);
   const isInternalUpdateRef = useRef<boolean>(false);
 
@@ -150,7 +152,7 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
     }
   }, [isReady, playbackState.state, playbackState.version, playbackState.position, isHost, getAuthoritativePosition]);
 
-  // 3. Continuous drift evaluation loop for viewers (runs every 2000ms)
+  // 3. Continuous drift evaluation loop for viewers with Smart Catch-up
   useEffect(() => {
     // The host is the source of truth and must never seek or adjust rate on itself
     if (
@@ -159,6 +161,7 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
       !playerRef.current ||
       typeof playerRef.current.getCurrentTime !== 'function'
     ) {
+      setSyncBadge(null);
       return;
     }
 
@@ -177,18 +180,46 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
         const absDriftSeconds = Math.abs(driftSeconds);
         const now = Date.now();
 
-        // Under 3.0 seconds drift is completely unnoticeable when watching together
-        // Leaving it alone guarantees 100% smooth, continuous playback without buffering pauses
-        if (absDriftSeconds <= 3.0) {
+        // Deadband: within 0.4s is in perfect lock
+        if (absDriftSeconds <= 0.4) {
+          if (typeof playerRef.current.getPlaybackRate === 'function' && playerRef.current.getPlaybackRate() !== 1) {
+            playerRef.current.setPlaybackRate(1);
+          }
+          setSyncBadge(null);
           if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
           return;
+        }
+
+        // Smart Rate Adjustment: between 0.4s and 3.5s, gently ramp rate without rebuffering
+        if (absDriftSeconds <= 3.5) {
+          if (typeof playerRef.current.setPlaybackRate === 'function') {
+            // If viewer is behind, speed up (1.15x or 1.25x). If ahead, slow down (0.9x or 0.75x)
+            const targetRate = driftSeconds < 0
+              ? (absDriftSeconds > 1.5 ? 1.25 : 1.15)
+              : 0.9;
+
+            playerRef.current.setPlaybackRate(targetRate);
+
+            const badgeText = targetRate > 1.0
+              ? `⚡ Syncing +${Math.round((targetRate - 1) * 100)}%`
+              : `⚡ Syncing -${Math.round((1 - targetRate) * 100)}%`;
+
+            setSyncBadge({ isCatchingUp: true, text: badgeText });
+            if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), targetRate);
+            return;
+          }
         }
 
         // Only hard seek if drift is severe (> 3.5s) AND cooldown has passed (6 seconds)
         if (absDriftSeconds > 3.5 && (now - lastHardSeekTimeRef.current > 6000)) {
           isInternalUpdateRef.current = true;
           playerRef.current.seekTo(authoritativeTime, true);
+          if (typeof playerRef.current.setPlaybackRate === 'function') {
+            playerRef.current.setPlaybackRate(1);
+          }
           lastHardSeekTimeRef.current = now;
+          setSyncBadge({ isCatchingUp: true, text: '⚡ Re-aligned' });
+          setTimeout(() => setSyncBadge(null), 1500);
           if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
           setTimeout(() => {
             isInternalUpdateRef.current = false;
@@ -197,13 +228,21 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
       } catch (err) {
         console.warn('Drift evaluation error:', err);
       }
-    }, 2000);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [isHost, isReady, getAuthoritativePosition, onDriftUpdate]);
 
   return (
     <div className="relative w-full h-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-cinema-border/50">
+      {/* Smart Sync Catch-up Indicator Badge */}
+      {syncBadge && (
+        <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[11px] font-semibold tracking-wide shadow-lg shadow-black/40 animate-pulse select-none pointer-events-none">
+          <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+          <span>{syncBadge.text}</span>
+        </div>
+      )}
+
       <div ref={containerRef} className="w-full h-full" />
     </div>
   );

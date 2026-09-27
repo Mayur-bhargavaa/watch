@@ -28,7 +28,8 @@ import {
   Shield,
   UserCheck,
   UserX,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { ChatReplyTo } from '@synccinema/common';
 import { useRoomSocket } from '../../../hooks/useRoomSocket';
@@ -38,6 +39,7 @@ import { FloatingReactionsCanvas } from '../../../components/social/FloatingReac
 import { VideoGrid } from '../../../components/voice/VideoGrid';
 import { ContextualChat } from '../../../components/chat/ContextualChat';
 import { GameLounge } from '../../../components/games/GameLounge';
+import { RoomMiniGameDrawer } from '../../../components/games/room/RoomMiniGameDrawer';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
 import { StickerPicker, StickerMessageView } from '../../../components/chat/StickerPicker';
 import { DrawStickerModal } from '../../../components/chat/DrawStickerModal';
@@ -45,6 +47,7 @@ import { parseStickerMessage, formatStickerMessage } from '../../../components/c
 import { ChatReplyQuote, ChatReplyingBanner } from '../../../components/chat/ChatReplyUI';
 import { getStoredSession, recordFriendStreak } from '../../../lib/api';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
+import { useWatchParty } from '../../../context/WatchPartyContext';
 
 export interface RoomTheme {
   id: string;
@@ -364,6 +367,9 @@ export default function RoomPage() {
   const [countdownActive, setCountdownActive] = useState(false);
   const [sideSection, setSideSection] = useState<'chat' | 'games'>('chat');
   const [activeSideTab, setActiveSideTab] = useState<'chat' | 'games' | 'call' | 'players'>('chat');
+  const [activeMiniGame, setActiveMiniGame] = useState<'tictactoe' | 'connect4' | null>(null);
+
+  const { setActiveParty, leaveParty } = useWatchParty();
   const [replyingTo, setReplyingTo] = useState<ChatReplyTo | null>(null);
   const handleClearReply = useCallback(() => setReplyingTo(null), []);
   const handleSendChatMessage = useCallback((content: string, replyTo?: ChatReplyTo | null) => {
@@ -614,6 +620,22 @@ export default function RoomPage() {
   const selfMember = activeMembers.find((m) => m.userId === myUserId);
   const selfDisplayName = selfMember?.displayName || 'You';
 
+  // Sync active room and media state with global WatchPartyContext for Floating PiP
+  useEffect(() => {
+    if (room) {
+      setActiveParty({
+        slug,
+        roomId: room.id,
+        title: room.title || 'Watch Party',
+        mediaUrl: room.currentMedia?.sourceUrl,
+        mediaProvider: room.currentMedia?.provider,
+        mediaTitle: room.currentMedia?.title,
+        isPlaying: room.playbackState?.state === 'PLAYING',
+        participantCount: activeMembers.length || 1,
+      });
+    }
+  }, [room, slug, activeMembers.length, setActiveParty]);
+
   // Friend streak celebration state
   const [streakCelebration, setStreakCelebration] = useState<{
     friendName: string;
@@ -761,6 +783,7 @@ export default function RoomPage() {
       setShowLeaveModal(true);
     } else {
       stopAllMediaTracks();
+      leaveParty();
       leaveRoom();
       router.push('/');
     }
@@ -768,6 +791,7 @@ export default function RoomPage() {
 
   const handleEndRoomForAll = () => {
     stopAllMediaTracks();
+    leaveParty();
     endRoomForAll();
     setShowLeaveModal(false);
     router.push('/');
@@ -775,6 +799,7 @@ export default function RoomPage() {
 
   const handleHostLeaveOnly = () => {
     stopAllMediaTracks();
+    leaveParty();
     leaveRoom();
     setShowLeaveModal(false);
     router.push('/');
@@ -1409,18 +1434,47 @@ export default function RoomPage() {
               </>
             )}
 
-            {/* Tab 2: Party Games */}
+            {/* Tab 2: Party Games & In-Room Mini Games */}
             {activeSideTab === 'games' && (
-              <div className="flex-1 min-h-0 overflow-hidden py-2">
-                <GameLounge
-                  roomId={room?.id || slug}
-                  myUserId={myUserId}
-                  myUserName={activeMembers.find((m) => m.userId === myUserId)?.displayName || 'Player'}
-                  members={activeMembers}
-                  sendGameAction={sendGameAction}
-                  registerGameListener={registerGameListener}
-                  isCompact={true}
-                />
+              <div className="flex-1 min-h-0 overflow-hidden py-2 flex flex-col">
+                {activeMiniGame ? (
+                  <div className="flex-1 flex flex-col min-h-0 bg-[#0e1017] rounded-2xl overflow-hidden border border-white/10">
+                    <div className="px-3 py-2 flex items-center justify-between border-b border-white/10 bg-white/5 shrink-0">
+                      <button
+                        onClick={() => setActiveMiniGame(null)}
+                        className="text-xs text-zinc-300 hover:text-white flex items-center gap-1.5 py-1 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 transition font-medium"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>All Games</span>
+                      </button>
+                      <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider">
+                        {activeMiniGame === 'tictactoe' ? '❌ Tic-Tac-Toe' : '🔴 Four In A Row'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto">
+                      <RoomMiniGameDrawer
+                        isOpen={true}
+                        onClose={() => setActiveMiniGame(null)}
+                        myUserId={myUserId}
+                        myDisplayName={selfDisplayName}
+                        activeMembers={activeMembers}
+                        sendGameAction={sendGameAction}
+                        registerGameListener={registerGameListener}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <GameLounge
+                    roomId={room?.id || slug}
+                    myUserId={myUserId}
+                    myUserName={activeMembers.find((m) => m.userId === myUserId)?.displayName || 'Player'}
+                    members={activeMembers}
+                    sendGameAction={sendGameAction}
+                    registerGameListener={registerGameListener}
+                    onSelectInRoomGame={(gameId) => setActiveMiniGame(gameId)}
+                    isCompact={true}
+                  />
+                )}
               </div>
             )}
 

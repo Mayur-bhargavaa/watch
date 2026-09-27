@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, memo } from 'react';
-import { RoomPlaybackState, evaluateDriftCorrection } from '@synccinema/common';
+import { useEffect, useRef, useState, memo } from 'react';
+import { RoomPlaybackState } from '@synccinema/common';
+import { Zap } from 'lucide-react';
 
 interface DirectHTML5PlayerProps {
   sourceUrl: string;
@@ -23,6 +24,7 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastHardSeekTimeRef = useRef<number>(0);
   const isInternalUpdateRef = useRef<boolean>(false);
+  const [syncBadge, setSyncBadge] = useState<{ isCatchingUp: boolean; text: string } | null>(null);
 
   // Play/Pause sync
   useEffect(() => {
@@ -51,10 +53,13 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
     }, 400);
   }, [playbackState.state, playbackState.version, playbackState.position, isHost, getAuthoritativePosition]);
 
-  // Drift correction loop for viewers
+  // Drift correction loop for viewers with Smart Catch-up
   useEffect(() => {
     // The host is the source of truth and must never seek or adjust rate on itself
-    if (isHost) return;
+    if (isHost) {
+      setSyncBadge(null);
+      return;
+    }
 
     const interval = setInterval(() => {
       const video = videoRef.current;
@@ -66,43 +71,65 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
       const absDriftSeconds = Math.abs(driftSeconds);
       const now = Date.now();
 
-      // Deadband: within 1.5 seconds, leave at normal rate 1.0
-      if (absDriftSeconds <= 1.5) {
+      // Deadband: within 0.35 seconds, leave at normal rate 1.0
+      if (absDriftSeconds <= 0.35) {
         if (video.playbackRate !== 1.0) {
           video.playbackRate = 1.0;
         }
+        setSyncBadge(null);
         if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
         return;
       }
 
-      // Soft adjustment: between 1.5s and 4.0s, gently nudge rate by 4% without rebuffering
-      if (absDriftSeconds <= 4.0) {
-        const targetRate = driftSeconds > 0 ? 0.96 : 1.04;
+      // Smart Catch-up: between 0.35s and 3.5s, gently ramp rate without rebuffering
+      if (absDriftSeconds <= 3.5) {
+        // If viewer is behind (driftSeconds < 0), speed up slightly (1.10x or 1.14x)
+        // If viewer is ahead (driftSeconds > 0), slow down slightly (0.92x)
+        const targetRate = driftSeconds < 0
+          ? (absDriftSeconds > 1.5 ? 1.14 : 1.08)
+          : 0.92;
+
         if (video.playbackRate !== targetRate) {
           video.playbackRate = targetRate;
         }
+
+        const badgeText = targetRate > 1.0
+          ? `⚡ Syncing +${Math.round((targetRate - 1) * 100)}%`
+          : `⚡ Syncing -${Math.round((1 - targetRate) * 100)}%`;
+
+        setSyncBadge({ isCatchingUp: true, text: badgeText });
         if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), targetRate);
         return;
       }
 
-      // Hard seek: only if drift > 4.0s and cooldown passed (6 seconds)
-      if (absDriftSeconds > 4.0 && (now - lastHardSeekTimeRef.current > 6000)) {
+      // Hard seek fallback: only if drift > 3.5s and cooldown passed (6 seconds)
+      if (absDriftSeconds > 3.5 && (now - lastHardSeekTimeRef.current > 6000)) {
         isInternalUpdateRef.current = true;
         video.currentTime = authoritativeTime;
         video.playbackRate = 1.0;
         lastHardSeekTimeRef.current = now;
+        setSyncBadge({ isCatchingUp: true, text: '⚡ Re-aligned' });
+        setTimeout(() => setSyncBadge(null), 1500);
         if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
         setTimeout(() => {
           isInternalUpdateRef.current = false;
         }, 500);
       }
-    }, 1500);
+    }, 1200);
 
     return () => clearInterval(interval);
   }, [isHost, getAuthoritativePosition, onDriftUpdate]);
 
   return (
     <div className="relative w-full h-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-cinema-border/50">
+      {/* Smart Sync Catch-up Indicator Badge */}
+      {syncBadge && (
+        <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[11px] font-semibold tracking-wide shadow-lg shadow-black/40 animate-pulse select-none pointer-events-none">
+          <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+          <span>{syncBadge.text}</span>
+        </div>
+      )}
+
       <video
         ref={videoRef}
         src={sourceUrl}

@@ -695,7 +695,7 @@ export function useWebRTC({
         stream.getTracks().forEach((track) => {
           const sender = pc.addTrack(track, stream);
           if (track.kind === 'video') {
-            applySenderVideoBitrate(sender, 1_500_000, 24, 'maintain-resolution');
+            applySenderVideoBitrate(sender, 2_500_000, 30, 'maintain-resolution');
           }
         });
 
@@ -738,13 +738,28 @@ export function useWebRTC({
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: true
-        });
+          video: {
+            cursor: 'always',
+            frameRate: { ideal: 30, max: 60 }
+          },
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 2
+          }
+        } as any);
       } catch {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          video: true
-        });
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true
+          });
+        }
       }
 
       setLocalScreenStream(stream);

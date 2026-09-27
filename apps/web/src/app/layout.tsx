@@ -3,9 +3,11 @@ import './globals.css';
 import { ThemeProvider } from '../context/ThemeContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { CallProvider } from '../context/CallContext';
+import { WatchPartyProvider } from '../context/WatchPartyContext';
 import { NotificationToast } from '../components/notifications/NotificationToast';
 import { NotificationPermissionModal } from '../components/notifications/NotificationPermissionModal';
 import { ActiveCallOverlay } from '../components/chat/ActiveCallOverlay';
+import { FloatingRoomPiP } from '../components/player/FloatingRoomPiP';
 
 export const metadata: Metadata = {
   title: 'Watch — Watch Together, Play Together',
@@ -46,10 +48,13 @@ export default function RootLayout({
         <ThemeProvider>
           <NotificationProvider>
             <CallProvider>
-              {children}
-              <NotificationPermissionModal />
-              <NotificationToast />
-              <ActiveCallOverlay />
+              <WatchPartyProvider>
+                {children}
+                <NotificationPermissionModal />
+                <NotificationToast />
+                <ActiveCallOverlay />
+                <FloatingRoomPiP />
+              </WatchPartyProvider>
             </CallProvider>
           </NotificationProvider>
         </ThemeProvider>
