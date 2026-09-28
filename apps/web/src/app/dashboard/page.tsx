@@ -594,11 +594,11 @@ export default function DashboardPage() {
       {/* ========================================================================= */}
       {/* 2. MAIN DASHBOARD CONTENT AREA                                            */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col h-screen overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
+      <div className="flex-1 flex flex-col h-screen overflow-y-auto px-3 sm:px-8 py-4 sm:py-6 space-y-5 sm:space-y-6">
         {/* Top Header Bar: Navigation arrows, YouTube Link Importer & Search, Profile */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
           {/* Mobile Menu & Back & Forward Controls */}
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
@@ -609,7 +609,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => router.push('/')}
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none"
               title="Home"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -626,25 +626,25 @@ export default function DashboardPage() {
           {/* Real YouTube URL Importer & Room Search Bar */}
           <form
             onSubmit={handleSearchOrImport}
-            className="flex-1 max-w-xl flex items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-4 py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm dark:shadow-inner relative"
+            className="flex-1 max-w-xl flex items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm dark:shadow-inner relative min-w-0"
           >
-            <Search className="w-4 h-4 text-slate-400 dark:text-zinc-400 shrink-0 mr-2.5" />
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 dark:text-zinc-400 shrink-0 mr-2" />
             <input
               type="text"
-              placeholder="Paste any YouTube link / ID or room code..."
+              placeholder="Paste YouTube link / ID or room code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none w-full text-xs placeholder-slate-400 dark:placeholder-zinc-500 text-slate-900 dark:text-white font-mono text-[11px]"
+              className="bg-transparent border-none outline-none w-full text-[11px] sm:text-xs placeholder-slate-400 dark:placeholder-zinc-500 text-slate-900 dark:text-white font-mono truncate"
             />
 
             {/* If a valid YouTube ID is detected in the search bar, show quick launch badge */}
             {searchYtId ? (
               <button
                 type="submit"
-                className="ml-2 px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] shrink-0 transition flex items-center space-x-1 shadow-md shadow-rose-600/30"
+                className="ml-2 px-2.5 sm:px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] shrink-0 transition flex items-center space-x-1 shadow-md shadow-rose-600/30"
               >
                 <Play className="w-3 h-3 fill-current" />
-                <span>Launch (Max 6)</span>
+                <span className="hidden xs:inline">Launch</span>
               </button>
             ) : (
               <button
@@ -664,7 +664,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Top Right Header with Max 6 Indicator & Theme Toggle */}
-          <div className="flex items-center space-x-2.5 shrink-0">
+          <div className="flex items-center space-x-2 shrink-0">
             {/* Live Room Limit Indicator (In exact original position) */}
             <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
               <Users className="w-3.5 h-3.5 text-rose-500" />
@@ -675,7 +675,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm dark:shadow-none active:scale-95"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm dark:shadow-none active:scale-95"
               title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
               aria-label="Toggle theme mode"
             >
@@ -702,11 +702,11 @@ export default function DashboardPage() {
         {/* VIEW 1: BROWSE CINEMA                                                     */}
         {/* ========================================================================= */}
         {activeNav === 'browse' && (
-          <div className="space-y-8 animate-fadeIn pt-10 sm:pt-14">
+          <div className="space-y-6 sm:space-y-8 animate-fadeIn pt-6 sm:pt-10">
             {/* Featured IMAX Hero Banner with User's Selected Bitmoji Behind the Container */}
             <div className="relative">
               {/* Selected Bitmoji standing higher up and BEHIND the container card on the right side */}
-              <div className="absolute -top-20 sm:-top-28 right-4 sm:right-8 z-0 pointer-events-auto select-none group">
+              <div className="absolute -top-14 xs:-top-18 sm:-top-28 right-3 sm:right-8 z-0 pointer-events-auto select-none group">
                 <Link
                   href="/profile"
                   className="block transition-transform duration-300 hover:-translate-y-2 active:scale-95"
@@ -715,46 +715,54 @@ export default function DashboardPage() {
                   <img
                     src={getStandingBitmojiUrl(session?.user.avatarUrl)}
                     alt={session?.user.displayName || 'Selected Bitmoji'}
-                    className="h-28 sm:h-36 w-auto object-contain drop-shadow-[0_16px_30px_rgba(0,0,0,0.95)] filter transition-transform duration-300 group-hover:scale-105"
+                    className="h-20 xs:h-24 sm:h-36 w-auto object-contain drop-shadow-[0_16px_30px_rgba(0,0,0,0.95)] filter transition-transform duration-300 group-hover:scale-105"
                   />
                 </Link>
               </div>
 
               {/* Featured IMAX Hero Banner Card */}
-              <div className="relative rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl h-[340px] sm:h-[400px] flex flex-col justify-end p-6 sm:p-10">
+              <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl min-h-[320px] sm:min-h-[380px] md:h-[400px] flex flex-col justify-end p-4 sm:p-8 md:p-10">
                 <img
                   src={activeHero.bgThumbnail}
                   alt={activeHero.title}
                   className="absolute inset-0 w-full h-full object-cover opacity-60 transition duration-700 ease-out scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/50 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/70 to-transparent" />
 
-              <div className="relative z-10 max-w-xl space-y-3">
-                <div className="flex items-center space-x-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
+              <div className="relative z-10 max-w-xl space-y-2 sm:space-y-3">
+                {/* Meta Tags: Category, Match %, Friends Watching */}
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider shadow-sm shrink-0 whitespace-nowrap">
                     {activeHero.category}
                   </span>
-                  <span className="text-xs font-bold text-emerald-400">{activeHero.match}</span>
-                  <span className="text-zinc-500 text-xs">•</span>
-                  <span className="text-xs text-zinc-300 font-medium">{activeHero.friendsWatching}</span>
+                  <span className="text-[11px] sm:text-xs font-bold text-emerald-400 shrink-0">
+                    {activeHero.match}
+                  </span>
+                  <span className="text-zinc-500 text-xs shrink-0 hidden xs:inline">•</span>
+                  <span className="text-[11px] sm:text-xs text-zinc-300 font-medium shrink-0 whitespace-nowrap">
+                    {activeHero.friendsWatching}
+                  </span>
                 </div>
 
-                <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+                {/* Hero Title */}
+                <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-snug sm:leading-tight">
                   {activeHero.title}
                 </h1>
 
-                <p className="text-xs sm:text-sm text-zinc-300 line-clamp-2 leading-relaxed">
+                {/* Hero Description */}
+                <p className="text-[11px] sm:text-xs md:text-sm text-zinc-300 line-clamp-2 leading-relaxed max-w-lg">
                   {activeHero.description}
                 </p>
 
-                <div className="flex items-center space-x-3 pt-2">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2 sm:gap-3 pt-1 sm:pt-2">
                   <button
                     onClick={() => handleDirectCreateRoom(activeHero.title, activeHero.videoUrl)}
                     disabled={isSubmitting}
-                    className="px-6 py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center space-x-2 active:scale-95 disabled:opacity-50"
+                    className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center gap-2 active:scale-95 disabled:opacity-50 shrink-0"
                   >
-                    <Play className="w-4 h-4 fill-current" />
+                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" />
                     <span>{isSubmitting ? 'Creating Room...' : 'Start Watching'}</span>
                   </button>
 
@@ -774,7 +782,7 @@ export default function DashboardPage() {
                         e
                       )
                     }
-                    className={`p-3 rounded-xl border transition ${
+                    className={`p-2.5 sm:p-3 rounded-xl border transition shrink-0 ${
                       isInWatchlist(activeHero.title)
                         ? 'bg-rose-600/20 text-rose-500 border-rose-500/40'
                         : 'bg-white/10 hover:bg-white/15 text-white border-white/10'
@@ -808,38 +816,40 @@ export default function DashboardPage() {
           </div>
 
           {/* Multi-Platform Co-Watching Shortcuts (Netflix, Prime, Disney, YouTube) */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white">Stream Any Platform Together</h2>
-                <span className="text-xs text-slate-500 dark:text-zinc-400">Share your screen or paste URL</span>
+            <div className="space-y-2.5 sm:space-y-3">
+              <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 sm:gap-2">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Stream Any Platform Together</h2>
+                <span className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400">Share your screen or paste URL</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
                 {PLATFORMS.map((plat) => (
                   <div
                     key={plat.id}
                     onClick={() => handleDirectCreateRoom(`${plat.name} Watch Party`)}
-                    className={`p-4 rounded-2xl border ${plat.color} hover:scale-[1.02] transition cursor-pointer flex flex-col justify-between space-y-3 bg-white dark:bg-[#171821] shadow-sm dark:shadow-none`}
+                    className={`p-3 sm:p-4 rounded-2xl border ${plat.color} hover:scale-[1.02] transition cursor-pointer flex flex-col justify-between space-y-2.5 sm:space-y-3 bg-white dark:bg-[#171821] shadow-sm dark:shadow-none`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="w-11 h-11 rounded-2xl overflow-hidden bg-white dark:bg-[#12131a] border border-slate-200 dark:border-white/10 p-1 flex items-center justify-center shadow-sm shrink-0">
+                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl overflow-hidden bg-white dark:bg-[#12131a] border border-slate-200 dark:border-white/10 p-1 flex items-center justify-center shadow-sm shrink-0">
                         <img
                           src={plat.logo}
                           alt={plat.name}
                           className="w-full h-full object-contain rounded-xl"
                         />
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/40 text-white">
+                      <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/40 text-white shrink-0">
                         Max 6
                       </span>
                     </div>
-                    <div>
-                      <div className="font-bold text-sm text-slate-900 dark:text-white">{plat.name}</div>
-                      <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">{plat.tag}</div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">{plat.name}</div>
+                      <div className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 truncate">{plat.tag}</div>
                     </div>
-                    <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400">
-                      <span>Instant Room</span>
-                      <span className="text-rose-500 font-bold">Start →</span>
+                    <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 gap-1.5">
+                      <span className="truncate">Instant Room</span>
+                      <span className="text-rose-500 font-bold whitespace-nowrap shrink-0 flex items-center gap-0.5">
+                        Start <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -847,30 +857,30 @@ export default function DashboardPage() {
             </div>
 
             {/* Featured Watch Parties Row */}
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Featured Watch Parties</h2>
-                  <span className="text-[10px] bg-rose-600/20 text-rose-500 dark:text-rose-400 px-2 py-0.5 rounded-full font-bold">
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Featured Watch Parties</h2>
+                  <span className="text-[9.5px] sm:text-[10px] bg-rose-600/20 text-rose-500 dark:text-rose-400 px-2 py-0.5 rounded-full font-bold">
                     Live
                   </span>
                 </div>
                 <button
                   onClick={() => setActiveNav('parties')}
-                  className="text-xs text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 font-semibold"
+                  className="text-[11px] sm:text-xs text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 font-semibold"
                 >
                   View All Parties →
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 {REAL_YOUTUBE_PARTIES.map((party) => (
                   <div
                     key={party.id}
                     onClick={() => handleDirectCreateRoom(party.title, party.videoUrl)}
-                    className="group p-4 rounded-3xl cursor-pointer transition border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 bg-white dark:bg-[#171821] hover:scale-[1.02] flex flex-col justify-between space-y-3 shadow-sm dark:shadow-lg"
+                    className="group p-3 sm:p-4 rounded-2xl sm:rounded-3xl cursor-pointer transition border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 bg-white dark:bg-[#171821] hover:scale-[1.02] flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-sm dark:shadow-lg"
                   >
-                    <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black/50">
+                    <div className="relative aspect-video w-full rounded-xl sm:rounded-2xl overflow-hidden bg-black/50">
                       <img
                         src={party.thumbnail}
                         alt={party.title}
@@ -919,16 +929,16 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div>
-                      <div className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-rose-500 transition truncate">
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-rose-500 transition truncate">
                         {party.title}
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">{party.tagline}</div>
+                      <div className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 mt-0.5 truncate">{party.tagline}</div>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-400 dark:text-zinc-500">
-                      <span>Synchronized</span>
-                      <span className="text-rose-500 font-bold group-hover:translate-x-0.5 transition">
+                    <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] sm:text-[11px] text-slate-400 dark:text-zinc-500 gap-1.5">
+                      <span className="truncate">Synchronized</span>
+                      <span className="text-rose-500 font-bold group-hover:translate-x-0.5 transition whitespace-nowrap shrink-0">
                         Watch →
                       </span>
                     </div>
@@ -938,39 +948,39 @@ export default function DashboardPage() {
             </div>
 
             {/* Continue Watching Row (Auto-saved user history) */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="space-y-2.5 sm:space-y-3">
+              <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1">
                 <div className="flex items-center space-x-2">
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Continue Watching</h2>
+                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Continue Watching</h2>
                   {watchHistory.length > 0 && (
-                    <span className="text-[10px] bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-zinc-300 px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[9.5px] sm:text-[10px] bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-zinc-300 px-2 py-0.5 rounded-full font-bold">
                       {watchHistory.length} in progress
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-slate-500 dark:text-zinc-500">Auto-saved playback progress</span>
+                <span className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-500">Auto-saved playback progress</span>
               </div>
 
               {watchHistory.length === 0 ? (
-                <div className="p-6 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm dark:shadow-none">
+                <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm dark:shadow-none">
                   <div className="space-y-1 text-center sm:text-left">
-                    <div className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-center sm:justify-start gap-2">
+                    <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center justify-center sm:justify-start gap-2">
                       <Clock className="w-4 h-4 text-rose-500" />
                       <span>No Viewing History Yet</span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-md">
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400 max-w-md">
                       Start any watch party above. Your playback progress will automatically appear here so you and your friends can resume together!
                     </p>
                   </div>
                   <button
                     onClick={() => handleDirectCreateRoom('Watch Party')}
-                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition shrink-0"
+                    className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition shrink-0"
                   >
                     + Start a Watch Party
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   {watchHistory.map((item) => {
                     const ytId = extractYouTubeId(item.sourceUrl);
                     const thumbnail = ytId
@@ -980,7 +990,7 @@ export default function DashboardPage() {
                       <div
                         key={item.slug}
                         onClick={() => router.push(`/room/${item.slug}`)}
-                        className="group rounded-3xl overflow-hidden bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer shadow-sm dark:shadow-lg flex flex-col justify-between"
+                        className="group rounded-2xl sm:rounded-3xl overflow-hidden bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer shadow-sm dark:shadow-lg flex flex-col justify-between"
                       >
                         <div className="relative aspect-video w-full overflow-hidden bg-black/60">
                           <img
@@ -989,7 +999,7 @@ export default function DashboardPage() {
                             className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                          <span className="absolute top-3 left-3 px-2.5 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[10px] font-bold text-white border border-white/10">
+                          <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[9.5px] sm:text-[10px] font-bold text-white border border-white/10">
                             {item.position > 0 ? `${Math.floor(item.position / 60)}m watched` : 'Just started'}
                           </span>
                           <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
@@ -1000,16 +1010,16 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        <div className="p-4 flex items-center justify-between">
-                          <div className="truncate pr-2">
+                        <div className="p-3 sm:p-4 flex items-center justify-between gap-2">
+                          <div className="truncate pr-1 min-w-0">
                             <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate group-hover:text-rose-500 transition">
                               {item.title}
                             </div>
-                            <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono">
+                            <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono truncate">
                               Room: {item.slug}
                             </div>
                           </div>
-                          <div className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-rose-600/20 text-rose-500 dark:text-rose-400 text-xs font-bold group-hover:bg-rose-600 group-hover:text-white transition shrink-0">
+                          <div className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-rose-600/20 text-rose-500 dark:text-rose-400 text-[11px] sm:text-xs font-bold group-hover:bg-rose-600 group-hover:text-white transition shrink-0">
                             <Play className="w-3 h-3 fill-current" />
                             <span>Resume</span>
                           </div>
@@ -1335,9 +1345,9 @@ export default function DashboardPage() {
                     <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">{party.tagline}</div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-400 dark:text-zinc-500">
-                    <span>Synchronized</span>
-                    <span className="text-rose-500 font-bold group-hover:translate-x-0.5 transition">
+                  <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[11px] text-slate-400 dark:text-zinc-500 gap-1.5">
+                    <span className="truncate">Synchronized</span>
+                    <span className="text-rose-500 font-bold group-hover:translate-x-0.5 transition whitespace-nowrap shrink-0">
                       Watch →
                     </span>
                   </div>
