@@ -100,47 +100,47 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   );
 
   return (
-    <div className="w-full md:w-80 lg:w-96 h-full flex flex-col border-r border-slate-200/80 dark:border-zinc-800/80 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md shrink-0 select-none">
+    <div className="w-full h-full flex flex-col border-r border-slate-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shrink-0 select-none overflow-hidden">
       {/* Top Header */}
-      <div className="p-4 border-b border-slate-200/60 dark:border-zinc-800/60 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
+      <div className="px-3.5 py-3 sm:px-4 sm:py-3.5 border-b border-slate-200/60 dark:border-zinc-800/60 flex items-center justify-between shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white truncate">
             Chats
           </h2>
           {totalUnread > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-[#ee1d49] text-white text-xs font-bold shadow-xs">
+            <span className="px-1.5 py-0.5 rounded-full bg-[#ee1d49] text-white text-[10px] sm:text-xs font-bold shadow-xs shrink-0">
               {totalUnread}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => setShowAddFriend(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-xs font-bold text-[#ee1d49] transition active:scale-95 cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-[11px] sm:text-xs font-bold text-[#ee1d49] transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
             title="Connect with friend code"
           >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Add Friend</span>
+            <UserPlus className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Add Friend</span>
           </button>
 
           <button
             type="button"
             onClick={onOpenCreateGroup}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-xs font-bold text-slate-800 dark:text-zinc-200 transition active:scale-95 cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-zinc-200 transition active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
             title="Create group chat"
           >
-            <Plus className="w-3.5 h-3.5 text-[#ee1d49]" />
-            <span>Group</span>
+            <Plus className="w-3.5 h-3.5 text-[#ee1d49] shrink-0" />
+            <span className="whitespace-nowrap">Group</span>
           </button>
         </div>
       </div>
 
       {/* User's Own Friend Code banner if available */}
       {myFriendCode && (
-        <div className="mx-3 mt-2 px-3 py-1.5 rounded-xl bg-slate-100/80 dark:bg-zinc-800/70 border border-slate-200/60 dark:border-zinc-700/60 flex items-center justify-between text-xs">
-          <span className="text-[11px] text-slate-600 dark:text-zinc-400">
+        <div className="mx-3 mt-2 px-3 py-1.5 rounded-xl bg-slate-100/80 dark:bg-zinc-800/70 border border-slate-200/60 dark:border-zinc-700/60 flex items-center justify-between text-xs shrink-0">
+          <span className="text-[11px] text-slate-600 dark:text-zinc-400 truncate mr-2">
             My Code: <strong className="text-[#ee1d49] font-mono tracking-wider">#{myFriendCode}</strong>
           </span>
           <button
@@ -150,7 +150,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               setCopiedCode(true);
               setTimeout(() => setCopiedCode(false), 2000);
             }}
-            className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 hover:text-[#ee1d49] flex items-center gap-1 cursor-pointer"
+            className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 hover:text-[#ee1d49] flex items-center gap-1 cursor-pointer shrink-0"
           >
             {copiedCode ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
             <span>{copiedCode ? 'Copied' : 'Copy'}</span>
@@ -159,58 +159,58 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       )}
 
       {/* Search Bar Input */}
-      <div className="px-3 pt-3 pb-1">
+      <div className="px-3 pt-2.5 pb-1 shrink-0">
         <div
           onClick={onOpenSearchModal}
-          className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-slate-100/90 dark:bg-zinc-800/80 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition cursor-pointer"
+          className="flex items-center gap-2 px-3 py-1.5 sm:py-2 rounded-2xl bg-slate-100/90 dark:bg-zinc-800/80 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 transition cursor-pointer"
         >
-          <Search className="w-4 h-4" />
-          <span className="text-xs font-medium">Search people, plans, games...</span>
+          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="text-[11px] sm:text-xs font-medium truncate">Search people, plans, games...</span>
         </div>
       </div>
 
       {/* Main Navigation Tabs */}
-      <div className="flex items-center justify-around px-3 pt-2 pb-1 border-b border-slate-200/60 dark:border-zinc-800/60 text-xs font-bold">
+      <div className="grid grid-cols-3 gap-1 px-2 pt-2 border-b border-slate-200/60 dark:border-zinc-800/60 text-[11px] sm:text-xs font-bold shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab('chats')}
-          className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-2 px-1 rounded-t-xl transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap min-w-0 ${
             activeTab === 'chats'
-              ? 'text-[#ee1d49] border-b-2 border-[#ee1d49] rounded-b-none'
+              ? 'text-[#ee1d49] border-b-2 border-[#ee1d49] font-extrabold bg-rose-50/50 dark:bg-rose-950/20'
               : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
           }`}
         >
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>Messages</span>
+          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Messages</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('friends')}
-          className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-2 px-1 rounded-t-xl transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap min-w-0 ${
             activeTab === 'friends'
-              ? 'text-[#ee1d49] border-b-2 border-[#ee1d49] rounded-b-none'
+              ? 'text-[#ee1d49] border-b-2 border-[#ee1d49] font-extrabold bg-rose-50/50 dark:bg-rose-950/20'
               : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
           }`}
         >
-          <Users className="w-3.5 h-3.5" />
-          <span>Friends</span>
-          <span className="text-[10px] opacity-70">({friendsList.length})</span>
+          <Users className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Friends</span>
+          <span className="text-[10px] opacity-70 shrink-0">({friendsList.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('requests')}
-          className={`flex-1 py-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+          className={`py-2 px-1 rounded-t-xl transition flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer whitespace-nowrap min-w-0 ${
             activeTab === 'requests'
-              ? 'text-[#ee1d49] border-b-2 border-[#ee1d49] rounded-b-none'
+              ? 'text-[#ee1d49] border-b-2 border-[#ee1d49] font-extrabold bg-rose-50/50 dark:bg-rose-950/20'
               : 'text-slate-500 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
           }`}
         >
-          <UserCheck className="w-3.5 h-3.5" />
-          <span>Requests</span>
+          <UserCheck className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Requests</span>
           {requests.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center">
+            <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] flex items-center justify-center shrink-0">
               {requests.length}
             </span>
           )}
