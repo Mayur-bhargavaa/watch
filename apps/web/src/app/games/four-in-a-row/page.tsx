@@ -1063,7 +1063,7 @@ function FourInARowContent() {
   }
 
   return (
-    <div className={`flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
+    <div className={`flex w-full max-w-full selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
       roomParam ? 'min-h-screen overflow-y-auto' : 'h-screen w-screen overflow-hidden'
     } ${
       isDark ? 'bg-[#111217] text-white' : 'bg-white text-zinc-900'
@@ -1210,15 +1210,16 @@ function FourInARowContent() {
       {/* ========================================================================= */}
       {/* 2. MAIN CONTENT AREA (FULL-SCREEN IN MATCH, ADAPTIVE IN LOBBY)            */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col relative min-h-screen overflow-y-auto">
+      <div className="flex-1 flex flex-col relative min-h-screen overflow-y-auto overflow-x-hidden min-w-0 w-full max-w-full">
         {/* TOP NAVIGATION HEADER BAR */}
-        <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
+        <header className={`h-16 px-3 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 w-full max-w-full overflow-hidden ${
           isDark ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
         }`}>
           {/* Left: Breadcrumbs or Leave Match */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
             {roomParam ? (
               <button
+                type="button"
                 onClick={() => {
                   showAlert(
                     'Leave Match? 🚪',
@@ -1234,16 +1235,16 @@ function FourInARowContent() {
                     }
                   );
                 }}
-                className={`px-2.5 xs:px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-1.5 xs:gap-2 font-semibold text-xs transition-all active:scale-95 group cursor-pointer ${
+                className={`h-9 px-2 xs:px-3 rounded-xl border shadow-xs flex items-center gap-1.5 font-semibold text-xs transition-all active:scale-95 group cursor-pointer shrink-0 ${
                   isDark
                     ? 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border-white/[0.08]'
                     : 'bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-950 border-zinc-200'
                 }`}
                 title="Leave Match"
               >
-                <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform shrink-0" />
                 <span className="hidden xs:inline">Leave Match</span>
-                <span className="xs:hidden">Leave</span>
+                <span className="xs:hidden text-[11px]">Leave</span>
               </button>
             ) : (
               <div className="flex items-center gap-2 text-xs">
@@ -1605,9 +1606,9 @@ function FourInARowContent() {
       {/* =========================================================================
           MAIN VIEW CONTAINER: LOBBY vs WAITING ROOM vs 3-COLUMN IN-GAME ARENA
          ========================================================================= */}
-      <main className={`flex-1 w-full flex flex-col justify-start z-10 ${
+      <main className={`flex-1 w-full max-w-full min-w-0 flex flex-col justify-start z-10 overflow-x-hidden ${
         roomParam && !isWaiting
-          ? 'max-w-[1600px] mx-auto p-3 sm:p-5'
+          ? 'max-w-[1600px] mx-auto px-2 py-2.5 sm:p-5'
           : (roomParam && isWaiting
               ? 'max-w-none p-0 h-[calc(100vh-4rem)] relative overflow-hidden'
               : 'min-h-[calc(100vh-4rem)] max-w-none p-0 overflow-y-auto')
@@ -2224,9 +2225,9 @@ function FourInARowContent() {
             SCENARIO 3: ACTIVE PLAYING / FINISHED MATCH (Exact 3-Column Layout of Ludo)
            ----------------------------------------------------------------------- */}
         {roomParam && isPlayingOrFinished && (
-          <div className="w-full flex flex-col lg:flex-row items-center lg:items-start justify-center lg:justify-between gap-4 sm:gap-6 relative">
+          <div className="w-full max-w-full min-w-0 flex flex-col lg:flex-row items-center lg:items-start justify-center lg:justify-between gap-3 sm:gap-6 relative overflow-x-hidden">
             {/* Left Column: Floating Room Code Card & Ambient Neon Quotes */}
-            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1">
+            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-3 sm:gap-6 order-2 lg:order-1 min-w-0">
               {/* Floating Room Code Card */}
               <div className="p-3.5 sm:p-4 rounded-3xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-xl backdrop-blur-xl">
                 <div className="flex items-center justify-between">
@@ -2266,41 +2267,41 @@ function FourInARowContent() {
             </div>
 
             {/* Center Column: The 3D Chassis Board with Flanking Player Video Cards */}
-            <div className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center order-1 lg:order-2">
+            <div className="flex-1 w-full max-w-full lg:max-w-3xl mx-auto flex flex-col items-center order-1 lg:order-2 min-w-0 px-0.5 sm:px-0">
               {/* Turn Banner with Active Turn Indicator */}
-              <div className="w-full max-w-lg mb-2.5 sm:mb-3 flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
-                <div className="flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${gameState.currentTurnSeat === 0 ? 'bg-rose-500' : 'bg-yellow-400'} animate-pulse`} />
-                  <span className="text-[11px] sm:text-xs font-black tracking-wide uppercase text-white">
+              <div className="w-full max-w-md sm:max-w-lg mb-2 sm:mb-3 flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-md shadow-sm">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 ${gameState.currentTurnSeat === 0 ? 'bg-rose-500' : 'bg-yellow-400'} animate-pulse`} />
+                  <span className="text-[11px] sm:text-xs font-black tracking-wide uppercase text-white truncate">
                     {gameState.currentTurnSeat === 0 ? "🔴 RED'S TURN" : "🟡 YELLOW'S TURN"}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 font-mono text-[10px] sm:text-xs text-rose-300 font-bold">
+                <div className="flex items-center gap-1 font-mono text-[10px] sm:text-xs text-rose-300 font-bold shrink-0">
                   <span>MOVE #{gameState.moveCount || 0}</span>
                 </div>
               </div>
 
               {/* Flanking Player Cards (Host Red on Left, Guest Yellow on Right) */}
-              <div className="w-full max-w-xl flex items-center justify-between gap-2 sm:gap-4 mb-2.5 sm:mb-3">
+              <div className="w-full max-w-xl flex items-center justify-between gap-1.5 xs:gap-2 sm:gap-4 mb-2 sm:mb-3">
                 {/* Player 1: Host Red */}
                 <div
-                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-2xl transition-all ${
+                  className={`flex-1 min-w-0 flex items-center gap-1.5 sm:gap-3 p-1.5 xs:p-2 sm:p-3 rounded-2xl transition-all ${
                     gameState.currentTurnSeat === 0
-                      ? 'bg-rose-500/25 border-2 border-rose-400 shadow-xl shadow-rose-600/30 scale-105'
+                      ? 'bg-rose-500/25 border-2 border-rose-400 shadow-xl shadow-rose-600/30'
                       : 'bg-black/40 border border-white/10 opacity-75'
                   }`}
                 >
                   <div className="relative shrink-0">
                     {/* Floating Golden Arrow Pointer */}
                     {gameState.currentTurnSeat === 0 && (
-                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce z-40 pointer-events-none">
-                        <svg width="22" height="20" viewBox="0 0 24 22" fill="none">
+                      <div className="absolute -top-6 sm:-top-7 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce z-40 pointer-events-none">
+                        <svg width="18" height="16" viewBox="0 0 24 22" fill="none">
                           <path d="M 12 21 L 2 4 L 12 7 Z" fill="#eab308" />
                           <path d="M 12 21 L 22 4 L 12 7 Z" fill="#fde047" />
                         </svg>
                       </div>
                     )}
-                    <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-rose-400 bg-black/60 flex items-center justify-center overflow-hidden">
+                    <div className="w-8 h-8 xs:w-9 xs:h-9 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-rose-400 bg-black/60 flex items-center justify-center overflow-hidden shrink-0">
                       {hasHostLiveVideo && hostActiveStream ? (
                         <VideoAvatar stream={hostActiveStream} isSelf={isHostMe} displayName={hostPlayer?.displayName || 'Host'} />
                       ) : (hostPlayer?.avatarUrl && !hostPlayer.avatarUrl.includes('bottts')) ? (
@@ -2315,56 +2316,56 @@ function FourInARowContent() {
                     {hostPlayer && hostPlayer.userId !== effectiveUserId && hostStream?.stream && (
                       <RemoteAudioPlayer stream={hostStream.stream} />
                     )}
-                    <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-rose-600 border-2 border-black flex items-center justify-center text-[7px] sm:text-[8px] font-black">
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-rose-600 border border-black flex items-center justify-center text-[7px] font-black">
                       🔴
                     </span>
                   </div>
-                  <div className="text-left">
-                    <div className="flex items-center gap-1 sm:gap-1.5">
-                      <span className="text-[11px] sm:text-xs font-black text-white truncate max-w-[70px] xs:max-w-[90px] sm:max-w-[110px]">
+                  <div className="text-left min-w-0 flex-1 overflow-hidden">
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-[11px] sm:text-xs font-black text-white truncate block">
                         {hostPlayer?.displayName || 'Player 1'}
                       </span>
-                      {hostPlayer?.userId === effectiveUserId && <span className="text-[8px] sm:text-[9px] text-rose-300">(You)</span>}
+                      {hostPlayer?.userId === effectiveUserId && <span className="text-[8px] sm:text-[9px] text-rose-300 shrink-0">(You)</span>}
                     </div>
-                    <span className="text-[9px] sm:text-[10px] text-rose-300/80 font-mono">Red Team</span>
+                    <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-rose-300/80 font-mono whitespace-nowrap block truncate">Red Team</span>
                   </div>
                 </div>
 
                 {/* VS Badge */}
-                <div className="flex flex-col items-center">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-black text-[10px] sm:text-xs flex items-center justify-center shadow-lg">
+                <div className="flex flex-col items-center shrink-0 px-0.5">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-black text-[9px] sm:text-xs flex items-center justify-center shadow-lg shrink-0">
                     VS
                   </div>
                 </div>
 
                 {/* Player 2: Guest Yellow */}
                 <div
-                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-2xl transition-all ${
+                  className={`flex-1 min-w-0 flex items-center justify-end gap-1.5 sm:gap-3 p-1.5 xs:p-2 sm:p-3 rounded-2xl transition-all ${
                     gameState.currentTurnSeat === 1
-                      ? 'bg-yellow-500/25 border-2 border-yellow-400 shadow-xl shadow-yellow-600/30 scale-105'
+                      ? 'bg-yellow-500/25 border-2 border-yellow-400 shadow-xl shadow-yellow-600/30'
                       : 'bg-black/40 border border-white/10 opacity-75'
                   }`}
                 >
-                  <div className="text-right">
-                    <div className="flex items-center gap-1 sm:gap-1.5 justify-end">
-                      {guestPlayer?.userId === effectiveUserId && <span className="text-[8px] sm:text-[9px] text-yellow-300">(You)</span>}
-                      <span className="text-[11px] sm:text-xs font-black text-white truncate max-w-[70px] xs:max-w-[90px] sm:max-w-[110px]">
+                  <div className="text-right min-w-0 flex-1 overflow-hidden">
+                    <div className="flex items-center gap-1 justify-end min-w-0">
+                      {guestPlayer?.userId === effectiveUserId && <span className="text-[8px] sm:text-[9px] text-yellow-300 shrink-0">(You)</span>}
+                      <span className="text-[11px] sm:text-xs font-black text-white truncate block">
                         {guestPlayer?.displayName || 'Player 2'}
                       </span>
                     </div>
-                    <span className="text-[9px] sm:text-[10px] text-yellow-300/80 font-mono">Yellow Team</span>
+                    <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-yellow-300/80 font-mono whitespace-nowrap block truncate">Yellow Team</span>
                   </div>
                   <div className="relative shrink-0">
                     {/* Floating Golden Arrow Pointer */}
                     {gameState.currentTurnSeat === 1 && (
-                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce z-40 pointer-events-none">
-                        <svg width="22" height="20" viewBox="0 0 24 22" fill="none">
+                      <div className="absolute -top-6 sm:-top-7 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce z-40 pointer-events-none">
+                        <svg width="18" height="16" viewBox="0 0 24 22" fill="none">
                           <path d="M 12 21 L 2 4 L 12 7 Z" fill="#eab308" />
                           <path d="M 12 21 L 22 4 L 12 7 Z" fill="#fde047" />
                         </svg>
                       </div>
                     )}
-                    <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-yellow-400 bg-black/60 flex items-center justify-center overflow-hidden">
+                    <div className="w-8 h-8 xs:w-9 xs:h-9 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-yellow-400 bg-black/60 flex items-center justify-center overflow-hidden shrink-0">
                       {hasGuestLiveVideo && guestActiveStream ? (
                         <VideoAvatar stream={guestActiveStream} isSelf={isGuestMe} displayName={guestPlayer?.displayName || 'Guest'} />
                       ) : (guestPlayer?.avatarUrl && !guestPlayer.avatarUrl.includes('bottts')) ? (
@@ -2379,7 +2380,7 @@ function FourInARowContent() {
                     {guestPlayer && guestPlayer.userId !== effectiveUserId && guestStream?.stream && (
                       <RemoteAudioPlayer stream={guestStream.stream} />
                     )}
-                    <span className="absolute -bottom-1 -left-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-yellow-500 border-2 border-black flex items-center justify-center text-[7px] sm:text-[8px] font-black">
+                    <span className="absolute -bottom-0.5 -left-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-yellow-500 border border-black flex items-center justify-center text-[7px] font-black">
                       🟡
                     </span>
                   </div>
@@ -2387,20 +2388,20 @@ function FourInARowContent() {
               </div>
 
               {/* The 7x6 3D Arcade Board Chassis */}
-              <div className="relative p-2.5 xs:p-4 sm:p-6 rounded-[28px] sm:rounded-[36px] bg-gradient-to-b from-[#1b1c2b] via-[#121320] to-[#0c0d16] border-2 sm:border-4 border-white/15 shadow-2xl shadow-rose-950/40 flex flex-col items-center max-w-full">
+              <div className="relative p-2 xs:p-3 sm:p-5 rounded-[24px] sm:rounded-[36px] bg-gradient-to-b from-[#1b1c2b] via-[#121320] to-[#0c0d16] border-2 sm:border-4 border-white/15 shadow-2xl shadow-rose-950/40 flex flex-col items-center max-w-full overflow-hidden">
                 {/* Column Hover Previews Header Row */}
-                <div className="grid grid-cols-7 gap-1.5 xs:gap-2 sm:gap-3.5 w-full max-w-full mb-1.5 sm:mb-2">
+                <div className="grid grid-cols-7 gap-1 xs:gap-1.5 sm:gap-2.5 md:gap-3.5 w-full max-w-full mb-1 sm:mb-2">
                   {Array.from({ length: COLS }).map((_, c) => (
                     <div
                       key={`preview-${c}`}
-                      className="h-6 sm:h-8 flex items-center justify-center cursor-pointer"
+                      className="h-5 sm:h-8 flex items-center justify-center cursor-pointer"
                       onMouseEnter={() => setHoveredCol(c)}
                       onMouseLeave={() => setHoveredCol(null)}
                       onClick={() => handleColumnClick(c)}
                     >
                       {isMyTurn && hoveredCol === c && boardState[0][c] === null && (
                         <div
-                          className={`w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 rounded-full shadow-lg animate-bounce transition-all ${
+                          className={`w-[min(26px,7.5vw)] h-[min(26px,7.5vw)] sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full shadow-lg animate-bounce transition-all ${
                             myColor === 'R'
                               ? 'bg-gradient-to-br from-rose-500 to-red-700 shadow-rose-500/50'
                               : 'bg-gradient-to-br from-yellow-300 to-amber-500 shadow-yellow-400/50'
@@ -2412,12 +2413,12 @@ function FourInARowContent() {
                 </div>
 
                 {/* The Blue 3D Grid Chassis */}
-                <div className="relative p-2 xs:p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-blue-700 via-blue-800 to-blue-950 border-2 sm:border-4 border-blue-500 shadow-inner shadow-black/60 max-w-full">
-                  <div className="grid grid-cols-7 gap-1.5 xs:gap-2 sm:gap-3.5">
+                <div className="relative p-1.5 xs:p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-blue-700 via-blue-800 to-blue-950 border-2 sm:border-4 border-blue-500 shadow-inner shadow-black/60 max-w-full">
+                  <div className="grid grid-cols-7 gap-1 xs:gap-1.5 sm:gap-2.5 md:gap-3.5">
                     {Array.from({ length: COLS }).map((_, c) => (
                       <div
                         key={`col-${c}`}
-                        className="flex flex-col gap-1.5 xs:gap-2 sm:gap-3.5 cursor-pointer group"
+                        className="flex flex-col gap-1 xs:gap-1.5 sm:gap-2.5 md:gap-3.5 cursor-pointer group"
                         onMouseEnter={() => setHoveredCol(c)}
                         onMouseLeave={() => setHoveredCol(null)}
                         onClick={() => handleColumnClick(c)}
@@ -2431,7 +2432,7 @@ function FourInARowContent() {
                           return (
                             <div
                               key={`cell-${r}-${c}`}
-                              className="relative w-8 h-8 xs:w-9 xs:h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-[#0b0c16] shadow-inner shadow-black flex items-center justify-center overflow-hidden border border-blue-900/60 group-hover:border-blue-400/40 transition"
+                              className="relative w-[min(32px,9vw)] h-[min(32px,9vw)] xs:w-[min(38px,9.2vw)] xs:h-[min(38px,9.2vw)] sm:w-11 sm:h-11 md:w-13 md:h-13 lg:w-14 lg:h-14 rounded-full bg-[#0b0c16] shadow-inner shadow-black flex items-center justify-center overflow-hidden border border-blue-900/60 group-hover:border-blue-400/40 transition shrink-0"
                             >
                               {!cell && (
                                 <div className="absolute inset-1 rounded-full bg-black/40 shadow-inner" />
@@ -2463,9 +2464,9 @@ function FourInARowContent() {
                 </div>
 
                 {/* 3D Vertical Stand Legs */}
-                <div className="flex justify-between w-full px-4 sm:px-6 -mt-1.5 sm:-mt-2">
-                  <div className="w-4 sm:w-6 h-6 sm:h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
-                  <div className="w-4 sm:w-6 h-6 sm:h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
+                <div className="flex justify-between w-full px-3 xs:px-4 sm:px-6 -mt-1 sm:-mt-2">
+                  <div className="w-3.5 xs:w-4 sm:w-6 h-5 sm:h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
+                  <div className="w-3.5 xs:w-4 sm:w-6 h-5 sm:h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
                 </div>
               </div>
 
