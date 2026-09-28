@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
 import {
   MediaItem,
   RoomPlaybackState,
@@ -37,7 +37,12 @@ import {
   Lock,
   Users,
   Palette,
-  Sparkles
+  Sparkles,
+  MessageSquare,
+  LogOut,
+  SlidersHorizontal,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { TheaterOverlay } from './TheaterOverlay';
 import { PixelPerfectTheater, THEATER_THEMES } from './PixelPerfectTheater';
@@ -108,6 +113,7 @@ interface CinemaPlayerProps {
   isChatOpen?: boolean;
   onToggleChat?: () => void;
   unreadCount?: number;
+  isMobileLandscape?: boolean;
 }
 
 export const CinemaPlayer = memo(function CinemaPlayer({
@@ -143,6 +149,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   isChatOpen = false,
   onToggleChat,
   unreadCount = 0,
+  isMobileLandscape = false,
 }: CinemaPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -200,6 +207,42 @@ export const CinemaPlayer = memo(function CinemaPlayer({
     const nextVal = typeof valOrFn === 'function' ? valOrFn(isTheaterMode) : valOrFn;
     setInternalTheaterMode(nextVal);
     onTheaterModeChange?.(nextVal);
+  };
+
+  // Mobile landscape tap-to-show / hide controls
+  const [showMobileControls, setShowMobileControls] = useState<boolean>(true);
+  const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetHideTimer = useCallback(() => {
+    if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+    if (isMobileLandscape) {
+      hideControlsTimerRef.current = setTimeout(() => {
+        setShowMobileControls(false);
+      }, 4000);
+    }
+  }, [isMobileLandscape]);
+
+  useEffect(() => {
+    if (isMobileLandscape) {
+      setShowMobileControls(true);
+      resetHideTimer();
+    }
+    return () => {
+      if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
+    };
+  }, [isMobileLandscape, resetHideTimer]);
+
+  const handleScreenTap = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isMobileLandscape) return;
+    if ((e.target as HTMLElement).closest('button, input, a, select')) {
+      resetHideTimer();
+      return;
+    }
+    setShowMobileControls(prev => {
+      const next = !prev;
+      if (next) resetHideTimer();
+      return next;
+    });
   };
 
   // Synchronized 3-2-1 Countdown Timer & Sounds
@@ -463,8 +506,137 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full min-h-0 bg-black rounded-xl overflow-hidden shadow-2xl group select-none flex flex-col justify-between"
+      onClick={handleScreenTap}
+      onTouchStart={resetHideTimer}
+      className={`w-full h-full min-h-0 bg-black overflow-hidden shadow-2xl group select-none flex flex-col justify-between ${
+        isMobileLandscape ? 'relative rounded-none' : 'relative rounded-xl'
+      }`}
     >
+      {/* Top Mobile Landscape Controls Overlay */}
+      {isMobileLandscape && (
+        <div
+          className={`absolute top-0 inset-x-0 p-2.5 sm:p-4 bg-gradient-to-b from-black/95 via-black/75 to-transparent flex items-center justify-between z-40 transition-all duration-300 ${
+            showMobileControls
+              ? 'opacity-100 pointer-events-auto translate-y-0'
+              : 'opacity-0 pointer-events-none -translate-y-4'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-black text-[#E50914] tracking-tight shrink-0 select-none">watch.</span>
+            <span className="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-[200px]">
+              {movieTitle}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {onToggleMic && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleMic();
+                  resetHideTimer();
+                }}
+                className={`p-1.5 rounded-full border transition cursor-pointer ${
+                  isMicMuted
+                    ? 'bg-rose-500/20 border-rose-400 text-rose-300'
+                    : 'bg-white/10 border-white/15 text-white hover:bg-white/20'
+                }`}
+                title={isMicMuted ? 'Unmute Mic' : 'Mute Mic'}
+              >
+                {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+              </button>
+            )}
+
+            {onToggleCamera && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleCamera();
+                  resetHideTimer();
+                }}
+                className={`p-1.5 rounded-full border transition cursor-pointer ${
+                  !isCameraOn
+                    ? 'bg-white/10 border-white/15 text-zinc-400 hover:bg-white/20'
+                    : 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                }`}
+                title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+              >
+                {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+              </button>
+            )}
+
+            {onToggleChat && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleChat();
+                  resetHideTimer();
+                }}
+                className={`p-1.5 rounded-full border transition cursor-pointer relative ${
+                  isChatOpen
+                    ? 'bg-rose-600 border-rose-500 text-white'
+                    : 'bg-white/10 border-white/15 text-white hover:bg-white/20'
+                }`}
+                title="Toggle Chat"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                )}
+              </button>
+            )}
+
+            {/* Tap to hide controls button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMobileControls(false);
+              }}
+              className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 text-white/80 transition cursor-pointer"
+              title="Hide Options"
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+            </button>
+
+            {onLeaveRoom && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLeaveRoom();
+                }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#E50914] hover:bg-red-600 text-white text-[11px] font-bold shadow-md shadow-red-600/30 active:scale-95 transition cursor-pointer"
+                title="Leave Room"
+              >
+                <LogOut className="w-3 h-3" />
+                <span>Exit</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tap-to-show minimal icon indicator in mobile landscape when options are hidden */}
+      {isMobileLandscape && !showMobileControls && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowMobileControls(true);
+            resetHideTimer();
+          }}
+          className="absolute top-3 right-3 z-50 px-2.5 py-1.5 rounded-full bg-black/75 hover:bg-black/90 active:scale-95 text-white/90 border border-white/20 backdrop-blur-md shadow-2xl transition flex items-center gap-1.5 cursor-pointer"
+          title="Show Controls & Options"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 text-[#E50914]" />
+          <span className="text-[11px] font-bold">Options</span>
+        </button>
+      )}
+
       {/* 1. Video Canvas / Media Stage (100% Real Video & Screen Stream) */}
       <div className="relative w-full flex-1 min-h-0 bg-black overflow-hidden flex items-center justify-center">
         {/* Subtle Brand Watermark */}
@@ -656,7 +828,17 @@ export const CinemaPlayer = memo(function CinemaPlayer({
       </div>
 
       {/* 2. Real Watch Party Bottom Controls Bar */}
-      <div className="relative w-full px-4 sm:px-6 pb-3 pt-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col space-y-2 z-30">
+      <div
+        className={`w-full px-3 sm:px-6 pb-2.5 sm:pb-3 pt-2.5 sm:pt-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col space-y-1.5 sm:space-y-2 z-30 transition-all duration-300 ${
+          isMobileLandscape
+            ? `absolute bottom-0 inset-x-0 ${
+                showMobileControls
+                  ? 'opacity-100 pointer-events-auto translate-y-0'
+                  : 'opacity-0 pointer-events-none translate-y-4'
+              }`
+            : 'relative'
+        }`}
+      >
         {/* Real Scrubber Bar ONLY when a real video file is actually loaded and not live screen */}
         {hasRealCustomVideo && !screenStream && duration > 0 && (
           <div className="space-y-1">

@@ -543,6 +543,31 @@ export default function RoomPage() {
     }
   }, [isChatOpen]);
 
+  // Mobile orientation detection
+  const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+  const [dismissFlipPrompt, setDismissFlipPrompt] = useState(false);
+
+  useEffect(() => {
+    const handleOrientationChange = () => {
+      if (typeof window === 'undefined') return;
+      const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && Math.max(window.innerWidth, window.innerHeight) <= 1024);
+      const portrait = window.innerHeight > window.innerWidth;
+      setIsMobileDevice(isMobile);
+      setIsPortrait(isMobile && portrait);
+    };
+
+    handleOrientationChange();
+    window.addEventListener('resize', handleOrientationChange);
+    window.addEventListener('orientationchange', handleOrientationChange);
+    return () => {
+      window.removeEventListener('resize', handleOrientationChange);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+
+  const isMobileLandscape = isMobileDevice && !isPortrait;
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('watch_party_theme_id');
@@ -1011,21 +1036,21 @@ export default function RoomPage() {
 
       <div className="relative z-10 flex flex-col h-full overflow-hidden">
         {/* Top Header Bar: Branding, Room Title, Seats Count, Theme, Invite Link & Dedicated Red Leave Button */}
-        <div className="flex-shrink-0 flex items-center justify-between pb-2 px-1 gap-1 sm:gap-2">
+        <div className={`flex-shrink-0 ${isMobileLandscape ? 'hidden' : 'flex'} items-center justify-between pb-2 px-1 gap-1 sm:gap-2`}>
           {/* Left: Branding & Room Title */}
-          <div className="flex items-center space-x-1.5 sm:space-x-3 min-w-0">
-            <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
-              <div className="flex flex-col leading-none">
+          <div className="flex items-center space-x-1.5 sm:space-x-3 min-w-0 flex-1 mr-1">
+            <div className="flex items-center space-x-1.5 sm:space-x-2.5 min-w-0">
+              <div className="flex flex-col leading-none shrink-0">
                 <span className="text-sm sm:text-lg font-black tracking-tighter text-[#E50914] select-none">watch.</span>
                 <span className="text-[6.5px] sm:text-[7.5px] font-semibold tracking-wider text-zinc-400/80 uppercase select-none mt-0.5 hidden xs:inline">stitchbyte</span>
               </div>
               <span className="text-zinc-600 text-xs hidden sm:inline">/</span>
-              <span className="text-[11px] sm:text-sm font-semibold text-white tracking-wide truncate max-w-[80px] xs:max-w-[120px] sm:max-w-[280px]">
+              <span className="text-[11px] sm:text-sm font-semibold text-white tracking-wide truncate max-w-[65px] xs:max-w-[100px] sm:max-w-[260px]">
                 {room.title || 'Watch Party'}
               </span>
             </div>
 
-            <div className="hidden md:flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[11px] text-zinc-300 font-medium">
+            <div className="hidden md:flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.06] border border-white/10 text-[11px] text-zinc-300 font-medium shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>{Math.min(6, activeMembers.length)}/6 connected</span>
             </div>
@@ -1036,7 +1061,7 @@ export default function RoomPage() {
             {/* Mic Toggle */}
             <button
               onClick={toggleMic}
-              className={`w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border ${
+              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border shrink-0 ${
                 isMicMuted
                   ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 hover:bg-rose-500/30'
                   : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
@@ -1049,7 +1074,7 @@ export default function RoomPage() {
             {/* Video Toggle */}
             <button
               onClick={toggleCamera}
-              className={`w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border ${
+              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border shrink-0 ${
                 !isCameraOn
                   ? 'bg-white/5 text-zinc-400 border-white/10 hover:bg-white/15'
                   : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
@@ -1062,7 +1087,7 @@ export default function RoomPage() {
             {/* Chat Bubble Toggle Button with active highlight ring */}
             <button
               onClick={() => setIsChatOpen((prev) => !prev)}
-              className={`w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border relative active:scale-95 ${
+              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition border relative active:scale-95 shrink-0 ${
                 isChatOpen
                   ? 'bg-rose-600/30 text-rose-300 border-rose-500 ring-2 ring-rose-500/50 shadow-md shadow-rose-600/30'
                   : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
@@ -1080,7 +1105,7 @@ export default function RoomPage() {
             {/* Theme Selector */}
             <button
               onClick={() => setShowThemeModal(true)}
-              className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 text-amber-400 border border-white/10 flex items-center justify-center transition active:scale-95"
+              className="hidden xs:flex w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 text-amber-400 border border-white/10 items-center justify-center transition active:scale-95 shrink-0"
               title="Room Themes"
             >
               <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1089,7 +1114,7 @@ export default function RoomPage() {
             {/* Invite Friends */}
             <button
               onClick={handleCopyInvite}
-              className="w-7.5 h-7.5 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 flex items-center justify-center transition active:scale-95"
+              className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/10 flex items-center justify-center transition active:scale-95 shrink-0"
               title="Copy Room Link"
             >
               {copiedInvite ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
@@ -1098,7 +1123,7 @@ export default function RoomPage() {
             {/* Dedicated Red Leave Button */}
             <button
               onClick={handleLeaveRoom}
-              className="w-7.5 h-7.5 sm:w-auto px-0 sm:px-3.5 h-7.5 sm:h-9 bg-[#E50914] hover:bg-red-600 text-white text-xs font-bold rounded-full transition shadow-md shadow-red-600/30 flex items-center justify-center space-x-1.5 active:scale-95"
+              className="w-7 h-7 sm:w-auto px-0 sm:px-3 sm:py-1.5 bg-[#E50914] hover:bg-red-600 text-white text-xs font-bold rounded-full transition shadow-md shadow-red-600/30 flex items-center justify-center space-x-1.5 active:scale-95 shrink-0"
               title="Leave Room"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -1106,6 +1131,34 @@ export default function RoomPage() {
             </button>
           </div>
         </div>
+
+        {/* 📱 Mobile Portrait: Rotate Device / Flip Prompt Overlay */}
+        {isMobileDevice && isPortrait && !dismissFlipPrompt && (
+          <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+            <div className="max-w-xs w-full bg-[#181124] border border-rose-500/40 rounded-3xl p-6 text-center shadow-2xl flex flex-col items-center">
+              {/* Animated Rotating Phone Graphic */}
+              <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center mb-4 text-[#ff2b70] shadow-inner">
+                <svg className="w-8 h-8 animate-[spin_3s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                  <path d="M12 18h.01"/>
+                </svg>
+              </div>
+
+              <h3 className="text-base font-black text-white mb-1.5 tracking-tight">Rotate to Landscape</h3>
+              <p className="text-xs text-zinc-300 leading-relaxed mb-5">
+                Turn your phone horizontally to watch movie party in full screen.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setDismissFlipPrompt(true)}
+                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs transition border border-white/15 cursor-pointer shadow-xs"
+              >
+                Continue in Portrait
+              </button>
+            </div>
+          </div>
+        )}
 
       {/* 🛡️ Knock-to-Join Admission Banner for Host */}
       {isHost && pendingJoinRequests.length > 0 && (
@@ -1182,20 +1235,30 @@ export default function RoomPage() {
       <div className="flex-1 flex flex-col lg:flex-row gap-3 overflow-hidden min-h-0">
         {/* Left/Main Column: Top Horizontal Video Strip (up to 6 participants like Google Meet) + Cinema Player Stage */}
         <div className="flex-1 flex flex-col min-w-0 h-full gap-2.5 overflow-hidden">
-          {/* 1. Top Horizontal Participant Strip (Google Meet style camera & avatar preview) */}
-          <div className="flex-shrink-0 w-full">
-            <VideoGrid
-              participants={gridParticipants.slice(0, 6)}
-              onCopyInvite={handleCopyInvite}
-              copiedInvite={copiedInvite}
-              onToggleSelfCamera={toggleCamera}
-              onToggleSelfMic={toggleMic}
-            />
-          </div>
+          {/* 1. Top Horizontal Participant Strip (Google Meet style camera & avatar preview) - hidden in mobile landscape */}
+          {!isMobileLandscape && (
+            <div className="flex-shrink-0 w-full">
+              <VideoGrid
+                participants={gridParticipants.slice(0, 6)}
+                onCopyInvite={handleCopyInvite}
+                copiedInvite={copiedInvite}
+                onToggleSelfCamera={toggleCamera}
+                onToggleSelfMic={toggleMic}
+              />
+            </div>
+          )}
 
           {/* 2. Cinema Theater Player Stage with embedded call controls dock */}
-          <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
-            <div className="w-full max-w-4xl h-full relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black flex flex-col transition-all duration-300">
+          <div className={
+            isMobileLandscape
+              ? 'fixed inset-0 z-50 bg-black w-[100dvw] h-[100dvh] flex items-center justify-center overflow-hidden'
+              : 'flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden'
+          }>
+            <div className={
+              isMobileLandscape
+                ? 'w-full h-full relative overflow-hidden bg-black flex flex-col'
+                : 'w-full max-w-4xl h-full relative rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-black flex flex-col transition-all duration-300'
+            }>
               <CinemaPlayer
                 media={room.currentMedia}
                 playbackState={room.playbackState}
@@ -1242,6 +1305,7 @@ export default function RoomPage() {
                 isChatOpen={isChatOpen}
                 onToggleChat={() => setIsChatOpen((prev) => !prev)}
                 unreadCount={unreadCount}
+                isMobileLandscape={isMobileLandscape}
               />
               <FloatingReactionsCanvas latestReactions={latestReactions} />
             </div>
@@ -1252,8 +1316,8 @@ export default function RoomPage() {
         {isChatOpen && (
           <div
             className={
-              isTheaterMode
-                ? 'fixed right-3 top-3 bottom-3 z-[60] w-80 sm:w-96 bg-[#1c0c16]/95 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 min-h-0'
+              isTheaterMode || isMobileLandscape
+                ? 'fixed right-3 top-3 bottom-3 z-[60] w-72 sm:w-80 md:w-96 bg-[#1c0c16]/95 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col backdrop-blur-2xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 min-h-0'
                 : 'fixed inset-x-3 bottom-3 top-16 z-[60] lg:relative lg:inset-auto lg:top-auto lg:bottom-auto w-auto lg:w-80 xl:w-96 shrink-0 bg-[#1c0c16]/95 lg:bg-[#1c0c16]/60 border border-rose-500/30 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.85)] flex flex-col h-[calc(100vh-80px)] lg:h-full backdrop-blur-2xl lg:backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 lg:slide-in-from-right-4 min-h-0'
             }
           >
