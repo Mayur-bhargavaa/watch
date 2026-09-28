@@ -461,19 +461,28 @@ export const ChatLayout: React.FC = () => {
 
       {/* Right Drawer: Friend Profile Sheet */}
       {showProfileSheet && activeConversation && (
-        <FriendProfileSheet
-          conversation={activeConversation}
-          user={otherUser}
-          onClose={() => setShowProfileSheet(false)}
-          onStartVoiceCall={() => handleStartCall('voice')}
-          onStartVideoCall={() => handleStartCall('video')}
-          onOpenCreatePlan={() => {
-            setShowProfileSheet(false);
-          }}
-          onOpenInviteGame={() => {
-            setShowProfileSheet(false);
-          }}
-        />
+        <>
+          {/* Mobile Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs z-40 xl:hidden"
+            onClick={() => setShowProfileSheet(false)}
+          />
+          <div className="fixed inset-y-0 right-0 z-50 xl:relative xl:inset-auto xl:z-20 h-full flex flex-col">
+            <FriendProfileSheet
+              conversation={activeConversation}
+              user={otherUser}
+              onClose={() => setShowProfileSheet(false)}
+              onStartVoiceCall={() => handleStartCall('voice')}
+              onStartVideoCall={() => handleStartCall('video')}
+              onOpenCreatePlan={() => {
+                setShowProfileSheet(false);
+              }}
+              onOpenInviteGame={() => {
+                setShowProfileSheet(false);
+              }}
+            />
+          </div>
+        </>
       )}
 
       {/* Create Group Modal */}

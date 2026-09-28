@@ -14,7 +14,7 @@ export default function ChatPage() {
   }, []);
 
   return (
-    <div className="h-screen bg-[#F8F9FC] dark:bg-zinc-950 text-slate-900 dark:text-white flex overflow-hidden font-sans">
+    <div className="h-[100dvh] w-full max-w-full bg-[#F8F9FC] dark:bg-zinc-950 text-slate-900 dark:text-white flex overflow-hidden font-sans">
       {/* Centralized App Sidebar with 'chat' active */}
       <AppSidebar
         activeNav="chat"
@@ -23,9 +23,9 @@ export default function ChatPage() {
       />
 
       {/* Main Chat Workspace */}
-      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-hidden relative">
+      <main className="flex-1 min-w-0 flex flex-col h-full w-full max-w-full overflow-hidden relative">
         {/* Mobile Top Header with Menu Button */}
-        <header className="lg:hidden h-12 px-3 border-b border-slate-200/80 dark:border-zinc-800/80 bg-white/90 dark:bg-zinc-900/90 flex items-center justify-between shrink-0 z-20">
+        <header className="lg:hidden h-11 sm:h-12 px-3 border-b border-slate-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 flex items-center justify-between shrink-0 z-20 w-full max-w-full">
           <button
             type="button"
             onClick={() => setIsMobileSidebarOpen(true)}
@@ -39,7 +39,7 @@ export default function ChatPage() {
         </header>
 
         {/* Chat Application */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 min-w-0 w-full max-w-full overflow-hidden flex flex-col">
           {mounted ? (
             <Suspense
               fallback={

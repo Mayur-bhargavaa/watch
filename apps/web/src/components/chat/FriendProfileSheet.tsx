@@ -42,7 +42,7 @@ export const FriendProfileSheet: React.FC<FriendProfileSheetProps> = ({
   const username = user?.username ? `@${user.username}` : undefined;
 
   return (
-    <div className="w-80 h-full border-l border-slate-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md flex flex-col shrink-0 overflow-y-auto animate-in slide-in-from-right-2 duration-200 z-20">
+    <div className="w-[85vw] max-w-xs sm:w-80 h-full border-l border-slate-200/80 dark:border-zinc-800/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md flex flex-col shrink-0 overflow-y-auto animate-in slide-in-from-right-2 duration-200 shadow-2xl xl:shadow-none">
       {/* Header */}
       <div className="p-4 border-b border-slate-200/60 dark:border-zinc-800/60 flex items-center justify-between">
         <h3 className="font-bold text-sm text-slate-900 dark:text-white">
