@@ -117,7 +117,14 @@ function ChessGameContent() {
 
   const [boardTheme, setBoardTheme] = useState<'wood' | 'slate' | 'charcoal'>('wood');
   const [showHints, setShowHints] = useState<boolean>(true);
-  const [isCallClosed, setIsCallClosed] = useState<boolean>(false);
+  const [isCallClosed, setIsCallClosed] = useState<boolean>(true);
+
+  // Auto-close call PIP on mobile screen so board is clear, keep open on large desktop
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsCallClosed(window.innerWidth < 1024);
+    }
+  }, []);
 
   // Load session
   useEffect(() => {
@@ -494,13 +501,19 @@ function ChessGameContent() {
         isCameraOn={isCameraOn}
         isChatOpen={showChatPanel}
         onToggleMic={toggleMic}
-        onToggleCamera={toggleCamera}
+        onToggleCamera={() => {
+          toggleCamera();
+          if (!isCameraOn) {
+            setIsCallClosed(false);
+          }
+        }}
         onToggleChat={() => setShowChatPanel(prev => !prev)}
         onOpenInfo={() => setShowInfoPanel(prev => !prev)}
         isInfoOpen={showInfoPanel}
         onOpenSettings={() => {}}
         onLeave={handleLeave}
         isCallClosed={isCallClosed}
+        onToggleCall={() => setIsCallClosed(prev => !prev)}
         onOpenCall={() => setIsCallClosed(false)}
         chatCount={chatMessages.length}
       />

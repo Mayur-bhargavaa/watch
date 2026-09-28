@@ -35,6 +35,7 @@ interface ChessHeaderProps {
   onLeave: () => void;
   isCallClosed?: boolean;
   onOpenCall?: () => void;
+  onToggleCall?: () => void;
   chatCount?: number;
 }
 
@@ -53,6 +54,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
   onLeave,
   isCallClosed = false,
   onOpenCall,
+  onToggleCall,
   chatCount = 0
 }) => {
   const { theme, toggleTheme } = useTheme();
@@ -138,16 +140,20 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
           {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
         </button>
 
-        {/* Reopen Floating Call Button if closed */}
-        {isCallClosed && onOpenCall && (
+        {/* Floating Cam Preview / Call Window Toggle */}
+        {(onToggleCall || onOpenCall) && (
           <button
             type="button"
-            onClick={onOpenCall}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#ff2b70]/20 hover:bg-[#ff2b70]/30 text-[#ff2b70] border border-[#ff2b70]/30 text-[11px] sm:text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
-            title="Open Floating Call Window"
+            onClick={onToggleCall || onOpenCall}
+            className={`flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border transition cursor-pointer shrink-0 ${
+              !isCallClosed
+                ? 'bg-[#ff2b70] border-[#ff2b70] text-white shadow-md shadow-pink-500/20'
+                : 'bg-white/10 hover:bg-white/20 border-white/15 text-white/80 shadow-xs'
+            }`}
+            title={!isCallClosed ? 'Hide Cam Preview Window' : 'Show Cam Preview Window'}
           >
-            <Video className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Call</span>
+            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="text-[11px] sm:text-xs font-bold hidden xs:inline">Call</span>
           </button>
         )}
 
