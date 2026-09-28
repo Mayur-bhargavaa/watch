@@ -26,13 +26,13 @@ export function ReactionHeatmap({ buckets, durationSeconds = 3600, onSeek }: Rea
   const maxCount = Math.max(...buckets.map(b => b.count), 1);
 
   return (
-    <div className="w-full bg-cinema-card rounded-xl p-4 border border-cinema-border space-y-3">
-      <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
-        <span>🔥 Reaction Intensity Timeline</span>
-        <span className="text-cinema-muted">Click any peak to jump to that moment</span>
+    <div className="w-full bg-cinema-card rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 border border-cinema-border space-y-2.5 sm:space-y-3">
+      <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 text-[11px] sm:text-xs font-semibold text-slate-300">
+        <span className="flex items-center gap-1.5">🔥 Reaction Intensity Timeline</span>
+        <span className="text-cinema-muted text-[10px] sm:text-xs">Tap any peak to jump to that moment</span>
       </div>
 
-      <div className="h-28 flex items-end space-x-1.5 pt-4 pb-1 overflow-x-auto">
+      <div className="h-24 sm:h-28 flex items-end space-x-1 sm:space-x-1.5 pt-3 pb-1 overflow-x-auto">
         {buckets.map((b) => {
           const heightPercent = Math.max(15, Math.round((b.count / maxCount) * 100));
           return (

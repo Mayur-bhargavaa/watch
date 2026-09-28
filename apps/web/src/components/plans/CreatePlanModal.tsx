@@ -435,19 +435,19 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
-      <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/10 shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
+      <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/10 shadow-2xl overflow-hidden my-auto sm:my-8 max-h-[92vh] flex flex-col">
         {/* Top Bar / Steps Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/[0.06]">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-100 dark:border-white/[0.06] shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#ee1d49] to-[#ff3b68] flex items-center justify-center text-white shadow-md shadow-[#ee1d49]/30">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                 Create a Plan
               </h2>
-              <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
+              <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">
                 Step {step} of 4: {step === 1 ? 'Occasion' : step === 2 ? 'Activities' : step === 3 ? 'Details' : 'Invites'}
               </p>
             </div>
@@ -463,7 +463,7 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-5 sm:space-y-6">
           {/* STEP 1: What are you planning? */}
           {step === 1 && (
             <div className="space-y-4">
@@ -918,7 +918,7 @@ export const CreatePlanModal: React.FC<CreatePlanModalProps> = ({
         </div>
 
         {/* Modal Footer / Navigation */}
-        <div className="p-6 bg-slate-50 dark:bg-[#130e1b] border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
+        <div className="p-4 sm:p-6 bg-slate-50 dark:bg-[#130e1b] border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between shrink-0">
           {step > 1 ? (
             <button
               type="button"

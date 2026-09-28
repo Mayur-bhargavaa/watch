@@ -110,7 +110,14 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
 
       {/* Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/95 dark:bg-[#15101f]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-2xl shadow-black/40 z-50 overflow-hidden animate-fadeIn">
+        <>
+          {/* Mobile Backdrop to tap outside and dismiss */}
+          <div
+            className="sm:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-xs animate-in fade-in"
+            onClick={() => setIsOpen(false)}
+          />
+
+          <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 w-auto sm:w-96 max-w-[calc(100vw-24px)] sm:max-w-none rounded-2xl bg-white/95 dark:bg-[#15101f]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 shadow-2xl shadow-black/50 z-50 overflow-hidden animate-fadeIn">
           {/* Header */}
           <div className="p-4 border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -227,30 +234,31 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
             <button
               type="button"
               onClick={handleTestRoast}
-              className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 hover:text-[#ee1d49] transition flex items-center space-x-1 cursor-pointer"
+              className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 hover:text-[#ee1d49] transition flex items-center space-x-1 cursor-pointer shrink-0 truncate"
               title="Test roast notification & Chrome desktop popup"
             >
-              <Sparkles className="w-3 h-3 text-[#ee1d49]" />
-              <span>Test Chrome Popup 🚀</span>
+              <Sparkles className="w-3 h-3 text-[#ee1d49] shrink-0" />
+              <span className="truncate">Test Chrome Popup 🚀</span>
             </button>
 
             {permission !== 'granted' ? (
               <button
                 type="button"
                 onClick={() => requestPermission()}
-                className="px-2 py-1 rounded-lg bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-[10px] font-bold transition flex items-center space-x-1 cursor-pointer shadow-xs"
+                className="px-2 py-1 rounded-lg bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-[10px] font-bold transition flex items-center space-x-1 cursor-pointer shadow-xs shrink-0"
               >
                 <Bell className="w-3 h-3" />
                 <span>Enable Alerts</span>
               </button>
             ) : (
-              <span className="text-[9px] font-mono text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[9px] font-mono text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1 shrink-0 whitespace-nowrap">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span>Chrome Alerts ON</span>
               </span>
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );

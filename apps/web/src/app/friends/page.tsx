@@ -63,6 +63,7 @@ import {
 import { getRandomRoast } from '../../lib/roastMessages';
 import { StreakDetailsDrawer } from '../../components/streaks/StreakDetailsDrawer';
 import { AppSidebar } from '../../components/layout/AppSidebar';
+import { AppHeader } from '../../components/layout/AppHeader';
 
 // Bitmoji avatar helper
 function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string {
@@ -460,46 +461,13 @@ function FriendsPageContent() {
       {/* ========================================================================= */}
       {/* 2. MAIN CONTENT STAGE                                                     */}
       {/* ========================================================================= */}
-      <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
-        
-        {/* Mobile Header */}
-        <div className="lg:hidden flex items-center justify-between p-4 bg-white dark:bg-[#130e1b] border-b border-slate-200 dark:border-white/10 sticky top-0 z-40">
-          <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <Link href="/dashboard" className="flex items-center space-x-2">
-              <div className="p-1.5 bg-[#ee1d49] rounded-xl text-white">
-                <Film className="w-4 h-4" />
-              </div>
-              <span className="text-lg font-black tracking-tight">
-                Watch<span className="text-[#ee1d49]">.</span>
-              </span>
-            </Link>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-            >
-              {isDark ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
-            </button>
-            <Link
-              href="/dashboard"
-              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/10 text-xs font-semibold"
-            >
-              Cinema
-            </Link>
-          </div>
-        </div>
+      <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-5 sm:space-y-6">
+        <AppHeader
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        />
 
         {/* Inner Container */}
-        <div className="p-4 sm:p-6 lg:p-10 max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
+        <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
           
           {/* Top Feedback Banner */}
           {feedback && (
@@ -540,7 +508,7 @@ function FriendsPageContent() {
                 <span>SyncCinema Social Hub</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-none text-slate-900 dark:text-white">
+              <h1 className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
                 Friends & <span className="text-[#ee1d49]">Requests</span>
               </h1>
 
@@ -549,34 +517,34 @@ function FriendsPageContent() {
               </p>
 
               {/* Quick Stat Chips */}
-              <div className="flex items-center gap-3 pt-2 flex-wrap">
-                <div className="px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs">
-                    <Users className="w-4 h-4" />
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2">
+                <div className="px-2.5 sm:px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">
+                    <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </div>
-                  <div>
-                    <span className="text-xs font-black text-slate-900 dark:text-white">{friends.length}</span>
-                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 ml-1.5 font-medium">Friends</span>
-                  </div>
-                </div>
-
-                <div className="px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs">
-                    <Flame className="w-4 h-4 fill-current" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-black text-slate-900 dark:text-white">{totalStreaksCount}</span>
-                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 ml-1.5 font-medium">Active Streaks</span>
+                  <div className="min-w-0 truncate">
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">{friends.length}</span>
+                    <span className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 block sm:inline sm:ml-1.5 font-medium truncate">Friends</span>
                   </div>
                 </div>
 
-                <div className="px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-xl bg-[#ee1d49]/10 text-[#ee1d49] flex items-center justify-center font-bold text-xs">
-                    <Inbox className="w-4 h-4" />
+                <div className="px-2.5 sm:px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs shrink-0">
+                    <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
                   </div>
-                  <div>
-                    <span className="text-xs font-black text-slate-900 dark:text-white">{requests.incoming.length}</span>
-                    <span className="text-[10px] text-slate-500 dark:text-zinc-400 ml-1.5 font-medium">Pending</span>
+                  <div className="min-w-0 truncate">
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">{totalStreaksCount}</span>
+                    <span className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 block sm:inline sm:ml-1.5 font-medium truncate">Streaks</span>
+                  </div>
+                </div>
+
+                <div className="px-2.5 sm:px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-[#ee1d49]/10 text-[#ee1d49] flex items-center justify-center font-bold text-xs shrink-0">
+                    <Inbox className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </div>
+                  <div className="min-w-0 truncate">
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">{requests.incoming.length}</span>
+                    <span className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 block sm:inline sm:ml-1.5 font-medium truncate">Pending</span>
                   </div>
                 </div>
               </div>
@@ -603,14 +571,14 @@ function FriendsPageContent() {
               </div>
 
               {/* Code Display Box */}
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-black/40 border border-rose-100 dark:border-white/5 flex items-center justify-between gap-3">
-                <div className="font-mono text-xl sm:text-2xl font-black tracking-widest text-[#ee1d49]">
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-black/40 border border-rose-100 dark:border-white/5 flex flex-col xs:flex-row items-stretch xs:items-center justify-between gap-3">
+                <div className="font-mono text-xl sm:text-2xl font-black tracking-widest text-[#ee1d49] text-center xs:text-left">
                   {myFriendCode || 'LOADING...'}
                 </div>
                 <button
                   type="button"
                   onClick={handleCopyCode}
-                  className="px-3.5 py-2 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer"
+                  className="px-3.5 py-2 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer shrink-0"
                 >
                   {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
@@ -622,7 +590,7 @@ function FriendsPageContent() {
                 <button
                   type="button"
                   onClick={handleCopyInviteLink}
-                  className="flex-1 py-2 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  className="w-full py-2.5 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
                 >
                   <Share2 className="w-3.5 h-3.5 text-[#ee1d49]" />
                   <span>{copiedInviteLink ? 'Link Copied!' : 'Share Direct Invite Link'}</span>
@@ -635,20 +603,20 @@ function FriendsPageContent() {
           {/* ========================================================================= */}
           {/* TAB NAVIGATION BAR                                                        */}
           {/* ========================================================================= */}
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 gap-3 overflow-x-auto pb-1">
-            <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 gap-2 overflow-x-auto scrollbar-none pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex items-center gap-1 sm:gap-4 shrink-0">
               
               {/* Tab 1: Discover & Add */}
               <button
                 type="button"
                 onClick={() => setActiveTab('discover')}
-                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-2 transition relative cursor-pointer ${
+                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition relative cursor-pointer shrink-0 ${
                   activeTab === 'discover'
                     ? 'text-[#ee1d49]'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Users className="w-4 h-4" />
+                <Users className="w-4 h-4 shrink-0" />
                 <span>Discover & Add</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300">
                   {discoverUsers.length}
@@ -662,13 +630,13 @@ function FriendsPageContent() {
               <button
                 type="button"
                 onClick={() => setActiveTab('requests')}
-                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-2 transition relative cursor-pointer ${
+                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition relative cursor-pointer shrink-0 ${
                   activeTab === 'requests'
                     ? 'text-[#ee1d49]'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Inbox className="w-4 h-4" />
+                <Inbox className="w-4 h-4 shrink-0" />
                 <span>Requests</span>
                 {requests.incoming.length > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-[#ee1d49] text-white animate-pulse">
@@ -684,13 +652,13 @@ function FriendsPageContent() {
               <button
                 type="button"
                 onClick={() => setActiveTab('friends')}
-                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-2 transition relative cursor-pointer ${
+                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition relative cursor-pointer shrink-0 ${
                   activeTab === 'friends'
                     ? 'text-[#ee1d49]'
                     : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <Flame className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
                 <span>My Friends</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300">
                   {friends.length}
@@ -723,7 +691,7 @@ function FriendsPageContent() {
             <div className="space-y-6">
               
               {/* Card A: Add Friend by Code Input */}
-              <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 shadow-xs">
+              <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -735,7 +703,7 @@ function FriendsPageContent() {
                     </p>
                   </div>
 
-                  <form onSubmit={handleAddByCode} className="flex items-center gap-2 w-full sm:w-auto">
+                  <form onSubmit={handleAddByCode} className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 w-full sm:w-auto">
                     <input
                       type="text"
                       value={friendCodeInput}
@@ -746,7 +714,7 @@ function FriendsPageContent() {
                     <button
                       type="submit"
                       disabled={submittingCode || !friendCodeInput.trim()}
-                      className="py-2.5 px-5 rounded-2xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-xs sm:text-sm shadow-md shadow-[#ee1d49]/20 transition active:scale-95 disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      className="py-2.5 px-5 rounded-2xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-xs sm:text-sm shadow-md shadow-[#ee1d49]/20 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>{submittingCode ? 'Sending...' : 'Send'}</span>
@@ -1179,13 +1147,13 @@ function FriendsPageContent() {
                         </div>
 
                         {/* Action Toolbar */}
-                        <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-1 flex-wrap">
+                        <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-1.5 sm:gap-2">
+                          <div className="flex items-center gap-1 sm:gap-1.5 flex-1 overflow-x-auto scrollbar-none py-0.5 min-w-0">
                             {/* Direct Chat */}
                             <button
                               type="button"
                               onClick={() => router.push(`/chat?userId=${friend.friendUser.id}`)}
-                              className="py-2 px-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-[#ee1d49] font-bold text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer"
+                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-[#ee1d49] font-bold text-[11px] sm:text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shrink-0"
                               title="Chat now"
                             >
                               <MessageSquare className="w-3.5 h-3.5" />
@@ -1197,7 +1165,7 @@ function FriendsPageContent() {
                               type="button"
                               disabled={isLaunching}
                               onClick={() => handleWatchPartyWithFriend(friend)}
-                              className="flex-1 min-w-[70px] py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-xs flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
                             >
                               <Video className="w-3.5 h-3.5 text-[#ee1d49]" />
                               <span>{isLaunching ? 'Starting...' : 'Watch'}</span>
@@ -1207,7 +1175,7 @@ function FriendsPageContent() {
                             <button
                               type="button"
                               onClick={() => handlePlayGame(friend, 'ludo')}
-                              className="py-2 px-2.5 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-[11px] sm:text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
                               title="Play Ludo Arena"
                             >
                               <Gamepad2 className="w-3.5 h-3.5" />
@@ -1218,7 +1186,7 @@ function FriendsPageContent() {
                             <button
                               type="button"
                               onClick={() => handlePlayGame(friend, 'four-in-a-row')}
-                              className="py-2 px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer"
+                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] sm:text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
                               title="Play Four in a Row"
                             >
                               <Gamepad2 className="w-3.5 h-3.5" />
@@ -1230,7 +1198,7 @@ function FriendsPageContent() {
                               type="button"
                               disabled={actionLoadingId === friend.friendUser.id}
                               onClick={() => handleNudgeFriend(friend)}
-                              className="py-2 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50"
+                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[11px] sm:text-xs flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
                               title="Send playful Zomato-style roast nudge"
                             >
                               <span>🛵</span>
@@ -1243,7 +1211,7 @@ function FriendsPageContent() {
                             <button
                               type="button"
                               onClick={() => setActiveFriendMenuId(isMenuOpen ? null : friend.friendUser.id)}
-                              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+                              className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>

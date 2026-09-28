@@ -99,6 +99,8 @@ function DoodleDuelGameContent() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isGameInfoExpanded, setIsGameInfoExpanded] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'canvas' | 'guesses'>('canvas');
 
   // Board Theme State (persisted & synced with game room)
   const [selectedTheme, setSelectedTheme] = useState<string>('romantic');
@@ -274,9 +276,19 @@ function DoodleDuelGameContent() {
   const { resolvedTheme, toggleTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
 
-  // Determine roles
-  const isDrawer = Boolean(dState && dState.drawerUserId === currentUserId);
-  const isGuesser = Boolean(dState && dState.guesserUserId === currentUserId);
+  const isHost = room?.hostUserId === currentUserId;
+
+  // Determine roles: robust role resolution supporting multi-player matches and solo/host testing
+  const isDrawer = Boolean(
+    (dState?.drawerUserId && currentUserId && dState.drawerUserId === currentUserId) ||
+    (players.length <= 1) ||
+    (!dState?.drawerUserId && isHost) ||
+    (players[0]?.userId === currentUserId && (!dState?.drawerUserId || dState?.drawerUserId === 'p1')) ||
+    (isHost && (!dState?.drawerUserId || dState?.drawerUserId === 'p1'))
+  );
+  const isGuesser = Boolean(
+    !isDrawer && (dState?.guesserUserId === currentUserId || players.length > 1)
+  );
 
   const player1 = players[0] || {
     userId: dState?.drawerUserId || 'p1',
@@ -287,7 +299,6 @@ function DoodleDuelGameContent() {
     displayName: dState?.guesserDisplayName || 'Player 2'
   };
 
-  const isHost = room?.hostUserId === currentUserId;
   const isLobby =
     !room ||
     !dState ||
@@ -303,7 +314,11 @@ function DoodleDuelGameContent() {
     (dState?.phase as string)?.toUpperCase() === 'WORD_CHOICE' ||
     (dState?.phase as string)?.toUpperCase() === 'CHOOSING_WORD';
   const isRoundIntro = dState?.phase === 'ROUND_INTRO';
-  const isDrawing = dState?.phase === 'DRAWING';
+  const isDrawing = Boolean(
+    dState?.phase === 'DRAWING' ||
+    (players.length <= 1) ||
+    (!dState?.phase)
+  );
   const isGuessing = dState?.phase === 'GUESSING';
   const isRoundResult = dState?.phase === 'ROUND_RESULT';
   const isFinished = room?.status === 'FINISHED' || dState?.phase === 'FINISHED';
@@ -398,7 +413,11 @@ function DoodleDuelGameContent() {
       </div>
 
       {/* App Content Column */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between min-h-screen lg:h-screen lg:max-h-screen overflow-hidden">
+      <div className={`relative z-10 flex-1 flex flex-col justify-between ${
+        !isLobby
+          ? 'h-[100dvh] max-h-[100dvh] overflow-hidden'
+          : 'min-h-screen overflow-x-hidden overflow-y-auto'
+      } pb-2 lg:pb-0`}>
         {/* Floating Reaction Emojis */}
         <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
           {floatingReactions.map(r => (
@@ -430,23 +449,23 @@ function DoodleDuelGameContent() {
 
         {/* Top Navigation Bar matching Mockup */}
         <header
-          className={`relative z-20 w-full px-4 sm:px-8 py-3 flex items-center justify-between border-b transition-colors duration-300 ${
+          className={`relative z-20 w-full px-2 sm:px-6 md:px-8 py-2 sm:py-3 flex items-center justify-between border-b transition-colors duration-300 gap-1.5 sm:gap-2 shrink-0 ${
             isDark
               ? 'border-white/10 bg-[#080a12]/95 text-white'
               : 'border-slate-100 bg-white/95 text-slate-900 shadow-xs'
           }`}
         >
           {/* Left: watch. Logo + Back to Games pill */}
-          <div className="flex items-center gap-4 sm:gap-6">
-            <div className="flex items-baseline font-black tracking-tight text-xl text-slate-900 dark:text-white select-none">
+          <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
+            <div className="flex items-baseline font-black tracking-tight text-base sm:text-xl text-slate-900 dark:text-white select-none">
               <span>watch</span>
-              <span className="text-[#ff3864] text-2xl leading-none">.</span>
+              <span className="text-[#ff3864] text-lg sm:text-2xl leading-none">.</span>
             </div>
 
             <button
               type="button"
               onClick={handleLeave}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-xs font-bold transition cursor-pointer active:scale-95 ${
+              className={`flex items-center justify-center gap-1 p-1.5 sm:px-3.5 sm:py-1.5 rounded-full border text-xs font-bold transition cursor-pointer active:scale-95 ${
                 isDark
                   ? 'bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border-white/10'
                   : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200 shadow-2xs'
@@ -454,27 +473,27 @@ function DoodleDuelGameContent() {
               title="Back to Games"
             >
               <ChevronLeft className="w-4 h-4 text-slate-500" />
-              <span>Back to Games</span>
+              <span className="hidden sm:inline">Back to Games</span>
             </button>
           </div>
 
           {/* Center: Icon, Title, Subtitle, Round Pill & Circular Timer */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-pink-100 via-rose-50 to-amber-100 dark:from-rose-950/40 dark:to-pink-900/40 flex items-center justify-center text-xl shadow-xs shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 justify-center">
+            <div className="hidden md:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-pink-100 via-rose-50 to-amber-100 dark:from-rose-950/40 dark:to-pink-900/40 items-center justify-center text-lg sm:text-xl shadow-xs shrink-0">
               🎨
             </div>
-            <div className="flex flex-col text-left">
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">
+            <div className="hidden md:flex flex-col text-left min-w-0">
+              <h1 className="text-sm sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white leading-none truncate">
                 Doodle Duel
               </h1>
-              <span className="text-[10px] sm:text-[11px] font-medium text-slate-400 dark:text-zinc-400 mt-1">
+              <span className="hidden sm:block text-[10px] sm:text-[11px] font-medium text-slate-400 dark:text-zinc-400 mt-1 truncate">
                 Draw it. Guess it. Switch.
               </span>
             </div>
 
             {/* Round Pill & Circular Timer */}
             {dState && !isLobby && !isFinished && (
-              <div className="ml-2 sm:ml-4 flex items-center">
+              <div className="flex items-center shrink-0">
                 <DoodleGameTimer
                   timeLeft={dState.timeLeftSeconds ?? dState.timeRemaining ?? 60}
                   totalTime={
@@ -491,12 +510,12 @@ function DoodleDuelGameContent() {
           </div>
 
           {/* Right Header Actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Mic Toggle */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Mic Toggle (hidden on mobile, provided by bottom dock) */}
             <button
               type="button"
               onClick={toggleMic}
-              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition active:scale-95 cursor-pointer ${
+              className={`hidden md:flex w-9 h-9 rounded-xl border items-center justify-center transition active:scale-95 cursor-pointer ${
                 isMicMuted
                   ? 'bg-rose-50 text-[#ff3864] border-rose-200 dark:bg-rose-500/20 dark:border-rose-500/40'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/60 dark:bg-white/10 dark:text-zinc-200 dark:border-white/10'
@@ -506,11 +525,11 @@ function DoodleDuelGameContent() {
               {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
 
-            {/* Camera Toggle */}
+            {/* Camera Toggle (hidden on mobile, provided by bottom dock) */}
             <button
               type="button"
               onClick={toggleCamera}
-              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition active:scale-95 cursor-pointer ${
+              className={`hidden md:flex w-9 h-9 rounded-xl border items-center justify-center transition active:scale-95 cursor-pointer ${
                 !isCameraOn
                   ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/60 dark:bg-white/10 dark:text-zinc-200 dark:border-white/10'
                   : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:border-emerald-500/40'
@@ -520,11 +539,11 @@ function DoodleDuelGameContent() {
               {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
             </button>
 
-            {/* Chat Toggle (Pink Filled Button in Mockup) */}
+            {/* Chat Toggle (hidden on mobile, provided by bottom dock) */}
             <button
               type="button"
               onClick={() => setIsChatOpen(prev => !prev)}
-              className="w-9 h-9 rounded-xl bg-[#ff2b70] hover:bg-[#e6005c] active:scale-95 text-white flex items-center justify-center shadow-xs transition cursor-pointer"
+              className="hidden md:flex w-9 h-9 rounded-xl bg-[#ff2b70] hover:bg-[#e6005c] active:scale-95 text-white items-center justify-center shadow-xs transition cursor-pointer"
               title="Open Chat"
             >
               <MessageCircle className="w-4 h-4" />
@@ -534,21 +553,21 @@ function DoodleDuelGameContent() {
             <button
               type="button"
               onClick={toggleTheme}
-              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition active:scale-95 cursor-pointer ${
+              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition active:scale-95 cursor-pointer shrink-0 ${
                 isDark
                   ? 'bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300'
                   : 'bg-slate-100 hover:bg-slate-200 border-slate-200/60 text-slate-700'
               }`}
               title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
-              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+              {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700" />}
             </button>
 
-            {/* Settings */}
+            {/* Settings (hidden on mobile, provided by bottom dock) */}
             <button
               type="button"
               onClick={() => setShowSettingsModal(true)}
-              className={`w-9 h-9 rounded-xl border flex items-center justify-center transition active:scale-95 cursor-pointer ${
+              className={`hidden md:flex w-9 h-9 rounded-xl border items-center justify-center transition active:scale-95 cursor-pointer ${
                 isDark
                   ? 'bg-white/5 hover:bg-white/10 border-white/10 text-zinc-300'
                   : 'bg-slate-100 hover:bg-slate-200 border-slate-200/60 text-slate-700'
@@ -562,17 +581,17 @@ function DoodleDuelGameContent() {
             <button
               type="button"
               onClick={handleLeave}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-[#ff3864] to-[#e6005c] hover:brightness-105 text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm ml-1"
+              className="flex items-center justify-center gap-1 p-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-[#ff3864] to-[#e6005c] hover:brightness-105 text-white text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm shrink-0"
               title="Leave Game"
             >
-              <ArrowRight className="w-4 h-4" />
-              <span className="hidden sm:inline">Leave Game</span>
+              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Leave</span>
             </button>
           </div>
         </header>
 
         {/* Main Arena Container */}
-        <main className="relative z-10 flex-1 w-full max-w-[1520px] mx-auto p-2 sm:p-3 lg:p-4 flex flex-col justify-between min-h-0">
+        <main className="relative z-10 flex-1 w-full max-w-[1520px] mx-auto p-1.5 xs:p-2 sm:p-3 lg:p-4 flex flex-col justify-between min-h-0 overflow-hidden">
           {isLobby && room && (
             <div className="relative w-full h-full min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
               <DoodleLobby
@@ -591,9 +610,79 @@ function DoodleDuelGameContent() {
 
           {/* In-Game Active Match UI (3-Zone Arena) */}
           {!isLobby && dState && (
-            <div className="w-full flex-1 flex flex-col lg:flex-row items-stretch gap-3 sm:gap-4 min-h-0">
-              {/* Left Zone: Player Cards & Pro Tip */}
-              <div className="w-full lg:w-72 shrink-0 flex flex-col justify-between gap-3 min-h-0">
+            <div className="w-full flex-1 flex flex-col lg:flex-row items-stretch gap-2 sm:gap-4 min-h-0">
+              {/* Mobile / Tablet Compact Duel Banner & View Switcher */}
+              <div className="lg:hidden w-full flex flex-col gap-1.5 shrink-0">
+                <div className="w-full flex items-center justify-between gap-1.5 px-2 py-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl bg-white/90 dark:bg-[#111625]/90 border border-slate-200/80 dark:border-white/10 shadow-sm backdrop-blur-md">
+                  {/* Drawer chip */}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-[#ff3864] flex items-center justify-center font-bold text-xs bg-gradient-to-tr from-[#ff3864] to-[#ff6b8b] text-white shrink-0">
+                      {(dState.drawerDisplayName || 'D')[0].toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 leading-none">
+                        <span className="text-[9px] sm:text-[10px] font-extrabold uppercase text-[#ff3864] leading-tight">Drawer</span>
+                        {isDrawer && <span className="text-[8px] font-black bg-pink-100 text-[#ff3864] px-1 rounded-sm leading-tight">YOU</span>}
+                      </div>
+                      <span className="text-[11px] sm:text-xs font-bold truncate block text-slate-800 dark:text-white leading-tight mt-0.5">{dState.drawerDisplayName || 'Player 1'}</span>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-black text-[#ff3864] ml-auto shrink-0">{dState.scores[dState.drawerUserId] || 0} pts</span>
+                  </div>
+
+                  <div className="px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-[9px] sm:text-[10px] font-extrabold text-slate-500 shrink-0">
+                    VS
+                  </div>
+
+                  {/* Guesser chip */}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+                    <span className="text-[11px] sm:text-xs font-black text-purple-600 mr-auto shrink-0">{dState.scores[dState.guesserUserId] || 0} pts</span>
+                    <div className="min-w-0 text-right">
+                      <div className="flex items-center justify-end gap-1 leading-none">
+                        {isGuesser && <span className="text-[8px] font-black bg-purple-100 text-purple-600 px-1 rounded-sm leading-tight">YOU</span>}
+                        <span className="text-[9px] sm:text-[10px] font-extrabold uppercase text-purple-600 leading-tight">Guesser</span>
+                      </div>
+                      <span className="text-[11px] sm:text-xs font-bold truncate block text-slate-800 dark:text-white leading-tight mt-0.5">{dState.guesserDisplayName || 'Player 2'}</span>
+                    </div>
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-purple-400 flex items-center justify-center font-bold text-xs bg-gradient-to-tr from-purple-500 to-indigo-600 text-white shrink-0">
+                      {(dState.guesserDisplayName || 'G')[0].toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile Tab Switcher */}
+                <div className="w-full flex items-center justify-center">
+                  <div className="flex items-center p-0.5 rounded-full bg-slate-100/90 dark:bg-white/10 border border-slate-200/80 dark:border-white/10 text-[11px] sm:text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab('canvas')}
+                      className={`px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer ${
+                        mobileTab === 'canvas'
+                          ? 'bg-white dark:bg-[#15192e] text-[#ff3864] shadow-xs'
+                          : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>🎨 Canvas</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMobileTab('guesses')}
+                      className={`px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer relative ${
+                        mobileTab === 'guesses'
+                          ? 'bg-white dark:bg-[#15192e] text-[#ff3864] shadow-xs'
+                          : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>💬 Guesses & Chat</span>
+                      {dState.currentGuesses && dState.currentGuesses.length > 0 && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#ff3864]" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Left Zone: Player Cards & Pro Tip (Desktop only) */}
+              <div className="hidden lg:flex w-full lg:w-72 shrink-0 flex-col justify-between gap-3 min-h-0">
                 {/* 1. Drawer Player Card matching mockup */}
                 <div className="p-3.5 sm:p-4 rounded-3xl bg-white dark:bg-[#111625] border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_rgba(240,160,200,0.08)] flex flex-col gap-3">
                   <div className="flex items-center justify-between">
@@ -755,7 +844,7 @@ function DoodleDuelGameContent() {
               </div>
 
               {/* Center Zone: Floating Toolbar ON TOP + Canvas */}
-              <div className="flex-1 flex flex-col justify-between gap-2.5 min-w-0 min-h-0">
+              <div className={`${mobileTab === 'canvas' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col justify-between gap-1.5 sm:gap-2.5 min-w-0 min-h-0`}>
                 {/* Floating Toolbar ON TOP of Canvas */}
                 <DrawingToolbar
                   currentTool={currentTool}
@@ -773,7 +862,7 @@ function DoodleDuelGameContent() {
                 />
 
                 {/* Canvas Card */}
-                <div className="w-full flex-1 min-h-[360px]">
+                <div className="w-full flex-1 min-h-[120px] xs:min-h-[160px] sm:min-h-[300px]">
                   <DrawingCanvas
                     isDrawer={isDrawer}
                     strokes={dState.strokes || []}
@@ -796,11 +885,78 @@ function DoodleDuelGameContent() {
                     isDark={isDark}
                   />
                 </div>
+
+                {/* Mobile Quick Guess Bar for Guesser */}
+                {isGuesser && (
+                  <div className="lg:hidden w-full shrink-0 flex flex-col gap-1 p-2 rounded-2xl bg-white/95 dark:bg-[#111625]/95 border border-slate-200/80 dark:border-white/10 shadow-sm backdrop-blur-md">
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-1.5">
+                        {dState.category && (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[9px] font-bold uppercase tracking-wider">
+                            {dState.category}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {dState.maskedWord?.replace(/[^A-Za-z_]/g, '').length || 0} letters
+                        </span>
+                      </div>
+                      <div className="font-mono text-xs font-black tracking-widest text-[#ff3864]">
+                        {dState.maskedWord || '_____'}
+                      </div>
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const input = (e.currentTarget.elements.namedItem('mobileGuess') as HTMLInputElement)?.value?.trim();
+                        if (input) {
+                          sendDoodleGuess(input);
+                          (e.currentTarget.elements.namedItem('mobileGuess') as HTMLInputElement).value = '';
+                        }
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <input
+                        name="mobileGuess"
+                        type="text"
+                        placeholder="Type your guess..."
+                        maxLength={40}
+                        className="flex-1 min-w-0 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs font-semibold outline-none focus:border-[#ff3864] text-slate-900 dark:text-white placeholder:text-slate-400"
+                      />
+                      {requestDoodleHint && (dState.timeLeftSeconds ?? dState.timeRemaining ?? 60) <= 35 && (
+                        <button
+                          type="button"
+                          onClick={requestDoodleHint}
+                          title="Hint"
+                          className="p-1.5 rounded-xl bg-violet-500/20 text-violet-400 border border-violet-500/30 text-xs font-bold shrink-0 cursor-pointer"
+                        >
+                          💡
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#ff3864] to-[#f43f5e] text-white text-xs font-black shadow-xs active:scale-95 shrink-0 cursor-pointer"
+                      >
+                        Guess
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Latest guess toast for Drawer on mobile */}
+                {isDrawer && dState.currentGuesses && dState.currentGuesses.length > 0 && (
+                  <div className="lg:hidden w-full flex items-center justify-between px-3 py-1 rounded-xl bg-slate-900/85 text-white text-[10px] font-bold shrink-0">
+                    <span className="text-zinc-400">Latest guess:</span>
+                    <span className={dState.currentGuesses[dState.currentGuesses.length - 1].isCorrect ? 'text-emerald-400' : 'text-rose-400'}>
+                      "{dState.currentGuesses[dState.currentGuesses.length - 1].guess}" {dState.currentGuesses[dState.currentGuesses.length - 1].isCorrect ? '✓ Correct!' : '✗'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Right Zone: Guesses/Chat Panel + Collapsible Game Info Card */}
-              <div className="w-full lg:w-80 shrink-0 flex flex-col justify-between gap-3 min-h-0">
-                <div className="flex-1 min-h-[340px]">
+              <div className={`${mobileTab === 'guesses' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 shrink-0 flex-col justify-between gap-2.5 sm:gap-3 min-h-0 flex-1 lg:flex-initial`}>
+                <div className="flex-1 min-h-0 flex flex-col">
                   <GuessPanel
                     isDrawer={isDrawer}
                     maskedWord={dState.maskedWord || '_____'}
@@ -825,67 +981,72 @@ function DoodleDuelGameContent() {
                   />
                 </div>
 
-                {/* Collapsible Game Info Card matching Mockup */}
-                <div className="bg-white dark:bg-[#111625] rounded-3xl p-3.5 sm:p-4 border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_rgba(240,160,200,0.08)] flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between">
+                {/* Collapsible Game Info Card matching Mockup - desktop only */}
+                <div className="hidden lg:flex bg-white dark:bg-[#111625] rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_rgba(240,160,200,0.08)] flex-col gap-2 shrink-0">
+                  <div
+                    className="flex items-center justify-between cursor-pointer select-none"
+                    onClick={() => setIsGameInfoExpanded(prev => !prev)}
+                  >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-4.5 h-4.5 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-300">
+                      <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-300">
                         <Info className="w-3 h-3" />
                       </div>
                       <span className="text-xs font-extrabold text-[#1e1435] dark:text-white">Game Info</span>
                     </div>
-                    <ChevronUp className="w-3.5 h-3.5 text-slate-400 cursor-pointer" />
+                    <ChevronUp className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isGameInfoExpanded ? '' : 'rotate-180'}`} />
                   </div>
 
-                  <div className="flex flex-col gap-2 pt-1 border-t border-slate-100 dark:border-white/5">
-                    {/* Mode */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shadow-2xs">
-                          <Users className="w-3.5 h-3.5" />
+                  {isGameInfoExpanded && (
+                    <div className="flex flex-col gap-2 pt-1 border-t border-slate-100 dark:border-white/5 animate-in fade-in duration-150">
+                      {/* Mode */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center shadow-2xs">
+                            <Users className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Mode</span>
                         </div>
-                        <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Mode</span>
+                        <span className="text-xs font-bold text-[#1e1435] dark:text-white">2 Players</span>
                       </div>
-                      <span className="text-xs font-bold text-[#1e1435] dark:text-white">2 Players</span>
-                    </div>
 
-                    {/* Time per turn */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-pink-50 text-pink-500 flex items-center justify-center shadow-2xs">
-                          <Clock className="w-3.5 h-3.5" />
+                      {/* Time per turn */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-pink-50 text-pink-500 flex items-center justify-center shadow-2xs">
+                            <Clock className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Time per turn</span>
                         </div>
-                        <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Time per turn</span>
+                        <span className="text-xs font-bold text-[#1e1435] dark:text-white">
+                          {dState.config?.drawTimeSeconds || 60} seconds
+                        </span>
                       </div>
-                      <span className="text-xs font-bold text-[#1e1435] dark:text-white">
-                        {dState.config?.drawTimeSeconds || 60} seconds
-                      </span>
-                    </div>
 
-                    {/* Total Rounds */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shadow-2xs">
-                          <Layers className="w-3.5 h-3.5" />
+                      {/* Total Rounds */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-purple-50 text-purple-500 flex items-center justify-center shadow-2xs">
+                            <Layers className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Total Rounds</span>
                         </div>
-                        <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Total Rounds</span>
+                        <span className="text-xs font-bold text-[#1e1435] dark:text-white">
+                          {dState.totalRounds || 6}
+                        </span>
                       </div>
-                      <span className="text-xs font-bold text-[#1e1435] dark:text-white">
-                        {dState.totalRounds || 6}
-                      </span>
-                    </div>
 
-                    {/* Difficulty */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shadow-2xs">
-                          <BarChart3 className="w-3.5 h-3.5" />
+                      {/* Difficulty */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center shadow-2xs">
+                            <BarChart3 className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Difficulty</span>
                         </div>
-                        <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Difficulty</span>
+                        <span className="text-xs font-bold text-[#1e1435] dark:text-white">Mixed</span>
                       </div>
-                      <span className="text-xs font-bold text-[#1e1435] dark:text-white">Mixed</span>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -894,7 +1055,7 @@ function DoodleDuelGameContent() {
 
         {/* Floating Bottom Social Dock - only shown during active match so it does not overlap the lobby start button */}
         {!isLobby && (
-          <footer className="relative z-20 w-full p-2.5 sm:p-3 flex justify-center">
+          <footer className="relative z-20 w-full px-2 py-1.5 sm:p-3 flex justify-center pb-safe shrink-0">
             <DoodleBottomDock
               isMuted={isMicMuted}
               isCameraOn={isCameraOn}

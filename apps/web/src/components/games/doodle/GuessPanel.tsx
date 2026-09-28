@@ -206,7 +206,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
           </div>
 
           {/* Guesses Feed */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-2 min-h-[220px] max-h-[340px] flex flex-col justify-center">
+          <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-2 min-h-0 flex flex-col justify-center">
             {guesses.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center py-6 pointer-events-none select-none">
                 {/* Cute pink speech bubble illustration with dots & sparkles matching mockup */}
@@ -388,7 +388,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
           </div>
 
           {/* Chat Messages Feed */}
-          <div className="flex-1 p-3 overflow-y-auto space-y-2.5 min-h-[160px] max-h-[300px]">
+          <div className="flex-1 p-3 overflow-y-auto space-y-2.5 min-h-0">
             {chatMessages.length === 0 ? (
               <div
                 className={`h-full flex flex-col items-center justify-center text-center py-6 text-xs ${

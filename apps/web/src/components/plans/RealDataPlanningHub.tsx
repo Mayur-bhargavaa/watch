@@ -131,14 +131,14 @@ export const RealDataPlanningHub: React.FC<RealDataPlanningHubProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Real Data Banner Header */}
-      <div className="relative overflow-hidden rounded-[28px] p-6 sm:p-8 bg-gradient-to-br from-rose-500/10 via-amber-500/5 to-purple-500/10 border border-rose-200/60 dark:border-white/10 shadow-sm">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="relative overflow-hidden rounded-[28px] p-5 sm:p-8 bg-gradient-to-br from-rose-500/10 via-amber-500/5 to-purple-500/10 border border-rose-200/60 dark:border-white/10 shadow-sm">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
           <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5" />
               <span>Real-Time Entertainment Engine</span>
             </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            <h2 className="text-xl xs:text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
               No Plans Scheduled Yet
             </h2>
             <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-zinc-300 leading-relaxed">
@@ -149,7 +149,7 @@ export const RealDataPlanningHub: React.FC<RealDataPlanningHubProps> = ({
           <button
             type="button"
             onClick={onOpenGeneralCreate}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#ff3b68] hover:bg-[#ee1d49] text-white text-xs font-black shadow-lg shadow-[#ff3b68]/25 hover:shadow-xl hover:shadow-[#ee1d49]/35 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-full bg-[#ff3b68] hover:bg-[#ee1d49] text-white text-xs font-black shadow-lg shadow-[#ff3b68]/25 hover:shadow-xl hover:shadow-[#ee1d49]/35 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Create Custom Plan</span>
@@ -164,7 +164,7 @@ export const RealDataPlanningHub: React.FC<RealDataPlanningHubProps> = ({
             <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-500">
               <Film className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Curated 4K Cinema Streams
             </h3>
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300">
@@ -174,14 +174,14 @@ export const RealDataPlanningHub: React.FC<RealDataPlanningHubProps> = ({
           <span className="text-xs font-semibold text-slate-400">1-Click Schedule</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           {REAL_MOVIES.map((movie) => (
             <div
               key={movie.id}
-              className="group rounded-[24px] p-4 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-rose-200 dark:hover:border-rose-500/30 shadow-xs hover:shadow-md transition-all flex gap-4 items-center"
+              className="group rounded-[24px] p-3.5 sm:p-4 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-rose-200 dark:hover:border-rose-500/30 shadow-xs hover:shadow-md transition-all flex flex-col xs:flex-row gap-3 sm:gap-4 items-stretch xs:items-center"
             >
               {/* Poster Thumbnail */}
-              <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 bg-slate-900">
+              <div className="relative w-full xs:w-24 xs:h-24 sm:w-28 sm:h-28 h-36 rounded-2xl overflow-hidden shrink-0 bg-slate-900">
                 <img
                   src={movie.poster}
                   alt={movie.title}
@@ -205,17 +205,17 @@ export const RealDataPlanningHub: React.FC<RealDataPlanningHubProps> = ({
                   {movie.description}
                 </p>
 
-                <div className="pt-1 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1">
+                <div className="pt-1 flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1 shrink-0">
                     <Clock className="w-3 h-3" />
                     {movie.duration}
                   </span>
                   <button
                     type="button"
                     onClick={() => onSelectMovie(movie)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 dark:bg-rose-500/10 hover:bg-[#ff3b68] text-rose-600 dark:text-rose-400 hover:text-white dark:hover:text-white text-[11px] font-bold transition-all cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-50 dark:bg-rose-500/10 hover:bg-[#ff3b68] text-rose-600 dark:text-rose-400 hover:text-white dark:hover:text-white text-[11px] font-bold transition-all cursor-pointer shrink-0"
                   >
-                    <span>+ Plan Watch Party</span>
+                    <span>+ Plan Watch</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
@@ -242,11 +242,11 @@ export const RealDataPlanningHub: React.FC<RealDataPlanningHubProps> = ({
           <span className="text-xs font-semibold text-slate-400">No installs required</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {REAL_GAMES.map((game) => (
             <div
               key={game.gameId}
-              className="group rounded-[24px] p-5 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-purple-200 dark:hover:border-purple-500/30 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+              className="group rounded-[24px] p-4 sm:p-5 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-purple-200 dark:hover:border-purple-500/30 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -304,7 +304,7 @@ export const RealDataPlanningHub: React.FC<RealDataPlanningHubProps> = ({
         </div>
 
         {friends.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
             {friends.map((friend) => (
               <div
                 key={friend.userId}

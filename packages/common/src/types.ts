@@ -6,6 +6,16 @@ export type RoomPrivacy = 'PUBLIC' | 'INVITE_ONLY' | 'PRIVATE';
 
 export type PlaybackStateEnum = 'PLAYING' | 'PAUSED' | 'BUFFERING';
 
+export type DeviceType = 'mobile' | 'desktop' | 'tablet';
+
+export interface ActiveDeviceSession {
+  deviceId: string;
+  deviceType: DeviceType;
+  deviceToken: string;
+  browserName?: string;
+  lastActiveAt: number;
+}
+
 export interface User {
   id: string;
   email?: string | null;
@@ -24,6 +34,7 @@ export interface User {
   favoriteGenres?: string[] | null;
   viewingVibe?: string | null;
   age?: number | null;
+  activeDevice?: ActiveDeviceSession | null;
   createdAt: string;
 }
 

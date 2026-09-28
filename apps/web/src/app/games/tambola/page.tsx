@@ -15,6 +15,7 @@ import {
   Send,
   X as CloseIcon,
   Minus,
+  ChevronUp,
   GripHorizontal,
   ScanLine,
   Shuffle,
@@ -326,10 +327,16 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && pipPosition === null) {
-      if (window.innerWidth >= 1024) {
-        setPipPosition({ x: window.innerWidth - 320, y: window.innerHeight - 200 });
+      const isMobile = window.innerWidth < 640;
+      if (isMobile) {
+        setIsPipMinimized(true);
+        // Closed by default on mobile so it never covers player duel cards, numbers, or ticket
+        setIsPipClosed(true);
+        setPipPosition({ x: Math.max(8, window.innerWidth - 232), y: Math.max(80, window.innerHeight - 76) });
+      } else if (window.innerWidth >= 1024) {
+        setPipPosition({ x: window.innerWidth - 320, y: Math.max(100, window.innerHeight - 200) });
       } else {
-        setPipPosition({ x: 16, y: Math.max(80, window.innerHeight - 180) });
+        setPipPosition({ x: 16, y: Math.max(100, window.innerHeight - 180) });
       }
     }
   }, [pipPosition]);
@@ -362,8 +369,12 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
       const deltaX = clientX - dragStartRef.current.startX;
       const deltaY = clientY - dragStartRef.current.startY;
 
-      const newX = Math.max(8, Math.min(window.innerWidth - 260, dragStartRef.current.initialX + deltaX));
-      const newY = Math.max(64, Math.min(window.innerHeight - 140, dragStartRef.current.initialY + deltaY));
+      const isMobile = window.innerWidth < 640;
+      const pipWidth = isPipMinimized ? 220 : 260;
+      const pipHeight = isPipMinimized ? 44 : 140;
+
+      const newX = Math.max(8, Math.min(window.innerWidth - pipWidth, dragStartRef.current.initialX + deltaX));
+      const newY = Math.max(isMobile ? 64 : 64, Math.min(window.innerHeight - pipHeight, dragStartRef.current.initialY + deltaY));
 
       setPipPosition({ x: newX, y: newY });
     };
@@ -684,72 +695,75 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         </div>
       )}
 
-      {/* MAIN NO-SCROLL CONTAINER */}
-      <div className="relative z-10 w-full max-w-[1380px] mx-auto p-2 sm:p-3 lg:p-4 flex-1 flex flex-col justify-between gap-2 sm:gap-2.5 min-h-0">
+      {/* MAIN CONTAINER */}
+      <div className="relative z-10 w-full max-w-[1380px] mx-auto p-2 sm:p-3 lg:p-4 pb-12 sm:pb-4 flex-1 flex flex-col justify-between gap-2 sm:gap-2.5 min-h-0">
         
         {/* 1. TOP HEADER BAR */}
-        <header className="flex items-center justify-between gap-3 shrink-0">
-          {/* Left: Ticket icon, Title & "Play Laugh Stay Together ♡" */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-[#ff2b70] via-[#ff3b77] to-[#ff6699] flex items-center justify-center text-white shadow-md shadow-pink-500/25 shrink-0">
-              <Ticket className="w-5 h-5 stroke-[2.2]" />
+        <header className="flex items-center justify-between gap-2 shrink-0">
+          {/* Left: Ticket icon, Title */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-[#ff2b70] via-[#ff3b77] to-[#ff6699] flex items-center justify-center text-white shadow-md shadow-pink-500/25 shrink-0">
+              <Ticket className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.2]" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-[#1e1435] tracking-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="text-base sm:text-2xl font-black text-[#1e1435] tracking-tight truncate">
                   Tambola
                 </h1>
-                <div className="hidden sm:block font-serif italic text-[10px] leading-[1.05] text-[#ff2b70] tracking-tight select-none">
+                <div className="hidden md:block font-serif italic text-[10px] leading-[1.05] text-[#ff2b70] tracking-tight select-none">
                   Play<br />Laugh<br />Stay Together ♡
                 </div>
               </div>
-              <p className="text-[11px] text-[#8a80a0] font-medium tracking-wide">
+              <p className="hidden sm:block text-[11px] text-[#8a80a0] font-medium tracking-wide truncate">
                 1-90 Numbers • Classic Fun • 2 Players
               </p>
             </div>
           </div>
 
-          {/* Right: "Same Numbers Different Hearts" Quote & Controls */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Right: Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <span className="hidden xl:inline-block font-serif italic text-sm text-[#8d4b88] tracking-wide select-none mr-1">
               “Same Numbers Different Hearts” ♡
             </span>
 
-            {/* Show Call Button (if closed) */}
-            {isPipClosed && (
-              <button
-                type="button"
-                onClick={() => setIsPipClosed(false)}
-                className="px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
-                title="Show Call Window"
-              >
-                <Video className="w-3.5 h-3.5 text-rose-500" />
-                <span>Show Call</span>
-              </button>
-            )}
+            {/* Call Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsPipClosed(!isPipClosed)}
+              className={`relative h-8 px-2 sm:px-2.5 rounded-xl border text-xs font-bold flex items-center gap-1 transition cursor-pointer shrink-0 ${
+                !isPipClosed
+                  ? 'bg-[#ff3864] text-white border-[#ff3864] shadow-xs'
+                  : 'bg-white/90 hover:bg-white text-[#4a3e68] border-pink-100 shadow-2xs'
+              }`}
+              title={!isPipClosed ? "Hide Call Window" : "Show Call Window"}
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Call</span>
+            </button>
 
             {/* Chat Bubble Toggle Button */}
             <button
               type="button"
               onClick={() => setIsChatOpen(!isChatOpen)}
-              className={`relative px-3 py-1 rounded-full border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              className={`relative h-8 px-2.5 sm:px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shrink-0 ${
                 isChatOpen
                   ? 'bg-[#ff3864] text-white border-[#ff3864]'
-                  : 'bg-white/80 hover:bg-white text-[#4a3e68] border-pink-100'
+                  : 'bg-white/90 hover:bg-white text-[#4a3e68] border-pink-100 shadow-2xs'
               }`}
               title="Toggle Game Chat"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>Chat</span>
+              <span className="hidden xs:inline">Chat</span>
               {chatMessages.length > 0 && !isChatOpen && (
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
               )}
             </button>
 
             {/* Leave Match */}
             <button
               onClick={handleLeave}
-              className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/80 hover:bg-white text-xs font-bold text-[#4a3e68] border border-pink-100 shadow-xs transition cursor-pointer"
+              className="h-8 px-2.5 sm:px-3 rounded-xl bg-white/90 hover:bg-white text-xs font-bold text-[#4a3e68] border border-pink-100 shadow-2xs transition cursor-pointer flex items-center gap-1 shrink-0"
+              title="Leave Match"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               <span>Leave</span>
@@ -758,10 +772,10 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         </header>
 
         {/* 2. TOP DUEL PLAYERS BAR (REAL PLAYERS) */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3 shrink-0">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Left Player Card (You) */}
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 px-3 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-[#ff3864] text-sm">
+          <div className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-2.5 px-2.5 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-[#ff3864] text-xs sm:text-sm">
               {me?.avatarUrl && !me.avatarUrl.includes('bottts') ? (
                 <img src={me.avatarUrl} alt={me.displayName} className="w-full h-full object-cover" />
               ) : (
@@ -769,20 +783,20 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <span className="text-xs sm:text-sm font-extrabold text-[#1e1435] truncate">
                   {me?.displayName || session?.user?.displayName || 'You'}
                 </span>
-                <span className="px-1.5 py-0.2 rounded-full bg-[#ffe8f0] text-[#ff3864] text-[9px] font-black uppercase tracking-wider">
+                <span className="px-1.5 py-0.2 rounded-full bg-[#ffe8f0] text-[#ff3864] text-[8px] sm:text-[9px] font-black uppercase tracking-wider shrink-0">
                   You
                 </span>
               </div>
-              <div className="flex items-center justify-between text-[11px] mt-0.5">
-                <span className="font-bold text-[#1e1435]">
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] mt-0.5">
+                <span className="font-bold text-[#1e1435] truncate mr-1">
                   Score: <span className="font-extrabold text-[#1e1435]">{myScore} pts</span>
                 </span>
-                <span className="text-[10px] font-semibold text-[#8a80a0]">
-                  {myMarkedCount}/15 Marked
+                <span className="text-[9px] sm:text-[10px] font-semibold text-[#8a80a0] shrink-0">
+                  {myMarkedCount}/15<span className="hidden xs:inline"> Marked</span>
                 </span>
               </div>
               {/* Pink Progress Bar */}
@@ -797,14 +811,14 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
           {/* Center VS Chip */}
           <div className="flex flex-col items-center justify-center shrink-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#ffeef4] border border-pink-200/80 flex items-center justify-center text-[10px] font-black text-[#ff3864] shadow-xs">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#ffeef4] border border-pink-200/80 flex items-center justify-center text-[8px] sm:text-[10px] font-black text-[#ff3864] shadow-xs">
               VS
             </div>
           </div>
 
           {/* Right Player Card (Real Opponent) */}
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 px-3 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-purple-600 text-sm">
+          <div className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-2.5 px-2.5 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-purple-600 text-xs sm:text-sm">
               {opponent?.avatarUrl && !opponent.avatarUrl.includes('bottts') ? (
                 <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
               ) : (
@@ -812,20 +826,20 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <span className="text-xs sm:text-sm font-extrabold text-[#1e1435] truncate">
                   {opponent ? opponent.displayName : 'Opponent'}
                 </span>
-                <span className="px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-600 text-[9px] font-black uppercase tracking-wider">
-                  Opponent
+                <span className="px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-600 text-[8px] sm:text-[9px] font-black uppercase tracking-wider shrink-0">
+                  Opp
                 </span>
               </div>
-              <div className="flex items-center justify-between text-[11px] mt-0.5">
-                <span className="font-bold text-[#1e1435]">
+              <div className="flex items-center justify-between text-[10px] sm:text-[11px] mt-0.5">
+                <span className="font-bold text-[#1e1435] truncate mr-1">
                   Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
                 </span>
-                <span className="text-[10px] font-semibold text-[#8a80a0]">
-                  {opponentMarkedCount}/15 Marked
+                <span className="text-[9px] sm:text-[10px] font-semibold text-[#8a80a0] shrink-0">
+                  {opponentMarkedCount}/15<span className="hidden xs:inline"> Marked</span>
                 </span>
               </div>
               {/* Lavender Progress Bar */}
@@ -876,7 +890,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                       return (
                         <div
                           key={`blank-${rIdx}-${cIdx}`}
-                          className="aspect-square rounded-lg sm:rounded-xl bg-[#f7f8fc] border border-slate-200/50 flex items-center justify-center"
+                          className="aspect-square rounded-md sm:rounded-xl bg-[#f7f8fc] border border-slate-200/50 flex items-center justify-center"
                         />
                       );
                     }
@@ -889,7 +903,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                         key={`cell-${rIdx}-${cIdx}`}
                         type="button"
                         onClick={() => handleCellClick(num)}
-                        className={`aspect-square rounded-lg sm:rounded-xl border flex items-center justify-center font-mono text-xs sm:text-sm lg:text-base font-black transition-all cursor-pointer ${
+                        className={`aspect-square rounded-md sm:rounded-xl border flex items-center justify-center font-mono text-[11px] xs:text-xs sm:text-sm lg:text-base font-black transition-all cursor-pointer leading-none select-none ${
                           isMarked
                             ? 'bg-[#ffe4ec] border-2 border-[#ff3864] text-[#1e1435] shadow-xs scale-98'
                             : isCalled
@@ -906,38 +920,38 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             </div>
 
             {/* Ticket Footer Legend & Auto Mark */}
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[11px]">
-              <div className="flex items-center gap-2.5">
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[10px] sm:text-[11px] gap-2 flex-wrap">
+              <div className="flex items-center gap-2 sm:gap-2.5">
                 <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#ff3864]" />
-                  <span className="font-bold text-[#1e1435]">
+                  <span className="w-2 h-2 rounded-full bg-[#ff3864] shrink-0" />
+                  <span className="font-bold text-[#1e1435] whitespace-nowrap">
                     Marked ({myMarkedCount}/15)
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-slate-300" />
-                  <span className="text-[#8a80a0] font-medium hidden sm:inline">
+                  <span className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+                  <span className="text-[#8a80a0] font-medium hidden sm:inline whitespace-nowrap">
                     Not in your ticket
                   </span>
                 </div>
               </div>
 
               {/* Auto Mark Toggle */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <ScanLine className="w-3 h-3 text-[#4a3e68]" />
-                <span className="text-[11px] font-bold text-[#1e1435]">
+                <span className="text-[10px] sm:text-[11px] font-bold text-[#1e1435]">
                   Auto Mark: <span className="font-extrabold">{autoMark ? 'ON' : 'OFF'}</span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setAutoMark(!autoMark)}
-                  className={`w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
+                  className={`w-7 sm:w-8 h-4 sm:h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out cursor-pointer ${
                     autoMark ? 'bg-[#ff3864]' : 'bg-slate-300'
                   }`}
                 >
                   <div
-                    className={`w-3.5 h-3.5 rounded-full bg-white shadow-xs transform transition-transform duration-200 ease-in-out ${
-                      autoMark ? 'translate-x-3.5' : 'translate-x-0'
+                    className={`w-3 sm:w-3.5 h-3 sm:h-3.5 rounded-full bg-white shadow-xs transform transition-transform duration-200 ease-in-out ${
+                      autoMark ? 'translate-x-3 sm:translate-x-3.5' : 'translate-x-0'
                     }`}
                   />
                 </button>
@@ -1147,16 +1161,16 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           style={
             pipPosition
               ? { left: `${pipPosition.x}px`, top: `${pipPosition.y}px` }
-              : { right: '32px', bottom: '100px' }
+              : { right: '12px', bottom: '80px' }
           }
-          className={`fixed z-40 select-none bg-white/95 border border-white/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition-shadow ${
+          className={`fixed z-40 select-none bg-white/95 border border-white/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] backdrop-blur-2xl transition-shadow max-w-[calc(100vw-24px)] ${
             isDraggingPip
               ? 'cursor-grabbing ring-2 ring-[#ff3864]/60 scale-[1.02]'
               : 'cursor-grab hover:border-pink-200'
-          } ${isPipMinimized ? 'px-3 py-2' : 'p-3'}`}
+          } ${isPipMinimized ? 'px-2.5 py-1.5' : 'p-3'}`}
         >
           {/* Header Bar: Drag Grip + In-Call Controls */}
-          <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-slate-100 touch-none">
+          <div className={`flex items-center justify-between gap-2.5 touch-none ${isPipMinimized ? '' : 'pb-2 mb-1.5 border-b border-slate-100'}`}>
             <div className="flex items-center gap-1.5 text-slate-700 pointer-events-none">
               <GripHorizontal className="w-4 h-4 text-rose-500" />
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
@@ -1207,7 +1221,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                 className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
                 title={isPipMinimized ? 'Expand' : 'Minimize'}
               >
-                <Minus className="w-3.5 h-3.5" />
+                {isPipMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
               </button>
 
               <button
@@ -1228,7 +1242,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           {!isPipMinimized && (
             <div className="flex items-center gap-2 pt-1">
               {/* Self Video Feed */}
-              <div className="relative w-28 sm:w-32 h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
+              <div className="relative w-24 xs:w-28 sm:w-32 h-18 xs:h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
                 {localUserStream && isCameraOn ? (
                   <VideoAvatar
                     stream={localUserStream}
@@ -1250,7 +1264,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               </div>
 
               {/* Opponent Video Feed */}
-              <div className="relative w-28 sm:w-32 h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
+              <div className="relative w-24 xs:w-28 sm:w-32 h-18 xs:h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
                 {opponent ? (
                   (() => {
                     const oppParticipant = callParticipants.find(p => p.userId === opponent.userId);
@@ -1289,26 +1303,11 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
       {/* ========================================================================= */}
       {/* 5. CHAT BUBBLE TRIGGER & COMPACT POPUP CHAT WINDOW                        */}
       {/* ========================================================================= */}
-      {/* Floating Chat Bubble Button */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <button
-          type="button"
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#ff3864] via-[#ff2b70] to-[#ff6699] text-white flex items-center justify-center shadow-[0_8px_30px_rgba(255,56,100,0.45)] hover:scale-110 active:scale-95 transition-transform duration-200 cursor-pointer relative"
-          title="Open Match Chat"
-        >
-          <MessageSquare className="w-6 h-6 stroke-[2.2]" />
-          {chatMessages.length > 0 && !isChatOpen && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] flex items-center justify-center border-2 border-white shadow-xs">
-              {chatMessages.length}
-            </span>
-          )}
-        </button>
-      </div>
+      {/* Chat is toggled directly from the header Chat button without obstructing game controls */}
 
       {/* Floating Compact Chat Window */}
       {isChatOpen && (
-        <div className="fixed bottom-22 right-6 z-40 w-80 sm:w-92 h-[420px] max-h-[80vh] bg-white/95 backdrop-blur-xl rounded-[28px] p-4 border border-white/90 shadow-[0_15px_50px_rgba(0,0,0,0.22)] flex flex-col justify-between animate-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-4 sm:bottom-20 right-3 sm:right-6 z-50 w-[calc(100vw-24px)] sm:w-92 max-w-[380px] h-[390px] sm:h-[420px] max-h-[75vh] bg-white/95 backdrop-blur-xl rounded-[24px] sm:rounded-[28px] p-3.5 sm:p-4 border border-white/90 shadow-[0_15px_50px_rgba(0,0,0,0.22)] flex flex-col justify-between animate-in slide-in-from-bottom-5 duration-200">
           
           {/* Header */}
           <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">

@@ -129,7 +129,7 @@ export const PlansSidebarWidgets: React.FC<PlansSidebarWidgetsProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. REAL CALENDAR WIDGET */}
-      <div className="rounded-[28px] p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
+      <div className="rounded-[28px] p-4 sm:p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
         {/* Month Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -207,7 +207,7 @@ export const PlansSidebarWidgets: React.FC<PlansSidebarWidgetsProps> = ({
       </div>
 
       {/* 2. QUICK FILTERS WIDGET */}
-      <div className="rounded-[28px] p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] shadow-sm space-y-3">
+      <div className="rounded-[28px] p-4 sm:p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] shadow-sm space-y-3">
         <h4 className="text-sm font-black text-slate-900 dark:text-white tracking-tight mb-3">
           Quick Filters
         </h4>

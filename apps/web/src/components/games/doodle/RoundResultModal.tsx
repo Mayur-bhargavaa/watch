@@ -46,12 +46,12 @@ export const RoundResultModal: React.FC<RoundResultModalProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md select-none animate-in fade-in duration-200 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-md select-none animate-in fade-in duration-200 overflow-y-auto ${
         isDark ? 'bg-black/85' : 'bg-slate-900/50'
       }`}
     >
       <div
-        className={`relative w-full max-w-lg rounded-3xl border shadow-2xl p-6 sm:p-8 flex flex-col items-center text-center overflow-hidden transition-colors ${
+        className={`relative w-full max-w-sm sm:max-w-lg rounded-2xl sm:rounded-3xl border shadow-2xl p-4 sm:p-7 my-auto max-h-[92dvh] overflow-y-auto overscroll-contain flex flex-col items-center text-center transition-colors ${
           isDark
             ? 'bg-[#0f1424] border-white/15 text-white'
             : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
@@ -71,7 +71,7 @@ export const RoundResultModal: React.FC<RoundResultModalProps> = ({
 
         {/* Round Badge */}
         <div
-          className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold mb-3 ${
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 py-0.5 sm:py-1 rounded-full border text-[11px] sm:text-xs font-bold mb-2.5 sm:mb-3 shrink-0 ${
             isDark
               ? 'bg-white/5 border-white/10 text-zinc-300'
               : 'bg-slate-100 border-slate-200 text-slate-700'
@@ -83,22 +83,22 @@ export const RoundResultModal: React.FC<RoundResultModalProps> = ({
 
         {/* Status Icon & Title */}
         {isGuessed ? (
-          <div className="flex flex-col items-center mb-4 animate-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-500 mb-2 shadow-lg shadow-emerald-500/10">
-              <CheckCircle className="w-8 h-8 stroke-[2.5]" />
+          <div className="flex flex-col items-center mb-3 sm:mb-4 animate-in zoom-in-95 duration-200 shrink-0">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-500 mb-1.5 sm:mb-2 shadow-lg shadow-emerald-500/10">
+              <CheckCircle className="w-5 h-5 sm:w-8 sm:h-8 stroke-[2.5]" />
             </div>
-            <h3 className="text-2xl font-black text-emerald-500">Guessed Correctly!</h3>
-            <span className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <h3 className="text-xl sm:text-2xl font-black text-emerald-500">Guessed Correctly!</h3>
+            <span className={`text-[11px] sm:text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
               Solved in {timeTaken}s
             </span>
           </div>
         ) : (
-          <div className="flex flex-col items-center mb-4 animate-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 mb-2 shadow-lg shadow-amber-500/10">
-              <XCircle className="w-8 h-8 stroke-[2.5]" />
+          <div className="flex flex-col items-center mb-3 sm:mb-4 animate-in zoom-in-95 duration-200 shrink-0">
+            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 mb-1.5 sm:mb-2 shadow-lg shadow-amber-500/10">
+              <XCircle className="w-5 h-5 sm:w-8 sm:h-8 stroke-[2.5]" />
             </div>
-            <h3 className="text-2xl font-black text-amber-500">Time's Up!</h3>
-            <span className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <h3 className="text-xl sm:text-2xl font-black text-amber-500">Time's Up!</h3>
+            <span className={`text-[11px] sm:text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
               Nobody guessed the word
             </span>
           </div>
@@ -106,54 +106,54 @@ export const RoundResultModal: React.FC<RoundResultModalProps> = ({
 
         {/* Secret Word Revealed */}
         <div
-          className={`w-full p-4 rounded-2xl border flex flex-col items-center gap-1 mb-5 ${
+          className={`w-full p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border flex flex-col items-center gap-0.5 sm:gap-1 mb-3 sm:mb-4 shrink-0 ${
             isDark ? 'bg-white/[0.04] border-white/10' : 'bg-slate-50 border-slate-200'
           }`}
         >
           <span
-            className={`text-[10px] font-bold uppercase tracking-widest ${
+            className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${
               isDark ? 'text-zinc-400' : 'text-slate-500'
             }`}
           >
             The Secret Word Was
           </span>
-          <span className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-pink-500 to-violet-500">
+          <span className="text-xl sm:text-3xl font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-pink-500 to-violet-500 truncate max-w-full px-2">
             {secretWord}
           </span>
         </div>
 
         {/* Points Awarded This Round */}
-        <div className="w-full grid grid-cols-2 gap-3 mb-5">
+        <div className="w-full grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4 shrink-0">
           <div
-            className={`p-3 rounded-xl border flex flex-col items-center ${
+            className={`p-2.5 sm:p-3 rounded-xl border flex flex-col items-center min-w-0 w-full overflow-hidden ${
               isDark ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-200'
             }`}
           >
             <span
-              className={`text-[10px] uppercase font-bold truncate max-w-[120px] ${
+              className={`text-[9px] sm:text-[10px] uppercase font-bold truncate max-w-full block px-1 ${
                 isDark ? 'text-zinc-400' : 'text-slate-500'
               }`}
             >
               Drawer ({drawerName})
             </span>
-            <span className="text-lg font-black text-rose-500 mt-1">
+            <span className="text-base sm:text-lg font-black text-rose-500 mt-0.5 sm:mt-1">
               +{drawerPts} pts
             </span>
           </div>
 
           <div
-            className={`p-3 rounded-xl border flex flex-col items-center ${
+            className={`p-2.5 sm:p-3 rounded-xl border flex flex-col items-center min-w-0 w-full overflow-hidden ${
               isDark ? 'bg-white/[0.02] border-white/5' : 'bg-slate-50 border-slate-200'
             }`}
           >
             <span
-              className={`text-[10px] uppercase font-bold truncate max-w-[120px] ${
+              className={`text-[9px] sm:text-[10px] uppercase font-bold truncate max-w-full block px-1 ${
                 isDark ? 'text-zinc-400' : 'text-slate-500'
               }`}
             >
               Guesser ({guesserName})
             </span>
-            <span className="text-lg font-black text-violet-500 mt-1">
+            <span className="text-base sm:text-lg font-black text-violet-500 mt-0.5 sm:mt-1">
               +{guesserPts} pts
             </span>
           </div>
@@ -161,34 +161,34 @@ export const RoundResultModal: React.FC<RoundResultModalProps> = ({
 
         {/* Current Match Leaderboard */}
         <div
-          className={`w-full p-3.5 rounded-2xl border flex items-center justify-between px-6 mb-5 ${
+          className={`w-full p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border flex items-center justify-between px-4 sm:px-6 mb-3 sm:mb-4 shrink-0 ${
             isDark ? 'bg-black/40 border-white/10' : 'bg-slate-100/70 border-slate-200'
           }`}
         >
-          <div className="flex flex-col items-start">
+          <div className="flex flex-col items-start min-w-0 flex-1">
             <span
-              className={`text-xs font-bold truncate max-w-[120px] ${
+              className={`text-[11px] sm:text-xs font-bold truncate max-w-full block ${
                 isDark ? 'text-zinc-300' : 'text-slate-700'
               }`}
             >
               {player1.displayName}
             </span>
-            <span className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <span className={`text-base sm:text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {p1Score} pts
             </span>
           </div>
 
-          <div className="flex items-center gap-1 text-rose-500 font-black text-sm">VS</div>
+          <div className="flex items-center gap-1 text-rose-500 font-black text-xs sm:text-sm px-2 shrink-0">VS</div>
 
-          <div className="flex flex-col items-end">
+          <div className="flex flex-col items-end min-w-0 flex-1">
             <span
-              className={`text-xs font-bold truncate max-w-[120px] ${
+              className={`text-[11px] sm:text-xs font-bold truncate max-w-full block text-right ${
                 isDark ? 'text-zinc-300' : 'text-slate-700'
               }`}
             >
               {player2.displayName}
             </span>
-            <span className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <span className={`text-base sm:text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {p2Score} pts
             </span>
           </div>
@@ -196,14 +196,14 @@ export const RoundResultModal: React.FC<RoundResultModalProps> = ({
 
         {/* Role Switch Banner */}
         <div
-          className={`w-full p-3 rounded-xl border flex items-center justify-center gap-2 text-xs font-bold ${
+          className={`w-full p-2 sm:p-3 rounded-xl border flex items-center justify-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold shrink-0 ${
             isDark
               ? 'bg-gradient-to-r from-rose-500/10 via-violet-500/10 to-rose-500/10 border-white/10 text-zinc-200'
               : 'bg-rose-50 border-rose-200 text-slate-800'
           }`}
         >
-          <Repeat className="w-4 h-4 text-rose-500 animate-spin" style={{ animationDuration: '6s' }} />
-          <span>Roles will now automatically switch! Next round starting in {timeLeft}s...</span>
+          <Repeat className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500 animate-spin shrink-0" style={{ animationDuration: '6s' }} />
+          <span>Roles will switch! Next round in {timeLeft}s...</span>
         </div>
       </div>
     </div>

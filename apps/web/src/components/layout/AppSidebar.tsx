@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Home,
   Bell,
+  ChevronDown,
   Settings as SettingsIcon
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
@@ -129,6 +130,29 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
     }
   }, [incomingRequestsCount]);
 
+  // Navigation scroll indicator: shows a cue until user reaches the bottom
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState<boolean>(false);
+
+  const checkScroll = () => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const hasMore = el.scrollHeight - el.scrollTop - el.clientHeight > 12;
+    setCanScrollDown(hasMore);
+  };
+
+  useEffect(() => {
+    checkScroll();
+    const t1 = setTimeout(checkScroll, 100);
+    const t2 = setTimeout(checkScroll, 300);
+    window.addEventListener('resize', checkScroll);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [isMobileOpen, pathname]);
+
   // Determine current active item
   const currentActive: SidebarNavItem =
     activeNav ||
@@ -158,10 +182,9 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   };
 
   const navContent = (
-    <div className="w-64 h-full flex flex-col justify-between p-5 bg-white dark:bg-[#130e1b] border-r border-slate-200/80 dark:border-white/[0.06] select-none">
-      {/* Brand Header & Navigation Links */}
-      <div className="space-y-6">
-        {/* Brand Header */}
+    <div className="w-[82vw] max-w-[320px] sm:w-64 h-full max-h-dvh flex flex-col justify-between bg-white dark:bg-[#130e1b] border-r border-slate-200/80 dark:border-white/[0.06] select-none overflow-hidden shadow-2xl sm:shadow-none">
+      {/* 1. Brand Header (Pinned top, shrink-0) */}
+      <div className="px-5 py-4 sm:px-5 sm:py-5 pb-3 border-b border-slate-100 dark:border-white/[0.04] shrink-0">
         <div className="flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center space-x-3 group">
             {/* Custom Brand Icon: Red squircle with hollow play square */}
@@ -184,20 +207,26 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             <button
               type="button"
               onClick={onMobileClose}
-              className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+              className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           )}
         </div>
+      </div>
 
-        {/* Main Navigation (Clean WhatsApp + Snapchat style) */}
-        <div className="space-y-1 pt-2">
+      {/* 2. Main Navigation (Scrollable middle zone, flex-1 min-h-0) */}
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <div
+          ref={navScrollRef}
+          onScroll={checkScroll}
+          className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-4 py-3 space-y-1 scrollbar-thin scroll-smooth"
+        >
           {/* Home */}
           <Link
             href="/"
             onClick={onMobileClose}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+            className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer ${
               currentActive === 'home'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
@@ -217,7 +246,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           <Link
             href="/watchlist"
             onClick={onMobileClose}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+            className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer ${
               currentActive === 'watchlist'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
@@ -237,7 +266,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           <Link
             href="/rooms"
             onClick={onMobileClose}
-            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+            className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer ${
               currentActive === 'rooms'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
@@ -257,7 +286,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           <Link
             href="/friends"
             onClick={onMobileClose}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer ${
               currentActive === 'friends'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
@@ -274,11 +303,11 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <span className="truncate whitespace-nowrap">Friends</span>
             </div>
             {pendingRequests > 0 ? (
-              <span className="px-1.5 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none animate-pulse">
+              <span className="px-1.5 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none animate-pulse shrink-0">
                 {pendingRequests}
               </span>
             ) : (
-              <span className="text-sm shrink-0 leading-none pl-2">🔥</span>
+              <span className="text-sm shrink-0 leading-none">🔥</span>
             )}
           </Link>
 
@@ -286,7 +315,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           <Link
             href="/plans"
             onClick={onMobileClose}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer ${
               currentActive === 'plans'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
@@ -302,7 +331,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               />
               <span className="truncate whitespace-nowrap">Plans</span>
             </div>
-            <span className="text-[9px] bg-rose-500/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
+            <span className="text-[9px] bg-rose-500/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md shrink-0">
               NEW
             </span>
           </Link>
@@ -311,7 +340,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           <Link
             href="/games"
             onClick={onMobileClose}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer ${
               currentActive === 'games'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
@@ -327,7 +356,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               />
               <span className="truncate whitespace-nowrap">Games</span>
             </div>
-            <span className="text-[9px] bg-[#ee1d49]/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md">
+            <span className="text-[9px] bg-[#ee1d49]/10 text-[#ee1d49] font-bold px-1.5 py-0.5 rounded-md shrink-0">
               PLAY
             </span>
           </Link>
@@ -336,7 +365,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           <Link
             href="/chat"
             onClick={onMobileClose}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-2xl text-xs transition cursor-pointer ${
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition cursor-pointer ${
               currentActive === 'chat'
                 ? 'font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.08] shadow-xs relative before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1.5 before:bg-[#ee1d49] before:rounded-r'
                 : 'font-semibold text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/[0.04]'
@@ -353,7 +382,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <span className="truncate whitespace-nowrap font-bold">Chat</span>
             </div>
             {unreadChatCount > 0 ? (
-              <span className="px-2 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none shadow-sm shadow-[#ee1d49]/40 animate-pulse">
+              <span className="px-2 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none shadow-sm shadow-[#ee1d49]/40 animate-pulse shrink-0">
                 {unreadChatCount}
               </span>
             ) : (
@@ -361,10 +390,28 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
             )}
           </Link>
         </div>
+
+        {/* Floating Scroll Indicator — only appears when more items exist below */}
+        {canScrollDown && (
+          <div className="absolute bottom-1 left-0 right-0 flex justify-center pointer-events-none z-10 animate-bounce">
+            <button
+              type="button"
+              onClick={() => {
+                navScrollRef.current?.scrollBy({ top: 90, behavior: 'smooth' });
+              }}
+              className="pointer-events-auto flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900/85 dark:bg-white/20 text-white text-[10px] font-bold backdrop-blur-md border border-white/20 shadow-lg shadow-black/30 hover:scale-105 active:scale-95 transition cursor-pointer"
+              title="Scroll down for more"
+              aria-label="Scroll down to see more"
+            >
+              <span>Scroll</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Sidebar Footer: Profile, Settings, & User card */}
-      <div className="space-y-3 pt-4 border-t border-slate-200/80 dark:border-white/[0.06]">
+      {/* 3. Sidebar Footer: Profile, Settings, & User card (Sticky bottom, shrink-0, safe-area padded) */}
+      <div className="shrink-0 p-4 sm:p-5 pt-3.5 border-t border-slate-200/80 dark:border-white/[0.06] bg-slate-50/50 dark:bg-[#100c17]/60 space-y-2.5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
         {/* Quick Links: Settings */}
         <div className="space-y-0.5">
           <Link
@@ -399,7 +446,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {/* User Card - Links directly to /profile */}
         {session?.user && (
           <div
-            className={`flex items-center justify-between p-2.5 rounded-2xl transition group ${
+            className={`flex items-center justify-between p-2.5 pr-3 rounded-2xl transition group ${
               currentActive === 'profile'
                 ? 'bg-slate-200/90 dark:bg-white/[0.08] ring-1 ring-[#ee1d49]/30 shadow-xs'
                 : 'bg-slate-100/80 dark:bg-white/[0.04] hover:bg-slate-100 dark:hover:bg-white/[0.07]'
@@ -414,13 +461,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <img
                 src={getBitmojiAvatarUrl(session.user.avatarUrl, session.user.displayName)}
                 alt={session.user.displayName}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shrink-0 shadow-xs group-hover:scale-105 transition-transform duration-200"
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shrink-0 shadow-xs group-hover:scale-105 transition-transform duration-200"
               />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ee1d49] transition-colors">
                   {session.user.displayName}
                 </p>
-                <p className="text-[10px] font-mono text-[#ee1d49] font-bold truncate">
+                <p className="text-[9.5px] font-mono text-[#ee1d49] font-bold truncate">
                   #{session.user.partnerCode || 'USER'}
                 </p>
               </div>
@@ -432,7 +479,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 handleLogout();
               }}
               title="Log Out"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer shrink-0 ml-1"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition cursor-pointer shrink-0 ml-1.5"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -451,7 +498,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
       {/* Mobile Drawer Overlay */}
       {isMobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
+        <div className="lg:hidden fixed inset-0 z-50 flex h-dvh max-h-screen">
           {/* Backdrop */}
           <div
             onClick={onMobileClose}
@@ -459,7 +506,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
           />
 
           {/* Drawer Panel */}
-          <div className="relative z-10 animate-slideRight">
+          <div className="relative z-10 h-full max-h-dvh flex flex-col animate-slideRight">
             {navContent}
           </div>
         </div>

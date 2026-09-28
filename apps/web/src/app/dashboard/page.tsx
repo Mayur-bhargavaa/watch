@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -47,6 +47,7 @@ import {
 import { GameLounge } from '../../components/games/GameLounge';
 import { FriendsStreaksCard } from '../../components/streaks/FriendsStreaksCard';
 import { AppSidebar } from '../../components/layout/AppSidebar';
+import { AppHeader } from '../../components/layout/AppHeader';
 import { NotificationBell } from '../../components/notifications/NotificationBell';
 
 // Helper to extract YouTube Video ID from any format (watch?v=, youtu.be/, embed/, shorts/)
@@ -322,6 +323,36 @@ export default function DashboardPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [heroTouchStartX, setHeroTouchStartX] = useState<number | null>(null);
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    setHeroTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent) => {
+    if (heroTouchStartX === null) return;
+    const diff = heroTouchStartX - e.changedTouches[0].clientX;
+    if (diff > 45) {
+      setSelectedHeroIndex((prev) => (prev + 1) % REAL_YOUTUBE_HEROES.length);
+    } else if (diff < -45) {
+      setSelectedHeroIndex((prev) => (prev - 1 + REAL_YOUTUBE_HEROES.length) % REAL_YOUTUBE_HEROES.length);
+    }
+    setHeroTouchStartX(null);
+  };
+
+  const platformsScrollRef = useRef<HTMLDivElement>(null);
+  const partiesScrollRef = useRef<HTMLDivElement>(null);
+  const historyScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleScrollCarousel = (ref: React.RefObject<HTMLDivElement | null>, direction: 'left' | 'right') => {
+    if (!ref.current) return;
+    const scrollAmount = Math.max(200, ref.current.clientWidth * 0.75);
+    ref.current.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth'
+    });
+  };
 
   const searchYtId = useMemo(() => extractYouTubeId(searchQuery), [searchQuery]);
 
@@ -594,99 +625,15 @@ export default function DashboardPage() {
       {/* ========================================================================= */}
       {/* 2. MAIN DASHBOARD CONTENT AREA                                            */}
       {/* ========================================================================= */}
-      <div className="flex-1 flex flex-col h-screen overflow-y-auto px-3 sm:px-8 py-4 sm:py-6 space-y-5 sm:space-y-6">
-        {/* Top Header Bar: Navigation arrows, YouTube Link Importer & Search, Profile */}
-        <div className="flex items-center justify-between gap-2 sm:gap-4">
-          {/* Mobile Menu & Back & Forward Controls */}
-          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-              title="Open Menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => router.push('/')}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none"
-              title="Home"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => router.forward()}
-              className="hidden sm:flex w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none"
-              title="Forward"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Real YouTube URL Importer & Room Search Bar */}
-          <form
-            onSubmit={handleSearchOrImport}
-            className="flex-1 max-w-xl flex items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm dark:shadow-inner relative min-w-0"
-          >
-            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 dark:text-zinc-400 shrink-0 mr-2" />
-            <input
-              type="text"
-              placeholder="Paste YouTube link / ID or room code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none w-full text-[11px] sm:text-xs placeholder-slate-400 dark:placeholder-zinc-500 text-slate-900 dark:text-white font-mono truncate"
-            />
-
-            {/* If a valid YouTube ID is detected in the search bar, show quick launch badge */}
-            {searchYtId ? (
-              <button
-                type="submit"
-                className="ml-2 px-2.5 sm:px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] shrink-0 transition flex items-center space-x-1 shadow-md shadow-rose-600/30"
-              >
-                <Play className="w-3 h-3 fill-current" />
-                <span className="hidden xs:inline">Launch</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => handleDirectCreateRoom('Watch Party')}
-                title="Create Instant Watch Party"
-                className="text-slate-400 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white p-1 ml-1 transition"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            )}
-          </form>
-
-          {/* Notification Bell directly next to Search Bar */}
-          <div className="shrink-0">
-            <NotificationBell />
-          </div>
-
-          {/* Top Right Header with Max 6 Indicator & Theme Toggle */}
-          <div className="flex items-center space-x-2 shrink-0">
-            {/* Live Room Limit Indicator (In exact original position) */}
-            <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
-              <Users className="w-3.5 h-3.5 text-rose-500" />
-              <span>Max 6 per room</span>
-            </div>
-
-            {/* 1-Click Theme Switcher (Sun / Moon) */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm dark:shadow-none active:scale-95"
-              title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
-              aria-label="Toggle theme mode"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform duration-300" />
-              ) : (
-                <Moon className="w-4 h-4 text-indigo-600 hover:-rotate-12 transition-transform duration-300" />
-              )}
-            </button>
-          </div>
-        </div>
+      <div className="flex-1 flex flex-col h-screen overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-5 sm:space-y-6">
+        {/* Top Header Bar */}
+        <AppHeader
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSearchSubmit={handleSearchOrImport}
+          onCreateRoom={() => handleDirectCreateRoom('Watch Party')}
+        />
 
         {/* Global Error Banner if room creation fails */}
         {errorMsg && (
@@ -721,7 +668,11 @@ export default function DashboardPage() {
               </div>
 
               {/* Featured IMAX Hero Banner Card */}
-              <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl min-h-[320px] sm:min-h-[380px] md:h-[400px] flex flex-col justify-end p-4 sm:p-8 md:p-10">
+              <div
+                onTouchStart={handleHeroTouchStart}
+                onTouchEnd={handleHeroTouchEnd}
+                className="relative rounded-2xl sm:rounded-3xl overflow-hidden bg-[#171821] border border-white/[0.08] shadow-2xl min-h-[320px] sm:min-h-[380px] md:h-[400px] flex flex-col justify-end p-4 sm:p-8 md:p-10 select-none group"
+              >
                 <img
                   src={activeHero.bgThumbnail}
                   alt={activeHero.title}
@@ -730,155 +681,278 @@ export default function DashboardPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/60 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/70 to-transparent" />
 
-              <div className="relative z-10 max-w-xl space-y-2 sm:space-y-3">
-                {/* Meta Tags: Category, Match %, Friends Watching */}
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider shadow-sm shrink-0 whitespace-nowrap">
-                    {activeHero.category}
-                  </span>
-                  <span className="text-[11px] sm:text-xs font-bold text-emerald-400 shrink-0">
-                    {activeHero.match}
-                  </span>
-                  <span className="text-zinc-500 text-xs shrink-0 hidden xs:inline">•</span>
-                  <span className="text-[11px] sm:text-xs text-zinc-300 font-medium shrink-0 whitespace-nowrap">
-                    {activeHero.friendsWatching}
-                  </span>
-                </div>
 
-                {/* Hero Title */}
-                <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-snug sm:leading-tight">
-                  {activeHero.title}
-                </h1>
 
-                {/* Hero Description */}
-                <p className="text-[11px] sm:text-xs md:text-sm text-zinc-300 line-clamp-2 leading-relaxed max-w-lg">
-                  {activeHero.description}
-                </p>
+                <div className="relative z-10 max-w-xl space-y-2 sm:space-y-3">
+                  {/* Meta Tags: Category, Match %, Friends Watching */}
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider shadow-sm shrink-0 whitespace-nowrap">
+                      {activeHero.category}
+                    </span>
+                    <span className="text-[11px] sm:text-xs font-bold text-emerald-400 shrink-0">
+                      {activeHero.match}
+                    </span>
+                    <span className="text-zinc-500 text-xs shrink-0 hidden xs:inline">•</span>
+                    <span className="text-[11px] sm:text-xs text-zinc-300 font-medium shrink-0 whitespace-nowrap">
+                      {activeHero.friendsWatching}
+                    </span>
+                  </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 sm:gap-3 pt-1 sm:pt-2">
-                  <button
-                    onClick={() => handleDirectCreateRoom(activeHero.title, activeHero.videoUrl)}
-                    disabled={isSubmitting}
-                    className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center gap-2 active:scale-95 disabled:opacity-50 shrink-0"
-                  >
-                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" />
-                    <span>{isSubmitting ? 'Creating Room...' : 'Start Watching'}</span>
-                  </button>
+                  {/* Hero Title */}
+                  <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-snug sm:leading-tight">
+                    {activeHero.title}
+                  </h1>
 
-                  <button
-                    onClick={(e) =>
-                      handleToggleWatchlist(
-                        {
-                          id: activeHero.id,
-                          title: activeHero.title,
-                          url: activeHero.videoUrl,
-                          platform: 'YOUTUBE 4K',
-                          platformBadge: 'bg-rose-600 text-white',
-                          thumbnail: activeHero.bgThumbnail,
-                          category: activeHero.category,
-                          tagline: activeHero.description
-                        },
-                        e
-                      )
-                    }
-                    className={`p-2.5 sm:p-3 rounded-xl border transition shrink-0 ${
-                      isInWatchlist(activeHero.title)
-                        ? 'bg-rose-600/20 text-rose-500 border-rose-500/40'
-                        : 'bg-white/10 hover:bg-white/15 text-white border-white/10'
-                    }`}
-                    title={isInWatchlist(activeHero.title) ? 'Remove from Watchlist' : 'Add to Watchlist'}
-                  >
-                    <Heart
-                      className={`w-4 h-4 ${
-                        isInWatchlist(activeHero.title) ? 'fill-current' : ''
+                  {/* Hero Description */}
+                  <p className="text-[11px] sm:text-xs md:text-sm text-zinc-300 line-clamp-2 leading-relaxed max-w-lg">
+                    {activeHero.description}
+                  </p>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 sm:gap-3 pt-1 sm:pt-2">
+                    <button
+                      onClick={() => handleDirectCreateRoom(activeHero.title, activeHero.videoUrl)}
+                      disabled={isSubmitting}
+                      className="px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-rose-600/30 transition flex items-center gap-2 active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" />
+                      <span>{isSubmitting ? 'Creating Room...' : 'Start Watching'}</span>
+                    </button>
+
+                    <button
+                      onClick={(e) =>
+                        handleToggleWatchlist(
+                          {
+                            id: activeHero.id,
+                            title: activeHero.title,
+                            url: activeHero.videoUrl,
+                            platform: 'YOUTUBE 4K',
+                            platformBadge: 'bg-rose-600 text-white',
+                            thumbnail: activeHero.bgThumbnail,
+                            category: activeHero.category,
+                            tagline: activeHero.description
+                          },
+                          e
+                        )
+                      }
+                      className={`p-2.5 sm:p-3 rounded-xl border transition shrink-0 cursor-pointer ${
+                        isInWatchlist(activeHero.title)
+                          ? 'bg-rose-600/20 text-rose-500 border-rose-500/40'
+                          : 'bg-white/10 hover:bg-white/15 text-white border-white/10'
                       }`}
-                    />
+                      title={isInWatchlist(activeHero.title) ? 'Remove from Watchlist' : 'Add to Watchlist'}
+                    >
+                      <Heart
+                        className={`w-4 h-4 ${
+                          isInWatchlist(activeHero.title) ? 'fill-current' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mobile Slide Controller with Mini Arrows & Dots */}
+                <div className="absolute bottom-3 right-3 sm:bottom-6 sm:right-6 flex md:hidden items-center gap-1.5 z-20 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/15 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedHeroIndex((prev) => (prev - 1 + REAL_YOUTUBE_HEROES.length) % REAL_YOUTUBE_HEROES.length);
+                    }}
+                    className="p-1 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition cursor-pointer active:scale-90"
+                    title="Previous Movie"
+                    aria-label="Previous"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+
+                  <div className="flex items-center gap-1 px-1">
+                    {REAL_YOUTUBE_HEROES.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedHeroIndex(idx);
+                        }}
+                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                          selectedHeroIndex === idx ? 'w-4 bg-rose-500' : 'w-1.5 bg-white/40 hover:bg-white/70'
+                        }`}
+                        aria-label={`Go to slide ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedHeroIndex((prev) => (prev + 1) % REAL_YOUTUBE_HEROES.length);
+                    }}
+                    className="p-1 rounded-full hover:bg-white/10 text-white/80 hover:text-white transition cursor-pointer active:scale-90"
+                    title="Next Movie"
+                    aria-label="Next"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Hero switcher carousel thumbnails for desktop */}
+                <div className="absolute bottom-6 right-6 hidden md:flex items-center space-x-2 z-10 bg-black/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-lg">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedHeroIndex((prev) => (prev - 1 + REAL_YOUTUBE_HEROES.length) % REAL_YOUTUBE_HEROES.length);
+                    }}
+                    className="p-1.5 rounded-xl hover:bg-white/10 text-white/80 hover:text-white transition cursor-pointer"
+                    title="Previous Movie"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {REAL_YOUTUBE_HEROES.map((h, idx) => (
+                    <button
+                      key={h.id}
+                      onClick={() => setSelectedHeroIndex(idx)}
+                      className={`w-14 h-9 rounded-lg overflow-hidden border-2 transition cursor-pointer ${
+                        selectedHeroIndex === idx ? 'border-rose-500 scale-105 shadow' : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                      title={h.title}
+                    >
+                      <img src={h.bgThumbnail} alt={h.title} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedHeroIndex((prev) => (prev + 1) % REAL_YOUTUBE_HEROES.length);
+                    }}
+                    className="p-1.5 rounded-xl hover:bg-white/10 text-white/80 hover:text-white transition cursor-pointer"
+                    title="Next Movie"
+                  >
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-
-              {/* Hero switcher carousel thumbnails */}
-              <div className="absolute bottom-6 right-6 hidden md:flex items-center space-x-2 z-10">
-                {REAL_YOUTUBE_HEROES.map((h, idx) => (
-                  <button
-                    key={h.id}
-                    onClick={() => setSelectedHeroIndex(idx)}
-                    className={`w-14 h-9 rounded-lg overflow-hidden border-2 transition ${
-                      selectedHeroIndex === idx ? 'border-rose-500 scale-105 shadow' : 'border-transparent opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={h.bgThumbnail} alt={h.title} className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Multi-Platform Co-Watching Shortcuts (Netflix, Prime, Disney, YouTube) */}
             <div className="space-y-2.5 sm:space-y-3">
               <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1 sm:gap-2">
-                <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Stream Any Platform Together</h2>
-                <span className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-400">Share your screen or paste URL</span>
+                <h2 className="text-xs xs:text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">Stream Any Platform Together</h2>
+                <span className="text-[10.5px] sm:text-xs text-slate-500 dark:text-zinc-400">Share your screen or paste URL</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-                {PLATFORMS.map((plat) => (
-                  <div
-                    key={plat.id}
-                    onClick={() => handleDirectCreateRoom(`${plat.name} Watch Party`)}
-                    className={`p-3 sm:p-4 rounded-2xl border ${plat.color} hover:scale-[1.02] transition cursor-pointer flex flex-col justify-between space-y-2.5 sm:space-y-3 bg-white dark:bg-[#171821] shadow-sm dark:shadow-none`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl overflow-hidden bg-white dark:bg-[#12131a] border border-slate-200 dark:border-white/10 p-1 flex items-center justify-center shadow-sm shrink-0">
-                        <img
-                          src={plat.logo}
-                          alt={plat.name}
-                          className="w-full h-full object-contain rounded-xl"
-                        />
+              <div className="relative group/carousel">
+                {/* Left Floating Arrow */}
+                <button
+                  type="button"
+                  onClick={() => handleScrollCarousel(platformsScrollRef, 'left')}
+                  className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-lg border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  title="Previous platforms"
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+
+                {/* Right Floating Arrow */}
+                <button
+                  type="button"
+                  onClick={() => handleScrollCarousel(platformsScrollRef, 'right')}
+                  className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-lg border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  title="Next platforms"
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+
+                <div ref={platformsScrollRef} className="flex overflow-x-auto gap-2.5 sm:gap-3 pb-2 pt-1 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:overflow-visible">
+                  {PLATFORMS.map((plat) => (
+                    <div
+                      key={plat.id}
+                      onClick={() => handleDirectCreateRoom(`${plat.name} Watch Party`)}
+                      className={`w-[145px] xs:w-[160px] sm:w-auto shrink-0 snap-start p-3 sm:p-4 rounded-2xl border ${plat.color} hover:scale-[1.02] transition cursor-pointer flex flex-col justify-between space-y-2.5 sm:space-y-3 bg-white dark:bg-[#171821] shadow-sm dark:shadow-none`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl overflow-hidden bg-white dark:bg-[#12131a] border border-slate-200 dark:border-white/10 p-1 flex items-center justify-center shadow-sm shrink-0">
+                          <img
+                            src={plat.logo}
+                            alt={plat.name}
+                            className="w-full h-full object-contain rounded-xl"
+                          />
+                        </div>
+                        <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/40 text-white shrink-0">
+                          Max 6
+                        </span>
                       </div>
-                      <span className="text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-md bg-black/40 text-white shrink-0">
-                        Max 6
-                      </span>
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">{plat.name}</div>
+                        <div className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 truncate">{plat.tag}</div>
+                      </div>
+                      <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 gap-1.5">
+                        <span className="truncate">Instant Room</span>
+                        <span className="text-rose-500 font-bold whitespace-nowrap shrink-0 flex items-center gap-0.5">
+                          Start <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
+                        </span>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">{plat.name}</div>
-                      <div className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 truncate">{plat.tag}</div>
-                    </div>
-                    <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] text-slate-500 dark:text-zinc-400 gap-1.5">
-                      <span className="truncate">Instant Room</span>
-                      <span className="text-rose-500 font-bold whitespace-nowrap shrink-0 flex items-center gap-0.5">
-                        Start <span className="inline-block transition-transform group-hover:translate-x-0.5">→</span>
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Featured Watch Parties Row */}
             <div className="space-y-2.5 sm:space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Featured Watch Parties</h2>
-                  <span className="text-[9.5px] sm:text-[10px] bg-rose-600/20 text-rose-500 dark:text-rose-400 px-2 py-0.5 rounded-full font-bold">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <h2 className="text-xs xs:text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+                    Featured Watch Parties
+                  </h2>
+                  <span className="text-[9px] sm:text-[10px] bg-rose-600/20 text-rose-500 dark:text-rose-400 px-1.5 sm:px-2 py-0.5 rounded-full font-bold shrink-0">
                     Live
                   </span>
                 </div>
                 <button
                   onClick={() => setActiveNav('parties')}
-                  className="text-[11px] sm:text-xs text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 font-semibold"
+                  className="text-[10.5px] sm:text-xs text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 font-semibold shrink-0 whitespace-nowrap flex items-center gap-0.5 cursor-pointer"
                 >
-                  View All Parties →
+                  <span>View All<span className="hidden xs:inline"> Parties</span></span>
+                  <span>→</span>
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="relative group/carousel">
+                {/* Left Floating Arrow */}
+                <button
+                  type="button"
+                  onClick={() => handleScrollCarousel(partiesScrollRef, 'left')}
+                  className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  title="Previous watch party"
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+
+                {/* Right Floating Arrow */}
+                <button
+                  type="button"
+                  onClick={() => handleScrollCarousel(partiesScrollRef, 'right')}
+                  className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  title="Next watch party"
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+
+                <div ref={partiesScrollRef} className="flex overflow-x-auto gap-3.5 sm:gap-4 pb-2 pt-1 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
                 {REAL_YOUTUBE_PARTIES.map((party) => (
                   <div
                     key={party.id}
                     onClick={() => handleDirectCreateRoom(party.title, party.videoUrl)}
-                    className="group p-3 sm:p-4 rounded-2xl sm:rounded-3xl cursor-pointer transition border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 bg-white dark:bg-[#171821] hover:scale-[1.02] flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-sm dark:shadow-lg"
+                    className="w-[82vw] max-w-[330px] xs:w-[320px] sm:w-auto shrink-0 snap-start group p-3 sm:p-4 rounded-2xl sm:rounded-3xl cursor-pointer transition border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 bg-white dark:bg-[#171821] hover:scale-[1.02] flex flex-col justify-between space-y-2.5 sm:space-y-3 shadow-sm dark:shadow-lg"
                   >
                     <div className="relative aspect-video w-full rounded-xl sm:rounded-2xl overflow-hidden bg-black/50">
                       <img
@@ -946,19 +1020,20 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
+          </div>
 
             {/* Continue Watching Row (Auto-saved user history) */}
             <div className="space-y-2.5 sm:space-y-3">
               <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-1">
-                <div className="flex items-center space-x-2">
-                  <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Continue Watching</h2>
+                <div className="flex items-center space-x-2 min-w-0">
+                  <h2 className="text-xs xs:text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">Continue Watching</h2>
                   {watchHistory.length > 0 && (
-                    <span className="text-[9.5px] sm:text-[10px] bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-zinc-300 px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[9px] sm:text-[10px] bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-zinc-300 px-1.5 sm:px-2 py-0.5 rounded-full font-bold shrink-0">
                       {watchHistory.length} in progress
                     </span>
                   )}
                 </div>
-                <span className="text-[11px] sm:text-xs text-slate-500 dark:text-zinc-500">Auto-saved playback progress</span>
+                <span className="text-[10.5px] sm:text-xs text-slate-500 dark:text-zinc-500">Auto-saved playback progress</span>
               </div>
 
               {watchHistory.length === 0 ? (
@@ -980,53 +1055,77 @@ export default function DashboardPage() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  {watchHistory.map((item) => {
-                    const ytId = extractYouTubeId(item.sourceUrl);
-                    const thumbnail = ytId
-                      ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
-                      : 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400&auto=format&fit=crop';
-                    return (
-                      <div
-                        key={item.slug}
-                        onClick={() => router.push(`/room/${item.slug}`)}
-                        className="group rounded-2xl sm:rounded-3xl overflow-hidden bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer shadow-sm dark:shadow-lg flex flex-col justify-between"
-                      >
-                        <div className="relative aspect-video w-full overflow-hidden bg-black/60">
-                          <img
-                            src={thumbnail}
-                            alt={item.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                          <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[9.5px] sm:text-[10px] font-bold text-white border border-white/10">
-                            {item.position > 0 ? `${Math.floor(item.position / 60)}m watched` : 'Just started'}
-                          </span>
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-                            <div
-                              className="h-full bg-rose-600 transition-all duration-300"
-                              style={{ width: `${Math.max(8, item.progressPercent || 20)}%` }}
-                            />
-                          </div>
-                        </div>
+                <div className="relative group/carousel">
+                  {/* Left Floating Arrow */}
+                  <button
+                    type="button"
+                    onClick={() => handleScrollCarousel(historyScrollRef, 'left')}
+                    className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                    title="Previous watched"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
 
-                        <div className="p-3 sm:p-4 flex items-center justify-between gap-2">
-                          <div className="truncate pr-1 min-w-0">
-                            <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate group-hover:text-rose-500 transition">
-                              {item.title}
-                            </div>
-                            <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono truncate">
-                              Room: {item.slug}
+                  {/* Right Floating Arrow */}
+                  <button
+                    type="button"
+                    onClick={() => handleScrollCarousel(historyScrollRef, 'right')}
+                    className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                    title="Next watched"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+
+                  <div ref={historyScrollRef} className="flex overflow-x-auto gap-3.5 sm:gap-4 pb-2 pt-1 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
+                    {watchHistory.map((item) => {
+                      const ytId = extractYouTubeId(item.sourceUrl);
+                      const thumbnail = ytId
+                        ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
+                        : 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400&auto=format&fit=crop';
+                      return (
+                        <div
+                          key={item.slug}
+                          onClick={() => router.push(`/room/${item.slug}`)}
+                          className="w-[82vw] max-w-[330px] xs:w-[320px] sm:w-auto shrink-0 snap-start group rounded-2xl sm:rounded-3xl overflow-hidden bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition cursor-pointer shadow-sm dark:shadow-lg flex flex-col justify-between"
+                        >
+                          <div className="relative aspect-video w-full overflow-hidden bg-black/60">
+                            <img
+                              src={thumbnail}
+                              alt={item.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                            <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md text-[9.5px] sm:text-[10px] font-bold text-white border border-white/10">
+                              {item.position > 0 ? `${Math.floor(item.position / 60)}m watched` : 'Just started'}
+                            </span>
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                              <div
+                                className="h-full bg-rose-600 transition-all duration-300"
+                                style={{ width: `${Math.max(8, item.progressPercent || 20)}%` }}
+                              />
                             </div>
                           </div>
-                          <div className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-rose-600/20 text-rose-500 dark:text-rose-400 text-[11px] sm:text-xs font-bold group-hover:bg-rose-600 group-hover:text-white transition shrink-0">
-                            <Play className="w-3 h-3 fill-current" />
-                            <span>Resume</span>
+
+                          <div className="p-3 sm:p-4 flex items-center justify-between gap-2">
+                            <div className="truncate pr-1 min-w-0">
+                              <div className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate group-hover:text-rose-500 transition">
+                                {item.title}
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 font-mono truncate">
+                                Room: {item.slug}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-rose-600/20 text-rose-500 dark:text-rose-400 text-[11px] sm:text-xs font-bold group-hover:bg-rose-600 group-hover:text-white transition shrink-0">
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>Resume</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -1198,22 +1297,22 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4 max-w-5xl">
                 {myRooms.map((r) => (
                   <div
                     key={r.id}
-                    className="p-5 rounded-3xl bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition flex flex-col justify-between space-y-4 shadow-sm dark:shadow-lg"
+                    className="p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-white dark:bg-[#171821] border border-slate-200 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition flex flex-col justify-between space-y-2.5 sm:space-y-4 shadow-sm dark:shadow-lg"
                   >
                     <div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-zinc-500 mb-2">
-                        <span className="font-bold px-2.5 py-0.5 rounded-full bg-rose-600/20 text-rose-500 dark:text-rose-400 border border-rose-600/30">
-                          LIVE ROOM (MAX 6)
+                      <div className="flex items-center justify-between text-[9px] sm:text-[11px] text-slate-400 dark:text-zinc-500 mb-1.5 sm:mb-2 gap-1">
+                        <span className="font-bold px-1.5 sm:px-2.5 py-0.5 rounded-full bg-rose-600/20 text-rose-500 dark:text-rose-400 border border-rose-600/30 text-[8px] sm:text-[10px]">
+                          LIVE<span className="hidden xs:inline"> ROOM</span> (MAX 6)
                         </span>
-                        <span>{new Date(r.createdAt).toLocaleDateString()}</span>
+                        <span className="text-[9px] sm:text-[11px] truncate">{new Date(r.createdAt).toLocaleDateString()}</span>
                       </div>
-                      <h3 className="font-bold text-base text-slate-900 dark:text-white truncate">{r.title}</h3>
-                      <div className="flex items-center space-x-2 mt-1 text-xs text-slate-500 dark:text-zinc-400 font-mono">
-                        <span>Code: {r.slug}</span>
+                      <h3 className="font-bold text-xs sm:text-base text-slate-900 dark:text-white truncate">{r.title}</h3>
+                      <div className="flex items-center space-x-1 sm:space-x-2 mt-1 text-[10px] sm:text-xs text-slate-500 dark:text-zinc-400 font-mono truncate">
+                        <span className="truncate">Code: {r.slug}</span>
                         <button
                           onClick={() => {
                             if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -1221,24 +1320,24 @@ export default function DashboardPage() {
                               navigator.clipboard.writeText(url);
                             }
                           }}
-                          className="text-slate-400 hover:text-slate-900 dark:text-zinc-500 dark:hover:text-white p-0.5 transition"
+                          className="text-slate-400 hover:text-slate-900 dark:text-zinc-500 dark:hover:text-white p-0.5 transition shrink-0"
                           title="Copy share link"
                         >
-                          <Copy className="w-3.5 h-3.5" />
+                          <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+                    <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-1.5 sm:gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
                       <button
                         onClick={() => router.push(`/room/${r.slug}`)}
-                        className="flex-1 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition text-center shadow active:scale-95"
+                        className="flex-1 py-1.5 sm:py-2 px-2 sm:px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-[10px] sm:text-xs font-bold transition text-center shadow active:scale-95"
                       >
-                        Enter Room →
+                        Enter<span className="hidden xs:inline"> Room</span> →
                       </button>
                       <button
                         onClick={() => router.push(`/room/${r.slug}/recap`)}
-                        className="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 text-xs font-semibold transition"
+                        className="py-1.5 sm:py-2 px-2 sm:px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-300 text-[10px] sm:text-xs font-semibold transition text-center"
                       >
                         Recap
                       </button>

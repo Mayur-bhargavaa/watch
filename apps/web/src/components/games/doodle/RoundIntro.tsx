@@ -25,10 +25,10 @@ export const RoundIntro: React.FC<RoundIntroProps> = ({
   const isDark = resolvedTheme !== 'light';
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl select-none animate-in fade-in duration-200 ${
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xl select-none animate-in fade-in duration-200 ${
       isDark ? 'bg-black/80' : 'bg-slate-900/40'
     }`}>
-      <div className={`relative w-full max-w-md rounded-3xl border p-8 flex flex-col items-center text-center overflow-hidden transition-all duration-300 ${
+      <div className={`relative w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl border p-4 sm:p-7 flex flex-col items-center text-center overflow-hidden transition-all duration-300 ${
         isDark
           ? 'bg-[#0f1424]/95 border-white/15 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(255,43,94,0.12)] text-white'
           : 'bg-white/95 border-slate-200 shadow-[0_25px_70px_rgba(0,0,0,0.15),0_0_30px_rgba(244,63,94,0.08)] text-slate-900'
@@ -42,7 +42,7 @@ export const RoundIntro: React.FC<RoundIntroProps> = ({
         }`} />
 
         {/* Round Badge */}
-        <div className={`px-3 py-1 rounded-full border text-xs font-black uppercase tracking-widest mb-4 ${
+        <div className={`px-3 py-1 rounded-full border text-[11px] sm:text-xs font-black uppercase tracking-widest mb-3 sm:mb-4 shrink-0 ${
           isDark
             ? 'bg-white/10 border-white/10 text-zinc-300'
             : 'bg-slate-100 border-slate-200 text-slate-700'
@@ -51,26 +51,26 @@ export const RoundIntro: React.FC<RoundIntroProps> = ({
         </div>
 
         {/* Roles announcement */}
-        <div className="w-full grid grid-cols-2 gap-3 mb-6">
+        <div className="w-full grid grid-cols-2 gap-2 sm:gap-3 mb-3.5 sm:mb-5">
           {/* Drawer Card */}
           <div
-            className={`flex flex-col items-center p-3.5 rounded-2xl border transition-all ${
+            className={`flex flex-col items-center p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border transition-all min-w-0 w-full overflow-hidden ${
               isDrawer
                 ? 'bg-rose-500/15 border-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
                 : isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'
             }`}
           >
-            <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 mb-2">
-              <Palette className="w-5 h-5" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-400 mb-1.5 sm:mb-2 shrink-0">
+              <Palette className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-rose-400 shrink-0">
               Drawer
             </span>
-            <span className={`text-sm font-black truncate max-w-[120px] ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <span className={`text-xs sm:text-sm font-black truncate w-full text-center px-1 block mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {drawerDisplayName}
             </span>
             {isDrawer && (
-              <span className="text-[9px] font-bold text-rose-400 mt-1 bg-rose-500/20 px-1.5 py-0.5 rounded-full">
+              <span className="text-[8px] sm:text-[9px] font-bold text-rose-400 mt-1 bg-rose-500/20 px-1.5 py-0.5 rounded-full shrink-0">
                 YOU
               </span>
             )}
@@ -78,23 +78,23 @@ export const RoundIntro: React.FC<RoundIntroProps> = ({
 
           {/* Guesser Card */}
           <div
-            className={`flex flex-col items-center p-3.5 rounded-2xl border transition-all ${
+            className={`flex flex-col items-center p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border transition-all min-w-0 w-full overflow-hidden ${
               !isDrawer
                 ? 'bg-violet-500/15 border-violet-500 shadow-[0_0_20px_rgba(139,92,246,0.3)]'
                 : isDark ? 'bg-white/[0.03] border-white/10' : 'bg-slate-50 border-slate-200'
             }`}
           >
-            <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400 mb-2">
-              <Brain className="w-5 h-5" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400 mb-1.5 sm:mb-2 shrink-0">
+              <Brain className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-violet-400">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-violet-400 shrink-0">
               Guesser
             </span>
-            <span className={`text-sm font-black truncate max-w-[120px] ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <span className={`text-xs sm:text-sm font-black truncate w-full text-center px-1 block mt-0.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {guesserDisplayName}
             </span>
             {!isDrawer && (
-              <span className="text-[9px] font-bold text-violet-400 mt-1 bg-violet-500/20 px-1.5 py-0.5 rounded-full">
+              <span className="text-[8px] sm:text-[9px] font-bold text-violet-400 mt-1 bg-violet-500/20 px-1.5 py-0.5 rounded-full shrink-0">
                 YOU
               </span>
             )}
@@ -102,19 +102,19 @@ export const RoundIntro: React.FC<RoundIntroProps> = ({
         </div>
 
         {/* Dynamic Countdown Number */}
-        <div className="flex flex-col items-center justify-center my-2">
-          <span className={`text-7xl font-black font-mono text-transparent bg-clip-text animate-in zoom-in-50 duration-200 ${
+        <div className="flex flex-col items-center justify-center my-1 sm:my-2 shrink-0">
+          <span className={`text-5xl sm:text-7xl font-black font-mono text-transparent bg-clip-text animate-in zoom-in-50 duration-200 ${
             isDark
               ? 'bg-gradient-to-b from-white via-white to-zinc-400 drop-shadow-[0_0_25px_rgba(255,255,255,0.5)]'
               : 'bg-gradient-to-b from-slate-900 via-slate-800 to-slate-600 drop-shadow-[0_4px_15px_rgba(0,0,0,0.15)]'
           }`}>
             {countdown > 0 ? countdown : 'DRAW!'}
           </span>
-          <span className={`text-xs font-semibold mt-2 flex items-center gap-1.5 ${
+          <span className={`text-[11px] sm:text-xs font-semibold mt-1.5 sm:mt-2 flex items-center gap-1.5 ${
             isDark ? 'text-zinc-400' : 'text-slate-500'
           }`}>
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            {isDrawer ? 'Get ready to sketch your word!' : 'Keep your eyes on the canvas!'}
+            <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>{isDrawer ? 'Get ready to sketch your word!' : 'Keep your eyes on the canvas!'}</span>
           </span>
         </div>
       </div>

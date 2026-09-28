@@ -114,9 +114,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false, onD
   const poster = getPosterContent();
 
   return (
-    <div className="group rounded-[28px] p-5 md:p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-black/5 flex flex-col md:flex-row items-stretch gap-6">
+    <div className="group rounded-[28px] p-4 sm:p-5 md:p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-black/5 flex flex-col md:flex-row items-stretch gap-4 sm:gap-6">
       {/* 1. Left Side: Poster with Overlay Text */}
-      <div className="relative w-full md:w-48 lg:w-52 shrink-0 aspect-square rounded-2xl overflow-hidden shadow-sm bg-slate-900 group">
+      <div className="relative w-full h-44 sm:h-52 md:w-48 lg:w-52 md:h-auto md:aspect-square shrink-0 rounded-2xl overflow-hidden shadow-sm bg-slate-900 group">
         <img
           src={poster.url}
           alt={plan.title}
@@ -142,8 +142,8 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false, onD
       <div className="flex-1 min-w-0 flex flex-col justify-between space-y-4">
         {/* Top Header: Title, Tag, Menu */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-            <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
+            <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
               {plan.title} <span className="inline-block">{plan.emoji}</span>
             </h3>
             <span
@@ -254,10 +254,10 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false, onD
         )}
 
         {/* Bottom Bar: Attendees + Open Plan CTA */}
-        <div className="pt-2 flex items-center justify-between gap-4 border-t border-slate-100 dark:border-white/[0.04]">
+        <div className="pt-3 flex flex-col xs:flex-row xs:items-center justify-between gap-3 sm:gap-4 border-t border-slate-100 dark:border-white/[0.04]">
           {/* Avatar Stack + Count */}
-          <div className="flex items-center gap-3">
-            <div className="flex -space-x-2 overflow-hidden p-0.5">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex -space-x-2 overflow-hidden p-0.5 shrink-0">
               {(plan.participants && plan.participants.some((p) => p.avatarUrl)
                 ? plan.participants
                     .filter((p) => p.avatarUrl)
@@ -269,11 +269,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false, onD
                   key={idx}
                   src={avatar}
                   alt={`Participant ${idx + 1}`}
-                  className="inline-block w-7 h-7 rounded-full ring-2 ring-white dark:ring-[#151022] object-cover bg-slate-200"
+                  className="inline-block w-6 h-6 sm:w-7 sm:h-7 rounded-full ring-2 ring-white dark:ring-[#151022] object-cover bg-slate-200"
                 />
               ))}
               {goingCount > 4 && (
-                <div className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-[#151022] bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300 flex items-center justify-center text-[10px] font-bold">
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full ring-2 ring-white dark:ring-[#151022] bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300 flex items-center justify-center text-[10px] font-bold">
                   +{goingCount - 3}
                 </div>
               )}
@@ -293,7 +293,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false, onD
           {/* Open Plan Button */}
           <Link
             href={`/plans/${plan.id}`}
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 ${
+            className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 shrink-0 ${
               isPrimary || plan.title.toLowerCase().includes('friday')
                 ? 'bg-[#ff3b68] hover:bg-[#ee1d49] text-white shadow-md shadow-[#ff3b68]/25 hover:shadow-lg hover:shadow-[#ee1d49]/35'
                 : 'bg-rose-50 hover:bg-[#ff3b68] text-[#ff3b68] hover:text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-[#ff3b68] dark:hover:text-white border border-rose-200/60 dark:border-rose-500/20'

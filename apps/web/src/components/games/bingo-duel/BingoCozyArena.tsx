@@ -164,25 +164,26 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
   }, [board]);
 
   return (
-    <div className="relative w-full min-h-[calc(100vh-4.5rem)] flex flex-col items-center justify-between p-3 sm:p-5 select-none font-sans">
+    <div className="relative w-full flex flex-col items-center justify-start p-2 sm:p-3 lg:p-5 pb-8 sm:pb-10 select-none font-sans">
       {/* 1. TOP HEADER & ATMOSPHERE */}
-      <div className="w-full max-w-6xl mx-auto flex items-start justify-between gap-2 z-10 pt-1 pb-3">
+      <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-1.5 sm:gap-3 z-10 pt-1 pb-1.5 sm:pb-3 px-1 sm:px-0">
         {/* Top-Left: Leave / Back Button & Calligraphy */}
-        <div className="flex-1 flex flex-col items-start gap-1">
+        <div className="shrink-0 flex items-center gap-2">
           {onLeave && (
             <button
               type="button"
               onClick={onLeave}
-              className="px-3 py-1.5 rounded-xl bg-white/85 hover:bg-white border border-purple-100/90 text-slate-700 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95"
+              className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white/85 hover:bg-white border border-purple-100/90 text-slate-700 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95"
+              title={leaveLabel || 'Leave Match'}
             >
               <ArrowLeft className="w-3.5 h-3.5 text-purple-600" />
-              <span>{leaveLabel || 'Leave Match'}</span>
+              <span className="hidden sm:inline">{leaveLabel || 'Leave Match'}</span>
             </button>
           )}
 
-          <div className="hidden sm:block">
+          <div className="hidden md:block">
             <div
-              className="text-xl sm:text-2xl lg:text-3xl text-[#9333ea] tracking-wide font-bold drop-shadow-sm rotate-[-2deg] select-none leading-tight mt-1"
+              className="text-lg lg:text-2xl text-[#9333ea] tracking-wide font-bold drop-shadow-sm rotate-[-2deg] select-none leading-tight"
               style={{ fontFamily: "'Caveat', cursive" }}
             >
               Play Laugh
@@ -192,73 +193,72 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
           </div>
         </div>
 
-        {/* Center: Crown + "B I N G O" + "SAME GAME ♡ DIFFERENT HEARTS" */}
-        <div className="flex flex-col items-center justify-center text-center mx-auto px-2">
+        {/* Center: Crown + "B I N G O" (Never wraps, never collides) */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-1 min-w-0">
           {/* Crown */}
           <div className="text-purple-600 mb-0.5 filter drop-shadow-[0_2px_8px_rgba(147,51,234,0.4)]">
-            <Crown className="w-6 h-6 sm:w-7 sm:h-7 fill-current" />
+            <Crown className="w-3.5 h-3.5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 fill-current" />
           </div>
 
-          {/* Title: Clean B I N G O (no slash lines) */}
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black font-sans tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#ec4899] my-0.5 drop-shadow-[0_2px_12px_rgba(168,85,247,0.35)] select-none">
+          {/* Title: Clean B I N G O */}
+          <h1 className="text-base xs:text-xl sm:text-3xl lg:text-5xl font-black font-sans tracking-wide sm:tracking-widest whitespace-nowrap text-transparent bg-clip-text bg-gradient-to-r from-[#7c3aed] via-[#a855f7] to-[#ec4899] my-0 drop-shadow-[0_2px_12px_rgba(168,85,247,0.35)] select-none">
             B I N G O
           </h1>
 
-          {/* Subtitle */}
-          <p className="text-[10px] sm:text-xs font-bold tracking-[0.22em] text-[#9333ea] mt-1 uppercase">
+          {/* Subtitle — hidden on mobile to avoid overflow and save vertical space */}
+          <p className="hidden sm:block text-[9px] sm:text-xs font-bold tracking-wider sm:tracking-[0.22em] text-[#9333ea] mt-0.5 uppercase whitespace-nowrap">
             {completedLines && completedLines.length > 0
               ? `${completedLines.length} OF 5 LINES CUT!`
               : 'SAME GAME ♡ DIFFERENT HEARTS'}
           </p>
         </div>
 
-        {/* Top-Right: Calligraphy & Top Control Buttons */}
-        <div className="flex-1 flex flex-col items-end gap-1">
-          {/* Top Icons Bar: Music, Sound, Settings, Fullscreen */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Music Toggle */}
+        {/* Top-Right: Top Control Buttons */}
+        <div className="shrink-0 flex flex-col items-end gap-1">
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Music Toggle — hidden on very narrow screens */}
             <button
               type="button"
               onClick={() => setIsMusicPlaying(!isMusicPlaying)}
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition shadow-xs cursor-pointer ${
+              className={`hidden xs:flex w-7 h-7 sm:w-9 sm:h-9 rounded-xl border items-center justify-center transition shadow-xs cursor-pointer ${
                 isMusicPlaying
                   ? 'bg-purple-100 border-purple-300 text-purple-700 shadow-sm'
                   : 'bg-white/80 hover:bg-white border-purple-100 text-slate-600 hover:text-purple-700'
               }`}
               title={isMusicPlaying ? 'Stop Music' : 'Play Chill Music'}
             >
-              <Music className="w-4 h-4" />
+              <Music className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             {/* Sound Mute Toggle */}
             <button
               type="button"
               onClick={() => setIsSoundMuted(!isSoundMuted)}
-              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition shadow-xs cursor-pointer ${
+              className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition shadow-xs cursor-pointer ${
                 isSoundMuted
                   ? 'bg-rose-50 border-rose-200 text-rose-500'
                   : 'bg-white/80 hover:bg-white border-purple-100 text-slate-600 hover:text-purple-700'
               }`}
               title={isSoundMuted ? 'Unmute Sound' : 'Mute Sound'}
             >
-              {isSoundMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              {isSoundMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
-            {/* Match Chat Toggle (if handler provided) */}
+            {/* Match Chat Toggle */}
             {onToggleChat && (
               <button
                 type="button"
                 onClick={onToggleChat}
-                className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition shadow-xs cursor-pointer ${
+                className={`relative w-7 h-7 sm:w-9 sm:h-9 rounded-xl border flex items-center justify-center transition shadow-xs cursor-pointer ${
                   isChatOpen
                     ? 'bg-purple-600 border-purple-600 text-white'
                     : 'bg-white/80 hover:bg-white border-purple-100 text-slate-600 hover:text-purple-700'
                 }`}
                 title="Toggle Match Chat"
               >
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 {unreadChatCount > 0 && !isChatOpen && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-[9px] font-black text-white flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-500 text-[8px] font-black text-white flex items-center justify-center">
                     {unreadChatCount}
                   </span>
                 )}
@@ -270,18 +270,18 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
               <button
                 type="button"
                 onClick={onOpenSettings}
-                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border bg-white/80 hover:bg-white border-purple-100 text-slate-600 hover:text-purple-700 flex items-center justify-center transition shadow-xs cursor-pointer"
+                className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl border bg-white/80 hover:bg-white border-purple-100 text-slate-600 hover:text-purple-700 flex items-center justify-center transition shadow-xs cursor-pointer"
                 title="Game Settings"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             )}
 
-            {/* Fullscreen Toggle */}
+            {/* Fullscreen Toggle — hidden on mobile */}
             <button
               type="button"
               onClick={handleToggleFullscreen}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border bg-white/80 hover:bg-white border-purple-100 text-slate-600 hover:text-purple-700 flex items-center justify-center transition shadow-xs cursor-pointer"
+              className="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl border bg-white/80 hover:bg-white border-purple-100 text-slate-600 hover:text-purple-700 items-center justify-center transition shadow-xs cursor-pointer"
               title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
             >
               {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
@@ -290,7 +290,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
 
           {/* Calligraphy Text: "Good Games Better Company ♡" */}
           <div
-            className="hidden sm:block text-xl sm:text-2xl text-[#9333ea] tracking-wide font-bold drop-shadow-sm rotate-[2deg] select-none text-right leading-tight mt-1"
+            className="hidden md:block text-base lg:text-xl text-[#9333ea] tracking-wide font-bold drop-shadow-sm rotate-[2deg] select-none text-right leading-tight mt-0.5"
             style={{ fontFamily: "'Caveat', cursive" }}
           >
             Good Games
@@ -363,117 +363,152 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
       )}
 
       {/* 2. MAIN 3-COLUMN PLAYING ARENA */}
-      <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-center gap-4 lg:gap-6 z-10 my-auto">
+      <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center lg:items-start justify-center gap-2.5 sm:gap-4 lg:gap-6 z-10 my-0 lg:my-auto">
         
-        {/* LEFT COLUMN: PLAYERS PANEL */}
-        <div className="w-full lg:w-64 xl:w-72 shrink-0 bg-white/95 backdrop-blur-md rounded-3xl p-5 sm:p-6 shadow-[0_10px_35px_rgba(124,58,237,0.12)] border border-purple-100/80 flex flex-col gap-5">
-          {/* PLAYER 1 (ME / HOST - PURPLE THEME) */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full p-0.5 bg-gradient-to-tr from-[#7c3aed] to-[#a855f7] shadow-md shadow-purple-500/25 flex items-center justify-center shrink-0">
+        {/* LEFT COLUMN: PLAYERS PANEL — compact symmetrical duel bar on mobile, full sidebar on lg */}
+        <div className="w-full lg:w-64 xl:w-72 shrink-0 bg-white/95 backdrop-blur-md rounded-2xl lg:rounded-3xl p-2.5 sm:p-4 lg:p-6 shadow-[0_10px_35px_rgba(124,58,237,0.12)] border border-purple-100/80">
+          {/* Mobile Duel Bar (< lg) */}
+          <div className="flex lg:hidden items-center justify-between gap-1.5 xs:gap-2 w-full">
+            {/* Player 1 (You) */}
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <div className="w-9 h-9 rounded-full p-0.5 bg-gradient-to-tr from-[#7c3aed] to-[#a855f7] shadow-xs flex items-center justify-center shrink-0">
                 <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                   {player1.avatarUrl ? (
                     <img src={player1.avatarUrl} alt={player1.displayName} className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-6 h-6 text-[#7c3aed]" />
+                    <User className="w-4 h-4 text-[#7c3aed]" />
                   )}
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-extrabold text-slate-800 text-base sm:text-lg leading-tight truncate">
-                  {player1.displayName || 'Player 1'}
+                <h3 className="font-extrabold text-slate-800 text-xs sm:text-sm leading-tight truncate">
+                  {player1.displayName || 'You'}
                 </h3>
-                <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                  {playerMarks.length} numbers
+                <p className="text-[10px] sm:text-[11px] font-semibold text-purple-600 mt-0.5">
+                  {playerMarks.length} marked
                 </p>
               </div>
             </div>
 
-            {/* Marked Number Chips (Purple Gradient) */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {playerMarks.length > 0 ? (
-                playerMarks.map(num => (
-                  <div
-                    key={`p1-mark-${num}`}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#7c3aed] to-[#a855f7] text-white font-black font-mono shadow-[0_4px_12px_rgba(124,58,237,0.35)] flex items-center justify-center text-sm ring-2 ring-purple-200/50 animate-in zoom-in-75 duration-200"
-                  >
-                    {num}
-                  </div>
-                ))
-              ) : (
-                <div className="w-full py-2.5 px-3 rounded-2xl bg-purple-50/60 border border-purple-100/80 text-center">
-                  <span className="text-xs font-medium text-purple-400">Numbers marked by you will appear here</span>
-                </div>
-              )}
+            {/* VS Badge */}
+            <div className="shrink-0 px-2 py-0.5 rounded-full bg-purple-100/80 text-[10px] font-black text-purple-700 tracking-wider shadow-2xs">
+              VS
             </div>
-          </div>
 
-          <div className="w-full h-px bg-purple-100/80" />
-
-          {/* PLAYER 2 (OPPONENT / GUEST - PINK THEME) */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full p-0.5 bg-gradient-to-tr from-[#f43f5e] to-[#fb7185] shadow-md shadow-rose-500/25 flex items-center justify-center shrink-0">
+            {/* Player 2 (Opponent) */}
+            <div className="flex-1 flex items-center justify-end gap-2 min-w-0 text-right">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-extrabold text-slate-800 text-xs sm:text-sm leading-tight truncate">
+                  {player2.displayName || 'Opponent'}
+                </h3>
+                <p className="text-[10px] sm:text-[11px] font-semibold text-rose-500 mt-0.5">
+                  {opponentMarks.length} marked
+                </p>
+              </div>
+              <div className="w-9 h-9 rounded-full p-0.5 bg-gradient-to-tr from-[#f43f5e] to-[#fb7185] shadow-xs flex items-center justify-center shrink-0">
                 <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                   {player2.avatarUrl ? (
                     <img src={player2.avatarUrl} alt={player2.displayName} className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-6 h-6 text-[#f43f5e]" />
+                    <User className="w-4 h-4 text-[#f43f5e]" />
                   )}
                 </div>
               </div>
-              <div className="min-w-0 flex-1 flex items-center justify-between gap-1.5">
+            </div>
+          </div>
+
+          {/* Desktop Sidebar (lg+) */}
+          <div className="hidden lg:flex flex-col gap-5">
+            {/* PLAYER 1 (ME) */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full p-0.5 bg-gradient-to-tr from-[#7c3aed] to-[#a855f7] shadow-md shadow-purple-500/25 flex items-center justify-center shrink-0">
+                  <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                    {player1.avatarUrl ? (
+                      <img src={player1.avatarUrl} alt={player1.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6 text-[#7c3aed]" />
+                    )}
+                  </div>
+                </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-extrabold text-slate-800 text-base sm:text-lg leading-tight truncate">
-                    {player2.displayName || 'Player 2'}
+                    {player1.displayName || 'Player 1'}
                   </h3>
                   <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                    {opponentMarks.length} numbers
+                    {playerMarks.length} numbers
                   </p>
                 </div>
+              </div>
 
-                {/* Nudge Opponent on Card */}
-                {!isFinished && !isOpponentLeft && onNudge && (
-                  <button
-                    type="button"
-                    onClick={onNudge}
-                    disabled={Boolean(nudgeCooldown && nudgeCooldown > 0)}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1 active:scale-95 cursor-pointer shrink-0 ${
-                      nudgeCooldown && nudgeCooldown > 0
-                        ? 'bg-purple-50 text-purple-400 border border-purple-100 cursor-not-allowed'
-                        : 'bg-purple-100 hover:bg-purple-200 text-purple-700 border border-purple-200 shadow-xs'
-                    }`}
-                    title={nudgeCooldown && nudgeCooldown > 0 ? `Wait ${nudgeCooldown}s` : `Nudge ${player2.displayName} to pick a number`}
-                  >
-                    <Bell className="w-3 h-3 text-purple-600" />
-                    <span>{nudgeCooldown && nudgeCooldown > 0 ? `${nudgeCooldown}s` : 'Nudge'}</span>
-                  </button>
+              {/* Marked Number Chips */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {playerMarks.length > 0 ? (
+                  playerMarks.map(num => (
+                    <div
+                      key={`p1-mark-${num}`}
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#7c3aed] to-[#a855f7] text-white font-black font-mono shadow-[0_4px_12px_rgba(124,58,237,0.35)] flex items-center justify-center text-sm ring-2 ring-purple-200/50 animate-in zoom-in-75 duration-200"
+                    >
+                      {num}
+                    </div>
+                  ))
+                ) : (
+                  <div className="w-full py-2.5 px-3 rounded-2xl bg-purple-50/60 border border-purple-100/80 text-center">
+                    <span className="text-xs font-medium text-purple-400">Numbers marked by you will appear here</span>
+                  </div>
                 )}
               </div>
             </div>
 
-            {/* Marked Number Chips (Pink Gradient) */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {opponentMarks.length > 0 ? (
-                opponentMarks.map(num => (
-                  <div
-                    key={`p2-mark-${num}`}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#f43f5e] to-[#fb7185] text-white font-black font-mono shadow-[0_4px_12px_rgba(244,63,94,0.35)] flex items-center justify-center text-sm ring-2 ring-rose-200/50 animate-in zoom-in-75 duration-200"
-                  >
-                    {num}
+            <div className="w-full h-px bg-purple-100/80" />
+
+            {/* PLAYER 2 (OPPONENT) */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full p-0.5 bg-gradient-to-tr from-[#f43f5e] to-[#fb7185] shadow-md shadow-rose-500/25 flex items-center justify-center shrink-0">
+                  <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
+                    {player2.avatarUrl ? (
+                      <img src={player2.avatarUrl} alt={player2.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-6 h-6 text-[#f43f5e]" />
+                    )}
                   </div>
-                ))
-              ) : (
-                <div className="w-full py-2.5 px-3 rounded-2xl bg-rose-50/60 border border-rose-100/80 text-center">
-                  <span className="text-xs font-medium text-rose-400">Opponent&apos;s marks will appear here</span>
                 </div>
-              )}
+                <div className="min-w-0 flex-1 flex items-center justify-between gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-extrabold text-slate-800 text-base sm:text-lg leading-tight truncate">
+                      {player2.displayName || 'Player 2'}
+                    </h3>
+                    <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                      {opponentMarks.length} numbers
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Marked Number Chips */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {opponentMarks.length > 0 ? (
+                  opponentMarks.map(num => (
+                    <div
+                      key={`p2-mark-${num}`}
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-[#f43f5e] to-[#fb7185] text-white font-black font-mono shadow-[0_4px_12px_rgba(244,63,94,0.35)] flex items-center justify-center text-sm ring-2 ring-rose-200/50 animate-in zoom-in-75 duration-200"
+                    >
+                      {num}
+                    </div>
+                  ))
+                ) : (
+                  <div className="w-full py-2.5 px-3 rounded-2xl bg-rose-50/60 border border-rose-100/80 text-center">
+                    <span className="text-xs font-medium text-rose-400">Opponent&apos;s marks will appear here</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* CENTER COLUMN: 5x5 BINGO BOARD */}
-        <div className={`w-full max-w-[420px] sm:max-w-[440px] bg-white/95 backdrop-blur-md rounded-3xl p-5 sm:p-6 shadow-[0_10px_35px_rgba(124,58,237,0.12)] border border-purple-100/80 flex flex-col items-center transition-all duration-300 ${
+        <div className={`w-full max-w-[420px] sm:max-w-[440px] bg-white/95 backdrop-blur-md rounded-2xl sm:rounded-3xl p-2.5 sm:p-5 shadow-[0_10px_35px_rgba(124,58,237,0.12)] border border-purple-100/80 flex flex-col items-center transition-all duration-300 ${
           nudgeAlert ? 'ring-4 ring-amber-400 shadow-[0_0_35px_rgba(251,191,36,0.6)] animate-pulse' : ''
         }`}>
           
@@ -728,14 +763,33 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
             </svg>
           </div>
 
+          {/* Mobile-only status row: Current Number + Turn status pill */}
+          <div className="flex lg:hidden items-center justify-between gap-2 w-full mt-2 pt-2 border-t border-purple-100/60">
+            {/* Current Number */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 border border-purple-200 shrink-0">
+              <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wide">Now:</span>
+              <span className="text-sm font-black text-slate-800 font-mono">
+                {currentNumber !== null ? currentNumber : '--'}
+              </span>
+            </div>
+
+            {/* Turn Status Pill */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-purple-100 min-w-0">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${isMyTurn ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
+              <span className="text-[11px] font-bold text-purple-700 truncate">
+                {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}
+              </span>
+            </div>
+          </div>
+
           {/* Turn & Action Bar */}
-          <div className="w-full flex items-center justify-between gap-3 mt-4 pt-3 border-t border-purple-100">
+          <div className="w-full flex items-center justify-between gap-2 sm:gap-3 mt-2 sm:mt-3 pt-2 sm:pt-2.5 border-t border-purple-100">
             {/* Reset / Rematch / Start New Match Button */}
             {isOpponentLeft ? (
               <button
                 type="button"
                 onClick={onStartNewMatch || onLeave}
-                className="py-2.5 px-4 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-purple-600/20 transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                className="py-2 px-3 sm:py-2.5 sm:px-4 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs sm:text-sm shadow-md shadow-purple-600/20 transition flex items-center gap-1.5 active:scale-95 cursor-pointer shrink-0"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 <span>New Match</span>
@@ -745,7 +799,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                 type="button"
                 onClick={onReset}
                 disabled={Boolean(effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId))}
-                className={`py-2.5 px-4 rounded-full font-bold text-xs sm:text-sm shadow-xs transition flex items-center gap-1.5 active:scale-95 ${
+                className={`py-2 px-3 sm:py-2.5 sm:px-4 rounded-full font-bold text-xs sm:text-sm shadow-xs transition flex items-center gap-1.5 active:scale-95 shrink-0 ${
                   effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId)
                     ? 'bg-purple-50 border border-purple-200 text-purple-600 opacity-80 cursor-not-allowed'
                     : rematchStatus
@@ -782,23 +836,24 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
               <button
                 type="button"
                 onClick={onClaimBingo}
-                className="flex-1 py-2.5 px-5 rounded-full bg-gradient-to-r from-[#ec4899] to-[#f43f5e] hover:from-[#db2777] hover:to-[#e11d48] text-white font-black text-xs sm:text-sm shadow-[0_4px_16px_rgba(236,72,153,0.4)] animate-bounce active:scale-98 transition flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-2 sm:py-2.5 px-3 sm:px-5 rounded-full bg-gradient-to-r from-[#ec4899] to-[#f43f5e] hover:from-[#db2777] hover:to-[#e11d48] text-white font-black text-xs sm:text-sm shadow-[0_4px_16px_rgba(236,72,153,0.4)] animate-bounce active:scale-98 transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ml-auto"
               >
-                <Sparkles className="w-4 h-4 text-amber-200" />
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-200" />
                 <span>🎉 CLAIM BINGO!</span>
               </button>
             ) : isOpponentLeft ? (
               <button
                 type="button"
                 onClick={onStartNewMatch || onLeave}
-                className="flex-1 py-2 px-4 rounded-full bg-purple-100 hover:bg-purple-200/80 border border-purple-200 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer"
+                className="flex-1 py-2 px-3 sm:px-4 rounded-full bg-purple-100 hover:bg-purple-200/80 border border-purple-200 text-purple-900 font-bold text-xs flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer ml-auto"
               >
                 <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                <span>Opponent Left • Start New Match</span>
+                <span>Opponent Left</span>
               </button>
             ) : (
-              <div className="flex-1 flex items-center gap-2">
-                <div className="flex-1 py-2 px-3 rounded-full bg-purple-50/80 border border-purple-100 text-center min-w-0">
+              <div className="flex items-center gap-2 ml-auto min-w-0">
+                {/* Turn Status on DESKTOP ONLY (on mobile it's in the row above) */}
+                <div className="hidden lg:flex py-2 px-3 rounded-full bg-purple-50/80 border border-purple-100 text-center min-w-0">
                   <span className="text-xs font-bold text-purple-700 flex items-center justify-center gap-1.5 truncate">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${isMyTurn ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
                     <span className="truncate">{isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}</span>
@@ -811,7 +866,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                     type="button"
                     onClick={onNudge}
                     disabled={Boolean(nudgeCooldown && nudgeCooldown > 0)}
-                    className={`py-2 px-3 sm:px-3.5 rounded-full font-bold text-xs shadow-xs transition flex items-center gap-1.5 active:scale-95 cursor-pointer shrink-0 ${
+                    className={`py-1.5 px-2.5 sm:py-2 sm:px-3.5 rounded-full font-bold text-xs shadow-xs transition flex items-center gap-1.5 active:scale-95 cursor-pointer shrink-0 ${
                       nudgeCooldown && nudgeCooldown > 0
                         ? 'bg-purple-50 text-purple-400 border border-purple-100 cursor-not-allowed'
                         : !isMyTurn
@@ -852,8 +907,8 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
           )}
         </div>
 
-        {/* RIGHT COLUMN: CURRENT NUMBER & WINNING LINES GUIDE */}
-        <div className="w-full lg:w-64 xl:w-72 shrink-0 flex flex-col gap-4">
+        {/* RIGHT COLUMN: CURRENT NUMBER & WINNING LINES GUIDE — hidden on mobile */}
+        <div className="hidden lg:flex w-full lg:w-64 xl:w-72 shrink-0 flex-col gap-4">
           {/* CURRENT NUMBER CARD */}
           <div className="bg-white/95 backdrop-blur-md rounded-3xl p-5 shadow-[0_10px_35px_rgba(124,58,237,0.12)] border border-purple-100/80 flex flex-col items-center">
             <h4 className="text-xs font-bold text-slate-600 tracking-wide mb-3">
@@ -881,7 +936,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                 <div className="grid grid-cols-5 gap-0.5 w-16 h-16 p-1 bg-white rounded-lg border border-purple-100 shadow-xs">
                   {Array.from({ length: 25 }).map((_, i) => {
                     const r = Math.floor(i / 5);
-                    const isHighlight = r === 2; // Middle row
+                    const isHighlight = r === 2;
                     return (
                       <div
                         key={`guide-row-${i}`}
@@ -900,7 +955,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                 <div className="grid grid-cols-5 gap-0.5 w-16 h-16 p-1 bg-white rounded-lg border border-purple-100 shadow-xs">
                   {Array.from({ length: 25 }).map((_, i) => {
                     const c = i % 5;
-                    const isHighlight = c === 2; // Middle column
+                    const isHighlight = c === 2;
                     return (
                       <div
                         key={`guide-col-${i}`}
@@ -920,7 +975,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                   {Array.from({ length: 25 }).map((_, i) => {
                     const r = Math.floor(i / 5);
                     const c = i % 5;
-                    const isHighlight = r === c; // Main diagonal
+                    const isHighlight = r === c;
                     return (
                       <div
                         key={`guide-diag1-${i}`}
@@ -940,7 +995,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                   {Array.from({ length: 25 }).map((_, i) => {
                     const r = Math.floor(i / 5);
                     const c = i % 5;
-                    const isHighlight = r + c === 4; // Anti diagonal
+                    const isHighlight = r + c === 4;
                     return (
                       <div
                         key={`guide-diag2-${i}`}

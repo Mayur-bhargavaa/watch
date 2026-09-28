@@ -22,6 +22,7 @@ import {
   Unlink,
   MessageSquare,
   ChevronRight,
+  ChevronUp,
   Info,
   Mic,
   MicOff,
@@ -93,6 +94,7 @@ import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebr
 import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSelectorDrawer';
 import { AddFriendModal } from '../../../components/streaks/AddFriendModal';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
+import { AppHeader } from '../../../components/layout/AppHeader';
 import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 import { FriendWithStreak } from '../../../lib/api';
 import { getRandomRoast } from '../../../lib/roastMessages';
@@ -174,6 +176,7 @@ function LudoPageContent() {
   const [copiedPartnerCode, setCopiedPartnerCode] = useState(false);
   const [copiedRoomCode, setCopiedRoomCode] = useState(false);
   const [copiedRoomLink, setCopiedRoomLink] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Persistent Partner Connection
   const [partner, setPartner] = useState<{
@@ -311,6 +314,13 @@ function LudoPageContent() {
   const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const pipRef = useRef<HTMLDivElement>(null);
 
+  // Auto-minimize PiP on mobile to keep the board and controls visible
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      setIsPipMinimized(true);
+    }
+  }, []);
+
   // Position floating call window at bottom-left of Room Code Card by default
   useEffect(() => {
     if (typeof window !== 'undefined' && pipPosition === null) {
@@ -318,8 +328,8 @@ function LudoPageContent() {
         // Desktop: Left side directly below Room Code Card
         setPipPosition({ x: 32, y: 205 });
       } else {
-        // Mobile / Tablet: Left bottom corner of screen
-        setPipPosition({ x: 16, y: Math.max(120, window.innerHeight - 170) });
+        // Mobile / Tablet: Left top corner below header so it never blocks the dice controls
+        setPipPosition({ x: 12, y: 64 });
       }
     }
   }, [pipPosition]);
@@ -1052,9 +1062,7 @@ function LudoPageContent() {
   }
 
   return (
-    <div className={`flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 ${
-      roomParam ? 'min-h-screen overflow-y-auto' : 'h-screen w-screen overflow-hidden'
-    } ${
+    <div className={`flex selection:bg-rose-600 selection:text-white font-sans antialiased overflow-x-hidden transition-colors duration-150 min-h-screen ${
       isDark ? 'bg-[#111217] text-white' : 'bg-white text-zinc-900'
     }`}>
       {/* Active Match Background & Atmosphere (when in active room) */}
@@ -1085,22 +1093,30 @@ function LudoPageContent() {
       {!roomParam && (
         <AppSidebar
           activeNav="games"
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
       )}
 
       {/* ========================================================================= */}
       {/* 2. MAIN CONTENT AREA (FULL-SCREEN IN MATCH, ADAPTIVE IN LOBBY)            */}
       {/* ========================================================================= */}
-      <div className={`flex-1 flex flex-col relative ${
-        roomParam ? 'min-h-screen overflow-y-auto' : 'h-screen overflow-hidden'
-      }`}>
-        {/* TOP NAVIGATION BAR */}
-        <header className={`h-16 px-4 sm:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
-          isDark || isWaiting ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
-        }`}>
-          {/* Left: Breadcrumbs or Leave Match */}
-          <div className="flex items-center gap-3">
-            {roomParam ? (
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto">
+        {!roomParam ? (
+          /* Dashboard Consistent Header for Lobby */
+          <div className="px-4 sm:px-8 py-3 sm:py-4 sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-[#0c0d12]/85 border-b border-zinc-200/80 dark:border-white/[0.08]">
+            <AppHeader
+              backHref="/games"
+              onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+            />
+          </div>
+        ) : (
+          /* IN-GAME TOP NAVIGATION BAR */
+          <header className={`h-14 sm:h-16 px-2.5 sm:px-6 md:px-8 border-b flex items-center justify-between shrink-0 sticky top-0 z-40 backdrop-blur-xl transition-colors duration-200 ${
+            isDark || isWaiting ? 'bg-[#14151b]/85 border-white/[0.08]' : 'bg-white/95 border-zinc-200/80 shadow-xs'
+          }`}>
+            {/* Left: Leave Match */}
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => {
                   showAlert(
@@ -1117,7 +1133,7 @@ function LudoPageContent() {
                     }
                   );
                 }}
-                className={`px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-2 font-semibold text-xs transition-all active:scale-95 group ${
+                className={`p-2 sm:px-3.5 sm:py-1.5 rounded-xl border shadow-xs flex items-center gap-1.5 sm:gap-2 font-semibold text-xs transition-all active:scale-95 group cursor-pointer ${
                   isDark
                     ? 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border-white/[0.08]'
                     : 'bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-950 border-zinc-200'
@@ -1125,181 +1141,140 @@ function LudoPageContent() {
                 title="Leave Match"
               >
                 <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                <span>Leave Match</span>
+                <span className="hidden sm:inline">Leave Match</span>
               </button>
-            ) : (
-              <div className="flex items-center gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => router.push('/games')}
-                  className={`lg:hidden px-2.5 py-1.5 rounded-xl border flex items-center gap-1 font-semibold ${
-                    isDark ? 'bg-white/[0.05] text-zinc-300 border-white/[0.08]' : 'bg-zinc-100 text-zinc-700 border-zinc-200'
-                  }`}
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Game Lobby</span>
-                </button>
-
-                <div className="hidden sm:flex items-center gap-1.5 text-xs font-semibold">
-                  <span
-                    onClick={() => router.push('/dashboard')}
-                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
-                  >
-                    Watch.
-                  </span>
-                  <span className={isDark ? 'text-zinc-600' : 'text-zinc-400'}>/</span>
-                  <span
-                    onClick={() => router.push('/games')}
-                    className={`cursor-pointer hover:underline ${isDark ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
-                  >
-                    Game Lobby
-                  </span>
-                  <span className={isDark ? 'text-zinc-600' : 'text-zinc-400'}>/</span>
-                  <span className="text-[#ee1d49] font-bold">Ludo Arena</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-        {/* Center Header: Room Param or Show Call pill */}
-        {roomParam && (
-          <div className="flex items-center gap-2">
-            <div className={`px-3 py-1 rounded-full border flex items-center gap-2 font-mono text-xs ${
-              isDark ? 'bg-white/[0.04] border-white/[0.08] text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-800'
-            }`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Room: <strong className={isDark ? 'text-white font-bold' : 'text-zinc-900 font-bold'}>{roomParam}</strong></span>
             </div>
-            {isPipClosed && (
+
+            {/* Center Header: Room Param or Show Call pill (Hidden on mobile to prevent overlapping) */}
+            <div className="hidden sm:flex items-center gap-1.5 sm:gap-2">
+              <div className={`px-2.5 sm:px-3 py-1 rounded-full border flex items-center gap-1.5 font-mono text-[10px] xs:text-[11px] sm:text-xs whitespace-nowrap ${
+                isDark ? 'bg-white/[0.04] border-white/[0.08] text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-800'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Room: <strong className={isDark ? 'text-white font-bold' : 'text-zinc-900 font-bold'}>{roomParam}</strong></span>
+              </div>
+              {isPipClosed && (
+                <button
+                  onClick={() => setIsPipClosed(false)}
+                  className="hidden sm:flex px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-[11px] font-semibold items-center gap-1.5 transition cursor-pointer"
+                  title="Open Floating Video Call"
+                >
+                  <Video className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Show Video</span>
+                </button>
+              )}
+            </div>
+
+            {/* Right: Controls & Theme Toggle */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              {/* Audio / Mic Toggle Button */}
               <button
-                onClick={() => setIsPipClosed(false)}
-                className="px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-xs font-semibold flex items-center gap-1.5 transition"
-                title="Open Floating Video Call"
+                onClick={toggleMic}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  isMicMuted
+                    ? (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500 hover:text-zinc-800')
+                    : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
+                }`}
+                title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
               >
-                <Video className="w-3.5 h-3.5 text-rose-500" />
-                <span>Show Video</span>
+                {isMicMuted ? <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
-            )}
-          </div>
+
+              {/* Video / Camera Toggle Button */}
+              <button
+                onClick={toggleCamera}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  isCameraOn
+                    ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
+                    : (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500 hover:text-zinc-800')
+                }`}
+                title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+              >
+                {isCameraOn ? <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VideoOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+              </button>
+
+              {/* Chat Drawer Toggle */}
+              <button
+                onClick={() => setIsChatOpen(!isChatOpen)}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  isChatOpen
+                    ? 'bg-rose-600 border-rose-500 text-white'
+                    : (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950')
+                }`}
+                title="Toggle Chat"
+              >
+                <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              {/* Theme Toggle (Hidden on mobile to prevent overflow) */}
+              <button
+                onClick={toggleTheme}
+                className={`hidden md:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition items-center justify-center shadow-xs cursor-pointer ${
+                  isDark
+                    ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-amber-400'
+                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-amber-600'
+                }`}
+                title={`Switch to ${isDark ? 'Light' : 'Dark'} Theme`}
+              >
+                {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+              </button>
+
+              {/* Help / Rules Button */}
+              <button
+                onClick={() => setShowRulesModal(true)}
+                className={`hidden md:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition items-center justify-center shadow-xs cursor-pointer ${
+                  isDark
+                    ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
+                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
+                }`}
+                title="Ludo Rules & Guide"
+              >
+                <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              {/* Rematch / Restart Button */}
+              <button
+                onClick={() => {
+                  if (gameState?.winnerColor) {
+                    rematch();
+                  } else {
+                    showAlert(
+                      'Restart Match?',
+                      'Would you like to reset the board and request a rematch with all players in the room?',
+                      'info',
+                      {
+                        confirmText: 'Request Rematch',
+                        cancelText: 'Cancel',
+                        onConfirm: () => rematch()
+                      }
+                    );
+                  }
+                }}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  isDark
+                    ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
+                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
+                }`}
+                title="Rematch / Restart"
+              >
+                <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+
+              {/* Settings Button */}
+              <button
+                onClick={() => setShowSettingsModal(true)}
+                className={`hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition items-center justify-center shadow-xs cursor-pointer ${
+                  isDark
+                    ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
+                    : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
+                }`}
+                title="Settings"
+              >
+                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
+            </div>
+          </header>
         )}
-
-        {/* Right: Controls & Theme Toggle */}
-        <div className="flex items-center gap-2">
-          {/* Audio / Mic Toggle Button */}
-          {roomParam && (
-            <button
-              onClick={toggleMic}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                isMicMuted
-                  ? (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500 hover:text-zinc-800')
-                  : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
-              }`}
-              title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
-            >
-              {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </button>
-          )}
-
-          {/* Video / Camera Toggle Button */}
-          {roomParam && (
-            <button
-              onClick={toggleCamera}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                isCameraOn
-                  ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
-                  : (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500 hover:text-zinc-800')
-              }`}
-              title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
-            >
-              {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-            </button>
-          )}
-
-          {/* Chat Drawer Toggle */}
-          {roomParam && (
-            <button
-              onClick={() => setIsChatOpen(!isChatOpen)}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                isChatOpen
-                  ? 'bg-rose-600 border-rose-500 text-white'
-                  : (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950')
-              }`}
-              title="Toggle Chat"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* Theme Toggle (Light / Dark) */}
-          <button
-            onClick={toggleTheme}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isDark
-                ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-amber-400'
-                : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-amber-600'
-            }`}
-            title={`Switch to ${isDark ? 'Light' : 'Dark'} Theme`}
-          >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-
-          {/* Help / Rules Button */}
-          <button
-            onClick={() => setShowRulesModal(true)}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isDark
-                ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
-                : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
-            }`}
-            title="Ludo Rules & Guide"
-          >
-            <HelpCircle className="w-4 h-4" />
-          </button>
-
-          {/* Rematch / Restart Button */}
-          {roomParam && (
-            <button
-              onClick={() => {
-                if (gameState?.winnerColor) {
-                  rematch();
-                } else {
-                  showAlert(
-                    'Restart Match?',
-                    'Would you like to reset the board and request a rematch with all players in the room?',
-                    'info',
-                    {
-                      confirmText: 'Request Rematch',
-                      cancelText: 'Cancel',
-                      onConfirm: () => rematch()
-                    }
-                  );
-                }
-              }}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                isDark
-                  ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
-                  : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
-              }`}
-              title="Rematch / Restart"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          )}
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setShowSettingsModal(true)}
-            className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-              isDark
-                ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
-                : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
-            }`}
-            title="Settings"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
 
       {/* MOVEABLE FLOATING VIDEO CALL WINDOW (Draggable across the whole screen with in-box Cam & Mic controls) */}
       {roomParam && !isPipClosed && (
@@ -1310,27 +1285,27 @@ function LudoPageContent() {
           style={
             pipPosition
               ? { left: `${pipPosition.x}px`, top: `${pipPosition.y}px` }
-              : { left: '32px', top: '205px' }
+              : { left: '16px', bottom: '16px' }
           }
-          className={`fixed z-50 select-none bg-[#190d15]/95 border border-white/20 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-shadow ${
+          className={`fixed z-50 select-none bg-[#190d15]/95 border border-white/20 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-shadow max-w-[calc(100vw-24px)] ${
             isDraggingPip
               ? 'cursor-grabbing ring-2 ring-rose-500/60 shadow-[0_25px_60px_rgba(244,63,94,0.35)] scale-[1.02]'
               : 'cursor-grab hover:border-white/30'
-          } ${isPipMinimized ? 'px-3 py-2' : 'p-2.5 sm:p-3'}`}
+          } ${isPipMinimized ? 'px-2.5 py-1.5 sm:px-3 sm:py-2' : 'p-2 sm:p-3'}`}
         >
           {/* Top Bar: Drag Grip + In-Call Controls (Mic, Cam, Minimize, Close) */}
-          <div className="flex items-center justify-between gap-3 pb-2 mb-1.5 border-b border-white/10 touch-none">
+          <div className={`flex items-center justify-between gap-2.5 touch-none ${isPipMinimized ? '' : 'pb-1.5 mb-1.5 border-b border-white/10'}`}>
             {/* Drag Handle & Live Call status */}
             <div className="flex items-center gap-1.5 text-zinc-300 pointer-events-none">
-              <GripHorizontal className="w-4 h-4 text-rose-400/80" />
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-[11px] font-black uppercase tracking-wider text-white">
+              <GripHorizontal className="w-3.5 h-3.5 text-rose-400/80" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-white">
                 Call ({videoGridParticipants.length})
               </span>
             </div>
 
             {/* Camera & Mic Action Icons Inside This Floating Box */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               {/* Mic Toggle Icon */}
               <button
                 type="button"
@@ -1338,14 +1313,14 @@ function LudoPageContent() {
                   e.stopPropagation();
                   toggleMic();
                 }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
+                className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
                   isMicMuted
                     ? 'bg-rose-950/80 border-rose-500/60 text-rose-300 hover:bg-rose-900'
                     : 'bg-emerald-950/80 border-emerald-400/60 text-emerald-300 hover:bg-emerald-900 ring-1 ring-emerald-400/40'
                 }`}
                 title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
               >
-                {isMicMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5 animate-pulse" />}
+                {isMicMuted ? <MicOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Mic className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-pulse" />}
               </button>
 
               {/* Cam Toggle Icon */}
@@ -1355,14 +1330,14 @@ function LudoPageContent() {
                   e.stopPropagation();
                   toggleCamera();
                 }}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
+                className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
                   isCameraOn
                     ? 'bg-rose-950/80 border-rose-400/60 text-rose-300 hover:bg-rose-900 ring-1 ring-rose-400/40'
                     : 'bg-white/10 border-white/20 text-zinc-300 hover:bg-white/20 hover:text-white'
                 }`}
                 title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
               >
-                {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+                {isCameraOn ? <Video className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <VideoOff className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
               </button>
 
               {/* Minimize / Expand Icon */}
@@ -1372,10 +1347,10 @@ function LudoPageContent() {
                   e.stopPropagation();
                   setIsPipMinimized(!isPipMinimized);
                 }}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 title={isPipMinimized ? 'Expand Video Tiles' : 'Minimize Video Tiles'}
               >
-                <Minus className="w-3 h-3" />
+                {isPipMinimized ? <ChevronUp className="w-3.5 h-3.5" /> : <Minus className="w-3 h-3" />}
               </button>
 
               {/* Close Icon */}
@@ -1385,7 +1360,7 @@ function LudoPageContent() {
                   e.stopPropagation();
                   setIsPipClosed(true);
                 }}
-                className="w-6 h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
                 title="Hide Floating Call Window"
               >
                 <X className="w-3 h-3" />
@@ -1395,11 +1370,11 @@ function LudoPageContent() {
 
           {/* Video Boxes Side by Side (matching user reference image) */}
           {!isPipMinimized && (
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 pt-1 overflow-x-auto max-w-[calc(100vw-36px)] scrollbar-none">
               {videoGridParticipants.map(participant => (
                 <div
                   key={participant.userId}
-                  className="relative w-28 sm:w-32 h-24 sm:h-26 rounded-2xl bg-black/60 border border-white/15 overflow-hidden flex flex-col items-center justify-center p-2 shadow-inner"
+                  className="relative w-20 xs:w-24 sm:w-32 h-16 xs:h-20 sm:h-26 rounded-xl sm:rounded-2xl bg-black/60 border border-white/15 overflow-hidden flex flex-col items-center justify-center p-1 sm:p-2 shadow-inner shrink-0"
                 >
                   {participant.isCameraOn && participant.stream ? (
                     <VideoAvatar
@@ -1410,20 +1385,20 @@ function LudoPageContent() {
                   ) : (
                     <div className="flex flex-col items-center justify-center">
                       <div className="relative">
-                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#ff2b5e] to-[#d6143c] text-white font-black text-base sm:text-lg flex items-center justify-center shadow-md">
+                        <div className="w-8 h-8 xs:w-9 xs:h-9 sm:w-12 sm:h-12 rounded-full bg-gradient-to-tr from-[#ff2b5e] to-[#d6143c] text-white font-black text-xs xs:text-sm sm:text-lg flex items-center justify-center shadow-md">
                           {participant.displayName?.[0]?.toUpperCase() || 'U'}
                         </div>
                         <span
-                          className={`w-4 h-4 rounded-full flex items-center justify-center absolute -bottom-0.5 -right-0.5 shadow-sm border border-[#190d15] ${
+                          className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full flex items-center justify-center absolute -bottom-0.5 -right-0.5 shadow-sm border border-[#190d15] ${
                             participant.isMuted
                               ? 'bg-rose-600 text-white'
                               : 'bg-emerald-500 text-slate-950'
                           }`}
                         >
-                          {participant.isMuted ? <MicOff className="w-2.5 h-2.5" /> : <Mic className="w-2.5 h-2.5" />}
+                          {participant.isMuted ? <MicOff className="w-1.5 h-1.5 sm:w-2.5 sm:h-2.5" /> : <Mic className="w-1.5 h-1.5 sm:w-2.5 sm:h-2.5" />}
                         </span>
                       </div>
-                      <span className="text-[11px] font-bold text-white mt-1.5 truncate max-w-[80px]">
+                      <span className="text-[9px] xs:text-[10px] sm:text-[11px] font-bold text-white mt-0.5 sm:mt-1 truncate max-w-[64px] xs:max-w-[76px] sm:max-w-[90px]">
                         {participant.isSelf ? 'You' : participant.displayName}
                       </span>
                     </div>
@@ -1559,12 +1534,12 @@ function LudoPageContent() {
         roomParam && !isWaiting
           ? 'max-w-[1600px] mx-auto p-3 sm:p-5'
           : (roomParam && isWaiting
-              ? 'max-w-none p-0 h-[calc(100vh-4rem)] relative overflow-hidden'
-              : 'h-[calc(100vh-4rem)] max-w-none p-0 overflow-hidden')
+              ? 'max-w-none p-0 min-h-[calc(100dvh-4rem)] relative overflow-y-auto'
+              : 'min-h-[calc(100dvh-4rem)] max-w-none p-0 overflow-y-auto')
       }`}>
         {/* ROOM VIEW: CONNECTING OR ERROR STATE */}
         {roomParam && !isWaiting && !isPlayingOrFinished && (
-          <div className="w-full max-w-md mx-auto my-auto p-8 rounded-3xl bg-black/60 border border-white/20 backdrop-blur-2xl text-center space-y-4 shadow-2xl">
+          <div className="w-full max-w-md mx-auto my-auto p-6 sm:p-8 rounded-2xl sm:rounded-3xl bg-black/60 border border-white/20 backdrop-blur-2xl text-center space-y-4 shadow-2xl">
             {wsError ? (
               <>
                 <div className="w-12 h-12 mx-auto rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
@@ -1597,7 +1572,7 @@ function LudoPageContent() {
 
         {/* ROOM VIEW: WAITING ROOM (Exact pixel-to-pixel match with reference mockup) */}
         {roomParam && isWaiting && (
-          <div className="relative w-full h-full min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="relative w-full h-full min-h-[calc(100dvh-4rem)] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
             {/* Cozy cinematic waiting room background */}
             <div
               className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat select-none pointer-events-none"
@@ -1607,29 +1582,29 @@ function LudoPageContent() {
             </div>
 
             {/* Floating Glassmorphic Waiting Card */}
-            <div className="relative z-10 w-full max-w-xl my-auto rounded-[32px] sm:rounded-[36px] p-6 sm:p-8 bg-[#0e0c18]/70 border border-white/20 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.7),0_0_35px_rgba(255,43,94,0.12)] text-center overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative z-10 w-full max-w-xl my-auto rounded-2xl sm:rounded-[36px] p-4 sm:p-8 bg-[#0e0c18]/70 border border-white/20 backdrop-blur-2xl shadow-[0_25px_70px_rgba(0,0,0,0.7),0_0_35px_rgba(255,43,94,0.12)] text-center overflow-hidden animate-in fade-in zoom-in-95 duration-200">
               
               {/* Strict Zero-Bots Matchmaking Pill */}
-              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#0d2a20]/90 border border-[#10b981]/50 text-[#34d399] text-[11px] font-semibold tracking-wide mb-4 shadow-sm">
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#0d2a20]/90 border border-[#10b981]/50 text-[#34d399] text-[11px] font-semibold tracking-wide mb-3 sm:mb-4 shadow-sm">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#34d399]" />
                 <span>Strict Zero-Bots Matchmaking</span>
               </div>
 
               {/* Waiting for Players Heading */}
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
+              <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight mb-1.5 sm:mb-2">
                 Waiting <span className="font-medium text-white/90">for</span> <span className="text-[#ff2b5e]">Players</span>
               </h2>
 
               {/* Match Subtitle */}
-              <p className="text-xs sm:text-[13px] text-zinc-300 font-normal leading-relaxed max-w-sm mx-auto mb-6">
+              <p className="text-xs sm:text-[13px] text-zinc-300 font-normal leading-relaxed max-w-sm mx-auto mb-4 sm:mb-6">
                 Match will begin automatically when <span className="text-[#ff2b5e] font-semibold">{room.maxPlayers} human players</span> join.
                 <br />
                 No bots will ever be injected.
               </p>
 
               {/* Room Code Card */}
-              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-4 sm:p-4.5 flex items-center justify-between gap-3 mb-5 shadow-inner">
-                <div className="text-left min-w-0">
+              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-3 sm:p-4.5 flex flex-col xs:flex-row items-center justify-between gap-3 mb-4 sm:mb-5 shadow-inner">
+                <div className="text-center xs:text-left min-w-0">
                   <span className="text-[10px] font-bold text-zinc-400 tracking-wider uppercase block">
                     ROOM CODE
                   </span>
@@ -1641,11 +1616,11 @@ function LudoPageContent() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 w-full xs:w-auto justify-center">
                   <button
                     type="button"
                     onClick={handleCopyRoomCode}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition cursor-pointer active:scale-95"
+                    className="p-2 sm:p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-200 hover:text-white transition cursor-pointer active:scale-95"
                     title="Copy Code"
                   >
                     {copiedRoomCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -1654,7 +1629,7 @@ function LudoPageContent() {
                   <button
                     type="button"
                     onClick={handleCopyRoomLink}
-                    className="py-2.5 px-4 sm:px-5 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(255,43,94,0.4)] transition active:scale-95 flex items-center gap-2 cursor-pointer"
+                    className="flex-1 xs:flex-initial py-2 sm:py-2.5 px-3.5 sm:px-5 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(255,43,94,0.4)] transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Share2 className="w-4 h-4" />
                     <span>{copiedRoomLink ? 'Link Copied!' : 'Share Link'}</span>
@@ -1663,8 +1638,8 @@ function LudoPageContent() {
               </div>
 
               {/* Joined Seats Section */}
-              <div className="w-full mb-5">
-                <div className="flex items-center justify-between text-xs font-semibold text-white/90 mb-3 px-0.5">
+              <div className="w-full mb-4 sm:mb-5">
+                <div className="flex items-center justify-between text-xs font-semibold text-white/90 mb-2.5 sm:mb-3 px-0.5">
                   <span>Joined Seats ({room.players.length}/{room.maxPlayers})</span>
                   <span className="text-[11px] text-zinc-300 flex items-center gap-1.5 font-normal">
                     <span className="w-2.5 h-2.5 rounded-full border border-rose-400/80 inline-block shrink-0" />
@@ -1672,29 +1647,29 @@ function LudoPageContent() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   {Array.from({ length: room.maxPlayers }).map((_, seatIdx) => {
                     const player = room.players.find(p => p.seat === seatIdx);
                     if (player) {
                       return (
                         <div
                           key={seatIdx}
-                          className="bg-[#181322]/90 border border-white/10 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[120px]"
+                          className="bg-[#181322]/90 border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[105px] sm:min-h-[120px]"
                         >
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff2b5e] to-[#d6143c] text-white font-black text-lg flex items-center justify-center mb-2 shadow-sm">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-[#ff2b5e] to-[#d6143c] text-white font-black text-base sm:text-lg flex items-center justify-center mb-1.5 sm:mb-2 shadow-sm">
                             {(player.displayName?.[0] || 'P').toUpperCase()}
                           </div>
                           <span className="text-xs sm:text-sm font-bold text-white truncate max-w-full">
                             {player.displayName}
                           </span>
-                          <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
+                          <span className="text-[10px] sm:text-[11px] text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
                             {player.seat === 0 ? (
                               <>
-                                <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Host
+                                <Crown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 fill-amber-400" /> Host
                               </>
                             ) : (
                               <>
-                                <User className="w-3.5 h-3.5 text-zinc-400" /> Player
+                                <User className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-400" /> Player
                               </>
                             )}
                           </span>
@@ -1705,13 +1680,13 @@ function LudoPageContent() {
                     return (
                       <div
                         key={seatIdx}
-                        className="bg-[#14111d]/60 border border-dashed border-white/20 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-inner min-h-[120px]"
+                        className="bg-[#14111d]/60 border border-dashed border-white/20 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 flex flex-col items-center justify-center text-center shadow-inner min-h-[105px] sm:min-h-[120px]"
                       >
-                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-zinc-400 flex items-center justify-center mb-2">
-                          <User className="w-5 h-5 text-zinc-400" />
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/5 border border-white/10 text-zinc-400 flex items-center justify-center mb-1.5 sm:mb-2">
+                          <User className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400" />
                         </div>
                         <span className="text-xs sm:text-sm font-semibold text-zinc-300">Waiting...</span>
-                        <span className="text-[11px] text-zinc-500 mt-0.5">Player {seatIdx + 1}</span>
+                        <span className="text-[10px] sm:text-[11px] text-zinc-500 mt-0.5">Player {seatIdx + 1}</span>
                       </div>
                     );
                   })}
@@ -1719,14 +1694,14 @@ function LudoPageContent() {
               </div>
 
               {/* Partner Quick-Invite Container */}
-              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-inner">
+              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 flex flex-col xs:flex-row items-center justify-between gap-2.5 sm:gap-3 shadow-inner">
                 {partner ? (
                   <>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#ff2b5e] to-[#d6143c] text-white font-black text-xs flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 w-full xs:w-auto">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-[#ff2b5e] to-[#d6143c] text-white font-black text-xs flex items-center justify-center shrink-0">
                         {(partner.displayName?.[0] || partner.partnerCode?.[0] || 'P').toUpperCase()}
                       </div>
-                      <div className="text-left min-w-0">
+                      <div className="text-left min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="text-xs font-bold text-white truncate">
                             Partner: {partner.displayName}
@@ -1744,7 +1719,7 @@ function LudoPageContent() {
                       type="button"
                       onClick={handlePingPartner}
                       disabled={isPingingPartner}
-                      className="py-2 px-3.5 sm:px-4 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer active:scale-95 disabled:opacity-50"
+                      className="w-full xs:w-auto py-2 px-3.5 sm:px-4 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer active:scale-95 disabled:opacity-50"
                     >
                       <UserPlus className="w-3.5 h-3.5 text-white" />
                       <span>{isPingingPartner ? 'Inviting...' : 'Invite Partner'}</span>
@@ -1752,20 +1727,20 @@ function LudoPageContent() {
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-2.5 text-left min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 text-rose-400 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-2.5 text-left min-w-0 w-full xs:w-auto">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/5 border border-white/10 text-rose-400 flex items-center justify-center shrink-0">
                         <Heart className="w-4 h-4 text-rose-400 fill-rose-400" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <span className="text-xs font-bold text-white block">Invite your Partner</span>
-                        <span className="text-[10px] text-zinc-400 block">Link codes to invite with 1-click</span>
+                        <span className="text-[10px] text-zinc-400 block truncate">Link codes to invite with 1-click</span>
                       </div>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => setShowSettingsModal(true)}
-                      className="py-2 px-3.5 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs rounded-xl transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                      className="w-full xs:w-auto py-2 px-3.5 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>Connect</span>
@@ -1786,9 +1761,9 @@ function LudoPageContent() {
 
         {/* ROOM VIEW: ACTIVE / FINISHED MATCH (Exact Layout from Reference Image) */}
         {roomParam && isPlayingOrFinished && (
-          <div className="w-full flex flex-col lg:flex-row items-start justify-between gap-6 relative">
-            {/* Left Column: Floating Room Code Card & Ambient Neon Quotes */}
-            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
+          <div className="w-full flex flex-col lg:flex-row items-center lg:items-start justify-between gap-4 lg:gap-6 relative">
+            {/* Left Column: Floating Room Code Card & Ambient Neon Quotes (Desktop only, mobile has it in header) */}
+            <div className="hidden lg:flex lg:w-64 shrink-0 flex-col gap-6">
               {/* Floating Room Code Card */}
               <div className="p-4 rounded-3xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-xl backdrop-blur-xl">
                 <span className="text-[10px] font-bold text-rose-300/80 uppercase tracking-wider block">
@@ -1839,9 +1814,15 @@ function LudoPageContent() {
               />
             </div>
 
-            {/* Right Column: Floating Game Chat & Audio/Video Call Window */}
+            {/* Right Column: Floating Game Chat & Audio/Video Call Window (Slide-over on mobile) */}
             {isChatOpen && (
-              <div className="w-full lg:w-80 shrink-0 bg-[#1c0c16]/65 border border-rose-500/25 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col h-[580px] backdrop-blur-xl relative">
+              <div
+                className="fixed inset-0 z-50 flex justify-end bg-black/50 backdrop-blur-xs lg:static lg:bg-transparent lg:backdrop-blur-none lg:z-auto"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) setIsChatOpen(false);
+                }}
+              >
+                <div className="w-full sm:w-80 max-w-full h-full lg:h-[580px] bg-[#1c0c16]/95 lg:bg-[#1c0c16]/65 border-l lg:border border-rose-500/25 lg:rounded-3xl p-4 shadow-2xl flex flex-col backdrop-blur-xl relative animate-in slide-in-from-right duration-200">
                 {/* Header */}
                 <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -2078,6 +2059,7 @@ function LudoPageContent() {
                         </button>
                       </form>
                     </div>
+                </div>
               </div>
             )}
           </div>
@@ -2085,29 +2067,29 @@ function LudoPageContent() {
 
         {/* LOBBY VIEW (When not in an active room) */}
         {!roomParam && (
-          <div className={`w-full h-full flex flex-col justify-between relative z-10 select-none px-6 sm:px-10 lg:px-14 py-4 sm:py-6 overflow-hidden transition-colors duration-200 ${
+          <div className={`w-full flex-1 flex flex-col justify-between relative z-10 select-none px-4 sm:px-8 lg:px-12 py-3 sm:py-6 transition-colors duration-200 overflow-y-auto ${
             isDark ? 'bg-[#0c0d12] text-white' : 'bg-white text-zinc-900'
           }`}>
             {/* Top / Main Hero Container */}
-            <div className="w-full flex-1 flex items-center max-w-7xl mx-auto">
-              <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            <div className="w-full flex-1 flex items-center max-w-7xl mx-auto py-1 sm:py-3">
+              <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center">
                 
                 {/* Left Column: Eyebrow, Title, Subtitle, Two Action Cards */}
                 <div className="lg:col-span-7 flex flex-col justify-center">
                   
                   {/* Eyebrow */}
-                  <div className="text-[11px] sm:text-xs font-bold tracking-[0.25em] text-[#f43f5e] uppercase mb-2 sm:mb-3">
+                  <div className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-[#f43f5e] uppercase mb-1.5 sm:mb-2.5">
                     ROLL • MOVE • HAVE FUN
                   </div>
 
                   {/* Main Hero Heading */}
-                  <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight leading-none mb-3 sm:mb-4">
+                  <h1 className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-none mb-2.5 sm:mb-3.5">
                     <span className="text-[#ee1d49]">Ludo</span>{' '}
                     <span className={isDark ? 'text-white' : 'text-[#131727]'}>Arena</span>
                   </h1>
 
                   {/* Subtitle */}
-                  <p className={`text-xs sm:text-sm lg:text-base font-medium max-w-lg leading-relaxed mb-4 sm:mb-5 ${
+                  <p className={`text-xs sm:text-sm lg:text-base font-medium max-w-lg leading-relaxed mb-3.5 sm:mb-5 ${
                     isDark ? 'text-zinc-400' : 'text-zinc-500'
                   }`}>
                     Play real-time Ludo with your friends. Simple. Fun.
@@ -2129,8 +2111,8 @@ function LudoPageContent() {
                         ? 'bg-[#18121f]/90 border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]'
                         : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_20px_rgba(238,29,73,0.05)]'
                     }`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className="relative shrink-0">
                             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#ee1d49] to-[#f43f5e] text-white flex items-center justify-center font-bold text-sm shadow-xs ring-2 ring-white overflow-hidden">
                               {partner.avatarUrl ? (
@@ -2146,12 +2128,12 @@ function LudoPageContent() {
                               </span>
                             </span>
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase">
+                              <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase whitespace-nowrap">
                                 Connected Partner
                               </span>
-                              <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49]" />
+                              <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49] shrink-0" />
                               <button
                                 type="button"
                                 onClick={() => setIsFriendDrawerOpen(true)}
@@ -2175,13 +2157,13 @@ function LudoPageContent() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
                           <button
                             type="button"
                             onClick={handlePingPartner}
                             disabled={isPingingPartner}
                             title={`Ping ${partner.displayName || 'partner'}`}
-                            className={`p-2 sm:p-2.5 rounded-xl border transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 ${
+                            className={`p-2.5 rounded-xl border transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 shrink-0 ${
                               isDark
                                 ? 'border-white/10 bg-white/5 hover:bg-white/10 text-rose-300'
                                 : 'border-rose-200 bg-white hover:bg-rose-50 text-rose-600'
@@ -2193,7 +2175,7 @@ function LudoPageContent() {
                             type="button"
                             onClick={() => handlePlayWithPartner()}
                             disabled={isMatchmaking}
-                            className="py-2.5 px-4 sm:px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                            className="flex-1 sm:flex-initial py-2.5 px-4 sm:px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
                           >
                             <span>{isMatchmaking ? 'Starting...' : 'Play Together'}</span>
                             <span className="text-sm sm:text-base font-bold">→</span>
@@ -2213,7 +2195,7 @@ function LudoPageContent() {
                         : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_20px_rgba(238,29,73,0.04)]'
                     }`}>
                       {!showPartnerConnectInput ? (
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-[#ee1d49] shrink-0 ${
                               isDark ? 'bg-rose-500/15' : 'bg-[#fee1e7]'
@@ -2239,7 +2221,7 @@ function LudoPageContent() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 self-end xs:self-auto">
                             <button
                               type="button"
                               onClick={() => setIsFriendDrawerOpen(true)}
@@ -2332,31 +2314,31 @@ function LudoPageContent() {
                   )}
 
                   {/* Two Pastel Cards Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 max-w-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-5 max-w-xl">
                     
                     {/* Card 1: Create a Room */}
-                    <div className={`rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between transition-all ${
+                    <div className={`rounded-[22px] sm:rounded-[28px] p-4 sm:p-6 flex flex-col justify-between transition-all ${
                       isDark
                         ? 'bg-[#18121f]/90 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/20'
                         : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_24px_rgba(238,29,73,0.04)] hover:shadow-[0_8px_30px_rgba(238,29,73,0.08)]'
                     }`}>
                       <div>
                         {/* Icon Badge */}
-                        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center mb-4 sm:mb-5 ${
+                        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center mb-3.5 sm:mb-5 ${
                           isDark ? 'bg-rose-500/15 border border-rose-500/30 text-rose-400' : 'bg-[#fee1e7] text-[#ee1d49]'
                         }`}>
                           <Users className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                         </div>
 
                         {/* Title */}
-                        <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-1.5 ${
+                        <h3 className={`text-base sm:text-xl font-bold tracking-tight mb-1 sm:mb-1.5 ${
                           isDark ? 'text-white' : 'text-zinc-900'
                         }`}>
                           Create a Room
                         </h3>
 
                         {/* Description */}
-                        <p className={`text-xs sm:text-[13px] font-normal leading-relaxed mb-5 sm:mb-6 ${
+                        <p className={`text-xs sm:text-[13px] font-normal leading-relaxed mb-4 sm:mb-6 ${
                           isDark ? 'text-zinc-400' : 'text-zinc-500'
                         }`}>
                           Start a new game and invite your friends.
@@ -2367,7 +2349,7 @@ function LudoPageContent() {
                       <button
                         type="button"
                         onClick={() => setShowCreateModal(true)}
-                        className="w-full py-3 px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full py-2.5 sm:py-3 px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span className="text-base sm:text-lg leading-none font-bold">+</span>
                         <span>Create Room</span>
@@ -2375,14 +2357,14 @@ function LudoPageContent() {
                     </div>
 
                     {/* Card 2: Join a Room */}
-                    <div className={`rounded-[24px] sm:rounded-[28px] p-5 sm:p-6 flex flex-col justify-between transition-all ${
+                    <div className={`rounded-[22px] sm:rounded-[28px] p-4 sm:p-6 flex flex-col justify-between transition-all ${
                       isDark
                         ? 'bg-[#121626]/90 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:border-white/20'
                         : 'bg-[#f5f9ff] border border-[#e3eeff] shadow-[0_4px_24px_rgba(24,93,242,0.04)] hover:shadow-[0_8px_30px_rgba(24,93,242,0.08)]'
                     }`}>
                       <div>
                         {/* Icon Badge */}
-                        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center mb-4 sm:mb-5 ${
+                        <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center mb-3.5 sm:mb-5 ${
                           isDark ? 'bg-blue-500/15 border border-blue-500/30 text-blue-400' : 'bg-[#dce8fe] text-[#185df2]'
                         }`}>
                           <svg className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
@@ -2392,14 +2374,14 @@ function LudoPageContent() {
                         </div>
 
                         {/* Title */}
-                        <h3 className={`text-lg sm:text-xl font-bold tracking-tight mb-1.5 ${
+                        <h3 className={`text-base sm:text-xl font-bold tracking-tight mb-1 sm:mb-1.5 ${
                           isDark ? 'text-white' : 'text-zinc-900'
                         }`}>
                           Join a Room
                         </h3>
 
                         {/* Description */}
-                        <p className={`text-xs sm:text-[13px] font-normal leading-relaxed mb-5 sm:mb-6 ${
+                        <p className={`text-xs sm:text-[13px] font-normal leading-relaxed mb-4 sm:mb-6 ${
                           isDark ? 'text-zinc-400' : 'text-zinc-500'
                         }`}>
                           Enter a room code to join your friend's game.
@@ -2410,7 +2392,7 @@ function LudoPageContent() {
                       <button
                         type="button"
                         onClick={() => setShowJoinModal(true)}
-                        className="w-full py-3 px-4 bg-[#185df2] hover:bg-[#144ecc] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(24,93,242,0.25)] hover:shadow-[0_6px_20px_rgba(24,93,242,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full py-2.5 sm:py-3 px-4 bg-[#185df2] hover:bg-[#144ecc] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(24,93,242,0.25)] hover:shadow-[0_6px_20px_rgba(24,93,242,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span className="text-sm sm:text-base font-bold">→</span>
                         <span>Join Room</span>
@@ -2422,8 +2404,8 @@ function LudoPageContent() {
                 </div>
 
                 {/* Right Column: 3D Isometric Board Graphic with Accents */}
-                <div className="lg:col-span-5 flex items-center justify-center relative">
-                  <div className="relative w-full max-w-[340px] sm:max-w-[400px] lg:max-w-[460px] max-h-[50vh] aspect-square flex items-center justify-center">
+                <div className="lg:col-span-5 flex items-center justify-center relative mt-4 lg:mt-0">
+                  <div className="relative w-full max-w-[200px] xs:max-w-[260px] sm:max-w-[340px] lg:max-w-[440px] aspect-square flex items-center justify-center">
                     <img
                       src={isDark ? "/images/ludo-3d-board-dark.png" : "/images/ludo-3d-board.png"}
                       alt="Ludo Arena 3D Board"
@@ -2436,18 +2418,18 @@ function LudoPageContent() {
             </div>
 
             {/* Bottom Row / Footer Decoration */}
-            <div className="w-full max-w-7xl mx-auto pt-2 pb-1 flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 shrink-0">
+            <div className="w-full max-w-7xl mx-auto pt-2 pb-1 flex flex-col sm:flex-row items-center justify-between gap-3 relative z-10 shrink-0">
               {/* Bottom Left: Handwritten flourish */}
               <div className="flex items-center">
                 <img
                   src={isDark ? "/images/ludo-flourish-dark.png" : "/images/ludo-flourish.png"}
                   alt="Good Games, Brighter Friendships"
-                  className="h-14 sm:h-18 lg:h-20 w-auto object-contain select-none pointer-events-none"
+                  className="h-10 sm:h-14 lg:h-16 w-auto object-contain select-none pointer-events-none"
                 />
               </div>
 
               {/* Bottom Right: PLAY • CONNECT • REPEAT */}
-              <div className={`text-[10px] sm:text-[11px] font-bold tracking-[0.3em] uppercase ${
+              <div className={`text-[9px] sm:text-[11px] font-bold tracking-[0.3em] uppercase ${
                 isDark ? 'text-zinc-500' : 'text-zinc-400'
               }`}>
                 PLAY • CONNECT • REPEAT
@@ -2627,29 +2609,29 @@ function LudoPageContent() {
           VICTORY / ROUND OVER POPUP MODAL (Appears After 3s Delay)
          ========================================================================= */}
       {gameState?.winnerColor && showDelayedWinModal && !dismissVictoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
-          <div className="w-full max-w-sm p-6 rounded-3xl bg-[#140a15]/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-center space-y-4 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-[min(calc(100vw-24px),390px)] sm:max-w-md p-5 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#140a15]/95 border border-white/20 backdrop-blur-2xl shadow-2xl text-center space-y-3.5 sm:space-y-4 relative">
             {/* Close button to inspect winning board */}
             <button
               type="button"
               onClick={() => setDismissVictoryModal(true)}
-              className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              className="absolute top-3.5 right-3.5 sm:top-4 sm:right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
               title="Inspect Board"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 via-rose-500 to-pink-500 mx-auto flex items-center justify-center shadow-xl shadow-rose-600/40 animate-bounce">
-              <Trophy className="w-8 h-8 text-white" />
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-amber-500 via-rose-500 to-pink-500 mx-auto flex items-center justify-center shadow-xl shadow-rose-600/40 animate-bounce">
+              <Trophy className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
 
             <div>
-              <h2 className="text-2xl font-black text-white">
+              <h2 className="text-xl sm:text-2xl font-black text-white">
                 {myPlayer?.color === gameState.winnerColor
                   ? '🎉 YOU WON!'
                   : `🎉 ${gameState.winnerColor.toUpperCase()} WINS!`}
               </h2>
-              <p className="text-xs text-zinc-300 mt-1">
+              <p className="text-xs sm:text-[13px] text-zinc-300 mt-1 max-w-xs mx-auto leading-relaxed">
                 {gameState.winnerColor.toUpperCase()} has moved all pawns Home and won the Ludo Arena!
               </p>
             </div>
@@ -2664,7 +2646,7 @@ function LudoPageContent() {
 
               if (allVoted) {
                 return (
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-center space-y-1">
+                  <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-center space-y-1">
                     <div className="flex items-center justify-center space-x-2 text-emerald-400 text-xs font-black">
                       <Check className="w-4 h-4" />
                       <span>Both players agreed! Starting rematch...</span>
@@ -2675,7 +2657,7 @@ function LudoPageContent() {
 
               if (hasVoted) {
                 return (
-                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2.5 animate-fadeIn">
+                  <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2.5 animate-fadeIn">
                     <div className="flex items-center justify-center space-x-2 text-amber-400 text-xs font-black">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
                       <span>Waiting for partner to accept rematch ({votedCount}/{totalNeeded})</span>
@@ -2704,7 +2686,7 @@ function LudoPageContent() {
 
               if (votedCount > 0 && !hasVoted) {
                 return (
-                  <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-center space-y-1 animate-pulse">
+                  <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-rose-500/15 border border-rose-500/30 text-center space-y-1 animate-pulse">
                     <p className="text-xs font-black text-rose-300">
                       🔥 Partner requested a rematch! ({votedCount}/{totalNeeded})
                     </p>
@@ -2723,7 +2705,7 @@ function LudoPageContent() {
             })()}
 
             {/* Action Buttons: Home & Rematch */}
-            <div className="flex gap-2.5 pt-2">
+            <div className="flex flex-col xs:flex-row gap-2 xs:gap-2.5 pt-1 sm:pt-2 w-full">
               {/* Go Home */}
               <button
                 type="button"
@@ -2731,10 +2713,10 @@ function LudoPageContent() {
                   sendLeave();
                   router.push('/games');
                 }}
-                className="flex-1 py-3 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-white text-xs font-bold border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full xs:flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-white text-xs sm:text-sm font-bold border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <Home className="w-4 h-4 text-zinc-400" />
-                <span>Go Home 🏠</span>
+                <Home className="w-4 h-4 text-zinc-300 shrink-0" />
+                <span>Go Home</span>
               </button>
 
               {/* Rematch */}
@@ -2744,17 +2726,17 @@ function LudoPageContent() {
                 onClick={() => {
                   rematch();
                 }}
-                className={`flex-1 py-3 rounded-2xl text-white text-xs font-black shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`w-full xs:flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl text-white text-xs sm:text-sm font-black shadow-lg transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '')
                     ? 'bg-zinc-700 opacity-60 cursor-not-allowed'
                     : 'bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 active:scale-95 shadow-rose-600/30'
                 }`}
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className={`w-4 h-4 shrink-0 ${rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '') ? 'animate-spin' : ''}`} />
                 <span>
                   {rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '')
                     ? 'Waiting (1/2)'
-                    : 'Play Rematch 🔄'}
+                    : 'Play Rematch'}
                 </span>
               </button>
             </div>

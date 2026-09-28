@@ -307,7 +307,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
   };
 
   return (
-    <div className="relative h-screen max-h-screen w-full flex flex-col justify-between overflow-hidden transition-colors bg-[#fdf8f6] dark:bg-[#0c0f1d] text-slate-800 dark:text-white select-none">
+    <div className="relative min-h-screen min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto transition-colors bg-[#fdf8f6] dark:bg-[#0c0f1d] text-slate-800 dark:text-white select-none">
       {/* 1. Photorealistic Clean Background Layer (No baked containers) */}
       <div className="fixed inset-0 pointer-events-none z-0 select-none overflow-hidden">
         <img
@@ -323,7 +323,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
       </div>
 
       {/* 2. Main Page Container */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full p-2.5 sm:p-3 md:px-5 md:py-3 h-full max-h-screen">
+      <div className="relative z-10 flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full p-2.5 sm:p-4 md:px-5 md:py-4 min-h-full gap-3 sm:gap-4">
         {/* Top Header */}
         <WatchHeader
           roomCode={room.roomCode}
@@ -342,10 +342,10 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
           onBackToGames={() => router.push('/games')}
         />
 
-        {/* Center Main Stage (Ultra-compact, no vertical scrolling) */}
-        <main className="flex-1 my-auto py-2 sm:py-3 flex flex-col lg:flex-row gap-4 sm:gap-6 items-center justify-center max-w-5xl mx-auto w-full min-h-0">
+        {/* Center Main Stage */}
+        <main className="flex-1 my-0 sm:my-auto py-2.5 sm:py-4 flex flex-col lg:flex-row gap-3.5 sm:gap-6 items-center justify-center max-w-5xl mx-auto w-full min-h-0">
           {/* Left Column: Game Overview & How to Play */}
-          <div className="w-full lg:w-[280px] xl:w-[300px] shrink-0 flex flex-col gap-3 order-2 lg:order-1">
+          <div className="w-full lg:w-[280px] xl:w-[300px] shrink-0 flex flex-col gap-2.5 sm:gap-3 order-2 lg:order-1">
             {/* Card 1: Game Overview */}
             <div className="relative w-full rounded-2xl sm:rounded-3xl p-3 sm:p-4 bg-white/80 dark:bg-[#121629]/80 border border-white/70 dark:border-white/10 shadow-[0_4px_20px_rgba(255,43,112,0.05)] backdrop-blur-xl overflow-hidden transition-all">
               <div className="absolute top-2.5 right-3.5 pointer-events-none select-none text-right hidden sm:block">
@@ -449,7 +449,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
                   return (
                     <div
                       key={idx}
-                      className={`relative rounded-2xl p-2.5 sm:p-3 border backdrop-blur-xl flex items-center gap-3 transition-all ${
+                      className={`relative rounded-xl sm:rounded-2xl p-2 sm:p-3 border backdrop-blur-xl flex items-center gap-2 sm:gap-3 transition-all ${
                         p
                           ? isCurrent
                             ? 'bg-gradient-to-r from-white/95 to-rose-50/50 dark:from-[#15192e]/95 dark:to-[#1a1c35]/90 border-pink-300/80 dark:border-pink-500/40 ring-1 ring-pink-300/40'
@@ -460,7 +460,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
                       {p ? (
                         <>
                           <div className="relative shrink-0">
-                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#ff2b70] to-amber-400 flex items-center justify-center overflow-hidden">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#ff2b70] to-amber-400 flex items-center justify-center overflow-hidden">
                               {p.avatarUrl && !p.avatarUrl.includes('/bottts/') ? (
                                 <img
                                   src={p.avatarUrl}
@@ -491,11 +491,11 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
                         </>
                       ) : (
                         <>
-                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-200/70 dark:bg-white/10 flex items-center justify-center shrink-0 text-slate-400">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-200/70 dark:bg-white/10 flex items-center justify-center shrink-0 text-slate-400">
                             <User className="w-4 h-4 sm:w-5 sm:h-5" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <span className="text-xs font-semibold text-slate-400 dark:text-zinc-500 block">
+                            <span className="text-xs font-semibold text-slate-400 dark:text-zinc-500 block truncate">
                               Waiting...
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-zinc-500">
@@ -509,7 +509,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
                 })}
               </div>
             ) : (
-              <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3.5 relative">
+              <div className="w-full flex flex-row items-center justify-center gap-1.5 sm:gap-3.5 relative">
                 <PlayerCard
                   isCurrentUser={true}
                   player={myPlayer}

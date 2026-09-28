@@ -18,6 +18,7 @@ import {
   Clock
 } from 'lucide-react';
 import { AppSidebar } from '../../components/layout/AppSidebar';
+import { AppHeader } from '../../components/layout/AppHeader';
 import { useTheme } from '../../context/ThemeContext';
 import {
   getStoredSession,
@@ -264,33 +265,13 @@ export default function GameLobbyPage() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 min-h-screen overflow-y-auto">
-        {/* Mobile Header Bar */}
-        <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/[0.06] bg-white/80 dark:bg-[#0c0d14]/80 backdrop-blur-md sticky top-0 z-20">
-          <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <span className="text-base font-black tracking-tight text-slate-900 dark:text-white">
-              Games<span className="text-[#ff3864]">.</span>
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-          >
-            {isDark ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
-          </button>
-        </div>
+      <main className="flex-1 min-w-0 flex flex-col min-h-screen overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-5 sm:space-y-6">
+        <AppHeader
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        />
 
         {/* Page Inner Container */}
-        <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto w-full space-y-6 animate-fadeIn">
+        <div className="max-w-[1400px] mx-auto w-full space-y-6 animate-fadeIn">
           {/* Notification Toast */}
           {notificationToast && (
             <div className="fixed top-5 right-5 z-50 bg-[#ff3864] text-white px-5 py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-bold flex items-center gap-2 animate-bounce">
@@ -299,7 +280,7 @@ export default function GameLobbyPage() {
           )}
 
           {/* 1. TOP HERO CARD (Compact, clean, no create room / profile icons) */}
-          <div className="relative rounded-[28px] sm:rounded-[32px] overflow-hidden bg-[#0c0d14] border border-white/10 text-white min-h-[210px] sm:min-h-[240px] flex flex-col justify-between p-5 sm:p-7 lg:p-8 shadow-xl">
+          <div className="relative rounded-[24px] sm:rounded-[32px] overflow-hidden bg-[#0c0d14] border border-white/10 text-white min-h-[190px] sm:min-h-[240px] flex flex-col justify-between p-4 sm:p-7 lg:p-8 shadow-xl">
             {/* Background Image: Gaming controller on couch with popcorn */}
             <div className="absolute inset-0 pointer-events-none z-0">
               <img
@@ -315,7 +296,7 @@ export default function GameLobbyPage() {
 
             {/* Top Row: PLAY TOGETHER category & Search */}
             <div className="relative z-10 flex items-center justify-between gap-4">
-              <div className="text-[11px] sm:text-xs font-bold tracking-[0.25em] text-zinc-400 uppercase select-none">
+              <div className="text-[10px] sm:text-xs font-bold tracking-[0.25em] text-zinc-400 uppercase select-none">
                 PLAY TOGETHER
               </div>
 
@@ -338,7 +319,7 @@ export default function GameLobbyPage() {
                   <button
                     type="button"
                     onClick={() => setSearchOpen(true)}
-                    className="w-9 h-9 rounded-full bg-black/40 hover:bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-white cursor-pointer transition active:scale-95"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/40 hover:bg-white/10 border border-white/15 backdrop-blur-md flex items-center justify-center text-white cursor-pointer transition active:scale-95"
                     title="Search games"
                   >
                     <Search className="w-3.5 h-3.5 text-zinc-200" />
@@ -349,13 +330,13 @@ export default function GameLobbyPage() {
 
             {/* Middle Row: Headline & Subtitle */}
             <div className="relative z-10 my-auto py-2 sm:py-3 max-w-xl">
-              <h1 className="text-2xl sm:text-4xl lg:text-[42px] font-black text-white tracking-tight leading-[1.1]">
+              <h1 className="text-xl xs:text-2xl sm:text-4xl lg:text-[42px] font-black text-white tracking-tight leading-[1.15] sm:leading-[1.1]">
                 Games hit different{' '}
                 <span className="text-[#ff3864] drop-shadow-[0_2px_12px_rgba(255,56,100,0.5)]">
                   together.
                 </span>
               </h1>
-              <p className="text-xs sm:text-sm text-zinc-300 font-normal mt-1.5 tracking-normal">
+              <p className="text-xs sm:text-sm text-zinc-300 font-normal mt-1 sm:mt-1.5 tracking-normal">
                 Real games. Real people. No bots, ever.
               </p>
             </div>
@@ -363,18 +344,18 @@ export default function GameLobbyPage() {
             {/* Bottom Row: 12K+ friends & Cursive Script Watermark */}
             <div className="relative z-10 flex items-end justify-between">
               {/* Stacked Social Avatars */}
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 sm:gap-2.5">
                 <div className="flex -space-x-2 overflow-hidden py-0.5">
                   {SOCIAL_AVATARS.map((url, idx) => (
                     <img
                       key={idx}
                       src={url}
                       alt="Player"
-                      className="inline-block h-7 w-7 sm:h-8 sm:w-8 rounded-full ring-2 ring-[#0c0d14] object-cover"
+                      className="inline-block h-6 w-6 sm:h-8 sm:w-8 rounded-full ring-2 ring-[#0c0d14] object-cover"
                     />
                   ))}
                 </div>
-                <span className="text-xs font-semibold text-zinc-200">
+                <span className="text-[11px] sm:text-xs font-semibold text-zinc-200">
                   12K+ friends are playing
                 </span>
               </div>
@@ -395,12 +376,12 @@ export default function GameLobbyPage() {
 
           {/* Active Friends Live Strip */}
           {activeFriends.length > 0 && (
-            <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-amber-500/30 dark:border-amber-400/20 backdrop-blur-xl space-y-3 shadow-md animate-fadeIn">
+            <div className="p-3.5 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 border border-amber-500/30 dark:border-amber-400/20 backdrop-blur-xl space-y-3 shadow-md animate-fadeIn">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="relative flex h-3 w-3">
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <span className="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-[#ff3864]"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-[#ff3864]"></span>
                   </span>
                   <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
                     Friends in Games Right Now
@@ -411,20 +392,20 @@ export default function GameLobbyPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
                 {activeFriends.map((af, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white/90 dark:bg-[#12131f] border border-slate-200/80 dark:border-white/10 shadow-xs hover:border-[#ff3864]/50 transition"
+                    className="flex items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-2xl bg-white/90 dark:bg-[#12131f] border border-slate-200/80 dark:border-white/10 shadow-xs hover:border-[#ff3864]/50 transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       <div className="relative shrink-0">
                         <img
                           src={af.friend.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${af.friend.id}`}
                           alt={af.friend.displayName}
-                          className="w-10 h-10 rounded-xl object-cover ring-2 ring-emerald-500/40"
+                          className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl object-cover ring-2 ring-emerald-500/40"
                         />
-                        <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#12131f] ${
+                        <span className={`absolute -bottom-1 -right-1 w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-full border-2 border-white dark:border-[#12131f] ${
                           af.game.status === 'WAITING' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
                         }`} />
                       </div>
@@ -432,11 +413,11 @@ export default function GameLobbyPage() {
                         <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           {af.friend.displayName}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1.5">
-                          <span className="font-semibold text-slate-700 dark:text-zinc-200">{af.game.gameTitle}</span>
+                        <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-zinc-400 truncate flex items-center gap-1 sm:gap-1.5">
+                          <span className="font-semibold text-slate-700 dark:text-zinc-200 truncate">{af.game.gameTitle}</span>
                           <span>•</span>
-                          <span className={af.game.status === 'WAITING' ? 'text-amber-500 font-bold' : 'text-emerald-500 font-bold'}>
-                            {af.game.status === 'WAITING' ? 'Waiting in Lobby' : 'Playing Now'}
+                          <span className={`truncate ${af.game.status === 'WAITING' ? 'text-amber-500 font-bold' : 'text-emerald-500 font-bold'}`}>
+                            {af.game.status === 'WAITING' ? 'Waiting' : 'Playing'}
                           </span>
                         </div>
                       </div>
@@ -445,7 +426,7 @@ export default function GameLobbyPage() {
                     <button
                       type="button"
                       onClick={() => router.push(af.game.joinUrl)}
-                      className="px-3.5 py-1.5 rounded-xl bg-[#ff3864] hover:bg-[#e02652] text-white text-xs font-bold shadow-xs active:scale-95 transition shrink-0 cursor-pointer flex items-center gap-1"
+                      className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[#ff3864] hover:bg-[#e02652] text-white text-xs font-bold shadow-xs active:scale-95 transition shrink-0 cursor-pointer flex items-center gap-1"
                     >
                       <span>Join</span>
                       <ArrowRight className="w-3 h-3" />
@@ -459,7 +440,7 @@ export default function GameLobbyPage() {
           {/* 2. SECTION HEADER: "Our Games" & "All Games ⌵" Dropdown */}
           <div className="flex items-center justify-between pt-1">
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              <h2 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 Our Games
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5 font-normal">
@@ -530,8 +511,8 @@ export default function GameLobbyPage() {
             </div>
           </div>
 
-          {/* 3. GAME CARDS GRID (Includes Four in a Row & Coming Soon games) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+          {/* 3. GAME CARDS GRID: 4 columns on PC/desktop, 3 on tablet, 2 on mobile */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5 lg:gap-6">
             {filteredGames.map((game) => {
               const friendsInGame = activeFriends.filter(af => af.game.gameType === game.id);
               const waitingFriend = friendsInGame.find(af => af.game.status === 'WAITING');
@@ -549,22 +530,22 @@ export default function GameLobbyPage() {
                       router.push(game.route);
                     }
                   }}
-                  className={`group relative rounded-[28px] sm:rounded-[32px] bg-gradient-to-b ${game.gradient} p-6 sm:p-7 text-white flex flex-col justify-between min-h-[460px] sm:min-h-[480px] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer select-none overflow-hidden`}
+                  className={`group relative rounded-[18px] xs:rounded-[22px] sm:rounded-[28px] bg-gradient-to-b ${game.gradient} p-2.5 xs:p-3 sm:p-4 md:p-5 text-white flex flex-col justify-between min-h-[195px] xs:min-h-[210px] sm:min-h-[260px] md:min-h-[290px] lg:min-h-[310px] shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer select-none overflow-hidden`}
                 >
                   {/* Top Row: Player count pill & Watermark icon */}
                   <div>
-                    <div className="relative z-10 flex items-center justify-between">
-                      <div className="bg-black/25 backdrop-blur-md border border-white/10 px-3.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 text-white/95 shadow-sm">
-                        <Users className="w-3 h-3 text-white/80" />
-                        <span>{game.players}</span>
+                    <div className="relative z-10 flex items-center justify-between gap-1.5">
+                      <div className="bg-black/30 backdrop-blur-md border border-white/10 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] xs:text-[10px] sm:text-[11px] font-semibold flex items-center gap-1 text-white/95 shadow-sm truncate max-w-[80%]">
+                        <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white/80 shrink-0" />
+                        <span className="truncate">{game.players}</span>
                       </div>
 
                       {/* Watermark icon on top-right */}
-                      <div className="opacity-30 group-hover:opacity-50 transition-opacity">
+                      <div className="opacity-30 group-hover:opacity-50 transition-opacity shrink-0">
                         {game.watermark === 'crown' ? (
                           /* Crown line-art */
                           <svg
-                            className="w-8 h-8 text-white stroke-current fill-none"
+                            className="w-4 h-4 sm:w-6 sm:h-6 text-white stroke-current fill-none"
                             viewBox="0 0 24 24"
                             strokeWidth="1.6"
                             strokeLinecap="round"
@@ -578,7 +559,7 @@ export default function GameLobbyPage() {
                         ) : (
                           /* Starburst / sparkle rays */
                           <svg
-                            className="w-8 h-8 text-white stroke-current fill-none"
+                            className="w-4 h-4 sm:w-6 sm:h-6 text-white stroke-current fill-none"
                             viewBox="0 0 24 24"
                             strokeWidth="1.6"
                             strokeLinecap="round"
@@ -599,28 +580,28 @@ export default function GameLobbyPage() {
 
                     {/* Friend Active Presence Pill */}
                     {activeFriend && (
-                      <div className="relative z-20 mt-2.5">
+                      <div className="relative z-20 mt-1 sm:mt-1.5">
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
                             router.push(activeFriend.game.joinUrl);
                           }}
-                          className={`px-3 py-1.5 rounded-2xl flex items-center justify-between gap-2 text-xs font-bold border backdrop-blur-md transition-all shadow-md hover:scale-105 active:scale-95 cursor-pointer ${
+                          className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl flex items-center justify-between gap-1 text-[9px] xs:text-[10px] sm:text-xs font-bold border backdrop-blur-md transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer ${
                             activeFriend.game.status === 'WAITING'
                               ? 'bg-amber-500/25 border-amber-300/50 text-amber-200'
                               : 'bg-emerald-500/25 border-emerald-300/50 text-emerald-200'
                           }`}
                         >
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                               activeFriend.game.status === 'WAITING' ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'
                             }`} />
                             <span className="truncate">
                               <span className="text-white font-extrabold">{activeFriend.friend.displayName}</span>
-                              {activeFriend.game.status === 'WAITING' ? ' is waiting' : ' is playing'}
+                              <span className="hidden sm:inline">{activeFriend.game.status === 'WAITING' ? ' waiting' : ' playing'}</span>
                             </span>
                           </div>
-                          <span className="px-2 py-0.5 rounded-full bg-white text-slate-900 text-[10px] font-black shrink-0 shadow-xs">
+                          <span className="px-1 sm:px-1.5 py-0.2 rounded-full bg-white text-slate-900 text-[8.5px] sm:text-[9.5px] font-black shrink-0 shadow-xs">
                             Join
                           </span>
                         </div>
@@ -628,63 +609,63 @@ export default function GameLobbyPage() {
                     )}
                   </div>
 
-                {/* Center 3D Artwork */}
-                <div className="relative z-10 my-auto flex items-center justify-center py-4">
-                  <div className="w-48 h-48 sm:w-52 sm:h-52 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
-                    <img
-                      src={game.image}
-                      alt={game.title}
-                      className="max-h-full max-w-full object-contain drop-shadow-[0_20px_25px_rgba(0,0,0,0.45)]"
-                    />
-                  </div>
-                </div>
-
-                {/* Bottom Row: Game Title, Subtext & Action */}
-                <div className="relative z-10 space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-2xl font-bold tracking-tight text-white">
-                        {game.title}
-                      </h3>
-                      {game.isComingSoon && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-300/30">
-                          SOON
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-white/80 font-normal mt-1 leading-relaxed">
-                      {game.subtext}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs sm:text-sm font-bold text-white group-hover:underline underline-offset-4 tracking-wide">
-                      {game.isComingSoon ? 'Notify Me' : 'Play Now'}
-                    </span>
-
-                    <div className="w-10 h-10 rounded-full bg-white/20 group-hover:bg-white/35 backdrop-blur-md border border-white/25 flex items-center justify-center text-white transition-all transform group-hover:translate-x-1 shadow-sm">
-                      {game.isComingSoon ? (
-                        <Bell className="w-4 h-4 text-amber-300" />
-                      ) : (
-                        <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-                      )}
+                  {/* Center 3D Artwork */}
+                  <div className="relative z-10 my-auto flex items-center justify-center py-1 sm:py-2">
+                    <div className="w-14 h-14 xs:w-18 xs:h-18 sm:w-24 sm:h-24 md:w-28 md:h-28 lg:w-32 lg:h-32 xl:w-36 xl:h-36 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+                      <img
+                        src={game.image}
+                        alt={game.title}
+                        className="max-h-full max-w-full object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.4)]"
+                      />
                     </div>
                   </div>
+
+                  {/* Bottom Row: Game Title, Subtext & Action */}
+                  <div className="relative z-10 space-y-1 sm:space-y-2">
+                    <div>
+                      <div className="flex items-center justify-between gap-1">
+                        <h3 className="text-xs xs:text-sm sm:text-base md:text-lg lg:text-lg font-bold tracking-tight text-white truncate">
+                          {game.title}
+                        </h3>
+                        {game.isComingSoon && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[8.5px] sm:text-[9.5px] font-bold bg-amber-400/20 text-amber-300 border border-amber-300/30 shrink-0">
+                            SOON
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[9.5px] xs:text-[10px] sm:text-xs text-white/80 font-normal mt-0.5 leading-tight line-clamp-1 sm:line-clamp-2">
+                        {game.subtext}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-0.5">
+                      <span className="text-[10px] xs:text-[11px] sm:text-xs md:text-sm font-bold text-white group-hover:underline underline-offset-2 tracking-wide truncate">
+                        {game.isComingSoon ? 'Notify Me' : 'Play Now'}
+                      </span>
+
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full bg-white/20 group-hover:bg-white/35 backdrop-blur-md border border-white/25 flex items-center justify-center text-white transition-all transform group-hover:translate-x-1 shadow-sm shrink-0">
+                        {game.isComingSoon ? (
+                          <Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
+                        ) : (
+                          <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
               );
             })}
           </div>
 
           {/* 4. BOTTOM BANNER: "More games coming soon..." */}
-          <div className="rounded-[24px] sm:rounded-[28px] bg-[#fff0f4] dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/30 p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden shadow-sm">
+          <div className="rounded-[24px] sm:rounded-[28px] bg-[#fff0f4] dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/30 p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5 relative overflow-hidden shadow-sm">
             {/* Left: Icon and Text */}
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#ff3864]/10 text-[#ff3864] flex items-center justify-center shrink-0">
-                <Users className="w-6 h-6" />
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-[#ff3864]/10 text-[#ff3864] flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <div>
-                <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              <div className="min-w-0">
+                <h4 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">
                   More games coming soon...
                 </h4>
                 <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-0.5">
@@ -708,7 +689,7 @@ export default function GameLobbyPage() {
             <button
               type="button"
               onClick={() => handleStayUpdated()}
-              className="px-5 py-2.5 rounded-full bg-white dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-white/15 border border-rose-200 dark:border-white/10 text-slate-800 dark:text-white text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer self-start md:self-auto"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-full bg-white dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-white/15 border border-rose-200 dark:border-white/10 text-slate-800 dark:text-white text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer shrink-0"
             >
               <Bell className="w-4 h-4 text-[#ff3864]" />
               <span>Stay Updated</span>

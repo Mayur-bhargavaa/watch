@@ -204,7 +204,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
       />
 
       {/* Slide-Over Drawer Container */}
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10 pointer-events-none">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10 pointer-events-none">
         <div className="w-screen max-w-md pointer-events-auto bg-white dark:bg-[#130d19] border-l border-zinc-200 dark:border-white/10 shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out">
           
           {/* Header */}

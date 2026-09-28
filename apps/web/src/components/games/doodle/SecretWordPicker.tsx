@@ -49,10 +49,10 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
   });
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-xl animate-in fade-in duration-200 select-none ${
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 backdrop-blur-xl animate-in fade-in duration-200 select-none overflow-y-auto ${
       isDark ? 'bg-black/75' : 'bg-slate-900/35'
     }`}>
-      <div className={`relative w-full max-w-lg rounded-3xl border p-6 sm:p-8 flex flex-col items-center text-center overflow-hidden transition-all duration-300 ${
+      <div className={`relative w-full max-w-lg rounded-2xl sm:rounded-3xl border p-3.5 sm:p-6 my-auto max-h-[92dvh] overflow-y-auto overscroll-contain flex flex-col items-center text-center transition-all duration-300 ${
         isDark
           ? 'bg-[#0f1424]/95 border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_40px_rgba(255,43,94,0.12)] text-white'
           : 'bg-white/95 border-slate-200/90 shadow-[0_25px_70px_rgba(0,0,0,0.12),0_0_30px_rgba(244,63,94,0.08)] text-slate-900'
@@ -76,7 +76,7 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
         </div>
 
         {/* Dynamic Timer Badge */}
-        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold mb-4 shadow-sm ${
+        <div className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border text-[11px] sm:text-xs font-bold mb-1.5 sm:mb-3 shadow-sm shrink-0 ${
           isDark
             ? 'bg-white/5 border-white/10 text-zinc-300'
             : 'bg-slate-100 border-slate-200 text-slate-700'
@@ -88,27 +88,27 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
         {isDrawer ? (
           <>
             {/* Drawer Active Icon & Header */}
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff2b5e]/20 to-pink-500/20 border border-[#ff2b5e]/30 flex items-center justify-center mb-3 shadow-inner">
-              <Palette className="w-7 h-7 text-[#ff2b5e]" />
+            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-[#ff2b5e]/20 to-pink-500/20 border border-[#ff2b5e]/30 flex items-center justify-center mb-1.5 sm:mb-2 shadow-inner shrink-0">
+              <Palette className="w-4.5 h-4.5 sm:w-6 sm:h-6 text-[#ff2b5e]" />
             </div>
 
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#ff2b5e] mb-1">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#ff2b5e] mb-0.5 shrink-0">
               Your Turn to Draw 🎨
             </span>
 
-            <h2 className={`text-2xl font-black tracking-tight mb-1.5 ${
+            <h2 className={`text-lg sm:text-2xl font-black tracking-tight mb-0.5 sm:mb-1 shrink-0 ${
               isDark ? 'text-white' : 'text-slate-900'
             }`}>
               Choose What to Draw
             </h2>
-            <p className={`text-xs max-w-sm mb-6 ${
+            <p className={`text-[10px] sm:text-xs max-w-sm mb-2.5 sm:mb-4 leading-snug shrink-0 ${
               isDark ? 'text-zinc-400' : 'text-slate-500'
             }`}>
               Pick a secret word. <span className="font-bold text-[#ff2b5e]">{guesserDisplayName}</span> will have 60 seconds to guess your sketch!
             </p>
 
             {/* Word Choices Grid */}
-            <div className="w-full flex flex-col gap-3">
+            <div className="w-full flex flex-col gap-1.5 sm:gap-2.5">
               {normalizedChoices.map((choice, idx) => {
                 const difficultyColors: Record<string, string> = {
                   easy: isDark ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -122,34 +122,34 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
                     key={`${choice.word}_${idx}`}
                     type="button"
                     onClick={() => onChooseWord(choice.rawWord || choice.word)}
-                    className={`group relative w-full flex items-center justify-between p-4 rounded-2xl border transition-all transform hover:-translate-y-0.5 active:scale-[0.98] text-left shadow-sm cursor-pointer ${
+                    className={`group relative w-full flex items-center justify-between p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border transition-all transform hover:-translate-y-0.5 active:scale-[0.98] text-left shadow-sm cursor-pointer gap-2 ${
                       isDark
                         ? 'bg-white/[0.03] hover:bg-white/[0.08] border-white/10 hover:border-[#ff2b5e]/50'
                         : 'bg-slate-50/80 hover:bg-rose-50/40 border-slate-200 hover:border-[#ff2b5e]/40'
                     }`}
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <span className={`text-lg font-black transition-colors ${
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                      <span className={`text-sm sm:text-base font-black transition-colors truncate block ${
                         isDark ? 'text-white group-hover:text-[#ff2b5e]' : 'text-slate-900 group-hover:text-[#ff2b5e]'
                       }`}>
                         {choice.word}
                       </span>
-                      <span className={`text-[11px] font-semibold ${
+                      <span className={`text-[9px] sm:text-[11px] font-semibold truncate block ${
                         isDark ? 'text-zinc-400' : 'text-slate-500'
                       }`}>
                         {choice.category}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       <span
-                        className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                        className={`text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 rounded-full border shrink-0 ${
                           difficultyColors[choice.difficulty] || difficultyColors.easy
                         }`}
                       >
                         {choice.difficulty}
                       </span>
-                      <span className={`text-xs font-mono font-bold transition-colors ${
+                      <span className={`hidden sm:inline text-xs font-mono font-bold transition-colors shrink-0 ${
                         isDark ? 'text-zinc-500 group-hover:text-white' : 'text-slate-400 group-hover:text-slate-800'
                       }`}>
                         Choice {idx + 1}
@@ -161,9 +161,9 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
             </div>
 
             {/* Divider or custom input */}
-            <div className="w-full flex items-center gap-3 my-3">
+            <div className="w-full flex items-center gap-2 my-2 sm:my-2.5 shrink-0">
               <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
-              <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
+              <span className={`text-[9px] sm:text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
                 Or draw anything you want
               </span>
               <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
@@ -177,15 +177,15 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
                   onChooseWord(customWord.trim());
                 }
               }}
-              className="w-full flex items-center gap-2"
+              className="w-full flex items-center gap-1.5 sm:gap-2 shrink-0"
             >
               <input
                 type="text"
                 value={customWord}
                 onChange={(e) => setCustomWord(e.target.value)}
-                placeholder="Enter any drawing idea (e.g. Castle, Coffee cup...)"
+                placeholder="Enter drawing idea (e.g. Castle...)"
                 maxLength={40}
-                className={`flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium outline-none transition-all ${
+                className={`flex-1 min-w-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl border text-xs sm:text-sm font-medium outline-none transition-all ${
                   isDark
                     ? 'bg-white/5 border-white/10 text-white placeholder-zinc-500 focus:border-[#ff3864]'
                     : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#ff3864]'
@@ -194,63 +194,63 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
               <button
                 type="submit"
                 disabled={!customWord.trim()}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#ff3864] to-[#f43f5e] text-white text-xs font-bold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#ff3864] to-[#f43f5e] text-white text-xs font-bold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
               >
-                Draw This 🎨
+                Draw 🎨
               </button>
             </form>
           </>
         ) : (
           <>
             {/* Guesser Waiting State */}
-            <div className="relative mb-3">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-600/20 to-indigo-600/20 border border-violet-500/30 flex items-center justify-center shadow-inner">
-                <Brain className="w-8 h-8 text-violet-400 animate-pulse" />
+            <div className="relative mb-2 sm:mb-3 shrink-0">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-violet-600/20 to-indigo-600/20 border border-violet-500/30 flex items-center justify-center shadow-inner">
+                <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-violet-400 animate-pulse" />
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
+              <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 sm:h-4 sm:w-4">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-violet-500 border-2 border-white dark:border-[#0f1424]" />
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 bg-violet-500 border-2 border-white dark:border-[#0f1424]" />
               </span>
             </div>
 
-            <span className="text-[10px] font-black uppercase tracking-wider text-violet-400 mb-1">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-violet-400 mb-0.5 shrink-0">
               Guesser Waiting Room 🧠
             </span>
 
-            <h2 className={`text-2xl font-black tracking-tight mb-1.5 ${
+            <h2 className={`text-lg sm:text-2xl font-black tracking-tight mb-1 sm:mb-1.5 shrink-0 ${
               isDark ? 'text-white' : 'text-slate-900'
             }`}>
               {drawerDisplayName} is Choosing
             </h2>
-            <p className={`text-xs max-w-sm mb-5 leading-relaxed ${
+            <p className={`text-[10px] sm:text-xs max-w-sm mb-3 sm:mb-5 leading-snug shrink-0 ${
               isDark ? 'text-zinc-400' : 'text-slate-500'
             }`}>
               They are selecting a secret word right now. Put on your guessing glasses and get ready!
             </p>
 
             {/* Clean Status Pill with Real-time Count */}
-            <div className={`w-full p-5 rounded-2xl border flex flex-col items-center gap-3 shadow-inner ${
+            <div className={`w-full p-3 sm:p-5 rounded-xl sm:rounded-2xl border flex flex-col items-center gap-2 sm:gap-3 shadow-inner ${
               isDark
                 ? 'bg-white/[0.02] border-white/10'
                 : 'bg-slate-50 border-slate-200'
             }`}>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#ff2b5e] animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2.5 h-2.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#ff2b5e] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 sm:w-2.5 sm:h-2.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 sm:w-2.5 sm:h-2.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
 
               <div className="flex items-center gap-1.5">
-                <span className={`text-xs font-black tracking-wide ${
+                <span className={`text-[11px] sm:text-xs font-black tracking-wide ${
                   isDark ? 'text-zinc-200' : 'text-slate-700'
                 }`}>
-                  Round starting in <span className="text-[#ff2b5e] font-mono text-sm">{timeLeft}s</span>...
+                  Round starting in <span className="text-[#ff2b5e] font-mono text-xs sm:text-sm">{timeLeft}s</span>...
                 </span>
               </div>
             </div>
 
             {/* Quick Scoring Tip */}
-            <div className={`mt-4 inline-flex items-center gap-1.5 text-[11px] font-medium ${
+            <div className={`mt-2.5 sm:mt-4 inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium shrink-0 ${
               isDark ? 'text-zinc-400' : 'text-slate-500'
             }`}>
               <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />

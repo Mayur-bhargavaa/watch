@@ -719,7 +719,11 @@ function BingoDuelGameContent() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && pipPosition === null) {
-      if (window.innerWidth >= 1024) {
+      const isMobile = window.innerWidth < 640;
+      if (isMobile) {
+        setIsPipMinimized(true);
+        setPipPosition({ x: 12, y: 64 });
+      } else if (window.innerWidth >= 1024) {
         setPipPosition({ x: 28, y: Math.max(100, window.innerHeight - 205) });
       } else {
         setPipPosition({ x: 16, y: Math.max(100, window.innerHeight - 170) });
@@ -1067,7 +1071,7 @@ function BingoDuelGameContent() {
       )}
 
       {/* 2. MAIN CONTENT AREA (FULL-SCREEN IN MATCH, ADAPTIVE IN LOBBY) */}
-      <div className="flex-1 flex flex-col relative h-screen overflow-hidden">
+      <div className={`flex-1 flex flex-col relative ${roomCodeParam ? 'h-screen overflow-hidden' : 'min-h-0 overflow-y-auto'}`}>
         {/* Audio listeners for remote audio streams */}
         {videoGridParticipants.map(
           p => p.stream && !p.isSelf && <RemoteAudioPlayer key={p.userId} stream={p.stream} />
@@ -1114,12 +1118,14 @@ function BingoDuelGameContent() {
                 <button
                   type="button"
                   onClick={() => router.push('/games')}
-                  className={`lg:hidden px-2.5 py-1.5 rounded-xl border flex items-center gap-1 font-semibold ${
-                    isDark ? 'bg-white/[0.05] text-zinc-300 border-white/[0.08]' : 'bg-zinc-100 text-zinc-700 border-zinc-200'
+                  className={`lg:hidden h-9 px-3 rounded-xl border flex items-center gap-1.5 font-semibold text-xs whitespace-nowrap shrink-0 transition-all active:scale-95 shadow-2xs cursor-pointer ${
+                    isDark ? 'bg-white/[0.05] hover:bg-white/10 text-zinc-300 border-white/[0.08]' : 'bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 border-zinc-200'
                   }`}
+                  title="Back to Game Lobby"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Game Lobby</span>
+                  <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden xs:inline">Game </span>
+                  <span>Lobby</span>
                 </button>
 
                 <div className="hidden sm:flex items-center gap-1.5 text-xs font-semibold">
@@ -1437,7 +1443,7 @@ function BingoDuelGameContent() {
       {/* MAIN CONTAINER */}
       <main className={`flex-1 w-full flex flex-col justify-start z-10 ${
         roomCodeParam && !isWaiting
-          ? 'max-w-[1600px] mx-auto px-3 sm:px-6 py-2 sm:py-2.5 h-[calc(100vh-4rem)] overflow-hidden'
+          ? 'max-w-[1600px] mx-auto px-1.5 sm:px-6 py-1 sm:py-2.5 min-h-[calc(100vh-4rem)] overflow-y-auto'
           : (roomCodeParam && isWaiting
               ? 'max-w-none p-0 h-[calc(100vh-4rem)] relative overflow-hidden'
               : 'h-[calc(100vh-4rem)] max-w-none p-0 overflow-hidden')
@@ -1741,7 +1747,7 @@ function BingoDuelGameContent() {
 
       {/* LOBBY VIEW (When not in an active room and not previewing) */}
       {!roomCodeParam && !isPreview && (
-        <div className={`w-full h-full flex flex-col justify-between relative z-10 select-none px-6 sm:px-10 lg:px-14 py-4 sm:py-6 overflow-hidden transition-colors duration-200 ${
+        <div className={`w-full min-h-full flex flex-col justify-between relative z-10 select-none px-4 sm:px-10 lg:px-14 py-4 sm:py-6 overflow-y-auto transition-colors duration-200 ${
           isDark ? 'bg-[#0c0d12] text-white' : 'bg-white text-zinc-900'
         }`}>
           {/* Top / Main Hero Container */}
@@ -1757,7 +1763,7 @@ function BingoDuelGameContent() {
                 </div>
 
                 {/* Main Hero Heading */}
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight leading-none mb-3 sm:mb-4">
+                <h1 className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black tracking-tight leading-tight mb-3 sm:mb-4">
                   <span className="text-[#ee1d49]">Bingo</span>{' '}
                   <span className={isDark ? 'text-white' : 'text-[#131727]'}>Duel</span>
                 </h1>
@@ -1785,8 +1791,8 @@ function BingoDuelGameContent() {
                       ? 'bg-[#18121f]/90 border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.5)]'
                       : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_20px_rgba(238,29,73,0.05)]'
                   }`}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="relative shrink-0">
                           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-to-br from-[#ee1d49] to-[#f43f5e] text-white flex items-center justify-center font-bold text-sm shadow-xs ring-2 ring-white overflow-hidden">
                             {partner.avatarUrl ? (
@@ -1802,12 +1808,12 @@ function BingoDuelGameContent() {
                             </span>
                           </span>
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase">
+                            <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase whitespace-nowrap">
                               Connected Partner
                             </span>
-                            <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49]" />
+                            <Heart className="w-3 h-3 text-[#ee1d49] fill-[#ee1d49] shrink-0" />
                             <button
                               type="button"
                               onClick={() => setShowFriendDrawer(true)}
@@ -1831,13 +1837,13 @@ function BingoDuelGameContent() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
                         <button
                           type="button"
                           onClick={handlePingPartner}
                           disabled={isPingingPartner}
                           title={`Ping ${partner.displayName || 'partner'}`}
-                          className={`p-2 sm:p-2.5 rounded-xl border transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 ${
+                          className={`p-2.5 rounded-xl border transition shadow-xs cursor-pointer active:scale-95 disabled:opacity-50 shrink-0 ${
                             isDark
                               ? 'border-white/10 bg-white/5 hover:bg-white/10 text-rose-300'
                               : 'border-rose-200 bg-white hover:bg-rose-50 text-rose-600'
@@ -1849,7 +1855,7 @@ function BingoDuelGameContent() {
                           type="button"
                           onClick={() => handlePlayWithPartner()}
                           disabled={isMatchmaking}
-                          className="py-2.5 px-4 sm:px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                          className="flex-1 sm:flex-initial py-2.5 px-4 sm:px-5 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] hover:shadow-[0_6px_20px_rgba(237,28,70,0.35)] transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
                         >
                           <span>{isMatchmaking ? 'Starting...' : 'Play Together'}</span>
                           <span className="text-sm sm:text-base font-bold">→</span>
@@ -1869,16 +1875,16 @@ function BingoDuelGameContent() {
                       : 'bg-[#fff5f7] border border-[#fde4eb] shadow-[0_4px_20px_rgba(238,29,73,0.04)]'
                   }`}>
                     {!showPartnerConnectInput ? (
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center text-[#ee1d49] shrink-0 ${
                             isDark ? 'bg-rose-500/15' : 'bg-[#fee1e7]'
                           }`}>
                             <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1">
-                              <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase">
+                              <span className="text-[10px] font-bold tracking-wider text-[#ee1d49] uppercase whitespace-nowrap">
                                 Play With Partner
                               </span>
                             </div>
@@ -1895,11 +1901,11 @@ function BingoDuelGameContent() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
                           <button
                             type="button"
                             onClick={() => setShowFriendDrawer(true)}
-                            className="py-2 px-3 sm:px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs rounded-xl sm:rounded-2xl shadow-[0_4px_14px_rgba(237,28,70,0.2)] transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                            className="flex-1 sm:flex-initial py-2 px-3 sm:px-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-xs rounded-xl sm:rounded-2xl shadow-[0_4px_14px_rgba(237,28,70,0.2)] transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                           >
                             <Users className="w-3.5 h-3.5" />
                             <span>Choose Friend</span>
@@ -1907,7 +1913,7 @@ function BingoDuelGameContent() {
                           <button
                             type="button"
                             onClick={() => setShowPartnerConnectInput(true)}
-                            className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                            className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition cursor-pointer shrink-0 ${
                               isDark
                                 ? 'border-white/10 text-zinc-300 hover:bg-white/5'
                                 : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'

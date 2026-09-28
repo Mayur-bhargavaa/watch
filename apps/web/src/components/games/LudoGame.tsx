@@ -1397,6 +1397,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       activeStream.getVideoTracks().some(t => t.enabled && t.readyState !== 'ended')
     );
 
+    const initials = p.displayName
+      ? p.displayName
+          .trim()
+          .split(/\s+/)
+          .slice(0, 2)
+          .map(w => w[0])
+          .join('')
+          .toUpperCase() || 'P'
+      : 'P';
+
     return (
       <div className="relative flex flex-col items-center z-30 select-none group">
         {/* Remote audio receiver so we hear opponent speaking */}
@@ -1406,7 +1416,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
         {/* Floating Dark Crystal Card matching Image 2 reference UI */}
         <div
-          className={`relative z-20 flex flex-col items-center justify-between w-[76px] sm:w-20 md:w-24 py-2 sm:py-2.5 px-1 sm:px-2 rounded-2xl sm:rounded-[22px] bg-[#0a0c16]/90 backdrop-blur-xl border transition-all duration-300 shadow-[0_8px_25px_rgba(0,0,0,0.65)] ${
+          className={`relative z-20 flex flex-col items-center justify-between w-9 xs:w-10 sm:w-20 md:w-24 p-0.5 sm:py-2.5 sm:px-2 rounded-full sm:rounded-[22px] bg-[#0a0c16]/90 backdrop-blur-xl border transition-all duration-300 shadow-[0_4px_16px_rgba(0,0,0,0.65)] ${
             isDisconnected
               ? 'opacity-40 grayscale-[60%] border-rose-500/25'
               : isCurrentTurn
@@ -1422,7 +1432,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           {!isMe && (
             <button
               type="button"
-              className="absolute top-1.5 right-1.5 text-white/30 hover:text-white transition p-0.5 cursor-pointer z-30 opacity-0 group-hover:opacity-100"
+              className="hidden sm:block absolute top-1.5 right-1.5 text-white/30 hover:text-white transition p-0.5 cursor-pointer z-30 opacity-0 group-hover:opacity-100"
               onClick={(e) => {
                 e.stopPropagation();
                 onNudgePlayer?.(p.userId, p.displayName);
@@ -1434,17 +1444,17 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           )}
 
           {/* Avatar container with Neon Ring */}
-          <div className="relative shrink-0 mt-0.5">
+          <div className="relative shrink-0 sm:mt-0.5">
             {/* Crown for Host */}
             {isHost && (
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                <Crown className="w-4 h-4 text-amber-300 fill-amber-400 animate-pulse" />
+              <div className="absolute -top-2.5 sm:-top-3.5 left-1/2 -translate-x-1/2 z-30 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                <Crown className="w-3 h-3 sm:w-4 sm:h-4 text-amber-300 fill-amber-400 animate-pulse" />
               </div>
             )}
 
             {/* Refined Gemstone Avatar Ring */}
             <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full p-0.5 border flex items-center justify-center transition-all ${
+              className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-full p-0.5 border flex items-center justify-center transition-all ${
                 (isMe ? !isMicMuted : pStream?.isSpeaking)
                   ? 'ring-2 ring-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
                   : ''
@@ -1456,7 +1466,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               }}
             >
               <div
-                className="w-full h-full rounded-full flex items-center justify-center font-bold text-xs text-white shadow-inner uppercase overflow-hidden relative"
+                className="w-full h-full rounded-full flex items-center justify-center font-black text-[11px] xs:text-xs sm:text-xs text-white shadow-inner uppercase overflow-hidden relative"
                 style={{ backgroundColor: cfg.fill }}
               >
                 {hasLiveVideo && activeStream ? (
@@ -1464,14 +1474,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 ) : p.avatarUrl ? (
                   <img src={p.avatarUrl} alt={p.displayName} className="w-full h-full object-cover" />
                 ) : (
-                  <span>{p.displayName[0]}</span>
+                  <span>{initials}</span>
                 )}
               </div>
             </div>
 
             {/* Connection status indicator dot */}
             <span
-              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full ring-1.5 ring-[#0a0c16] ${
+              className={`absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ring-1 sm:ring-1.5 ring-[#0a0c16] ${
                 p.isConnected ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
               }`}
               title={p.isConnected ? 'Online' : 'Disconnected'}
@@ -1479,32 +1489,32 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           </div>
 
           {/* Player Name / Tag */}
-          <div className="flex flex-col items-center min-w-0 mt-1.5 text-center w-full">
-            <span className="font-bold text-white text-[11px] sm:text-xs md:text-[13px] tracking-wide truncate max-w-[62px] sm:max-w-[70px] md:max-w-[80px] drop-shadow-sm">
+          <div className="hidden sm:flex flex-col items-center min-w-0 mt-1 sm:mt-1.5 text-center w-full">
+            <span className="font-bold text-white text-[10px] xs:text-[11px] sm:text-xs md:text-[13px] tracking-wide truncate max-w-[50px] xs:max-w-[62px] sm:max-w-[70px] md:max-w-[80px] drop-shadow-sm">
               {p.displayName}
             </span>
             {isDisconnected ? (
-              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-400/90 leading-none mt-0.5 flex items-center gap-1">
+              <span className="text-[7px] xs:text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-400/90 leading-none mt-0.5 flex items-center gap-0.5 sm:gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
                 Offline
               </span>
             ) : isCurrentTurn ? (
-              <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-300 leading-none mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+              <span className="text-[7px] xs:text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-300 leading-none mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                 {isMe ? 'Your Turn' : 'Thinking...'}
               </span>
             ) : isMe ? (
-              <span className="text-[8px] sm:text-[9px] font-bold text-white/50 leading-none mt-0.5">
+              <span className="text-[7px] xs:text-[8px] sm:text-[9px] font-bold text-white/50 leading-none mt-0.5">
                 You
               </span>
             ) : (
-              <span className="text-[8px] sm:text-[9px] font-bold text-white/40 leading-none mt-0.5">
+              <span className="text-[7px] xs:text-[8px] sm:text-[9px] font-bold text-white/40 leading-none mt-0.5">
                 Ready!
               </span>
             )}
           </div>
 
           {/* 4-Dot Token Status Tracker matching Image 2 */}
-          <div className="flex items-center justify-center gap-1.5 mt-2 pt-1.5 border-t border-white/10 w-full">
+          <div className="hidden sm:flex items-center justify-center gap-1 sm:gap-1.5 mt-1.5 sm:mt-2 pt-1 sm:pt-1.5 border-t border-white/10 w-full">
             {[0, 1, 2, 3].map((tokenIdx) => {
               const tok = tokens[tokenIdx];
               const isHome = tok && tok.step >= 56;
@@ -1512,7 +1522,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               return (
                 <div
                   key={tokenIdx}
-                  className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-300 ${
+                  className={`w-1.5 h-1.5 xs:w-2 xs:h-2 sm:w-2.5 sm:h-2.5 rounded-full transition-all duration-300 ${
                     isHome
                       ? 'ring-1 ring-white shadow-[0_0_6px_#ffffff] bg-white'
                       : isOnBoard
@@ -1539,7 +1549,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     const p = playerByColor[col];
     // In 2-player mode or unassigned seats, render invisible spacer to anchor opponent
     if (!p && (room?.maxPlayers === 2 || !isColorInGame(col))) {
-      return <div className="w-[76px] sm:w-20 md:w-24 pointer-events-none invisible" aria-hidden="true" />;
+      return <div className="w-9 h-9 xs:w-10 xs:h-10 sm:w-20 sm:h-auto md:w-24 pointer-events-none invisible" aria-hidden="true" />;
     }
     return renderCornerBadge(col, phys === 0 || phys === 3 ? 'left' : 'right');
   }, [getColorAtPhysicalCorner, playerByColor, room?.maxPlayers, isColorInGame]);
@@ -1563,18 +1573,24 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
       {/* Board & Side Player Arena Container */}
       <div
-        className="relative w-full max-w-5xl flex flex-col items-center select-none my-2 sm:my-3 px-2 sm:px-4"
+        className="relative w-full max-w-5xl flex flex-col items-center select-none my-0.5 sm:my-3 px-1 xs:px-2 sm:px-4"
       >
+        {/* Mobile Top Players Row (Opposite each other: Corner 0 on Left, Corner 1 on Right) */}
+        <div className="flex sm:hidden w-full items-center justify-between px-2 mb-1 z-20 max-w-[min(calc(100vw-16px),calc(100dvh-230px),440px)] xs:max-w-[min(calc(100vw-24px),calc(100dvh-230px),450px)]">
+          {renderPlayerAtPhysicalCorner(0)}
+          {renderPlayerAtPhysicalCorner(1)}
+        </div>
+
         {/* 3-Column Arena: Left Players | Center Board | Right Players */}
-        <div className="w-full flex items-center justify-center gap-2 sm:gap-3.5 md:gap-6">
-          {/* Left Side Players: Corner 0 (Top-Left) and Corner 3 (Bottom-Left / "You") */}
-          <div className="flex flex-col justify-between self-stretch shrink-0 py-1 sm:py-2 z-20">
+        <div className="w-full flex items-center justify-center gap-1.5 xs:gap-2 sm:gap-3.5 md:gap-6">
+          {/* Left Side Players: Corner 0 (Top-Left) and Corner 3 (Bottom-Left / "You") - Desktop only */}
+          <div className="hidden sm:flex flex-col justify-between self-stretch shrink-0 py-1 sm:py-2 z-20">
             {renderPlayerAtPhysicalCorner(0)}
             {renderPlayerAtPhysicalCorner(3)}
           </div>
 
           {/* Center: Luxury Dark Mahogany & Obsidian Ludo Board Block matching reference image */}
-          <div className="relative w-full aspect-square max-w-[min(calc(100vw-180px),calc(100dvh-230px),480px)] sm:max-w-[min(calc(100vw-220px),calc(100dvh-220px),510px)] md:max-w-[min(calc(100vw-260px),calc(100dvh-200px),540px)] rounded-[32px] sm:rounded-[36px] p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
+          <div className="relative w-full aspect-square max-w-[min(calc(100vw-16px),calc(100dvh-230px),440px)] xs:max-w-[min(calc(100vw-24px),calc(100dvh-230px),450px)] sm:max-w-[min(calc(100vw-220px),calc(100dvh-220px),510px)] md:max-w-[min(calc(100vw-260px),calc(100dvh-200px),540px)] rounded-[22px] xs:rounded-[28px] sm:rounded-[36px] p-1.5 xs:p-2.5 sm:p-3.5 bg-gradient-to-br from-[#2a222f] via-[#1a1b24] to-[#101118] border-2 sm:border-[3px] border-[#3e3447] shadow-[0_25px_60px_rgba(0,0,0,0.85),0_10px_25px_rgba(0,0,0,0.65),inset_0_1px_2px_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300">
           {/* 3D Rolling Center Dice */}
           {centerDiceAnimation && !animatingPawn && gameState.diceValue !== null && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-50">
@@ -2702,17 +2718,23 @@ export const LudoGame: React.FC<LudoGameProps> = ({
 
           </div>
 
-          {/* Right Side Players: Corner 1 (Top-Right / Opponent) and Corner 2 (Bottom-Right) */}
-          <div className="flex flex-col justify-between self-stretch shrink-0 py-1 sm:py-2 z-20">
+          {/* Right Side Players: Corner 1 (Top-Right / Opponent) and Corner 2 (Bottom-Right) - Desktop only */}
+          <div className="hidden sm:flex flex-col justify-between self-stretch shrink-0 py-1 sm:py-2 z-20">
             {renderPlayerAtPhysicalCorner(1)}
             {renderPlayerAtPhysicalCorner(2)}
           </div>
         </div>
+
+        {/* Mobile Bottom Players Row (Opposite each other: Corner 3 on Left, Corner 2 on Right) */}
+        <div className="flex sm:hidden w-full items-center justify-between px-2 mt-1 z-20 max-w-[min(calc(100vw-16px),calc(100dvh-230px),440px)] xs:max-w-[min(calc(100vw-24px),calc(100dvh-230px),450px)]">
+          {renderPlayerAtPhysicalCorner(3)}
+          {renderPlayerAtPhysicalCorner(2)}
+        </div>
       </div>
 
         {/* BOTTOM CONTROLS (Undo button, Luxury Crimson & Gold Dice Button, Emoji button) */}
-        <div className="w-full flex flex-col items-center mt-4 sm:mt-5 max-w-xs sm:max-w-sm px-2 z-20">
-          <div className="text-amber-100/90 font-sans font-bold text-xs sm:text-sm tracking-wider uppercase mb-2 text-center select-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+        <div className="w-full flex flex-col items-center mt-1 sm:mt-4 max-w-xs sm:max-w-sm px-2 z-20">
+          <div className="text-amber-100/90 font-sans font-bold text-[11px] sm:text-sm tracking-wider uppercase mb-1 sm:mb-2 text-center select-none drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
             {gameState.winnerColor ? (
               <span className="inline-flex items-center justify-center gap-1.5">
                 <Trophy className="w-4 h-4 text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" />
@@ -2728,7 +2750,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           </div>
 
           {/* Central 3D Crimson Dice Control Button */}
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex flex-col items-center gap-1 sm:gap-1.5">
             <button
               type="button"
               onClick={() => {
@@ -2768,7 +2790,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   setTimeout(() => setJustNudged(false), 2500);
                 }
               }}
-              className={`w-18 h-18 sm:w-22 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer active:scale-95 ${
+              className={`w-14 h-14 sm:w-20 sm:h-22 rounded-full flex flex-col items-center justify-center transition-all duration-200 select-none cursor-pointer active:scale-95 ${
                 canRoll
                   ? 'bg-gradient-to-br from-[#b91c1c] via-[#991b1b] to-[#7f1d1d] shadow-[0_10px_25px_rgba(0,0,0,0.6),0_0_20px_rgba(185,28,28,0.4)] border-2 border-amber-400/60 animate-pulse'
                   : canMove
@@ -2781,7 +2803,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               }`}
             >
               {/* 3D Royal Crimson Cube with Gold-Tinted Pip Trim */}
-              <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#dc2626] to-[#7f1d1d] border border-amber-200/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu ${
+              <div className={`w-7 h-7 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-gradient-to-br from-[#dc2626] to-[#7f1d1d] border border-amber-200/40 shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_10px_rgba(0,0,0,0.4)] flex items-center justify-center transform-gpu ${
                 isRollingDice 
                   ? 'animate-dice-spin' 
                   : justNudged 

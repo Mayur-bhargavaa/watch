@@ -98,25 +98,25 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
 
-      <div className="w-full max-w-md bg-[#0e101a] border border-white/10 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative z-10 text-center animate-in zoom-in-95 duration-200">
+      <div className="w-full max-w-sm sm:max-w-md bg-[#0e101a] border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-7 space-y-3.5 sm:space-y-5 shadow-2xl relative z-10 text-center animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto">
         
         {/* Trophy Icon */}
         <div className="relative flex justify-center">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500/20 via-rose-500/20 to-transparent border border-amber-500/30 flex items-center justify-center text-4xl shadow-[0_0_30px_rgba(238,29,73,0.3)] animate-bounce">
+          <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-amber-500/20 via-rose-500/20 to-transparent border border-amber-500/30 flex items-center justify-center text-2xl sm:text-3xl shadow-[0_0_24px_rgba(238,29,73,0.3)] animate-pulse">
             🏆
           </div>
         </div>
 
         {/* Title & Banner */}
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-[#ee1d49] text-[10px] font-black uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/10 text-[#ee1d49] text-[10px] font-black uppercase tracking-wider">
+            <Sparkles className="w-3 h-3" />
             <span>{isHousefull ? 'HOUSEFULL VICTORY' : conditionWon?.conditionName || 'BINGO CLAIM'}</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
             {winnerDisplayName} Wins!
           </h2>
           <p className="text-xs text-zinc-400">
@@ -126,7 +126,7 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
 
         {/* Final Score Board */}
         {Object.keys(finalScores).length > 0 && (
-          <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-2.5">
+          <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/10 space-y-2">
             <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
               FINAL SCORE
             </div>
@@ -143,7 +143,7 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
                   <span className="text-xs font-bold truncate max-w-[120px]">
                     {uid === myUserId ? 'You' : winnerDisplayName}
                   </span>
-                  <span className="text-xl font-black font-mono mt-0.5 text-white">
+                  <span className="text-lg sm:text-xl font-black font-mono mt-0.5 text-white">
                     {score} <span className="text-[10px] text-rose-400 font-sans">pts</span>
                   </span>
                 </div>
@@ -185,17 +185,17 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
         )}
 
         {/* Action Buttons */}
-        <div className="flex flex-col gap-2 pt-2">
+        <div className="flex flex-col gap-2 pt-1 sm:pt-2">
           <button
             type="button"
             onClick={onRematch}
-            className={`w-full py-3.5 px-6 rounded-2xl text-white font-black text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 cursor-pointer ${
+            className={`w-full py-3 sm:py-3.5 px-4 sm:px-6 rounded-xl sm:rounded-2xl text-white font-black text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 cursor-pointer ${
               hasVoted
                 ? 'bg-zinc-700 opacity-70 cursor-not-allowed'
-                : 'bg-gradient-to-r from-rose-600 to-[#ee1d49] hover:brightness-110 shadow-rose-600/30'
+                : 'bg-gradient-to-r from-rose-600 to-[#ee1d49] hover:brightness-110 shadow-rose-600/30 active:scale-[0.98]'
             }`}
           >
-            <RotateCcw className={`w-4 h-4 ${hasVoted ? 'animate-spin' : ''}`} />
+            <RotateCcw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${hasVoted ? 'animate-spin' : ''}`} />
             <span>
               {hasVoted
                 ? 'Returning to Waiting Room...'
@@ -210,9 +210,9 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
               <button
                 type="button"
                 onClick={onBackToPlan}
-                className="py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs transition flex items-center justify-center gap-1.5"
+                className="py-2.5 px-2 sm:px-3 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 cursor-pointer"
               >
-                <Calendar className="w-3.5 h-3.5 text-violet-400" />
+                <Calendar className="w-3.5 h-3.5 text-violet-400 shrink-0" />
                 <span>Back to Plan</span>
               </button>
             )}
@@ -220,11 +220,11 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
             <button
               type="button"
               onClick={onBackToLobby}
-              className={`py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs transition flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 px-2 sm:px-3 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs transition flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 cursor-pointer ${
                 !onBackToPlan ? 'col-span-2' : ''
               }`}
             >
-              <Gamepad2 className="w-3.5 h-3.5 text-rose-400" />
+              <Gamepad2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
               <span>Game Lobby</span>
             </button>
           </div>

@@ -109,7 +109,7 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
   };
 
   return (
-    <div className="relative h-screen max-h-screen w-full flex flex-col justify-between overflow-hidden transition-colors bg-[#fdf8f6] dark:bg-[#0c0f1d] text-slate-800 dark:text-white select-none">
+    <div className="relative min-h-screen min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto transition-colors bg-[#fdf8f6] dark:bg-[#0c0f1d] text-slate-800 dark:text-white select-none">
       {/* Warm creative workspace ambient background matching reference image */}
       <div className="fixed inset-0 pointer-events-none z-0 select-none overflow-hidden">
         {/* Clean photo layer (no containers, pure workspace) */}
@@ -128,7 +128,7 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
       </div>
 
       {/* Main Container */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full p-2.5 sm:p-3 md:px-5 md:py-3 h-full max-h-screen">
+      <div className="relative z-10 flex-1 flex flex-col justify-between max-w-6xl mx-auto w-full p-2.5 sm:p-3 md:px-5 md:py-3 min-h-full gap-3 sm:gap-4">
         {/* 1. Header */}
         <WatchHeader
           roomCode={room.roomCode}
@@ -147,8 +147,8 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
           onBackToGames={() => router.push('/games')}
         />
 
-        {/* 2. Main Layout matching Reference UI (Single Screen No-Scroll) */}
-        <main className="flex-1 my-auto py-2 sm:py-3 flex flex-col lg:flex-row gap-4 sm:gap-6 items-center justify-center max-w-5xl mx-auto w-full min-h-0">
+        {/* 2. Main Layout matching Reference UI (Single Screen No-Scroll on desktop, scrollable on mobile) */}
+        <main className="flex-1 my-0 sm:my-auto py-2 sm:py-3 flex flex-col lg:flex-row gap-4 sm:gap-6 items-center justify-center max-w-5xl mx-auto w-full min-h-0">
           {/* Left Column: Game Info, How to Play */}
           <div className="w-full lg:w-[280px] xl:w-[300px] shrink-0 flex flex-col gap-3 order-2 lg:order-1">
             <GameOverview isDark={isDark} />
@@ -166,7 +166,7 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
             />
 
             {/* Player Cards & VS Indicator */}
-            <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3.5 relative">
+            <div className="w-full flex flex-row items-center justify-center gap-1.5 sm:gap-3.5 relative">
               {/* Left Card: You (Host or Player) */}
               <PlayerCard
                 isCurrentUser={true}

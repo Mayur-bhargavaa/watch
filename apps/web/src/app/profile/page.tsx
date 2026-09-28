@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { AppSidebar } from '../../components/layout/AppSidebar';
+import { AppHeader } from '../../components/layout/AppHeader';
 import {
   getStoredSession,
   clearStoredSession,
@@ -534,67 +535,12 @@ function ProfileContent() {
       <div className="flex-1 flex flex-col h-screen overflow-y-auto px-4 sm:px-8 py-6 space-y-6">
         
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center space-x-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsMobileSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
-              title="Open Menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm"
-              title="Back to Dashboard"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => router.forward()}
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm"
-              title="Forward"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <form
-            onSubmit={handleSearchSubmit}
-            className="flex-1 max-w-xl flex items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-4 py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm"
-          >
-            <Search className="w-4 h-4 text-slate-400 dark:text-zinc-400 shrink-0 mr-2.5" />
-            <input
-              type="text"
-              placeholder="Search cinema or room invite code..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none w-full text-xs placeholder-slate-400 dark:placeholder-zinc-500 text-slate-900 dark:text-white font-mono text-[11px]"
-            />
-          </form>
-
-          <div className="flex items-center space-x-2.5 shrink-0">
-            <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm">
-              <Users className="w-3.5 h-3.5 text-rose-600" />
-              <span>Max 6 per room</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm active:scale-95"
-              title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
-              aria-label="Toggle theme mode"
-            >
-              {resolvedTheme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform duration-300" />
-              ) : (
-                <Moon className="w-4 h-4 text-indigo-600 hover:-rotate-12 transition-transform duration-300" />
-              )}
-            </button>
-          </div>
-        </div>
+        <AppHeader
+          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSearchSubmit={handleSearchSubmit}
+        />
 
         {/* ========================================================================= */}
         {/* 3. TWO CONTAINERS: 1) PROFILE & DETAILS  2) 3D FLIP PASS                 */}
