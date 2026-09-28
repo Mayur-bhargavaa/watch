@@ -17,7 +17,8 @@ import {
   PartnerConnection,
   GameRoomStatus,
   LudoColor,
-  LudoGameState
+  LudoGameState,
+  ActiveDeviceSession
 } from '@synccinema/common';
 
 export interface FriendStreak {
@@ -163,6 +164,7 @@ export class DatabaseService {
         favorite_genres TEXT,
         viewing_vibe TEXT,
         age INTEGER,
+        active_device TEXT,
         created_at TEXT NOT NULL
       );
 
@@ -465,6 +467,10 @@ export class DatabaseService {
     } catch {}
 
     try {
+      this.db.exec("ALTER TABLE users ADD COLUMN active_device TEXT");
+    } catch {}
+
+    try {
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS username_change_history (
           id TEXT PRIMARY KEY,
@@ -710,6 +716,12 @@ export class DatabaseService {
         favoriteGenres = JSON.parse(row.favorite_genres);
       } catch {}
     }
+    let activeDevice: ActiveDeviceSession | undefined = undefined;
+    if (row.active_device) {
+      try {
+        activeDevice = JSON.parse(row.active_device);
+      } catch {}
+    }
     return {
       id: row.id,
       email: row.email,
@@ -728,6 +740,7 @@ export class DatabaseService {
       favoriteGenres,
       viewingVibe: row.viewing_vibe || null,
       age: row.age != null ? Number(row.age) : null,
+      activeDevice: activeDevice || null,
       createdAt: row.created_at
     };
   }
@@ -806,6 +819,11 @@ export class DatabaseService {
     );
 
     return this.getUserById(id);
+  }
+
+  updateUserActiveDevice(userId: string, device: ActiveDeviceSession): void {
+    const stmt = this.db.prepare(`UPDATE users SET active_device = ? WHERE id = ?`);
+    stmt.run(JSON.stringify(device), userId);
   }
 
   // --- Media ---

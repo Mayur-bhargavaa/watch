@@ -9,7 +9,7 @@ import { RoomSyncManager } from './sync/RoomSyncManager.js';
 import { GameRoomManager } from './games/GameRoomManager.js';
 import { GAME_DEFINITIONS } from './games/GameDefinitions.js';
 import { PresenceManager } from './services/PresenceManager.js';
-import { detectProviderFromUrl, User, GameType } from '@synccinema/common';
+import { detectProviderFromUrl, User, GameType, ActiveDeviceSession } from '@synccinema/common';
 import { mongoLogger } from './services/mongoLogger.js';
 
 function resolveGameType(raw?: string): GameType {
@@ -53,7 +53,7 @@ export async function createServer(dbPath = './synccinema.db') {
   const db = new DatabaseService(dbPath);
   const syncManager = new RoomSyncManager(db);
   const gameRoomManager = new GameRoomManager(db);
-  const presenceManager = new PresenceManager(mongoDb);
+  const presenceManager = new PresenceManager(mongoDb, db);
 
   await app.register(cors, {
     origin: true,
@@ -102,7 +102,17 @@ export async function createServer(dbPath = './synccinema.db') {
   });
 
   app.post('/api/auth/login', async (request, reply) => {
-    const body = (request.body || {}) as { email?: string; password?: string; displayName?: string };
+    const body = (request.body || {}) as {
+      email?: string;
+      password?: string;
+      displayName?: string;
+      deviceInfo?: {
+        deviceId?: string;
+        deviceType?: 'mobile' | 'desktop' | 'tablet';
+        deviceToken?: string;
+        browserName?: string;
+      };
+    };
     if (!body.email) {
       return reply.code(400).send({ error: 'Email is required' });
     }
@@ -131,6 +141,22 @@ export async function createServer(dbPath = './synccinema.db') {
     }
 
     const user = existing.user;
+    if (body.deviceInfo && (body.deviceInfo.deviceId || body.deviceInfo.deviceType)) {
+      const activeSession: ActiveDeviceSession = {
+        deviceId: body.deviceInfo.deviceId || `device_${Date.now()}`,
+        deviceType: body.deviceInfo.deviceType || 'desktop',
+        deviceToken: body.deviceInfo.deviceToken,
+        browserName: body.deviceInfo.browserName,
+        lastActiveAt: Date.now()
+      };
+      await mongoDb.updateUserActiveDevice(user.id, activeSession);
+      try {
+        db.updateUserActiveDevice(user.id, activeSession);
+      } catch {}
+      await presenceManager.setActiveDevice(user.id, activeSession);
+      user.activeDevice = activeSession;
+    }
+
     const token = app.jwt.sign({
       id: user.id,
       email: user.email,
@@ -1347,6 +1373,47 @@ export async function createServer(dbPath = './synccinema.db') {
     };
   });
 
+  // Active Notification Device Registration & Switcher
+  app.post('/api/notifications/device-token', async (request, reply) => {
+    let userId: string | null = null;
+    try {
+      const authHeader = request.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const decoded = app.jwt.verify(authHeader.substring(7)) as any;
+        userId = decoded.id;
+      }
+    } catch {}
+
+    const body = (request.body || {}) as {
+      userId?: string;
+      deviceId?: string;
+      deviceType?: 'mobile' | 'desktop' | 'tablet';
+      deviceToken?: string;
+      browserName?: string;
+    };
+
+    const targetUserId = userId || body.userId;
+    if (!targetUserId) {
+      return reply.code(400).send({ error: 'Missing userId or authorization header' });
+    }
+
+    const activeSession: ActiveDeviceSession = {
+      deviceId: body.deviceId || `device_${Date.now()}`,
+      deviceType: body.deviceType || 'desktop',
+      deviceToken: body.deviceToken,
+      browserName: body.browserName,
+      lastActiveAt: Date.now()
+    };
+
+    await mongoDb.updateUserActiveDevice(targetUserId, activeSession);
+    try {
+      db.updateUserActiveDevice(targetUserId, activeSession);
+    } catch {}
+    await presenceManager.setActiveDevice(targetUserId, activeSession);
+
+    return { success: true, activeDevice: activeSession };
+  });
+
   // --- Plans Endpoints ---
   app.get('/api/plans', async (request, reply) => {
     const plans = await mongoDb.getPlans();
@@ -1632,6 +1699,10 @@ export async function createServer(dbPath = './synccinema.db') {
     const token = url.searchParams.get('token');
     const guestName = url.searchParams.get('guestName');
     const guestIdParam = url.searchParams.get('guestId');
+    const deviceId = url.searchParams.get('deviceId') || undefined;
+    const deviceType = (url.searchParams.get('deviceType') as any) || undefined;
+    const deviceToken = url.searchParams.get('deviceToken') || undefined;
+    const browserName = url.searchParams.get('browserName') || undefined;
 
     let user: { id: string; displayName: string; partnerCode?: string; avatarUrl?: string | null };
 
@@ -1659,7 +1730,12 @@ export async function createServer(dbPath = './synccinema.db') {
       };
     }
 
-    presenceManager.registerSocket(ws, user);
+    presenceManager.registerSocket(ws, user, {
+      deviceId,
+      deviceType,
+      deviceToken,
+      browserName
+    });
   });
 
   return { app, db, syncManager, gameRoomManager, presenceManager };

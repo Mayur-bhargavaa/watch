@@ -60,7 +60,7 @@ export async function createServer(dbPath = './synccinema.db') {
     const db = new DatabaseService(dbPath);
     const syncManager = new RoomSyncManager(db);
     const gameRoomManager = new GameRoomManager(db);
-    const presenceManager = new PresenceManager(mongoDb);
+    const presenceManager = new PresenceManager(mongoDb, db);
     await app.register(cors, {
         origin: true,
         credentials: true
@@ -125,6 +125,22 @@ export async function createServer(dbPath = './synccinema.db') {
             return reply.code(401).send({ error: 'Incorrect password. Please try again or reset your password.' });
         }
         const user = existing.user;
+        if (body.deviceInfo && (body.deviceInfo.deviceId || body.deviceInfo.deviceType)) {
+            const activeSession = {
+                deviceId: body.deviceInfo.deviceId || `device_${Date.now()}`,
+                deviceType: body.deviceInfo.deviceType || 'desktop',
+                deviceToken: body.deviceInfo.deviceToken,
+                browserName: body.deviceInfo.browserName,
+                lastActiveAt: Date.now()
+            };
+            await mongoDb.updateUserActiveDevice(user.id, activeSession);
+            try {
+                db.updateUserActiveDevice(user.id, activeSession);
+            }
+            catch { }
+            await presenceManager.setActiveDevice(user.id, activeSession);
+            user.activeDevice = activeSession;
+        }
         const token = app.jwt.sign({
             id: user.id,
             email: user.email,
@@ -1161,6 +1177,37 @@ export async function createServer(dbPath = './synccinema.db') {
             }
         };
     });
+    // Active Notification Device Registration & Switcher
+    app.post('/api/notifications/device-token', async (request, reply) => {
+        let userId = null;
+        try {
+            const authHeader = request.headers.authorization;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                const decoded = app.jwt.verify(authHeader.substring(7));
+                userId = decoded.id;
+            }
+        }
+        catch { }
+        const body = (request.body || {});
+        const targetUserId = userId || body.userId;
+        if (!targetUserId) {
+            return reply.code(400).send({ error: 'Missing userId or authorization header' });
+        }
+        const activeSession = {
+            deviceId: body.deviceId || `device_${Date.now()}`,
+            deviceType: body.deviceType || 'desktop',
+            deviceToken: body.deviceToken,
+            browserName: body.browserName,
+            lastActiveAt: Date.now()
+        };
+        await mongoDb.updateUserActiveDevice(targetUserId, activeSession);
+        try {
+            db.updateUserActiveDevice(targetUserId, activeSession);
+        }
+        catch { }
+        await presenceManager.setActiveDevice(targetUserId, activeSession);
+        return { success: true, activeDevice: activeSession };
+    });
     // --- Plans Endpoints ---
     app.get('/api/plans', async (request, reply) => {
         const plans = await mongoDb.getPlans();
@@ -1402,6 +1449,10 @@ export async function createServer(dbPath = './synccinema.db') {
         const token = url.searchParams.get('token');
         const guestName = url.searchParams.get('guestName');
         const guestIdParam = url.searchParams.get('guestId');
+        const deviceId = url.searchParams.get('deviceId') || undefined;
+        const deviceType = url.searchParams.get('deviceType') || undefined;
+        const deviceToken = url.searchParams.get('deviceToken') || undefined;
+        const browserName = url.searchParams.get('browserName') || undefined;
         let user;
         if (token) {
             try {
@@ -1428,7 +1479,12 @@ export async function createServer(dbPath = './synccinema.db') {
                 displayName: guestName || `Guest_${nanoid(4)}`
             };
         }
-        presenceManager.registerSocket(ws, user);
+        presenceManager.registerSocket(ws, user, {
+            deviceId,
+            deviceType,
+            deviceToken,
+            browserName
+        });
     });
     return { app, db, syncManager, gameRoomManager, presenceManager };
 }

@@ -220,7 +220,7 @@ function FourInARowContent() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showDrawModal, setShowDrawModal] = useState(false);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
@@ -429,24 +429,39 @@ function FourInARowContent() {
   const isMicOn = !isMicMuted;
 
   const [isPipMinimized, setIsPipMinimized] = useState(false);
-  const [isPipClosed, setIsPipClosed] = useState(false);
+  const [isPipClosed, setIsPipClosed] = useState(true);
   const [pipPosition, setPipPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDraggingPip, setIsDraggingPip] = useState(false);
   const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
   const pipRef = useRef<HTMLDivElement>(null);
 
-  // Position floating call window at bottom-left of Room Info Card by default
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+
+  // Position floating call window: auto-closed on mobile by default to keep the board clear
   useEffect(() => {
-    if (typeof window !== 'undefined' && pipPosition === null) {
-      if (window.innerWidth >= 1024) {
-        // Desktop: Left side directly below Room Info Card
-        setPipPosition({ x: 32, y: 205 });
+    if (typeof window !== 'undefined') {
+      const checkScreen = () => {
+        setIsMobileScreen(window.innerWidth < 1024);
+      };
+      const isMobile = window.innerWidth < 1024;
+      setIsMobileScreen(isMobile);
+      if (isMobile) {
+        setIsPipClosed(true);
+        setIsPipMinimized(true);
+        if (pipPosition === null) {
+          setPipPosition({ x: 16, y: Math.max(120, window.innerHeight - 170) });
+        }
       } else {
-        // Mobile / Tablet: Left bottom corner of screen
-        setPipPosition({ x: 16, y: Math.max(120, window.innerHeight - 170) });
+        setIsPipClosed(false);
+        if (pipPosition === null) {
+          setPipPosition({ x: 32, y: 205 });
+        }
       }
+
+      window.addEventListener('resize', checkScreen);
+      return () => window.removeEventListener('resize', checkScreen);
     }
-  }, [pipPosition]);
+  }, []);
 
   const handlePipDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('button, input, select')) return;
@@ -1219,7 +1234,7 @@ function FourInARowContent() {
                     }
                   );
                 }}
-                className={`px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-2 font-semibold text-xs transition-all active:scale-95 group ${
+                className={`px-2.5 xs:px-3.5 py-1.5 rounded-xl border shadow-xs flex items-center gap-1.5 xs:gap-2 font-semibold text-xs transition-all active:scale-95 group cursor-pointer ${
                   isDark
                     ? 'bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white border-white/[0.08]'
                     : 'bg-zinc-100 hover:bg-zinc-200/80 text-zinc-700 hover:text-zinc-950 border-zinc-200'
@@ -1227,7 +1242,8 @@ function FourInARowContent() {
                 title="Leave Match"
               >
                 <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-                <span>Leave Match</span>
+                <span className="hidden xs:inline">Leave Match</span>
+                <span className="xs:hidden">Leave</span>
               </button>
             ) : (
               <div className="flex items-center gap-2 text-xs">
@@ -1265,123 +1281,131 @@ function FourInARowContent() {
             )}
           </div>
 
-          {/* Center Header: Room Param or Call Pill */}
+          {/* Center Header: Room Param or Call Pill (hidden on < sm to prevent mobile collision) */}
           {roomParam && (
-            <div className="flex items-center gap-2">
-              <div className={`px-3 py-1 rounded-full border flex items-center gap-2 font-mono text-xs ${
+            <div className="hidden sm:flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <div className={`px-2.5 sm:px-3 py-1 rounded-full border flex items-center gap-1.5 sm:gap-2 font-mono text-[11px] sm:text-xs ${
                 isDark ? 'bg-white/[0.04] border-white/[0.08] text-zinc-300' : 'bg-zinc-100 border-zinc-200 text-zinc-800'
               }`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span>Room: <strong className={isDark ? 'text-white font-bold' : 'text-zinc-900 font-bold'}>{roomParam}</strong></span>
               </div>
               {isPipClosed && (
                 <button
+                  type="button"
                   onClick={() => setIsPipClosed(false)}
-                  className="px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-xs font-semibold flex items-center gap-1.5 transition"
+                  className="px-2.5 sm:px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shrink-0"
                   title="Open Floating Video Call"
                 >
-                  <Video className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Show Video</span>
+                  <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span className="hidden md:inline">Show Video</span>
                 </button>
               )}
             </div>
           )}
 
           {/* Right: Controls & Theme Toggle */}
-          <div className="flex items-center gap-2">
-            {/* Audio SFX Toggle */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Audio SFX Toggle (hidden on mobile, in settings) */}
             <button
+              type="button"
               onClick={() => {
                 setSoundEnabled(!soundEnabled);
                 triggerSound('click');
               }}
               title={soundEnabled ? 'Mute SFX' : 'Enable SFX'}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+              className={`hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition items-center justify-center shadow-xs cursor-pointer ${
                 isDark
                   ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
                   : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
               }`}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4 text-zinc-400" />}
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" />}
             </button>
 
             {/* Microphone Toggle Button */}
             {roomParam && (
               <button
+                type="button"
                 onClick={toggleMic}
-                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
                   isMicMuted
                     ? (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500 hover:text-zinc-800')
                     : 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-400 ring-2 ring-emerald-500/20'
                 }`}
                 title={isMicMuted ? 'Unmute Microphone' : 'Mute Microphone'}
               >
-                {isMicMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isMicMuted ? <MicOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
             )}
 
-            {/* Video / Camera Toggle Button */}
+            {/* Video Call Window Toggle Button */}
             {roomParam && (
               <button
-                onClick={() => {
-                  toggleCamera();
-                  if (isPipClosed) setIsPipClosed(false);
-                }}
-                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
-                  isCameraOn
+                type="button"
+                onClick={() => setIsPipClosed(!isPipClosed)}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
+                  !isPipClosed
                     ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-400 ring-2 ring-rose-500/20'
                     : (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-400 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-500 hover:text-zinc-800')
                 }`}
-                title={isCameraOn ? 'Turn Off Camera' : 'Turn On Camera'}
+                title={!isPipClosed ? 'Hide Video Call' : 'Open Video Call'}
               >
-                {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                {!isPipClosed ? <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VideoOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
             )}
 
             {/* Chat Drawer Toggle */}
             {roomParam && (
               <button
+                type="button"
                 onClick={() => setIsChatOpen(!isChatOpen)}
-                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer relative ${
                   isChatOpen
                     ? 'bg-rose-600 border-rose-500 text-white'
                     : (isDark ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950')
                 }`}
-                title="Toggle Chat"
+                title={isChatOpen ? 'Close Chat' : 'Open Chat'}
               >
-                <MessageSquare className="w-4 h-4" />
+                <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                {chatMessages.length > 0 && !isChatOpen && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 border border-black animate-pulse" />
+                )}
               </button>
             )}
 
             {/* Theme Toggle (Light / Dark) */}
             <button
+              type="button"
               onClick={toggleTheme}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+              className={`hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition items-center justify-center shadow-xs cursor-pointer ${
                 isDark
                   ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-amber-400'
                   : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-amber-600'
               }`}
               title={`Switch to ${isDark ? 'Light' : 'Dark'} Theme`}
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             </button>
 
             {/* Rules Modal (?) */}
             <button
+              type="button"
               onClick={() => setShowRulesModal(true)}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
                 isDark
                   ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
                   : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
               }`}
-              title="Four in a Row Rules"
+              title="Game Rules & Guide"
             >
-              <HelpCircle className="w-4 h-4" />
+              <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" />
             </button>
 
             {/* Rematch / Restart Button */}
             {roomParam && isPlayingOrFinished && (
               <button
+                type="button"
                 onClick={() => {
                   triggerSound('click');
                   if (gameState?.winnerDisc || isDraw) {
@@ -1399,28 +1423,29 @@ function FourInARowContent() {
                     );
                   }
                 }}
-                className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
                   isDark
                     ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
                     : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
                 }`}
                 title="Rematch"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             )}
 
             {/* Settings Modal (⚙) */}
             <button
+              type="button"
               onClick={() => setShowSettingsModal(true)}
-              className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
                 isDark
                   ? 'bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.08] text-zinc-300 hover:text-white'
                   : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-200 text-zinc-700 hover:text-zinc-950'
               }`}
               title="Settings"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </header>
@@ -2035,7 +2060,7 @@ function FourInARowContent() {
               </p>
 
               {/* Room Code Card */}
-              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-4 sm:p-4.5 flex items-center justify-between gap-3 mb-5 shadow-inner">
+              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-4 sm:p-4.5 flex flex-col xs:flex-row items-stretch xs:items-center justify-between gap-3 mb-5 shadow-inner">
                 <div className="text-left min-w-0">
                   <span className="text-[10px] font-bold text-zinc-400 tracking-wider uppercase block">
                     ROOM CODE
@@ -2061,7 +2086,7 @@ function FourInARowContent() {
                   <button
                     type="button"
                     onClick={handleCopyRoomLink}
-                    className="py-2.5 px-4 sm:px-5 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(255,43,94,0.4)] transition active:scale-95 flex items-center gap-2 cursor-pointer"
+                    className="flex-1 xs:flex-initial py-2.5 px-4 sm:px-5 bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-[0_4px_16px_rgba(255,43,94,0.4)] transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Share2 className="w-4 h-4" />
                     <span>{copiedRoomLink ? 'Link Copied!' : 'Share Link'}</span>
@@ -2130,7 +2155,7 @@ function FourInARowContent() {
               </div>
 
               {/* Partner Quick-Invite Container */}
-              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-inner">
+              <div className="w-full bg-[#161220]/90 border border-white/10 rounded-2xl p-3 sm:p-3.5 flex flex-col xs:flex-row items-stretch xs:items-center justify-between gap-3 shadow-inner">
                 {partner ? (
                   <>
                     <div className="flex items-center gap-3 min-w-0">
@@ -2199,19 +2224,20 @@ function FourInARowContent() {
             SCENARIO 3: ACTIVE PLAYING / FINISHED MATCH (Exact 3-Column Layout of Ludo)
            ----------------------------------------------------------------------- */}
         {roomParam && isPlayingOrFinished && (
-          <div className="w-full flex flex-col lg:flex-row items-start justify-between gap-6 relative">
+          <div className="w-full flex flex-col lg:flex-row items-center lg:items-start justify-center lg:justify-between gap-4 sm:gap-6 relative">
             {/* Left Column: Floating Room Code Card & Ambient Neon Quotes */}
-            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-6">
+            <div className="w-full lg:w-64 shrink-0 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1">
               {/* Floating Room Code Card */}
-              <div className="p-4 rounded-3xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-xl backdrop-blur-xl">
+              <div className="p-3.5 sm:p-4 rounded-3xl bg-[#1d0c18]/90 border border-rose-500/25 shadow-xl backdrop-blur-xl">
                 <div className="flex items-center justify-between">
                   <div className="text-left">
                     <span className="text-[10px] uppercase tracking-wider text-rose-300/60 font-mono">ROOM CODE</span>
-                    <div className="text-xl font-black text-rose-100 font-mono">{room.roomCode}</div>
+                    <div className="text-lg sm:text-xl font-black text-rose-100 font-mono">{room.roomCode}</div>
                   </div>
                   <button
+                    type="button"
                     onClick={handleCopyRoomCode}
-                    className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-rose-300 transition"
+                    className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-rose-300 transition cursor-pointer"
                     title="Copy Room Code"
                   >
                     {copiedRoomCode ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -2240,25 +2266,25 @@ function FourInARowContent() {
             </div>
 
             {/* Center Column: The 3D Chassis Board with Flanking Player Video Cards */}
-            <div className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center">
+            <div className="flex-1 w-full max-w-3xl mx-auto flex flex-col items-center order-1 lg:order-2">
               {/* Turn Banner with Active Turn Indicator */}
-              <div className="w-full max-w-lg mb-3 flex items-center justify-between px-4 py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
+              <div className="w-full max-w-lg mb-2.5 sm:mb-3 flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
                 <div className="flex items-center gap-2">
-                  <span className={`w-3 h-3 rounded-full ${gameState.currentTurnSeat === 0 ? 'bg-rose-500' : 'bg-yellow-400'} animate-pulse`} />
-                  <span className="text-xs font-black tracking-wide uppercase text-white">
+                  <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${gameState.currentTurnSeat === 0 ? 'bg-rose-500' : 'bg-yellow-400'} animate-pulse`} />
+                  <span className="text-[11px] sm:text-xs font-black tracking-wide uppercase text-white">
                     {gameState.currentTurnSeat === 0 ? "🔴 RED'S TURN" : "🟡 YELLOW'S TURN"}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 font-mono text-xs text-rose-300 font-bold">
+                <div className="flex items-center gap-2 font-mono text-[10px] sm:text-xs text-rose-300 font-bold">
                   <span>MOVE #{gameState.moveCount || 0}</span>
                 </div>
               </div>
 
               {/* Flanking Player Cards (Host Red on Left, Guest Yellow on Right) */}
-              <div className="w-full max-w-xl flex items-center justify-between gap-4 mb-3">
+              <div className="w-full max-w-xl flex items-center justify-between gap-2 sm:gap-4 mb-2.5 sm:mb-3">
                 {/* Player 1: Host Red */}
                 <div
-                  className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
+                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-2xl transition-all ${
                     gameState.currentTurnSeat === 0
                       ? 'bg-rose-500/25 border-2 border-rose-400 shadow-xl shadow-rose-600/30 scale-105'
                       : 'bg-black/40 border border-white/10 opacity-75'
@@ -2274,13 +2300,13 @@ function FourInARowContent() {
                         </svg>
                       </div>
                     )}
-                    <div className="w-12 h-12 rounded-full p-0.5 border-2 border-rose-400 bg-black/60 flex items-center justify-center overflow-hidden">
+                    <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-rose-400 bg-black/60 flex items-center justify-center overflow-hidden">
                       {hasHostLiveVideo && hostActiveStream ? (
                         <VideoAvatar stream={hostActiveStream} isSelf={isHostMe} displayName={hostPlayer?.displayName || 'Host'} />
                       ) : (hostPlayer?.avatarUrl && !hostPlayer.avatarUrl.includes('bottts')) ? (
                         <img src={hostPlayer.avatarUrl} alt="Host" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-tr from-rose-600 to-amber-600 flex items-center justify-center text-white font-black text-sm">
+                        <div className="w-full h-full bg-gradient-to-tr from-rose-600 to-amber-600 flex items-center justify-center text-white font-black text-xs sm:text-sm">
                           {hostPlayer?.displayName?.[0]?.toUpperCase() || 'R'}
                         </div>
                       )}
@@ -2289,44 +2315,44 @@ function FourInARowContent() {
                     {hostPlayer && hostPlayer.userId !== effectiveUserId && hostStream?.stream && (
                       <RemoteAudioPlayer stream={hostStream.stream} />
                     )}
-                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-rose-600 border-2 border-black flex items-center justify-center text-[8px] font-black">
+                    <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-rose-600 border-2 border-black flex items-center justify-center text-[7px] sm:text-[8px] font-black">
                       🔴
                     </span>
                   </div>
                   <div className="text-left">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-black text-white truncate max-w-[100px]">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <span className="text-[11px] sm:text-xs font-black text-white truncate max-w-[70px] xs:max-w-[90px] sm:max-w-[110px]">
                         {hostPlayer?.displayName || 'Player 1'}
                       </span>
-                      {hostPlayer?.userId === effectiveUserId && <span className="text-[9px] text-rose-300">(You)</span>}
+                      {hostPlayer?.userId === effectiveUserId && <span className="text-[8px] sm:text-[9px] text-rose-300">(You)</span>}
                     </div>
-                    <span className="text-[10px] text-rose-300/80 font-mono">Red Team</span>
+                    <span className="text-[9px] sm:text-[10px] text-rose-300/80 font-mono">Red Team</span>
                   </div>
                 </div>
 
                 {/* VS Badge */}
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-black text-xs flex items-center justify-center shadow-lg">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-black text-[10px] sm:text-xs flex items-center justify-center shadow-lg">
                     VS
                   </div>
                 </div>
 
                 {/* Player 2: Guest Yellow */}
                 <div
-                  className={`flex items-center gap-3 p-3 rounded-2xl transition-all ${
+                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-2xl transition-all ${
                     gameState.currentTurnSeat === 1
                       ? 'bg-yellow-500/25 border-2 border-yellow-400 shadow-xl shadow-yellow-600/30 scale-105'
                       : 'bg-black/40 border border-white/10 opacity-75'
                   }`}
                 >
                   <div className="text-right">
-                    <div className="flex items-center gap-1.5 justify-end">
-                      {guestPlayer?.userId === effectiveUserId && <span className="text-[9px] text-yellow-300">(You)</span>}
-                      <span className="text-xs font-black text-white truncate max-w-[100px]">
+                    <div className="flex items-center gap-1 sm:gap-1.5 justify-end">
+                      {guestPlayer?.userId === effectiveUserId && <span className="text-[8px] sm:text-[9px] text-yellow-300">(You)</span>}
+                      <span className="text-[11px] sm:text-xs font-black text-white truncate max-w-[70px] xs:max-w-[90px] sm:max-w-[110px]">
                         {guestPlayer?.displayName || 'Player 2'}
                       </span>
                     </div>
-                    <span className="text-[10px] text-yellow-300/80 font-mono">Yellow Team</span>
+                    <span className="text-[9px] sm:text-[10px] text-yellow-300/80 font-mono">Yellow Team</span>
                   </div>
                   <div className="relative shrink-0">
                     {/* Floating Golden Arrow Pointer */}
@@ -2338,13 +2364,13 @@ function FourInARowContent() {
                         </svg>
                       </div>
                     )}
-                    <div className="w-12 h-12 rounded-full p-0.5 border-2 border-yellow-400 bg-black/60 flex items-center justify-center overflow-hidden">
+                    <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full p-0.5 border-2 border-yellow-400 bg-black/60 flex items-center justify-center overflow-hidden">
                       {hasGuestLiveVideo && guestActiveStream ? (
                         <VideoAvatar stream={guestActiveStream} isSelf={isGuestMe} displayName={guestPlayer?.displayName || 'Guest'} />
                       ) : (guestPlayer?.avatarUrl && !guestPlayer.avatarUrl.includes('bottts')) ? (
                         <img src={guestPlayer.avatarUrl} alt="Guest" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full bg-gradient-to-tr from-amber-500 to-yellow-600 flex items-center justify-center text-slate-950 font-black text-sm">
+                        <div className="w-full h-full bg-gradient-to-tr from-amber-500 to-yellow-600 flex items-center justify-center text-slate-950 font-black text-xs sm:text-sm">
                           {guestPlayer?.displayName?.[0]?.toUpperCase() || 'Y'}
                         </div>
                       )}
@@ -2353,7 +2379,7 @@ function FourInARowContent() {
                     {guestPlayer && guestPlayer.userId !== effectiveUserId && guestStream?.stream && (
                       <RemoteAudioPlayer stream={guestStream.stream} />
                     )}
-                    <span className="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-yellow-500 border-2 border-black flex items-center justify-center text-[8px] font-black">
+                    <span className="absolute -bottom-1 -left-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-yellow-500 border-2 border-black flex items-center justify-center text-[7px] sm:text-[8px] font-black">
                       🟡
                     </span>
                   </div>
@@ -2361,20 +2387,20 @@ function FourInARowContent() {
               </div>
 
               {/* The 7x6 3D Arcade Board Chassis */}
-              <div className="relative p-4 sm:p-6 rounded-[36px] bg-gradient-to-b from-[#1b1c2b] via-[#121320] to-[#0c0d16] border-4 border-white/15 shadow-2xl shadow-rose-950/40 flex flex-col items-center">
+              <div className="relative p-2.5 xs:p-4 sm:p-6 rounded-[28px] sm:rounded-[36px] bg-gradient-to-b from-[#1b1c2b] via-[#121320] to-[#0c0d16] border-2 sm:border-4 border-white/15 shadow-2xl shadow-rose-950/40 flex flex-col items-center max-w-full">
                 {/* Column Hover Previews Header Row */}
-                <div className="grid grid-cols-7 gap-2 sm:gap-3.5 w-full max-w-md sm:max-w-lg mb-2">
+                <div className="grid grid-cols-7 gap-1.5 xs:gap-2 sm:gap-3.5 w-full max-w-full mb-1.5 sm:mb-2">
                   {Array.from({ length: COLS }).map((_, c) => (
                     <div
                       key={`preview-${c}`}
-                      className="h-8 flex items-center justify-center"
+                      className="h-6 sm:h-8 flex items-center justify-center cursor-pointer"
                       onMouseEnter={() => setHoveredCol(c)}
                       onMouseLeave={() => setHoveredCol(null)}
                       onClick={() => handleColumnClick(c)}
                     >
                       {isMyTurn && hoveredCol === c && boardState[0][c] === null && (
                         <div
-                          className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full shadow-lg animate-bounce transition-all ${
+                          className={`w-5 h-5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 rounded-full shadow-lg animate-bounce transition-all ${
                             myColor === 'R'
                               ? 'bg-gradient-to-br from-rose-500 to-red-700 shadow-rose-500/50'
                               : 'bg-gradient-to-br from-yellow-300 to-amber-500 shadow-yellow-400/50'
@@ -2386,12 +2412,12 @@ function FourInARowContent() {
                 </div>
 
                 {/* The Blue 3D Grid Chassis */}
-                <div className="relative p-3.5 sm:p-5 rounded-3xl bg-gradient-to-b from-blue-700 via-blue-800 to-blue-950 border-4 border-blue-500 shadow-inner shadow-black/60">
-                  <div className="grid grid-cols-7 gap-2 sm:gap-3.5">
+                <div className="relative p-2 xs:p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-blue-700 via-blue-800 to-blue-950 border-2 sm:border-4 border-blue-500 shadow-inner shadow-black/60 max-w-full">
+                  <div className="grid grid-cols-7 gap-1.5 xs:gap-2 sm:gap-3.5">
                     {Array.from({ length: COLS }).map((_, c) => (
                       <div
                         key={`col-${c}`}
-                        className="flex flex-col gap-2 sm:gap-3.5 cursor-pointer group"
+                        className="flex flex-col gap-1.5 xs:gap-2 sm:gap-3.5 cursor-pointer group"
                         onMouseEnter={() => setHoveredCol(c)}
                         onMouseLeave={() => setHoveredCol(null)}
                         onClick={() => handleColumnClick(c)}
@@ -2405,7 +2431,7 @@ function FourInARowContent() {
                           return (
                             <div
                               key={`cell-${r}-${c}`}
-                              className="relative w-9 h-9 sm:w-14 sm:h-14 rounded-full bg-[#0b0c16] shadow-inner shadow-black flex items-center justify-center overflow-hidden border border-blue-900/60 group-hover:border-blue-400/40 transition"
+                              className="relative w-8 h-8 xs:w-9 xs:h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-[#0b0c16] shadow-inner shadow-black flex items-center justify-center overflow-hidden border border-blue-900/60 group-hover:border-blue-400/40 transition"
                             >
                               {!cell && (
                                 <div className="absolute inset-1 rounded-full bg-black/40 shadow-inner" />
@@ -2437,18 +2463,17 @@ function FourInARowContent() {
                 </div>
 
                 {/* 3D Vertical Stand Legs */}
-                <div className="flex justify-between w-full px-6 -mt-2">
-                  <div className="w-6 h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
-                  <div className="w-6 h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
+                <div className="flex justify-between w-full px-4 sm:px-6 -mt-1.5 sm:-mt-2">
+                  <div className="w-4 sm:w-6 h-6 sm:h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
+                  <div className="w-4 sm:w-6 h-6 sm:h-8 bg-blue-950 rounded-b-xl border-x-2 border-b-2 border-blue-500 shadow-lg" />
                 </div>
               </div>
 
-
             </div>
 
-            {/* Right Column: Floating Game Chat & Audio/Video Call Window (Exact replica of Ludo) */}
-            {isChatOpen && (
-              <div className="w-full lg:w-80 shrink-0 bg-[#1c0c16]/65 border border-rose-500/25 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex flex-col h-[580px] backdrop-blur-xl relative">
+            {/* Right Column: Floating Game Chat & Audio/Video Call Window (Desktop Only) */}
+            {isChatOpen && !isMobileScreen && (
+              <div className="hidden lg:flex w-full lg:w-80 shrink-0 bg-[#1c0c16]/65 border border-rose-500/25 rounded-3xl p-4 shadow-[0_20px_50px_rgba(0,0,0,0.6)] flex-col h-[580px] backdrop-blur-xl relative order-3">
                 {/* Header */}
                 <div className="pb-3 border-b border-rose-500/20 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -2793,7 +2818,7 @@ function FourInARowContent() {
             })()}
 
             {/* Action Buttons: Home & Rematch */}
-            <div className="flex gap-2.5 pt-2">
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-2.5 pt-2">
               {/* Go Home */}
               <button
                 type="button"
@@ -3222,6 +3247,253 @@ function FourInARowContent() {
                 className="w-full py-4 bg-[#185df2] hover:bg-[#144ecc] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(24,93,242,0.25)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>{isJoiningRoom ? 'Connecting...' : 'Join Game Now'}</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Slide-Over Chat Drawer (< lg) - Root Level Viewport Portal */}
+      {roomParam && isChatOpen && isMobileScreen && (
+        <div className="fixed inset-0 z-50 overflow-hidden select-none lg:hidden pointer-events-auto">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity cursor-pointer"
+            onClick={() => setIsChatOpen(false)}
+          />
+
+          {/* Slide-over Panel */}
+          <div className="absolute inset-y-0 right-0 w-[calc(100vw-2.5rem)] xs:w-[350px] sm:w-[380px] max-w-full bg-[#160b13]/98 border-l border-rose-500/25 shadow-2xl backdrop-blur-2xl flex flex-col h-full h-[100dvh] animate-in slide-in-from-right duration-200">
+            {/* Header */}
+            <div className="p-3.5 border-b border-rose-500/20 flex items-center justify-between shrink-0 bg-white/[0.02]">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-white shadow-md shadow-rose-950/40">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white leading-none">Game Chat</h3>
+                  <p className="text-[10px] text-rose-300/70 mt-0.5 font-medium">Live table messages & stickers</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsChatOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+                title="Close Chat"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Chat Stream */}
+            <div
+              ref={chatContainerRef}
+              onScroll={handleChatScroll}
+              className="flex-1 min-h-0 overflow-y-auto space-y-3 py-2.5 px-3 text-xs scrollbar-none"
+            >
+              {chatMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-rose-300/60 py-12">
+                  <Heart className="w-8 h-8 mb-2 text-rose-500/40" />
+                  <p className="text-xs font-medium">Say something sweet or drop a sticker!</p>
+                </div>
+              ) : (
+                chatMessages.map(m => {
+                  const isMe = m.userId === session?.user?.id;
+                  const isSticker = parseStickerMessage(m.content);
+                  const isHighlighted = highlightedMsgId === m.id;
+                  return (
+                    <div
+                      key={m.id}
+                      id={`four-chat-msg-mobile-${m.id}`}
+                      className={`group relative flex items-start gap-2.5 p-1.5 my-0.5 rounded-2xl transition-all duration-300 ${
+                        isHighlighted ? 'ring-2 ring-inset ring-rose-500/80 bg-rose-500/15 shadow-[0_0_15px_rgba(244,63,94,0.35)]' : ''
+                      }`}
+                    >
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 text-white font-bold text-xs flex items-center justify-center shadow shrink-0">
+                        {m.userName[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[11px] font-bold text-rose-200 truncate">
+                            {isMe ? `${m.userName} (You)` : m.userName}
+                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[9px] text-zinc-400 font-mono">
+                              {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReplyingTo({ id: m.id, userName: m.userName, content: m.content });
+                                chatInputRef.current?.focus({ preventScroll: true });
+                              }}
+                              className="opacity-70 active:opacity-100 p-0.5 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+                              title="Reply to this message"
+                            >
+                              <CornerUpLeft className="w-3 h-3 text-rose-300" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Quoted reply card if replying to another message */}
+                        {m.replyTo && (
+                          <ChatReplyQuote
+                            replyTo={m.replyTo}
+                            onJumpToMessage={handleJumpToMessage}
+                            accentColor="rose"
+                          />
+                        )}
+
+                        {isSticker ? (
+                          <StickerMessageView content={m.content} />
+                        ) : (
+                          <div className="p-2 rounded-2xl bg-white/10 border border-white/10 text-rose-100 text-xs break-words">
+                            {m.content}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Quick Reactions & Phrases & Stickers */}
+            <div className="pt-2 pb-1.5 px-3 space-y-2 border-t border-rose-500/20 bg-black/20 shrink-0">
+              {/* Quick Reactions */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {EMOJI_REACTIONS.map(emoji => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => sendReaction(emoji)}
+                    className="w-8 h-8 rounded-xl bg-white/5 hover:bg-rose-500/20 active:scale-95 transition-all text-base shrink-0 border border-white/10 hover:border-rose-400/40 flex items-center justify-center shadow-sm"
+                    title={`React with ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Chat Phrases */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {QUICK_CHAT_PHRASES.map(phrase => (
+                  <button
+                    key={phrase}
+                    type="button"
+                    onClick={() => {
+                      sendChat(phrase, replyingTo);
+                      setReplyingTo(null);
+                    }}
+                    className="px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/25 active:scale-95 text-[11px] font-medium text-rose-200 shrink-0 border border-rose-500/20 whitespace-nowrap transition-all shadow-sm"
+                  >
+                    {phrase}
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Stickers */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none pt-0.5">
+                <span className="text-[10px] text-rose-300/80 font-bold uppercase tracking-wider shrink-0 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  <span>Stickers:</span>
+                </span>
+                {FEATURED_QUICK_STICKERS.map(st => (
+                  <button
+                    key={st.id}
+                    type="button"
+                    onClick={() => handleSelectSticker(st.id, st.tagline)}
+                    className="h-9 px-2 rounded-xl bg-white/5 hover:bg-rose-500/25 active:scale-95 transition-all flex items-center gap-1.5 border border-white/10 hover:border-rose-400/50 shrink-0 group shadow-sm"
+                    title={`Send ${st.name} sticker`}
+                  >
+                    <img src={st.gifUrl} alt={st.name} className="w-6 h-6 object-contain group-hover:scale-115 transition-transform" />
+                    <span className="text-[9px] font-bold text-rose-200">{st.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Floating Sticker Tray Drawer Popup */}
+            {showStickerPicker && (
+              <div className="absolute bottom-16 right-2 left-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                <StickerPicker
+                  onSelectSticker={handleSelectSticker}
+                  onOpenDrawModal={() => {
+                    setShowStickerPicker(false);
+                    setShowDrawModal(true);
+                  }}
+                  onClose={() => setShowStickerPicker(false)}
+                />
+              </div>
+            )}
+
+            {/* Interactive Hand-Drawn Animated Sticker Modal */}
+            <DrawStickerModal
+              isOpen={showDrawModal}
+              onClose={() => setShowDrawModal(false)}
+              onSendDrawnSticker={(formattedMessage) => {
+                sendChat(formattedMessage, replyingTo);
+                setReplyingTo(null);
+              }}
+            />
+
+            {/* Replying Banner */}
+            {replyingTo && (
+              <div className="px-3 pt-2 bg-black/30">
+                <ChatReplyingBanner
+                  replyingTo={replyingTo}
+                  onCancel={() => setReplyingTo(null)}
+                />
+              </div>
+            )}
+
+            {/* Chat Input Bar */}
+            <form onSubmit={handleSendChat} className="p-2.5 sm:p-3 border-t border-rose-500/20 flex items-center gap-2 bg-[#0e0a12] shrink-0">
+              <div className="flex-1 relative flex items-center">
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape' && replyingTo) {
+                      setReplyingTo(null);
+                    }
+                  }}
+                  placeholder={replyingTo ? `Replying to ${replyingTo.userName}...` : "Type a message or send stickers..."}
+                  className="w-full pl-3.5 pr-16 py-2.5 rounded-2xl bg-white/5 border border-white/15 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-rose-400"
+                />
+                <div className="absolute right-2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowStickerPicker(prev => !prev)}
+                    className={`p-1 rounded-lg transition-colors ${
+                      showStickerPicker
+                        ? 'text-pink-300 bg-pink-500/20 ring-1 ring-pink-400/40'
+                        : 'text-zinc-400 hover:text-pink-300 hover:bg-white/10'
+                    }`}
+                    title="Open Animated GIPHY Stickers Drawer"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawModal(true)}
+                    className="p-1 rounded-lg text-pink-400 hover:text-white hover:bg-rose-500/20 transition-all cursor-pointer relative active:scale-95"
+                    title="Draw animated sticker"
+                  >
+                    <Palette className="w-4 h-4 text-pink-400 transition-colors" />
+                  </button>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={!chatInput.trim()}
+                className="p-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 disabled:opacity-40 text-white active:scale-95 shadow-md shadow-rose-900/50 transition shrink-0 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
               </button>
             </form>
           </div>

@@ -80,6 +80,7 @@ export class DatabaseService {
         favorite_genres TEXT,
         viewing_vibe TEXT,
         age INTEGER,
+        active_device TEXT,
         created_at TEXT NOT NULL
       );
 
@@ -381,6 +382,10 @@ export class DatabaseService {
         }
         catch { }
         try {
+            this.db.exec("ALTER TABLE users ADD COLUMN active_device TEXT");
+        }
+        catch { }
+        try {
             this.db.exec(`
         CREATE TABLE IF NOT EXISTS username_change_history (
           id TEXT PRIMARY KEY,
@@ -598,6 +603,13 @@ export class DatabaseService {
             }
             catch { }
         }
+        let activeDevice = undefined;
+        if (row.active_device) {
+            try {
+                activeDevice = JSON.parse(row.active_device);
+            }
+            catch { }
+        }
         return {
             id: row.id,
             email: row.email,
@@ -616,6 +628,7 @@ export class DatabaseService {
             favoriteGenres,
             viewingVibe: row.viewing_vibe || null,
             age: row.age != null ? Number(row.age) : null,
+            activeDevice: activeDevice || null,
             createdAt: row.created_at
         };
     }
@@ -659,6 +672,10 @@ export class DatabaseService {
     `);
         stmt.run(updates.displayName ?? null, updates.avatarUrl ?? null, updates.dateOfBirth ?? null, updates.anniversaryDate ?? null, updates.isMarried !== undefined ? (updates.isMarried ? 1 : 0) : null, updates.relationshipStatus ?? null, updates.gender ?? null, updates.pronouns ?? null, updates.location ?? null, updates.bio ?? null, updates.favoriteGenres !== undefined ? JSON.stringify(updates.favoriteGenres) : null, updates.viewingVibe ?? null, updates.age ?? null, id);
         return this.getUserById(id);
+    }
+    updateUserActiveDevice(userId, device) {
+        const stmt = this.db.prepare(`UPDATE users SET active_device = ? WHERE id = ?`);
+        stmt.run(JSON.stringify(device), userId);
     }
     // --- Media ---
     createOrGetMedia(media) {

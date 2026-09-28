@@ -1,4 +1,5 @@
-import type { GameRoom, User, GameType } from '@synccinema/common';
+import type { GameRoom, User, GameType, ActiveDeviceSession } from '@synccinema/common';
+import { getClientDeviceInfo, ClientDeviceInfo } from './deviceToken';
 
 const isClient = typeof window !== 'undefined';
 const isRemoteClient = isClient && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -20,6 +21,7 @@ export interface UserSession {
     partnerCode?: string;
     avatarUrl?: string;
     isAnonymous: boolean;
+    activeDevice?: ActiveDeviceSession | null;
     dateOfBirth?: string | null;
     anniversaryDate?: string | null;
     isMarried?: boolean | null;
@@ -96,10 +98,11 @@ export async function setPassword(email: string, newPassword: string): Promise<U
 }
 
 export async function loginUser(email: string, password?: string, displayName?: string): Promise<UserSession> {
+  const deviceInfo = typeof window !== 'undefined' ? getClientDeviceInfo() : undefined;
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, displayName })
+    body: JSON.stringify({ email, password, displayName, deviceInfo })
   });
 
   if (!res.ok) {
@@ -114,6 +117,37 @@ export async function loginUser(email: string, password?: string, displayName?: 
   const session = (await res.json()) as UserSession;
   setStoredSession(session);
   return session;
+}
+
+export async function recordActiveDeviceToken(
+  info?: Partial<ClientDeviceInfo>
+): Promise<{ success: boolean; activeDevice: ActiveDeviceSession } | null> {
+  try {
+    const session = getStoredSession();
+    const token = session?.token;
+    const device = { ...getClientDeviceInfo(), ...info };
+
+    const res = await fetch(`${API_BASE}/api/notifications/device-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        userId: session?.user?.id,
+        ...device
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (session && data.activeDevice) {
+      session.user.activeDevice = data.activeDevice;
+      setStoredSession(session);
+    }
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 export interface RegisterPayload {

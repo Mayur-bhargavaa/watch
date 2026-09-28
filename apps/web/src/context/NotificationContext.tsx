@@ -2,10 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredSession, UserSession, getGameRoute, getGameTitle } from '../lib/api';
+import { getStoredSession, UserSession, getGameRoute, getGameTitle, recordActiveDeviceToken } from '../lib/api';
 import { getRandomRoast, RoastCategory } from '../lib/roastMessages';
 import { ChatStore } from '../lib/chatStore';
 import { CallSignaling } from '../lib/callSignaling';
+import { ActiveDeviceSession } from '@synccinema/common';
+import { getClientDeviceInfo, ClientDeviceInfo } from '../lib/deviceToken';
 
 export interface AppNotification {
   id: string;
@@ -26,6 +28,11 @@ interface NotificationContextValue {
   permission: NotificationPermission | 'unsupported';
   showPermissionModal: boolean;
   activeToast: AppNotification | null;
+  activeDevice: ActiveDeviceSession | null;
+  currentDevice: ClientDeviceInfo;
+  isMobileActive: boolean;
+  isCurrentDeviceActive: boolean;
+  switchToThisDevice: () => Promise<void>;
   requestPermission: () => Promise<boolean>;
   dismissPermissionModal: () => void;
   markAsRead: (id: string) => void;
@@ -87,12 +94,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
   const [activeToast, setActiveToast] = useState<AppNotification | null>(null);
+  const [activeDevice, setActiveDevice] = useState<ActiveDeviceSession | null>(null);
+  const currentDevice = useRef<ClientDeviceInfo>(getClientDeviceInfo()).current;
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const seenMessageIdsRef = useRef<Set<string>>(new Set());
 
-  // Load notifications from local storage on mount + bootstrap Chrome notifications
+  // Load notifications from local storage on mount + bootstrap Chrome notifications & active device
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -103,6 +112,19 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
     } catch {}
+
+    // Initialize active device from session and sync with server
+    const session = getStoredSession();
+    if (session?.user?.activeDevice) {
+      setActiveDevice(session.user.activeDevice);
+    }
+    if (session?.token) {
+      recordActiveDeviceToken().then((res) => {
+        if (res?.activeDevice) {
+          setActiveDevice(res.activeDevice);
+        }
+      }).catch(() => {});
+    }
 
     // Register Service Worker (required for Chrome OS-level desktop banners)
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -136,6 +158,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     async (notif: AppNotification) => {
       if (typeof window === 'undefined' || !('Notification' in window)) return;
       if (Notification.permission !== 'granted') return;
+
+      // Smart Device Routing:
+      // If current device is NOT mobile (e.g. laptop or desktop) and user's active notification device is mobile,
+      // suppress OS-level desktop popup banners on the laptop!
+      if (currentDevice.deviceType !== 'mobile' && activeDevice?.deviceType === 'mobile') {
+        console.log('[Notification] Suppressed desktop OS popup: Active notification device is mobile');
+        return;
+      }
 
       const iconUrl = new URL('/logos/direct.png', window.location.origin).href;
       const options: NotificationOptions = {
@@ -176,7 +206,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         } catch {}
       }
     },
-    [router]
+    [router, activeDevice, currentDevice]
   );
 
   // Add notification, play sound, show in-app toast, and fire Chrome desktop popup
@@ -197,8 +227,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return updated;
       });
 
-      // Play audio chime
-      playChimeSound();
+      // Play audio chime (suppressed on laptop if user is currently active on mobile)
+      if (currentDevice.deviceType === 'mobile' || activeDevice?.deviceType !== 'mobile') {
+        playChimeSound();
+      }
 
       // Show in-app toast
       setActiveToast(newNotif);
@@ -207,10 +239,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setActiveToast(null);
       }, 6500);
 
-      // Fire Chrome desktop popup (only if permission granted)
+      // Fire Chrome desktop popup (only if permission granted and not suppressed)
       dispatchDesktopNotification(newNotif);
     },
-    [dispatchDesktopNotification]
+    [dispatchDesktopNotification, activeDevice, currentDevice]
   );
 
   // Request browser notification permission (shows OS prompt)
@@ -300,7 +332,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsHost = window.location.host;
-      const url = `${wsProtocol}//${wsHost}/ws/presence?${token ? `token=${encodeURIComponent(token)}` : `guestId=${encodeURIComponent(guestId || '')}&guestName=${encodeURIComponent(guestName || '')}`}`;
+      const queryParams = new URLSearchParams();
+      if (token) queryParams.set('token', token);
+      if (guestId) queryParams.set('guestId', guestId);
+      if (guestName) queryParams.set('guestName', guestName);
+      queryParams.set('deviceId', currentDevice.deviceId);
+      queryParams.set('deviceType', currentDevice.deviceType);
+      queryParams.set('deviceToken', currentDevice.deviceToken);
+      queryParams.set('browserName', currentDevice.browserName);
+
+      const url = `${wsProtocol}//${wsHost}/ws/presence?${queryParams.toString()}`;
 
       try {
         const ws = new WebSocket(url);
@@ -328,6 +369,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           try {
             const data = JSON.parse(event.data);
             if (!data || !data.type) return;
+
+            // Handle Connected Event & sync active notification device
+            if (data.type === 'presence:connected' && data.activeDevice) {
+              setActiveDevice(data.activeDevice);
+            }
+
+            // Handle Active Device Changed Event
+            if (data.type === 'presence:active_device_changed' && data.activeDevice) {
+              setActiveDevice(data.activeDevice);
+            }
 
             // Handle Real-Time Voice & Video Calling Signaling
             if (typeof data.type === 'string' && data.type.startsWith('call:')) {
@@ -473,8 +524,27 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (socketRef.current) socketRef.current.close();
     };
-  }, [pushNotification]);
+  }, [pushNotification, currentDevice]);
 
+  const switchToThisDevice = useCallback(async () => {
+    try {
+      const res = await recordActiveDeviceToken();
+      if (res?.activeDevice) {
+        setActiveDevice(res.activeDevice);
+      }
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'presence:activate_device',
+            ...currentDevice
+          })
+        );
+      }
+    } catch {}
+  }, [currentDevice]);
+
+  const isMobileActive = activeDevice?.deviceType === 'mobile';
+  const isCurrentDeviceActive = !activeDevice || activeDevice.deviceId === currentDevice.deviceId;
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
@@ -485,6 +555,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         permission,
         showPermissionModal,
         activeToast,
+        activeDevice,
+        currentDevice,
+        isMobileActive,
+        isCurrentDeviceActive,
+        switchToThisDevice,
         requestPermission,
         dismissPermissionModal,
         markAsRead,

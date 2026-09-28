@@ -1,16 +1,73 @@
 import { WebSocket } from 'ws';
 import { extractParticipantIdsFromConvId, toCanonicalConvId } from '../db/database.js';
 import { MongoDatabaseService } from '../db/mongoDatabase.js';
+import { DatabaseService } from '../db/database.js';
+import { ActiveDeviceSession, DeviceType } from '@synccinema/common';
+
+export interface ClientSocketInfo {
+  ws: WebSocket;
+  deviceId?: string;
+  deviceType?: DeviceType;
+  deviceToken?: string;
+  browserName?: string;
+  connectedAt: number;
+}
 
 export class PresenceManager {
   private db?: MongoDatabaseService;
+  private sqliteDb?: DatabaseService;
   // userId -> Set of active WebSockets (one user could have multiple tabs/devices)
   private userSockets = new Map<string, Set<WebSocket>>();
+  // socket -> device metadata
+  private socketInfo = new WeakMap<WebSocket, ClientSocketInfo>();
+  // userId -> active device session for notifications
+  private userActiveDevices = new Map<string, ActiveDeviceSession>();
   // userId -> timestamp (ms) of last activity/heartbeat
   private lastSeen = new Map<string, number>();
 
-  constructor(db?: MongoDatabaseService) {
+  constructor(db?: MongoDatabaseService, sqliteDb?: DatabaseService) {
     this.db = db;
+    this.sqliteDb = sqliteDb;
+  }
+
+  /**
+   * Sets and broadcasts the active device session for a user
+   */
+  public async setActiveDevice(userId: string, device: ActiveDeviceSession): Promise<void> {
+    this.userActiveDevices.set(userId, device);
+    if (this.db) {
+      try {
+        await this.db.updateUserActiveDevice(userId, device);
+      } catch (err) {
+        console.error('Failed to update active device in mongo:', err);
+      }
+    }
+    if (this.sqliteDb) {
+      try {
+        this.sqliteDb.updateUserActiveDevice(userId, device);
+      } catch {}
+    }
+
+    // Broadcast active device change to all connected sockets of this user
+    const sockets = this.userSockets.get(userId);
+    if (sockets && sockets.size > 0) {
+      const payload = JSON.stringify({
+        type: 'presence:active_device_changed',
+        userId,
+        activeDevice: device
+      });
+      for (const s of sockets) {
+        if (s.readyState === 1) {
+          try {
+            s.send(payload);
+          } catch {}
+        }
+      }
+    }
+  }
+
+  public getActiveDevice(userId: string): ActiveDeviceSession | undefined {
+    return this.userActiveDevices.get(userId);
   }
 
   /**
@@ -18,7 +75,13 @@ export class PresenceManager {
    */
   public async registerSocket(
     ws: WebSocket,
-    user: { id: string; displayName: string; partnerCode?: string; avatarUrl?: string | null; photoUrl?: string | null; avatar?: string | null }
+    user: { id: string; displayName: string; partnerCode?: string; avatarUrl?: string | null; photoUrl?: string | null; avatar?: string | null },
+    clientDevice?: {
+      deviceId?: string;
+      deviceType?: DeviceType;
+      deviceToken?: string;
+      browserName?: string;
+    }
   ): Promise<void> {
     if (!this.userSockets.has(user.id)) {
       this.userSockets.set(user.id, new Set());
@@ -26,13 +89,50 @@ export class PresenceManager {
     this.userSockets.get(user.id)!.add(ws);
     this.lastSeen.set(user.id, Date.now());
 
-    // Send initial connection ack + list of currently online user IDs
+    if (clientDevice) {
+      this.socketInfo.set(ws, {
+        ws,
+        deviceId: clientDevice.deviceId,
+        deviceType: clientDevice.deviceType || 'desktop',
+        deviceToken: clientDevice.deviceToken,
+        browserName: clientDevice.browserName,
+        connectedAt: Date.now()
+      });
+    }
+
+    // Determine current active device
+    let activeDev = this.userActiveDevices.get(user.id);
+    if (!activeDev && this.db) {
+      try {
+        const dbUser = await this.db.getUserById(user.id);
+        if (dbUser?.activeDevice) {
+          activeDev = dbUser.activeDevice;
+          this.userActiveDevices.set(user.id, activeDev);
+        }
+      } catch {}
+    }
+
+    // If connecting from mobile, or if no active device is set yet, record this device as active
+    if (clientDevice && (clientDevice.deviceType === 'mobile' || !activeDev)) {
+      const newActive: ActiveDeviceSession = {
+        deviceId: clientDevice.deviceId || `device_${Date.now()}`,
+        deviceType: clientDevice.deviceType || 'desktop',
+        deviceToken: clientDevice.deviceToken,
+        browserName: clientDevice.browserName,
+        lastActiveAt: Date.now()
+      };
+      await this.setActiveDevice(user.id, newActive);
+      activeDev = newActive;
+    }
+
+    // Send initial connection ack + activeDevice + list of currently online user IDs
     try {
       const onlineUserIds = Array.from(this.userSockets.keys());
       ws.send(
         JSON.stringify({
           type: 'presence:connected',
           userId: user.id,
+          activeDevice: activeDev || null,
           timestamp: Date.now()
         })
       );
@@ -87,6 +187,20 @@ export class PresenceManager {
         if (msg.type === 'presence:heartbeat' || msg.type === 'presence:ping') {
           this.recordHeartbeat(user.id);
           ws.send(JSON.stringify({ type: 'presence:ack', timestamp: Date.now() }));
+        }
+
+        // Explicit or client-driven device activation
+        if (msg.type === 'presence:activate_device') {
+          const clientInfo = this.socketInfo.get(ws);
+          const devType = msg.deviceType || clientInfo?.deviceType || 'desktop';
+          const newActive: ActiveDeviceSession = {
+            deviceId: msg.deviceId || clientInfo?.deviceId || `device_${Date.now()}`,
+            deviceType: devType,
+            deviceToken: msg.deviceToken || clientInfo?.deviceToken,
+            browserName: msg.browserName || clientInfo?.browserName,
+            lastActiveAt: Date.now()
+          };
+          await this.setActiveDevice(user.id, newActive);
         }
 
         // Live Direct Chat Message
@@ -359,13 +473,24 @@ export class PresenceManager {
   /**
    * Delivers a live message to a user across any of their active presence sockets
    */
-  public sendToUser(userId: string, message: any): boolean {
+  public sendToUser(userId: string, message: any, options?: { onlyActiveDevice?: boolean }): boolean {
     const sockets = this.userSockets.get(userId);
     let sent = false;
     if (sockets && sockets.size > 0) {
-      const payload = JSON.stringify(message);
+      const activeDev = this.userActiveDevices.get(userId);
+      const enhancedMsg = activeDev
+        ? { ...message, _activeDevice: activeDev }
+        : message;
+      const payload = JSON.stringify(enhancedMsg);
+
       for (const s of sockets) {
         if (s.readyState === 1) {
+          if (options?.onlyActiveDevice && activeDev) {
+            const info = this.socketInfo.get(s);
+            if (info && info.deviceId && info.deviceId !== activeDev.deviceId) {
+              continue;
+            }
+          }
           try {
             s.send(payload);
             sent = true;

@@ -46,6 +46,10 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
     notifications,
     unreadCount,
     permission,
+    activeDevice,
+    isMobileActive,
+    isCurrentDeviceActive,
+    switchToThisDevice,
     requestPermission,
     markAsRead,
     markAllAsRead,
@@ -155,6 +159,36 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Active Device Notification Routing Banner */}
+          <div className="px-4 py-2 bg-slate-50 dark:bg-white/[0.03] border-b border-slate-100 dark:border-white/[0.06] flex items-center justify-between text-xs">
+            <div className="flex items-center space-x-1.5 text-slate-600 dark:text-zinc-300">
+              {isMobileActive ? (
+                <>
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[11px] font-medium">
+                    Alerts route to <strong>📱 Mobile</strong>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="flex h-2 w-2 rounded-full bg-blue-500" />
+                  <span className="text-[11px] font-medium">
+                    Alerts route to <strong>💻 Desktop</strong>
+                  </span>
+                </>
+              )}
+            </div>
+            {!isCurrentDeviceActive && (
+              <button
+                type="button"
+                onClick={() => switchToThisDevice()}
+                className="text-[10px] font-bold text-[#ee1d49] hover:underline cursor-pointer"
+              >
+                Route here
+              </button>
+            )}
           </div>
 
           {/* Notifications List */}

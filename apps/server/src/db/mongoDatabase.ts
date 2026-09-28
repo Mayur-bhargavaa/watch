@@ -14,7 +14,8 @@ import {
   GameRoomPlayer,
   PartnerConnection,
   GameRoomStatus,
-  LudoColor
+  LudoColor,
+  ActiveDeviceSession
 } from '@synccinema/common';
 import { extractParticipantIdsFromConvId, toCanonicalConvId } from './database.js';
 
@@ -144,6 +145,7 @@ export class MongoDatabaseService {
       favoriteGenres: Array.isArray(doc.favoriteGenres) ? doc.favoriteGenres : undefined,
       viewingVibe: doc.viewingVibe || undefined,
       age: typeof doc.age === 'number' ? doc.age : undefined,
+      activeDevice: doc.activeDevice || undefined,
       createdAt: doc.createdAt
     };
   }
@@ -152,6 +154,18 @@ export class MongoDatabaseService {
     const doc = await this.usersCol.findOne({ _id: id });
     if (!doc) return null;
     return this.mapUserDoc(doc);
+  }
+
+  async updateUserActiveDevice(userId: string, device: ActiveDeviceSession): Promise<void> {
+    await this.usersCol.updateOne(
+      { _id: userId },
+      {
+        $set: {
+          activeDevice: device,
+          updatedAt: new Date().toISOString()
+        }
+      }
+    );
   }
 
   async getUserByEmail(email: string): Promise<{ user: User; passwordHash?: string } | null> {

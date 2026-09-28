@@ -11,7 +11,7 @@ export type DeviceType = 'mobile' | 'desktop' | 'tablet';
 export interface ActiveDeviceSession {
   deviceId: string;
   deviceType: DeviceType;
-  deviceToken: string;
+  deviceToken?: string;
   browserName?: string;
   lastActiveAt: number;
 }
