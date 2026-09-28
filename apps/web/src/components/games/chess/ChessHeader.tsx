@@ -66,11 +66,11 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
   };
 
   return (
-    <header className="relative z-30 h-16 px-4 sm:px-6 w-full flex items-center justify-between shrink-0 border-b border-white/10 bg-[#16132b]/50 backdrop-blur-xl transition-all select-none">
+    <header className="relative z-30 h-14 sm:h-16 px-2.5 sm:px-6 w-full max-w-full overflow-hidden flex items-center justify-between shrink-0 border-b border-white/10 bg-[#16132b]/50 backdrop-blur-xl transition-all select-none">
       {/* Left: Brand + Back Button */}
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         <Link href="/" className="flex items-center group">
-          <span className="text-xl sm:text-2xl font-black tracking-tight text-white">
+          <span className="text-lg sm:text-2xl font-black tracking-tight text-white">
             watch<span className="text-[#ff2b70]">.</span>
           </span>
         </Link>
@@ -78,15 +78,15 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
         <button
           type="button"
           onClick={onLeave}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 text-xs font-bold transition shadow-xs cursor-pointer"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 text-[11px] sm:text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to Games</span>
+          <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+          <span>Back<span className="hidden sm:inline"> to Games</span></span>
         </button>
       </div>
 
       {/* Center: Room Code Pill + Players Count */}
-      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 shadow-xs">
+      <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 shadow-xs shrink-0">
         <span className="text-xs font-bold text-white/50">Room:</span>
         <button
           type="button"
@@ -109,12 +109,12 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
       </div>
 
       {/* Right: Media toggles, Chat, Theme, Settings & Leave */}
-      <div className="flex items-center gap-1.5 sm:gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* Mic Toggle */}
         <button
           type="button"
           onClick={onToggleMic}
-          className={`p-2 rounded-xl border transition cursor-pointer ${
+          className={`p-1.5 sm:p-2 rounded-xl border transition cursor-pointer shrink-0 ${
             isMicMuted
               ? 'bg-rose-500/20 border-rose-400/40 text-rose-300'
               : 'bg-white/10 hover:bg-white/20 border-white/15 text-white/80 shadow-xs'
@@ -128,7 +128,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
         <button
           type="button"
           onClick={onToggleCamera}
-          className={`p-2 rounded-xl border transition cursor-pointer ${
+          className={`p-1.5 sm:p-2 rounded-xl border transition cursor-pointer shrink-0 ${
             !isCameraOn
               ? 'bg-rose-500/20 border-rose-400/40 text-rose-300'
               : 'bg-white/10 hover:bg-white/20 border-white/15 text-white/80 shadow-xs'
@@ -143,7 +143,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
           <button
             type="button"
             onClick={onOpenCall}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ff2b70]/20 hover:bg-[#ff2b70]/30 text-[#ff2b70] border border-[#ff2b70]/30 text-xs font-bold transition shadow-xs cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#ff2b70]/20 hover:bg-[#ff2b70]/30 text-[#ff2b70] border border-[#ff2b70]/30 text-[11px] sm:text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
             title="Open Floating Call Window"
           >
             <Video className="w-3.5 h-3.5" />
@@ -155,7 +155,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
         <button
           type="button"
           onClick={onOpenInfo}
-          className={`p-2 rounded-xl border transition cursor-pointer ${
+          className={`p-1.5 sm:p-2 rounded-xl border transition cursor-pointer shrink-0 ${
             isInfoOpen
               ? 'bg-[#ff2b70] border-[#ff2b70] text-white shadow-md shadow-pink-500/20'
               : 'bg-white/10 hover:bg-white/20 border-white/15 text-white/80 shadow-xs'
@@ -169,7 +169,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
         <button
           type="button"
           onClick={onToggleChat}
-          className={`relative p-2 rounded-xl border transition cursor-pointer ${
+          className={`relative p-1.5 sm:p-2 rounded-xl border transition cursor-pointer shrink-0 ${
             isChatOpen
               ? 'bg-[#ff2b70] border-[#ff2b70] text-white shadow-md shadow-pink-500/20'
               : 'bg-white/10 hover:bg-white/20 border-white/15 text-white/80 shadow-xs'
@@ -184,12 +184,11 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
           )}
         </button>
 
-
         {/* Theme Toggle */}
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/80 shadow-xs transition cursor-pointer"
+          className="hidden md:flex p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/80 shadow-xs transition cursor-pointer shrink-0"
           title="Toggle Dark / Light Theme"
         >
           {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-white/60" />}
@@ -199,7 +198,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
         <button
           type="button"
           onClick={onOpenSettings}
-          className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/80 shadow-xs transition cursor-pointer"
+          className="hidden md:flex p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-white/80 shadow-xs transition cursor-pointer shrink-0"
           title="Game Settings"
         >
           <Settings className="w-4 h-4" />
@@ -209,10 +208,10 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
         <button
           type="button"
           onClick={onLeave}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#ff2b70] hover:bg-[#e11d48] active:scale-95 text-white font-extrabold text-xs shadow-md shadow-rose-500/25 transition cursor-pointer ml-1"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#ff2b70] hover:bg-[#e11d48] active:scale-95 text-white font-extrabold text-[11px] sm:text-xs shadow-md shadow-rose-500/25 transition cursor-pointer shrink-0 ml-0.5 sm:ml-1"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>Leave Game</span>
+          <LogOut className="w-3.5 h-3.5 shrink-0" />
+          <span>Leave<span className="hidden sm:inline"> Game</span></span>
         </button>
       </div>
     </header>

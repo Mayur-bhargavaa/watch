@@ -205,9 +205,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   }, [theme]);
 
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-2 select-none">
+    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-2 select-none min-h-0">
       {/* 8x8 Board Container */}
-      <div className="relative w-full aspect-square p-2.5 sm:p-3.5 rounded-[26px] sm:rounded-[30px] bg-white/95 dark:bg-[#1a1628]/95 border-2 border-pink-100/70 dark:border-white/10 shadow-[0_20px_50px_rgba(25,18,44,0.08)] backdrop-blur-xl flex flex-col justify-between">
+      <div className="relative w-full max-w-[min(100%,calc(100dvh-280px))] sm:max-w-none aspect-square p-2 xs:p-2.5 sm:p-3.5 rounded-[20px] xs:rounded-[24px] sm:rounded-[30px] bg-white/95 dark:bg-[#1a1628]/95 border-2 border-pink-100/70 dark:border-white/10 shadow-[0_20px_50px_rgba(25,18,44,0.08)] backdrop-blur-xl flex flex-col justify-between">
         
         {/* Floating Notice / Error Banner */}
         {boardNotice && (
