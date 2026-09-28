@@ -66,11 +66,11 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
         {/* Avatar & Online Dot */}
         <div
           onClick={onToggleProfile}
-          className="relative cursor-pointer group shrink-0"
+          className="relative cursor-pointer group shrink-0 w-9 h-9 sm:w-10 sm:h-10"
         >
-          <div className="w-8.5 h-8.5 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs sm:text-sm text-slate-700 dark:text-zinc-200 ring-2 ring-transparent group-hover:ring-[#ee1d49]/30 transition shrink-0">
+          <div className="w-full h-full rounded-full overflow-hidden bg-slate-200 dark:bg-zinc-800 flex items-center justify-center font-bold text-xs sm:text-sm text-slate-700 dark:text-zinc-200 ring-2 ring-transparent group-hover:ring-[#ee1d49]/30 transition shrink-0">
             {avatar ? (
-              <img src={avatar} alt={name} className="w-full h-full object-cover" />
+              <img src={avatar} alt={name} className="w-full h-full object-cover rounded-full" />
             ) : isGroup ? (
               <Users className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
             ) : (
