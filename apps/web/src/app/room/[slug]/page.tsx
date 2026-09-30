@@ -1661,71 +1661,73 @@ export default function RoomPage() {
       </div>
       </div>
 
-      {/* Floating Chat Bubble Launcher (Draggable FAB) */}
-      <div
-        style={
-          fabPosition
-            ? {
-                left: `${fabPosition.x}px`,
-                top: `${fabPosition.y}px`,
-                right: 'auto',
-                bottom: 'auto'
-              }
-            : {
-                right: '20px',
-                bottom: '20px'
-              }
-        }
-        className={`fixed ${isTheaterMode ? 'z-[60]' : 'z-40'} flex items-center gap-2 pointer-events-auto touch-none select-none ${
-          fabPosition && fabPosition.x < 260 ? 'flex-row-reverse' : 'flex-row'
-        } ${isDraggingFab ? 'cursor-grabbing' : 'cursor-grab'}`}
-      >
-        {/* Real-time unread message preview toast */}
-        {!isChatOpen && chatBubbleToast && (
-          <div
-            onClick={() => setIsChatOpen(true)}
-            className="cursor-pointer max-w-[220px] sm:max-w-xs bg-[#141721]/95 backdrop-blur-md text-white text-xs px-3.5 py-2 rounded-2xl shadow-2xl border border-white/20 animate-bounce flex items-center gap-2 hover:border-rose-500/50 transition-all select-none"
-          >
-            <div className="w-2 h-2 rounded-full bg-[#E50914] animate-ping shrink-0" />
-            <div className="truncate">
-              <span className="font-bold text-rose-400">{chatBubbleToast.sender}: </span>
-              <span className="text-zinc-200">{chatBubbleToast.text}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Floating Bubble Button */}
-        <button
-          onPointerDown={handleFabPointerDown}
-          onPointerMove={handleFabPointerMove}
-          onPointerUp={handleFabPointerUp}
-          onPointerCancel={handleFabPointerUp}
-          onClick={handleFabClick}
-          className={`group relative flex items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-full shadow-2xl border ${
-            isDraggingFab
-              ? 'scale-105 shadow-red-600/60 ring-2 ring-white/50 cursor-grabbing transition-none'
-              : 'cursor-grab hover:scale-105 transition-transform duration-200'
-          } ${
-            isChatOpen
-              ? 'bg-zinc-800 hover:bg-zinc-700 text-white border-white/20'
-              : 'bg-gradient-to-tr from-[#E50914] to-rose-600 hover:from-red-600 hover:to-rose-500 text-white border-red-500/30 shadow-red-600/40'
-          }`}
-          title={isChatOpen ? 'Minimize chat (drag anywhere on screen)' : 'Open chat & games (drag anywhere on screen)'}
+      {/* Floating Chat Bubble Launcher (Draggable FAB) - Hidden in Mobile Landscape for full-screen cinema clarity */}
+      {!isMobileLandscape && (
+        <div
+          style={
+            fabPosition
+              ? {
+                  left: `${fabPosition.x}px`,
+                  top: `${fabPosition.y}px`,
+                  right: 'auto',
+                  bottom: 'auto'
+                }
+              : {
+                  right: '20px',
+                  bottom: '20px'
+                }
+          }
+          className={`fixed ${isTheaterMode ? 'z-[60]' : 'z-40'} flex items-center gap-2 pointer-events-auto touch-none select-none ${
+            fabPosition && fabPosition.x < 260 ? 'flex-row-reverse' : 'flex-row'
+          } ${isDraggingFab ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
-          {isChatOpen ? (
-            <X className="w-6 h-6 transition-transform group-hover:rotate-90 duration-200 pointer-events-none" />
-          ) : (
-            <>
-              <MessageSquare className="w-6 h-6 pointer-events-none" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 text-black font-extrabold text-[10px] rounded-full flex items-center justify-center border-2 border-[#0b0e17] shadow-md animate-pulse pointer-events-none">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </>
+          {/* Real-time unread message preview toast */}
+          {!isChatOpen && chatBubbleToast && (
+            <div
+              onClick={() => setIsChatOpen(true)}
+              className="cursor-pointer max-w-[220px] sm:max-w-xs bg-[#141721]/95 backdrop-blur-md text-white text-xs px-3.5 py-2 rounded-2xl shadow-2xl border border-white/20 animate-bounce flex items-center gap-2 hover:border-rose-500/50 transition-all select-none"
+            >
+              <div className="w-2 h-2 rounded-full bg-[#E50914] animate-ping shrink-0" />
+              <div className="truncate">
+                <span className="font-bold text-rose-400">{chatBubbleToast.sender}: </span>
+                <span className="text-zinc-200">{chatBubbleToast.text}</span>
+              </div>
+            </div>
           )}
-        </button>
-      </div>
+
+          {/* Floating Bubble Button */}
+          <button
+            onPointerDown={handleFabPointerDown}
+            onPointerMove={handleFabPointerMove}
+            onPointerUp={handleFabPointerUp}
+            onPointerCancel={handleFabPointerUp}
+            onClick={handleFabClick}
+            className={`group relative flex items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-full shadow-2xl border ${
+              isDraggingFab
+                ? 'scale-105 shadow-red-600/60 ring-2 ring-white/50 cursor-grabbing transition-none'
+                : 'cursor-grab hover:scale-105 transition-transform duration-200'
+            } ${
+              isChatOpen
+                ? 'bg-zinc-800 hover:bg-zinc-700 text-white border-white/20'
+                : 'bg-gradient-to-tr from-[#E50914] to-rose-600 hover:from-red-600 hover:to-rose-500 text-white border-red-500/30 shadow-red-600/40'
+            }`}
+            title={isChatOpen ? 'Minimize chat (drag anywhere on screen)' : 'Open chat & games (drag anywhere on screen)'}
+          >
+            {isChatOpen ? (
+              <X className="w-6 h-6 transition-transform group-hover:rotate-90 duration-200 pointer-events-none" />
+            ) : (
+              <>
+                <MessageSquare className="w-6 h-6 pointer-events-none" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 text-black font-extrabold text-[10px] rounded-full flex items-center justify-center border-2 border-[#0b0e17] shadow-md animate-pulse pointer-events-none">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Room Theme Selector Modal */}
       {showThemeModal && (

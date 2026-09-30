@@ -761,35 +761,37 @@ export const CinemaPlayer = memo(function CinemaPlayer({
 
         {/* Hero stage when movie is not playing: Share screen to start party */}
         {!screenStream && !isPlaying && countdownStep === null && (
-          <div className="absolute inset-0 z-20 bg-gradient-to-t from-black via-black/85 to-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 sm:p-6 text-center select-none animate-fadeIn">
-            <div className="max-w-md w-full bg-[#121622]/90 border border-white/10 rounded-2xl p-4 sm:p-8 shadow-2xl space-y-3 sm:space-y-5 flex flex-col items-center">
+          <div className="absolute inset-0 z-20 bg-gradient-to-t from-black via-black/85 to-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-2.5 sm:p-6 text-center select-none animate-fadeIn overflow-y-auto">
+            <div className={`w-full max-w-sm sm:max-w-md my-auto bg-[#121622]/95 border border-white/10 rounded-2xl shadow-2xl flex flex-col items-center max-h-[92vh] overflow-y-auto ${
+              isMobileLandscape ? 'p-3 py-3 space-y-2' : 'p-4 sm:p-8 space-y-3 sm:space-y-5'
+            }`}>
               {/* Glowing Icon Badge */}
-              <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#E50914] to-rose-600 flex items-center justify-center shadow-lg shadow-red-600/30 text-white">
-                <ScreenShare className="w-5 h-5 sm:w-7 sm:h-7" />
+              <div className={`${isMobileLandscape ? 'w-8 h-8 rounded-xl' : 'w-10 h-10 sm:w-14 sm:h-14 rounded-2xl'} bg-gradient-to-tr from-[#E50914] to-rose-600 flex items-center justify-center shadow-lg shadow-red-600/30 text-white shrink-0`}>
+                <ScreenShare className={`${isMobileLandscape ? 'w-4 h-4' : 'w-5 h-5 sm:w-7 sm:h-7'}`} />
               </div>
 
               {isHost ? (
                 <>
-                  <div className="space-y-1">
-                    <h3 className="text-base sm:text-xl font-bold text-white tracking-tight">
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <h3 className={`${isMobileLandscape ? 'text-sm' : 'text-base sm:text-xl'} font-bold text-white tracking-tight`}>
                       {isMobileDevice ? 'Start Movie Party' : 'Share Screen to Start Movie Party'}
                     </h3>
-                    <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed max-w-sm">
+                    <p className="text-[11px] sm:text-xs text-zinc-300 leading-snug max-w-xs sm:max-w-sm">
                       {isMobileDevice
-                        ? 'To stream Netflix or Prime Video, host from a laptop browser so all mobile guests can watch together. Or paste a YouTube / MP4 link below:'
+                        ? 'To stream Netflix or Prime Video, host from a laptop. Or paste a video URL below:'
                         : 'Open Netflix, Prime Video, YouTube or any movie in your browser, then share your tab or screen with everyone.'}
                     </p>
                   </div>
 
                   {/* Direct YouTube / MP4 URL Input for Instant Play */}
                   {onNavigateUrl && (
-                    <div className="w-full flex gap-1.5 pt-1">
+                    <div className="w-full flex gap-1.5 pt-0.5">
                       <input
                         type="text"
                         value={quickVideoUrl}
                         onChange={(e) => setQuickVideoUrl(e.target.value)}
                         placeholder="Paste YouTube or MP4 video URL..."
-                        className="flex-1 px-3 py-2 bg-black/60 border border-white/20 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
+                        className="flex-1 px-3 py-1.5 sm:py-2 bg-black/60 border border-white/20 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && quickVideoUrl.trim()) {
                             onNavigateUrl(quickVideoUrl.trim());
@@ -803,7 +805,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                             onNavigateUrl(quickVideoUrl.trim());
                           }
                         }}
-                        className="px-3.5 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold rounded-xl transition shadow active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
+                        className="px-3.5 py-1.5 sm:py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold rounded-xl transition shadow active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
                       >
                         <Play className="w-3.5 h-3.5 fill-white" />
                         <span>Play</span>
@@ -811,7 +813,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                     </div>
                   )}
 
-                  <div className="w-full pt-1 space-y-1.5">
+                  <div className="w-full pt-0.5 space-y-1">
                     {onStartScreenShare && (
                       <button
                         onClick={() => {
@@ -823,7 +825,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                             onStartScreenShare();
                           }
                         }}
-                        className="w-full py-2.5 sm:py-3 px-4 sm:px-5 bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
+                        className={`w-full ${isMobileLandscape ? 'py-2 px-3' : 'py-2.5 sm:py-3 px-4 sm:px-5'} bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2 cursor-pointer`}
                       >
                         <ScreenShare className="w-4 h-4" />
                         <span>{isMobileDevice ? 'Share Screen (Laptop Recommended)' : 'Share Screen & Start'}</span>
@@ -831,22 +833,22 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                     )}
 
                     {isMobileDevice && (
-                      <p className="text-[10px] text-zinc-400">
+                      <p className="text-[9.5px] sm:text-[10px] text-zinc-400 leading-tight">
                         📱 Safari &amp; mobile browsers block Netflix capture due to DRM. Host on laptop for Netflix!
                       </p>
                     )}
                   </div>
                 </>
               ) : (
-                <div className="space-y-1.5">
-                  <h3 className="text-base sm:text-xl font-bold text-white tracking-tight">
+                <div className="space-y-1">
+                  <h3 className={`${isMobileLandscape ? 'text-sm' : 'text-base sm:text-xl'} font-bold text-white tracking-tight`}>
                     Waiting for Host to Stream Movie
                   </h3>
-                  <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed max-w-sm">
-                    The host will start sharing their screen or video stream shortly. Grab your popcorn and enjoy the party!
+                  <p className="text-[11px] sm:text-xs text-zinc-400 leading-snug max-w-xs sm:max-w-sm">
+                    The host will start sharing their screen or video stream shortly. Grab your popcorn!
                   </p>
-                  <div className="pt-1 flex items-center justify-center gap-1.5 text-rose-400 text-[11px] sm:text-xs font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block"></span>
+                  <div className="pt-1 flex items-center justify-center gap-1.5 text-rose-400 text-[10px] sm:text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-rose-500 animate-ping inline-block"></span>
                     <span>Ready &amp; waiting for broadcast...</span>
                   </div>
                 </div>
@@ -1374,10 +1376,10 @@ export const CinemaPlayer = memo(function CinemaPlayer({
 
       {/* Mobile Screen Sharing / Netflix Guidance Modal */}
       {showMobileShareModal && (
-        <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-          <div className="max-w-sm w-full bg-[#161224] border border-rose-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-inner">
-              <Laptop className="w-6 h-6" />
+        <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn overflow-y-auto">
+          <div className="max-w-sm w-full my-auto bg-[#161224] border border-rose-500/40 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col items-center text-center space-y-3 sm:space-y-4 max-h-[92vh] overflow-y-auto">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-inner shrink-0">
+              <Laptop className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="space-y-1.5">
               <h3 className="text-base font-black text-white">Streaming Netflix &amp; Movies</h3>
