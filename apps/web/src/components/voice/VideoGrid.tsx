@@ -74,14 +74,14 @@ export const VideoGrid = React.memo(function VideoGrid({
   }
 
   return (
-    <div className={`w-full flex items-center ${isCompact ? 'gap-1.5' : 'gap-2.5'} overflow-x-auto pb-0.5 scrollbar-none`}>
+    <div className={`w-full flex items-stretch ${isCompact ? 'gap-1.5' : 'gap-2 sm:gap-2.5'} overflow-x-auto pb-0.5 scrollbar-none`}>
       {participants.map((p, idx) => (
         <div
           key={p.userId || idx}
           className={
             isCompact
-              ? 'flex-shrink-0 w-[105px] sm:w-[130px] max-w-[150px]'
-              : 'flex-1 min-w-[140px] sm:min-w-[170px] max-w-[240px]'
+              ? 'flex-shrink-0 w-[105px] sm:w-[130px] aspect-[16/10]'
+              : 'flex-1 min-w-[110px] sm:min-w-[150px] max-w-[220px] aspect-[16/10] sm:aspect-[16/9] shrink-0'
           }
         >
           <MemoizedVideoTile
@@ -96,16 +96,20 @@ export const VideoGrid = React.memo(function VideoGrid({
       {participants.length < 6 && onCopyInvite && (
         <button
           onClick={onCopyInvite}
-          className="flex-1 min-w-[120px] max-w-[170px] aspect-[16/10] sm:aspect-[16/9] rounded-xl border border-dashed border-white/20 hover:border-white/40 bg-[#202124]/50 hover:bg-[#202124]/90 transition-all duration-200 flex flex-col items-center justify-center text-zinc-300 hover:text-white select-none group shadow-md"
+          className={
+            isCompact
+              ? 'flex-shrink-0 w-[105px] sm:w-[130px] aspect-[16/10] rounded-xl border border-dashed border-white/20 hover:border-white/40 bg-[#202124]/50 hover:bg-[#202124]/90 transition-all flex flex-col items-center justify-center text-zinc-300 hover:text-white select-none group shadow-md p-1.5'
+              : 'flex-1 min-w-[110px] sm:min-w-[150px] max-w-[220px] aspect-[16/10] sm:aspect-[16/9] rounded-xl border border-dashed border-white/20 hover:border-white/40 bg-[#202124]/50 hover:bg-[#202124]/90 transition-all flex flex-col items-center justify-center text-zinc-300 hover:text-white select-none group shadow-md p-1.5 sm:p-2 shrink-0'
+          }
           title="Invite friends to this watch party (up to 6 members)"
         >
-          <div className="w-8 h-8 rounded-full bg-white/5 group-hover:bg-white/10 flex items-center justify-center mb-1 transition-colors">
-            <span className="text-sm font-black text-rose-400 group-hover:scale-110 transition-transform">+</span>
+          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/5 group-hover:bg-white/10 flex items-center justify-center mb-0.5 sm:mb-1 transition-colors">
+            <span className="text-xs sm:text-sm font-black text-rose-400 group-hover:scale-110 transition-transform">+</span>
           </div>
-          <span className="text-xs font-bold tracking-wide">
-            {copiedInvite ? '✓ Link Copied' : 'Invite Friends'}
+          <span className="text-[10px] sm:text-xs font-bold tracking-wide truncate max-w-[90%]">
+            {copiedInvite ? '✓ Copied' : 'Invite Friends'}
           </span>
-          <span className="text-[10px] text-zinc-400 mt-0.5">
+          <span className="text-[8.5px] sm:text-[10px] text-zinc-400 mt-0.5">
             {participants.length}/6 seats
           </span>
         </button>
@@ -247,21 +251,21 @@ const MemoizedVideoTile = React.memo(function VideoTile({
         >
           {/* Centered Circular Avatar with Google Meet color */}
           <div
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center shadow-lg border border-white/10 transition-transform duration-300 group-hover:scale-105"
+            className="w-8 h-8 xs:w-10 xs:h-10 sm:w-13 sm:h-13 rounded-full flex items-center justify-center shadow-lg border border-white/10 transition-transform duration-300 group-hover:scale-105"
             style={{ backgroundColor: avatarColor }}
           >
-            <span className="text-lg sm:text-xl font-bold text-white uppercase tracking-wider select-none">
+            <span className="text-sm xs:text-base sm:text-lg font-bold text-white uppercase tracking-wider select-none">
               {userInitial}
             </span>
           </div>
 
           {/* Local User Click-to-Start Hover Overlay (Google Meet self-view) */}
           {participant.isSelf && onToggleSelfCamera && (
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 z-20">
-              <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shadow-md">
-                <Camera className="w-4 h-4" />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 z-20">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center shadow-md">
+                <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
-              <span className="text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded-full border border-white/20">
+              <span className="text-[9px] sm:text-[10px] font-bold text-white bg-black/60 px-1.5 py-0.5 rounded-full border border-white/20">
                 Turn On Camera
               </span>
             </div>
@@ -271,20 +275,20 @@ const MemoizedVideoTile = React.memo(function VideoTile({
 
       {/* Top Left Host Badge (Netflix Red) */}
       {participant.isHost && (
-        <div className="absolute top-2 left-2 bg-[#E50914] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-md tracking-wider uppercase z-10 flex items-center gap-1">
-          <Crown className="w-2.5 h-2.5 fill-current" />
+        <div className="absolute top-1 left-1 sm:top-2 sm:left-2 bg-[#E50914] text-white text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.5 rounded shadow-md tracking-wider uppercase z-10 flex items-center gap-0.5 sm:gap-1">
+          <Crown className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-current" />
           <span>Host</span>
         </div>
       )}
 
       {/* Bottom Left Google Meet Name & Mic Status Pill Badge */}
-      <div className="absolute bottom-2 left-2 bg-[#202124]/90 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded-md flex items-center gap-1.5 shadow-md border border-white/10 max-w-[88%] z-10 pointer-events-none">
+      <div className="absolute bottom-1 left-1 sm:bottom-2 sm:left-2 bg-[#202124]/90 backdrop-blur-md text-white text-[8.5px] sm:text-[10px] font-medium px-1.5 py-0.5 rounded flex items-center gap-1 shadow-md border border-white/10 max-w-[90%] z-10 pointer-events-none">
         {participant.isMuted ? (
-          <MicOff className="w-3 h-3 text-red-400 flex-shrink-0" />
+          <MicOff className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-400 flex-shrink-0" />
         ) : (
-          <Mic className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+          <Mic className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 flex-shrink-0" />
         )}
-        <span className="truncate max-w-[85px] sm:max-w-[120px]">
+        <span className="truncate max-w-[55px] xs:max-w-[80px] sm:max-w-[120px]">
           {participant.displayName}
           {participant.isSelf ? ' (You)' : ''}
         </span>
