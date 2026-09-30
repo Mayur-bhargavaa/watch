@@ -1377,28 +1377,42 @@ export const CinemaPlayer = memo(function CinemaPlayer({
       {/* Mobile Screen Sharing / Netflix Guidance Modal */}
       {showMobileShareModal && (
         <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn overflow-y-auto">
-          <div className="max-w-sm w-full my-auto bg-[#161224] border border-rose-500/40 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col items-center text-center space-y-3 sm:space-y-4 max-h-[92vh] overflow-y-auto">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-inner shrink-0">
+          <div className="relative max-w-sm sm:max-w-md w-full my-auto bg-[#161224] border border-rose-500/40 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col items-center text-center space-y-3 sm:space-y-4 max-h-[92vh] overflow-y-auto">
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => setShowMobileShareModal(false)}
+              className="absolute top-3 right-3 p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-inner shrink-0 mt-1 sm:mt-0">
               <Laptop className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div className="space-y-1.5">
-              <h3 className="text-base font-black text-white">Streaming Netflix &amp; Movies</h3>
-              <p className="text-xs text-zinc-300 leading-relaxed">
-                Mobile browsers (Safari/Chrome on iOS &amp; Android) block screen recording of streaming services like <strong className="text-white font-semibold">Netflix, Prime Video, and Disney+</strong> due to hardware DRM security.
+
+            <div className="space-y-1">
+              <h3 className="text-sm sm:text-base font-black text-white">Streaming Netflix &amp; Movies</h3>
+              <p className="text-[11px] sm:text-xs text-zinc-300 leading-relaxed max-w-xs sm:max-w-sm">
+                Mobile browsers block screen recording of <strong className="text-white font-semibold">Netflix, Prime &amp; Disney+</strong> due to DRM hardware security.
               </p>
             </div>
-            <div className="w-full p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-2">
-              <div className="text-[11px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5" />
+
+            <div className="w-full p-2.5 sm:p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1.5">
+              <div className="text-[10px] sm:text-[11px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0" />
                 <span>How to Stream Netflix Together:</span>
               </div>
-              <p className="text-[11px] text-zinc-300 leading-relaxed">
-                1. Open this room on your <strong className="text-white font-semibold">laptop or desktop</strong> (Chrome, Edge, or Brave).<br />
-                2. Share your screen from your computer with system audio.<br />
-                3. All your friends on mobile can watch in <strong className="text-white font-semibold">full screen</strong>!
+              <p className="text-[10.5px] sm:text-[11px] text-zinc-300 leading-relaxed">
+                1. Open room on a <strong>laptop or PC</strong> (Chrome/Edge).<br />
+                2. Share your screen with system audio.<br />
+                3. All friends on mobile watch in <strong>full screen</strong>!
               </p>
             </div>
-            <div className="w-full space-y-2 pt-1">
+
+            {/* Responsive Buttons: side-by-side on wide/landscape, single line without awkward wrapping */}
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -1408,11 +1422,12 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                     setTimeout(() => setCopiedHostLink(false), 2500);
                   }
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-md shadow-red-600/30 flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-md shadow-red-600/30 flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer whitespace-nowrap min-h-[40px]"
               >
-                {copiedHostLink ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedHostLink ? 'Link Copied! Open on Laptop' : 'Copy Room Link for Laptop'}</span>
+                {copiedHostLink ? <Check className="w-3.5 h-3.5 text-emerald-300 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
+                <span>{copiedHostLink ? 'Link Copied!' : 'Copy Link for Laptop'}</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -1420,18 +1435,19 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   if (onStartParty) onStartParty();
                   else if (onStartScreenShare) onStartScreenShare();
                 }}
-                className="w-full py-2 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 font-bold text-[11px] border border-white/10 active:scale-95 transition cursor-pointer"
+                className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 hover:text-white font-medium text-xs border border-white/10 active:scale-95 transition cursor-pointer whitespace-nowrap min-h-[40px] flex items-center justify-center"
               >
-                Try Mobile Screen Share Anyway
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowMobileShareModal(false)}
-                className="w-full py-1 text-zinc-500 hover:text-zinc-300 text-[11px] font-semibold transition cursor-pointer"
-              >
-                Cancel
+                Try Mobile Share Anyway
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowMobileShareModal(false)}
+              className="w-full py-1 text-zinc-400 hover:text-zinc-200 text-[11px] font-semibold transition cursor-pointer sm:hidden"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
