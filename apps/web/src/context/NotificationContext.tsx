@@ -53,12 +53,33 @@ const NotificationContext = createContext<NotificationContextValue | null>(null)
 const STORAGE_KEY = 'watch_party_notifications_v1';
 const MODAL_DISMISSED_KEY = 'watch_notif_modal_dismissed_session';
 
-// Synthesize pleasant sound with Web Audio API
-function playChimeSound() {
+let sharedAudioCtx: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const ctx = new AudioContextClass();
+    if (!AudioContextClass) return null;
+    if (!sharedAudioCtx) {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
+// Synthesize pleasant sound with Web Audio API (compatible with Safari & iOS WebKit)
+function playChimeSound() {
+  try {
+    const ctx = getSharedAudioContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     const now = ctx.currentTime;
 
     const osc1 = ctx.createOscillator();
@@ -84,7 +105,7 @@ function playChimeSound() {
     osc2.start(now + 0.12);
     osc2.stop(now + 0.45);
   } catch {
-    // Ignore audio autoplay restrictions
+    // Ignore audio restrictions
   }
 }
 
@@ -124,6 +145,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           setActiveDevice(res.activeDevice);
         }
       }).catch(() => {});
+    } else {
+      setActiveDevice({
+        deviceId: currentDevice.deviceId,
+        deviceType: currentDevice.deviceType,
+        deviceToken: currentDevice.deviceToken,
+        browserName: currentDevice.browserName,
+        lastActiveAt: Date.now()
+      });
     }
 
     // Register Service Worker (required for Chrome OS-level desktop banners)
@@ -145,6 +174,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, []);
 
+  // Audio unlocker on user interaction (strictly required by Safari and iOS WebKit)
+  useEffect(() => {
+    const unlockAudio = () => {
+      const ctx = getSharedAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    };
+    window.addEventListener('click', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('keydown', unlockAudio, { passive: true });
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
   // Sync to local storage
   const saveNotifications = (newList: AppNotification[]) => {
     setNotifications(newList);
@@ -153,65 +200,101 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch {}
   };
 
-  // Send Chrome OS-level desktop popup via ServiceWorker (with fallback)
+  // Send OS-level desktop popup via ServiceWorker or Notification API (compatible with Safari, Chrome, Firefox, Edge)
   const dispatchDesktopNotification = useCallback(
-    async (notif: AppNotification) => {
+    async (notif: AppNotification, forceDesktop = false) => {
       if (typeof window === 'undefined' || !('Notification' in window)) return;
       if (Notification.permission !== 'granted') return;
 
       // Smart Device Routing:
       // If current device is NOT mobile (e.g. laptop or desktop) and user's active notification device is mobile,
-      // suppress OS-level desktop popup banners on the laptop!
-      if (currentDevice.deviceType !== 'mobile' && activeDevice?.deviceType === 'mobile') {
+      // suppress OS-level desktop popup banners on the laptop (unless explicitly forced by local action/test)!
+      if (!forceDesktop && currentDevice.deviceType !== 'mobile' && activeDevice?.deviceType === 'mobile') {
         console.log('[Notification] Suppressed desktop OS popup: Active notification device is mobile');
         return;
       }
 
+      const isSafari =
+        typeof navigator !== 'undefined' &&
+        /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
       const iconUrl = new URL('/logos/direct.png', window.location.origin).href;
+
+      // Clean, universally supported options for Safari/WebKit
+      // NOTE: WebKit throws a TypeError if 'badge', 'silent', or 'requireInteraction' are present in the options dictionary!
       const options: NotificationOptions = {
         body: notif.body,
-        icon: iconUrl,
-        badge: iconUrl,
-        tag: notif.id,
-        data: { url: notif.link || '/dashboard' },
-        requireInteraction: false,
-        silent: false
+        tag: notif.id || `notif_${Date.now()}`
       };
+
+      if (iconUrl) {
+        options.icon = iconUrl;
+      }
+
+      // Add advanced attributes only on non-Safari browsers to prevent WebKit TypeErrors
+      if (!isSafari) {
+        (options as any).badge = iconUrl;
+        (options as any).requireInteraction = false;
+        (options as any).silent = false;
+        (options as any).data = { url: notif.link || '/dashboard' };
+      }
 
       let delivered = false;
 
-      // Try ServiceWorker first (works even when tab is in background or different window)
+      // 1. Try ServiceWorker first (if available and registered)
       if ('serviceWorker' in navigator) {
         try {
           const reg = await Promise.race([
             navigator.serviceWorker.ready,
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000))
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 800))
           ]);
           if (reg && typeof reg.showNotification === 'function') {
             await reg.showNotification(notif.title, options);
             delivered = true;
           }
-        } catch {}
+        } catch (swErr) {
+          console.warn('[Notification] SW showNotification skipped or unsupported in this browser:', swErr);
+        }
       }
 
-      // Fallback: use window Notification API directly
-      if (!delivered) {
+      // 2. Direct Notification constructor fallback (primary method for Safari on macOS)
+      if (!delivered && typeof window !== 'undefined' && 'Notification' in window) {
         try {
-          const n = new Notification(notif.title, options);
-          n.onclick = () => {
-            window.focus();
-            if (notif.link) router.push(notif.link);
-            n.close();
+          // Safari macOS requires simple dictionary: { body, tag, icon }
+          const cleanOptions: NotificationOptions = {
+            body: notif.body,
+            tag: notif.id || `notif_${Date.now()}`
           };
-        } catch {}
+          if (iconUrl) {
+            cleanOptions.icon = iconUrl;
+          }
+          if (!isSafari) {
+            (cleanOptions as any).badge = iconUrl;
+            (cleanOptions as any).data = { url: notif.link || '/dashboard' };
+          }
+
+          const n = new Notification(notif.title, cleanOptions);
+          n.onclick = () => {
+            try {
+              window.focus();
+            } catch {}
+            if (notif.link) router.push(notif.link);
+            try {
+              n.close();
+            } catch {}
+          };
+          delivered = true;
+        } catch (notifErr) {
+          console.warn('[Notification] Direct Notification constructor error:', notifErr);
+        }
       }
     },
     [router, activeDevice, currentDevice]
   );
 
-  // Add notification, play sound, show in-app toast, and fire Chrome desktop popup
+  // Add notification, play sound, show in-app toast, and fire desktop popup
   const pushNotification = useCallback(
-    (item: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => {
+    (item: Omit<AppNotification, 'id' | 'createdAt' | 'read'>, forceDesktop = false) => {
       const newNotif: AppNotification = {
         ...item,
         id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -227,8 +310,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return updated;
       });
 
-      // Play audio chime (suppressed on laptop if user is currently active on mobile)
-      if (currentDevice.deviceType === 'mobile' || activeDevice?.deviceType !== 'mobile') {
+      // Play audio chime (suppressed on laptop if user is currently active on mobile, unless forced)
+      if (forceDesktop || currentDevice.deviceType === 'mobile' || activeDevice?.deviceType !== 'mobile') {
         playChimeSound();
       }
 
@@ -239,38 +322,66 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setActiveToast(null);
       }, 6500);
 
-      // Fire Chrome desktop popup (only if permission granted and not suppressed)
-      dispatchDesktopNotification(newNotif);
+      // Fire desktop popup (only if permission granted and not suppressed)
+      dispatchDesktopNotification(newNotif, forceDesktop);
     },
     [dispatchDesktopNotification, activeDevice, currentDevice]
   );
 
-  // Request browser notification permission (shows OS prompt)
+  // Request browser notification permission (compatible with Safari callback style and modern Promise style)
   const requestPermission = async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       setPermission('unsupported');
       setShowPermissionModal(false);
       return false;
     }
+
     try {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-      setShowPermissionModal(false);
-      if (result === 'granted') {
-        playChimeSound();
-        pushNotification({
-          title: '🔔 Notifications Activated!',
-          body: "You'll now get partner roasts, game invites and watch party alerts even when this tab is hidden.",
-          category: 'system',
-          emoji: '🔔',
-          link: '/dashboard'
+      let resolvedStatus: NotificationPermission = Notification.permission;
+
+      // Handle both legacy Safari callback and modern Promise syntax
+      try {
+        const resultOrPromise = Notification.requestPermission((status) => {
+          if (status) {
+            resolvedStatus = status;
+            setPermission(status);
+          }
         });
+
+        if (resultOrPromise && typeof resultOrPromise.then === 'function') {
+          const promiseResult = await resultOrPromise;
+          if (promiseResult) {
+            resolvedStatus = promiseResult;
+            setPermission(promiseResult);
+          }
+        }
+      } catch {
+        resolvedStatus = Notification.permission;
+      }
+
+      const finalStatus = resolvedStatus || Notification.permission;
+      setPermission(finalStatus);
+      setShowPermissionModal(false);
+
+      if (finalStatus === 'granted') {
+        playChimeSound();
+        pushNotification(
+          {
+            title: '🔔 Notifications Activated!',
+            body: "You'll now get partner roasts, game invites and watch party alerts even when this tab is hidden.",
+            category: 'system',
+            emoji: '🔔',
+            link: '/dashboard'
+          },
+          true
+        );
         return true;
       } else {
         sessionStorage.setItem(MODAL_DISMISSED_KEY, 'true');
         return false;
       }
-    } catch {
+    } catch (err) {
+      console.warn('[Notification] requestPermission error:', err);
       setShowPermissionModal(false);
       return false;
     }
@@ -309,14 +420,17 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     fromName?: string;
   }) => {
     const roast = getRandomRoast(data.category || 'nudge', data.fromName);
-    pushNotification({
-      title: data.title || roast.title,
-      body: data.body || roast.body,
-      emoji: roast.emoji,
-      category: data.category || 'nudge',
-      link: data.link || '/dashboard',
-      fromName: data.fromName
-    });
+    pushNotification(
+      {
+        title: data.title || roast.title,
+        body: data.body || roast.body,
+        emoji: roast.emoji,
+        category: data.category || 'nudge',
+        link: data.link || '/dashboard',
+        fromName: data.fromName
+      },
+      true
+    );
   };
 
   // Connect to /ws/presence WebSocket to listen for live events

@@ -125,9 +125,23 @@ export const NotificationPermissionModal: React.FC = () => {
 
         {/* Browser Permission Note */}
         {permission === 'denied' && (
-          <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
-            <p className="text-[11px] text-rose-500 dark:text-rose-400 font-medium">
-              ⚠️ Notifications are blocked in your browser. Click the site settings icon in the URL bar to allow notifications.
+          <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center space-y-1">
+            <p className="text-[11px] text-rose-500 dark:text-rose-400 font-bold">
+              ⚠️ Notifications are blocked in your browser settings.
+            </p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+              For <strong>Safari</strong>: Go to <em>Safari &gt; Settings &gt; Websites &gt; Notifications</em> and select <strong>Allow</strong> for this site.
+            </p>
+          </div>
+        )}
+
+        {permission === 'unsupported' && (
+          <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1">
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold">
+              📱 Using Safari on iPhone / iPad?
+            </p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+              In-app alerts are active! To also receive lock-screen alerts on iOS, tap the Share icon and tap <strong>Add to Home Screen</strong>.
             </p>
           </div>
         )}

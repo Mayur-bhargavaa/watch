@@ -20,7 +20,7 @@ export const NotificationToast: React.FC = () => {
   };
 
   return (
-    <div className="fixed top-5 right-5 z-[9990] max-w-sm w-full animate-slideInRight select-none">
+    <div className="fixed top-4 right-3 sm:top-5 sm:right-5 z-[99990] w-[calc(100vw-24px)] sm:w-auto sm:max-w-sm animate-slideInRight select-none pointer-events-auto">
       <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-[#181324]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 p-4 shadow-2xl shadow-black/30">
         {/* Top accent bar */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#ee1d49] via-purple-500 to-[#ff3b68]" />

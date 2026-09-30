@@ -269,10 +269,10 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
               type="button"
               onClick={handleTestRoast}
               className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 hover:text-[#ee1d49] transition flex items-center space-x-1 cursor-pointer shrink-0 truncate"
-              title="Test roast notification & Chrome desktop popup"
+              title="Test roast notification & desktop popup"
             >
               <Sparkles className="w-3 h-3 text-[#ee1d49] shrink-0" />
-              <span className="truncate">Test Chrome Popup 🚀</span>
+              <span className="truncate">Test Notification 🚀</span>
             </button>
 
             {permission !== 'granted' ? (
@@ -287,7 +287,7 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
             ) : (
               <span className="text-[9px] font-mono text-emerald-500 font-bold uppercase tracking-wider flex items-center gap-1 shrink-0 whitespace-nowrap">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span>Chrome Alerts ON</span>
+                <span>Alerts ON</span>
               </span>
             )}
           </div>
