@@ -546,23 +546,31 @@ export default function RoomPage() {
   // Mobile orientation detection
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
-  const [dismissFlipPrompt, setDismissFlipPrompt] = useState(false);
 
   useEffect(() => {
     const handleOrientationChange = () => {
       if (typeof window === 'undefined') return;
-      const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && Math.max(window.innerWidth, window.innerHeight) <= 1024);
+      const isMobile =
+        window.innerWidth < 768 ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+        ('ontouchstart' in window && Math.max(window.innerWidth, window.innerHeight) <= 1024);
       const portrait = window.innerHeight > window.innerWidth;
-      setIsMobileDevice(isMobile);
-      setIsPortrait(isMobile && portrait);
+      setIsMobileDevice(Boolean(isMobile));
+      setIsPortrait(Boolean(isMobile && portrait));
     };
 
     handleOrientationChange();
     window.addEventListener('resize', handleOrientationChange);
     window.addEventListener('orientationchange', handleOrientationChange);
+    if (window.screen?.orientation) {
+      window.screen.orientation.addEventListener('change', handleOrientationChange);
+    }
     return () => {
       window.removeEventListener('resize', handleOrientationChange);
       window.removeEventListener('orientationchange', handleOrientationChange);
+      if (window.screen?.orientation) {
+        window.screen.orientation.removeEventListener('change', handleOrientationChange);
+      }
     };
   }, []);
 
@@ -1132,33 +1140,60 @@ export default function RoomPage() {
           </div>
         </div>
 
-        {/* 📱 Mobile Portrait: Rotate Device / Flip Prompt Overlay */}
-        {isMobileDevice && isPortrait && !dismissFlipPrompt && (
-          <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="max-w-xs w-full bg-[#181124] border border-rose-500/40 rounded-3xl p-6 text-center shadow-2xl flex flex-col items-center">
-              {/* Animated Rotating Phone Graphic */}
-              <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center mb-4 text-[#ff2b70] shadow-inner">
-                <svg className="w-8 h-8 animate-[spin_3s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
-                  <path d="M12 18h.01"/>
-                </svg>
+        {/* 📱 Mandatory Mobile Landscape Screen - NO PORTRAIT MODE ANYHOW */}
+        <div
+          className={`portrait-blocker-overlay fixed inset-0 z-[99999] bg-[#0c0914] flex-col items-center justify-center p-6 text-center select-none ${
+            isMobileDevice && isPortrait ? 'flex' : 'hidden'
+          }`}
+        >
+          {/* Subtle Ambient Glow */}
+          <div className="absolute w-72 h-72 rounded-full bg-rose-600/15 blur-3xl pointer-events-none" />
+
+          <div className="relative max-w-xs sm:max-w-sm w-full bg-[#161224] border border-rose-500/40 rounded-3xl p-7 sm:p-8 shadow-2xl flex flex-col items-center space-y-4">
+            {/* watch. brand */}
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-xl font-black text-[#E50914] tracking-tight">watch.</span>
+              <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Cinema</span>
+            </div>
+
+            {/* Animated Rotating Phone Graphic */}
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-rose-500/20 to-purple-500/20 border border-rose-500/40 flex items-center justify-center text-[#ff2b70] shadow-xl relative">
+              <svg className="w-10 h-10 animate-[spin_3s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                <path d="M12 18h.01"/>
+              </svg>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#E50914] text-white flex items-center justify-center text-xs font-bold shadow">
+                ↻
               </div>
+            </div>
 
-              <h3 className="text-base font-black text-white mb-1.5 tracking-tight">Rotate to Landscape</h3>
-              <p className="text-xs text-zinc-300 leading-relaxed mb-5">
-                Turn your phone horizontally to watch movie party in full screen.
+            <div className="space-y-2">
+              <h2 className="text-lg font-black text-white tracking-tight">
+                Rotate Phone to Landscape
+              </h2>
+              <p className="text-xs text-zinc-300 leading-relaxed max-w-xs">
+                Watch Party is optimized exclusively for <strong>widescreen horizontal view</strong>. Please turn your phone sideways to enter full-screen cinema mode.
               </p>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => setDismissFlipPrompt(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs transition border border-white/15 cursor-pointer shadow-xs"
-              >
-                Continue in Portrait
-              </button>
+            <div className="w-full p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1">
+              <div className="text-[10.5px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                <span>📱 Auto-Rotate Required</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 leading-normal">
+                Turn your phone sideways. If your screen does not rotate, make sure <strong>Portrait Orientation Lock</strong> is turned off in your quick settings.
+              </p>
             </div>
           </div>
-        )}
+        </div>
+
+        <style jsx global>{`
+          @media (max-width: 768px) and (orientation: portrait) {
+            .portrait-blocker-overlay {
+              display: flex !important;
+            }
+          }
+        `}</style>
 
       {/* 🛡️ Knock-to-Join Admission Banner for Host */}
       {isHost && pendingJoinRequests.length > 0 && (
