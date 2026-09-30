@@ -42,7 +42,11 @@ import {
   LogOut,
   SlidersHorizontal,
   Eye,
-  EyeOff
+  EyeOff,
+  Laptop,
+  Smartphone,
+  Info,
+  Copy
 } from 'lucide-react';
 import { TheaterOverlay } from './TheaterOverlay';
 import { PixelPerfectTheater, THEATER_THEMES } from './PixelPerfectTheater';
@@ -245,7 +249,18 @@ export const CinemaPlayer = memo(function CinemaPlayer({
     });
   };
 
-  // Synchronized 3-2-1 Countdown Timer & Sounds
+  // Mobile device detection & guidance modal
+  const [isMobileDevice, setIsMobileDevice] = useState<boolean>(false);
+  const [showMobileShareModal, setShowMobileShareModal] = useState<boolean>(false);
+  const [quickVideoUrl, setQuickVideoUrl] = useState<string>('');
+  const [copiedHostLink, setCopiedHostLink] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isMobile = window.innerWidth < 768 || ('ontouchstart' in window && Math.max(window.innerWidth, window.innerHeight) <= 1024);
+      setIsMobileDevice(isMobile);
+    }
+  }, []);
   useEffect(() => {
     if (!countdownActive) {
       setCountdownStep(null);
@@ -757,28 +772,68 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                 <>
                   <div className="space-y-1">
                     <h3 className="text-base sm:text-xl font-bold text-white tracking-tight">
-                      Share Screen to Start Movie Party
+                      {isMobileDevice ? 'Start Movie Party' : 'Share Screen to Start Movie Party'}
                     </h3>
                     <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed max-w-sm">
-                      Open Netflix, Prime Video, YouTube or any movie in your browser, then share your tab or screen with everyone.
+                      {isMobileDevice
+                        ? 'To stream Netflix or Prime Video, host from a laptop browser so all mobile guests can watch together. Or paste a YouTube / MP4 link below:'
+                        : 'Open Netflix, Prime Video, YouTube or any movie in your browser, then share your tab or screen with everyone.'}
                     </p>
                   </div>
 
-                  <div className="w-full pt-1">
+                  {/* Direct YouTube / MP4 URL Input for Instant Play */}
+                  {onNavigateUrl && (
+                    <div className="w-full flex gap-1.5 pt-1">
+                      <input
+                        type="text"
+                        value={quickVideoUrl}
+                        onChange={(e) => setQuickVideoUrl(e.target.value)}
+                        placeholder="Paste YouTube or MP4 video URL..."
+                        className="flex-1 px-3 py-2 bg-black/60 border border-white/20 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && quickVideoUrl.trim()) {
+                            onNavigateUrl(quickVideoUrl.trim());
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (quickVideoUrl.trim()) {
+                            onNavigateUrl(quickVideoUrl.trim());
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold rounded-xl transition shadow active:scale-95 cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span>Play</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="w-full pt-1 space-y-1.5">
                     {onStartScreenShare && (
                       <button
                         onClick={() => {
-                          if (onStartParty) {
+                          if (isMobileDevice) {
+                            setShowMobileShareModal(true);
+                          } else if (onStartParty) {
                             onStartParty();
                           } else {
                             onStartScreenShare();
                           }
                         }}
-                        className="w-full py-2.5 sm:py-3 px-4 sm:px-5 bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2"
+                        className="w-full py-2.5 sm:py-3 px-4 sm:px-5 bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
                       >
                         <ScreenShare className="w-4 h-4" />
-                        <span>Share Screen &amp; Start</span>
+                        <span>{isMobileDevice ? 'Share Screen (Laptop Recommended)' : 'Share Screen & Start'}</span>
                       </button>
+                    )}
+
+                    {isMobileDevice && (
+                      <p className="text-[10px] text-zinc-400">
+                        📱 Safari &amp; mobile browsers block Netflix capture due to DRM. Host on laptop for Netflix!
+                      </p>
                     )}
                   </div>
                 </>
@@ -1316,6 +1371,69 @@ export const CinemaPlayer = memo(function CinemaPlayer({
           </div>
         </div>
       )}
+
+      {/* Mobile Screen Sharing / Netflix Guidance Modal */}
+      {showMobileShareModal && (
+        <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="max-w-sm w-full bg-[#161224] border border-rose-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col items-center text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-inner">
+              <Laptop className="w-6 h-6" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-base font-black text-white">Streaming Netflix &amp; Movies</h3>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                Mobile browsers (Safari/Chrome on iOS &amp; Android) block screen recording of streaming services like <strong className="text-white font-semibold">Netflix, Prime Video, and Disney+</strong> due to hardware DRM security.
+              </p>
+            </div>
+            <div className="w-full p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-2">
+              <div className="text-[11px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5" />
+                <span>How to Stream Netflix Together:</span>
+              </div>
+              <p className="text-[11px] text-zinc-300 leading-relaxed">
+                1. Open this room on your <strong className="text-white font-semibold">laptop or desktop</strong> (Chrome, Edge, or Brave).<br />
+                2. Share your screen from your computer with system audio.<br />
+                3. All your friends on mobile can watch in <strong className="text-white font-semibold">full screen</strong>!
+              </p>
+            </div>
+            <div className="w-full space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    navigator.clipboard.writeText(window.location.href);
+                    setCopiedHostLink(true);
+                    setTimeout(() => setCopiedHostLink(false), 2500);
+                  }
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-md shadow-red-600/30 flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
+              >
+                {copiedHostLink ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedHostLink ? 'Link Copied! Open on Laptop' : 'Copy Room Link for Laptop'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMobileShareModal(false);
+                  if (onStartParty) onStartParty();
+                  else if (onStartScreenShare) onStartScreenShare();
+                }}
+                className="w-full py-2 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 font-bold text-[11px] border border-white/10 active:scale-95 transition cursor-pointer"
+              >
+                Try Mobile Screen Share Anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMobileShareModal(false)}
+                className="w-full py-1 text-zinc-500 hover:text-zinc-300 text-[11px] font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Close containerRef div */}
     </div>
   );

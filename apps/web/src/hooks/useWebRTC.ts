@@ -735,6 +735,10 @@ export function useWebRTC({
 
   const startScreenShare = useCallback(async () => {
     try {
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+        setMediaNotice('Screen sharing is not supported by mobile Safari. To stream Netflix or movies, please host from a desktop browser.');
+        return;
+      }
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({
@@ -779,8 +783,11 @@ export function useWebRTC({
           }
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Screen share canceled or denied:', err);
+      if (err?.name && err.name !== 'NotAllowedError') {
+        setMediaNotice('Screen sharing failed on this mobile device. To stream Netflix or protected movies, please host from a desktop browser.');
+      }
     }
   }, [members, myUserId, sendScreenState, initiateScreenShare, stopScreenShare]);
 
