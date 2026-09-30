@@ -18,6 +18,7 @@ import {
   Send,
   Smile,
   Users,
+  Camera,
   Video,
   VideoOff,
   Mic,
@@ -546,6 +547,7 @@ export default function RoomPage() {
   // Mobile orientation detection
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [isPortrait, setIsPortrait] = useState(false);
+  const [showMobileCamPreview, setShowMobileCamPreview] = useState(false);
 
   useEffect(() => {
     const handleOrientationChange = () => {
@@ -1286,8 +1288,41 @@ export default function RoomPage() {
                 onToggleChat={() => setIsChatOpen((prev) => !prev)}
                 unreadCount={unreadCount}
                 isMobileLandscape={isMobileLandscape}
+                showMobileCamPreview={showMobileCamPreview}
+                onToggleMobileCamPreview={() => setShowMobileCamPreview((prev) => !prev)}
               />
               <FloatingReactionsCanvas latestReactions={latestReactions} />
+
+              {/* 📱 Mobile Landscape Floating Cam Preview Strip / Drawer */}
+              {isMobileLandscape && showMobileCamPreview && (
+                <div className="absolute top-12 left-3 right-3 z-40 bg-[#121622]/95 backdrop-blur-2xl border border-white/20 rounded-2xl p-2 sm:p-2.5 shadow-2xl animate-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-white/10 px-1">
+                    <div className="flex items-center gap-1.5 text-white">
+                      <Camera className="w-3.5 h-3.5 text-rose-400" />
+                      <span className="text-xs font-bold">Participant Cameras ({gridParticipants.length})</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowMobileCamPreview(false)}
+                      className="p-1 rounded-full bg-white/10 hover:bg-white/20 text-zinc-400 hover:text-white transition cursor-pointer"
+                      title="Close Cam Preview"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="w-full overflow-x-auto pb-0.5">
+                    <VideoGrid
+                      participants={gridParticipants.slice(0, 6)}
+                      onCopyInvite={handleCopyInvite}
+                      copiedInvite={copiedInvite}
+                      onToggleSelfCamera={toggleCamera}
+                      onToggleSelfMic={toggleMic}
+                      isCompact={true}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

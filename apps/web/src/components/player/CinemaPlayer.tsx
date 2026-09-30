@@ -118,6 +118,8 @@ interface CinemaPlayerProps {
   onToggleChat?: () => void;
   unreadCount?: number;
   isMobileLandscape?: boolean;
+  showMobileCamPreview?: boolean;
+  onToggleMobileCamPreview?: () => void;
 }
 
 export const CinemaPlayer = memo(function CinemaPlayer({
@@ -154,6 +156,8 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   onToggleChat,
   unreadCount = 0,
   isMobileLandscape = false,
+  showMobileCamPreview = false,
+  onToggleMobileCamPreview,
 }: CinemaPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const screenVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -582,6 +586,28 @@ export const CinemaPlayer = memo(function CinemaPlayer({
               </button>
             )}
 
+            {onToggleMobileCamPreview && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleMobileCamPreview();
+                  resetHideTimer();
+                }}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full border transition cursor-pointer ${
+                  showMobileCamPreview
+                    ? 'bg-rose-600 border-rose-500 text-white shadow-md shadow-rose-600/30'
+                    : 'bg-white/10 hover:bg-white/20 border-white/15 text-white/90'
+                }`}
+                title={showMobileCamPreview ? 'Close Cam Preview' : 'Show Cam Preview'}
+              >
+                <Camera className="w-3.5 h-3.5 text-rose-300" />
+                <span className="text-[11px] font-bold">
+                  {showMobileCamPreview ? 'Hide Cams' : 'Cams'}
+                </span>
+              </button>
+            )}
+
             {onToggleChat && (
               <button
                 type="button"
@@ -637,19 +663,40 @@ export const CinemaPlayer = memo(function CinemaPlayer({
 
       {/* Tap-to-show minimal icon indicator in mobile landscape when options are hidden */}
       {isMobileLandscape && !showMobileControls && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowMobileControls(true);
-            resetHideTimer();
-          }}
-          className="absolute top-3 right-3 z-50 px-2.5 py-1.5 rounded-full bg-black/75 hover:bg-black/90 active:scale-95 text-white/90 border border-white/20 backdrop-blur-md shadow-2xl transition flex items-center gap-1.5 cursor-pointer"
-          title="Show Controls & Options"
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5 text-[#E50914]" />
-          <span className="text-[11px] font-bold">Options</span>
-        </button>
+        <div className="absolute top-3 right-3 z-50 flex items-center gap-1.5">
+          {onToggleMobileCamPreview && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMobileCamPreview();
+              }}
+              className={`px-2.5 py-1.5 rounded-full border backdrop-blur-md shadow-2xl transition flex items-center gap-1 cursor-pointer active:scale-95 ${
+                showMobileCamPreview
+                  ? 'bg-rose-600 border-rose-500 text-white shadow-md shadow-rose-600/30'
+                  : 'bg-black/75 hover:bg-black/90 text-white/90 border-white/20'
+              }`}
+              title={showMobileCamPreview ? 'Close Cam Preview' : 'Show Cam Preview'}
+            >
+              <Camera className="w-3.5 h-3.5 text-rose-400" />
+              <span className="text-[11px] font-bold">{showMobileCamPreview ? 'Hide Cams' : 'Cams'}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMobileControls(true);
+              resetHideTimer();
+            }}
+            className="px-2.5 py-1.5 rounded-full bg-black/75 hover:bg-black/90 active:scale-95 text-white/90 border border-white/20 backdrop-blur-md shadow-2xl transition flex items-center gap-1.5 cursor-pointer"
+            title="Show Controls & Options"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#E50914]" />
+            <span className="text-[11px] font-bold">Options</span>
+          </button>
+        </div>
       )}
 
       {/* 1. Video Canvas / Media Stage (100% Real Video & Screen Stream) */}

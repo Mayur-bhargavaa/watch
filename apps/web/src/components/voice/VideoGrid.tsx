@@ -20,6 +20,7 @@ interface VideoGridProps {
   copiedInvite?: boolean;
   onToggleSelfCamera?: () => void;
   onToggleSelfMic?: () => void;
+  isCompact?: boolean;
 }
 
 // Google Meet Avatar Color Palette (curated vibrant tones for circular badges)
@@ -65,16 +66,24 @@ export const VideoGrid = React.memo(function VideoGrid({
   onCopyInvite,
   copiedInvite,
   onToggleSelfCamera,
-  onToggleSelfMic
+  onToggleSelfMic,
+  isCompact = false
 }: VideoGridProps) {
   if (participants.length === 0) {
     return null;
   }
 
   return (
-    <div className="w-full flex items-center gap-2.5 overflow-x-auto pb-0.5 scrollbar-none">
+    <div className={`w-full flex items-center ${isCompact ? 'gap-1.5' : 'gap-2.5'} overflow-x-auto pb-0.5 scrollbar-none`}>
       {participants.map((p, idx) => (
-        <div key={p.userId || idx} className="flex-1 min-w-[140px] sm:min-w-[170px] max-w-[240px]">
+        <div
+          key={p.userId || idx}
+          className={
+            isCompact
+              ? 'flex-shrink-0 w-[105px] sm:w-[130px] max-w-[150px]'
+              : 'flex-1 min-w-[140px] sm:min-w-[170px] max-w-[240px]'
+          }
+        >
           <MemoizedVideoTile
             participant={p}
             index={idx}
