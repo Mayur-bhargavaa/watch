@@ -1140,61 +1140,6 @@ export default function RoomPage() {
           </div>
         </div>
 
-        {/* 📱 Mandatory Mobile Landscape Screen - NO PORTRAIT MODE ANYHOW */}
-        <div
-          className={`portrait-blocker-overlay fixed inset-0 z-[99999] bg-[#0c0914] flex-col items-center justify-center p-6 text-center select-none ${
-            isMobileDevice && isPortrait ? 'flex' : 'hidden'
-          }`}
-        >
-          {/* Subtle Ambient Glow */}
-          <div className="absolute w-72 h-72 rounded-full bg-rose-600/15 blur-3xl pointer-events-none" />
-
-          <div className="relative max-w-xs sm:max-w-sm w-full bg-[#161224] border border-rose-500/40 rounded-3xl p-7 sm:p-8 shadow-2xl flex flex-col items-center space-y-4">
-            {/* watch. brand */}
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-xl font-black text-[#E50914] tracking-tight">watch.</span>
-              <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Cinema</span>
-            </div>
-
-            {/* Animated Rotating Phone Graphic */}
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-rose-500/20 to-purple-500/20 border border-rose-500/40 flex items-center justify-center text-[#ff2b70] shadow-xl relative">
-              <svg className="w-10 h-10 animate-[spin_3s_ease-in-out_infinite]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
-                <path d="M12 18h.01"/>
-              </svg>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#E50914] text-white flex items-center justify-center text-xs font-bold shadow">
-                ↻
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <h2 className="text-lg font-black text-white tracking-tight">
-                Rotate Phone to Landscape
-              </h2>
-              <p className="text-xs text-zinc-300 leading-relaxed max-w-xs">
-                Watch Party is optimized exclusively for <strong>widescreen horizontal view</strong>. Please turn your phone sideways to enter full-screen cinema mode.
-              </p>
-            </div>
-
-            <div className="w-full p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1">
-              <div className="text-[10.5px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span>📱 Auto-Rotate Required</span>
-              </div>
-              <p className="text-[10px] text-zinc-400 leading-normal">
-                Turn your phone sideways. If your screen does not rotate, make sure <strong>Portrait Orientation Lock</strong> is turned off in your quick settings.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <style jsx global>{`
-          @media (max-width: 768px) and (orientation: portrait) {
-            .portrait-blocker-overlay {
-              display: flex !important;
-            }
-          }
-        `}</style>
-
       {/* 🛡️ Knock-to-Join Admission Banner for Host */}
       {isHost && pendingJoinRequests.length > 0 && (
         <div className="mb-2.5 p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-amber-500/30 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xl animate-in slide-in-from-top-2 duration-200 flex-shrink-0">
@@ -1696,8 +1641,8 @@ export default function RoomPage() {
       </div>
       </div>
 
-      {/* Floating Chat Bubble Launcher (Draggable FAB) - Hidden in Mobile Landscape for full-screen cinema clarity */}
-      {!isMobileLandscape && (
+      {/* Floating Chat Bubble Launcher (Draggable FAB) - Desktop only, never on mobile */}
+      {!isMobileDevice && (
         <div
           style={
             fabPosition
@@ -1712,7 +1657,7 @@ export default function RoomPage() {
                   bottom: '20px'
                 }
           }
-          className={`fixed ${isTheaterMode ? 'z-[60]' : 'z-40'} flex items-center gap-2 pointer-events-auto touch-none select-none ${
+          className={`mobile-chat-fab fixed ${isTheaterMode ? 'z-[60]' : 'z-40'} flex items-center gap-2 pointer-events-auto touch-none select-none ${
             fabPosition && fabPosition.x < 260 ? 'flex-row-reverse' : 'flex-row'
           } ${isDraggingFab ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
@@ -1937,6 +1882,84 @@ export default function RoomPage() {
           isExtended={streakCelebration.isExtended}
         />
       )}
+
+      {/* 📱 Mandatory Mobile Landscape Screen - NO PORTRAIT MODE ANYHOW */}
+      <div
+        className={`portrait-blocker-overlay fixed inset-0 z-[99999] bg-[#0c0914] flex-col items-center justify-center p-4 sm:p-6 text-center select-none ${
+          isMobileDevice && isPortrait ? 'flex' : 'hidden'
+        }`}
+      >
+        {/* Subtle Ambient Red Glow */}
+        <div className="absolute w-80 h-80 rounded-full bg-rose-600/15 blur-3xl pointer-events-none" />
+
+        <div className="relative w-[90%] max-w-sm my-auto bg-[#161224] border border-rose-500/40 rounded-3xl p-6 sm:p-7 shadow-2xl flex flex-col items-center space-y-4 max-h-[92vh] overflow-y-auto">
+          {/* Brand Header */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xl font-black text-[#E50914] tracking-tight">watch.</span>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Cinema</span>
+          </div>
+
+          {/* Animated 90-degree Rotating Phone Graphic */}
+          <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-tr from-rose-500/20 via-purple-500/20 to-rose-500/10 border border-rose-500/40 flex items-center justify-center text-[#ff2b70] shadow-xl relative shrink-0">
+            <div className="animate-rotate-phone flex items-center justify-center">
+              <svg className="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="14" height="20" x="5" y="2" rx="2.5" ry="2.5"/>
+                <path d="M12 18h.01"/>
+              </svg>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#E50914] text-white flex items-center justify-center text-xs font-black shadow-md">
+              ↻
+            </div>
+          </div>
+
+          {/* Title & Description */}
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-black text-white tracking-tight">
+              Rotate Phone to Landscape
+            </h2>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Watch Party is optimized exclusively for <strong>widescreen horizontal view</strong>. Turn your phone sideways to enter full-screen cinema mode.
+            </p>
+          </div>
+
+          {/* Auto-Rotate Helper Card */}
+          <div className="w-full p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1">
+            <div className="text-[11px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>📱 Auto-Rotate Required</span>
+            </div>
+            <p className="text-[10.5px] text-zinc-300 leading-normal">
+              Turn your phone sideways. If your screen does not flip, check that <strong>Portrait Orientation Lock</strong> is turned off in your quick settings.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <style jsx global>{`
+        @keyframes rotatePhone {
+          0%, 20% {
+            transform: rotate(0deg);
+          }
+          45%, 75% {
+            transform: rotate(90deg);
+          }
+          95%, 100% {
+            transform: rotate(0deg);
+          }
+        }
+        .animate-rotate-phone {
+          animation: rotatePhone 2.5s ease-in-out infinite;
+        }
+        @media (max-width: 768px) and (orientation: portrait) {
+          .portrait-blocker-overlay {
+            display: flex !important;
+          }
+        }
+        @media (max-width: 1024px) {
+          .mobile-chat-fab {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
