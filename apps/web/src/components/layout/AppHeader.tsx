@@ -137,7 +137,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   return (
     <>
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between gap-2 sm:gap-4 w-full">
+      <div className="flex items-center justify-start gap-2 sm:gap-3 w-full">
         {/* Mobile Menu & Back & Forward Controls */}
         <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
           {onOpenMobileSidebar && (
@@ -171,21 +171,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </button>
         </div>
 
-        {/* Mobile Search Trigger Button (sm:hidden) */}
-        <button
-          type="button"
-          onClick={() => setIsMobileSearchOpen(true)}
-          className="sm:hidden p-2 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-300 transition shadow-sm active:scale-95 cursor-pointer ml-auto"
-          title="Search or Import Video"
-          aria-label="Search"
-        >
-          <Search className="w-4 h-4 text-slate-500 dark:text-zinc-300" />
-        </button>
-
         {/* Desktop/Tablet Real YouTube URL Importer & Room Search Bar */}
         <form
           onSubmit={handleSubmit}
-          className="hidden sm:flex flex-1 max-w-xl items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm dark:shadow-inner relative min-w-0"
+          className="hidden sm:flex w-64 md:w-80 lg:w-96 items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm dark:shadow-inner relative shrink-0"
         >
           <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 dark:text-zinc-400 shrink-0 mr-2" />
           <input
@@ -217,10 +206,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           )}
         </form>
 
-        {/* Header Right Actions: Max 6 per room (to the left, close to notification) and Notification Bell */}
-        <div className="flex items-center space-x-2 shrink-0">
-          {/* Live Room Limit Indicator - positioned to the left of notification bell */}
-          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
+        {/* Actions placed directly NEXT TO SEARCH on desktop (leaving the right side empty) */}
+        <div className="hidden sm:flex items-center space-x-2 shrink-0">
+          {/* Live Room Limit Indicator */}
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
             <Users className="w-3.5 h-3.5 text-rose-500" />
             <span>Max 6 per room</span>
           </div>
@@ -228,6 +217,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {/* Notification Bell */}
           <NotificationBell />
 
+          {rightContent}
+        </div>
+
+        {/* Mobile-Only Action Cluster (sm:hidden) */}
+        <div className="sm:hidden flex items-center space-x-2 ml-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsMobileSearchOpen(true)}
+            className="p-2 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-300 transition shadow-sm active:scale-95 cursor-pointer"
+            title="Search or Import Video"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4 text-slate-500 dark:text-zinc-300" />
+          </button>
+          <NotificationBell />
           {rightContent}
         </div>
       </div>
