@@ -202,7 +202,7 @@ const REAL_YOUTUBE_PARTIES = [
     title: 'The Mandalorian',
     tagline: 'Disney+ Star Wars • Max 6',
     videoUrl: 'https://www.disneyplus.com',
-    thumbnail: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=600&h=400&fit=crop&q=80',
+    thumbnail: 'https://images.unsplash.com/photo-1608346128025-1896b97a6fa7?w=600&h=400&fit=crop&q=80',
     avatars: [
       'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&h=64&fit=crop&crop=face',
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=64&h=64&fit=crop&crop=face'
@@ -958,6 +958,9 @@ export default function DashboardPage() {
                       <img
                         src={party.thumbnail}
                         alt={party.title}
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=400&fit=crop&q=80';
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
@@ -1094,6 +1097,9 @@ export default function DashboardPage() {
                             <img
                               src={thumbnail}
                               alt={item.title}
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=400&fit=crop&q=80';
+                              }}
                               className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
