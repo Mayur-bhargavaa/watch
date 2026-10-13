@@ -10,11 +10,8 @@ import {
   Play,
   Plus,
   Users,
-  Sun,
-  Moon,
   X
 } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { getStoredSession, createPartyRoom } from '../../lib/api';
 
@@ -50,7 +47,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   rightContent
 }) => {
   const router = useRouter();
-  const { resolvedTheme, toggleTheme } = useTheme();
 
   const [localQuery, setLocalQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
@@ -221,35 +217,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           )}
         </form>
 
-        {/* Notification Bell directly next to Search Bar */}
-        <div className="shrink-0">
-          <NotificationBell />
-        </div>
-
-        {/* Top Right Header with Max 6 Indicator & Theme Toggle */}
+        {/* Header Right Actions: Max 6 per room (to the left, close to notification) and Notification Bell */}
         <div className="flex items-center space-x-2 shrink-0">
-          {/* Live Room Limit Indicator */}
-          <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
+          {/* Live Room Limit Indicator - positioned to the left of notification bell */}
+          <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
             <Users className="w-3.5 h-3.5 text-rose-500" />
             <span>Max 6 per room</span>
           </div>
 
-          {rightContent}
+          {/* Notification Bell */}
+          <NotificationBell />
 
-          {/* 1-Click Theme Switcher (Sun / Moon) */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-700 dark:text-zinc-200 transition shadow-sm dark:shadow-none active:scale-95 cursor-pointer"
-            title={`Switch to ${resolvedTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            aria-label="Toggle theme mode"
-          >
-            {resolvedTheme === 'dark' ? (
-              <Sun className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform duration-300" />
-            ) : (
-              <Moon className="w-4 h-4 text-indigo-600 hover:-rotate-12 transition-transform duration-300" />
-            )}
-          </button>
+          {rightContent}
         </div>
       </div>
 
