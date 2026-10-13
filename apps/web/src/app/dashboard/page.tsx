@@ -847,26 +847,26 @@ export default function DashboardPage() {
               </div>
 
               <div className="relative group/carousel">
-                {/* Left Floating Arrow */}
+                {/* Left Floating Arrow (mobile only; hidden on desktop where platforms form a grid) */}
                 <button
                   type="button"
                   onClick={() => handleScrollCarousel(platformsScrollRef, 'left')}
-                  className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-lg border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  className="sm:hidden absolute left-0.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-900/85 dark:bg-black/80 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-lg border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
                   title="Previous platforms"
                   aria-label="Scroll left"
                 >
-                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {/* Right Floating Arrow */}
+                {/* Right Floating Arrow (mobile only; hidden on desktop where platforms form a grid) */}
                 <button
                   type="button"
                   onClick={() => handleScrollCarousel(platformsScrollRef, 'right')}
-                  className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-lg border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  className="sm:hidden absolute right-0.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-900/85 dark:bg-black/80 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-lg border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
                   title="Next platforms"
                   aria-label="Scroll right"
                 >
-                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
 
                 <div ref={platformsScrollRef} className="flex overflow-x-auto gap-2.5 sm:gap-3 pb-2 pt-1 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:overflow-visible">
@@ -925,26 +925,26 @@ export default function DashboardPage() {
               </div>
 
               <div className="relative group/carousel">
-                {/* Left Floating Arrow */}
+                {/* Left Floating Arrow (mobile only) */}
                 <button
                   type="button"
                   onClick={() => handleScrollCarousel(partiesScrollRef, 'left')}
-                  className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  className="sm:hidden absolute left-0.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-900/85 dark:bg-black/80 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
                   title="Previous watch party"
                   aria-label="Scroll left"
                 >
-                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {/* Right Floating Arrow */}
+                {/* Right Floating Arrow (mobile only) */}
                 <button
                   type="button"
                   onClick={() => handleScrollCarousel(partiesScrollRef, 'right')}
-                  className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                  className="sm:hidden absolute right-0.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-900/85 dark:bg-black/80 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
                   title="Next watch party"
                   aria-label="Scroll right"
                 >
-                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
 
                 <div ref={partiesScrollRef} className="flex overflow-x-auto gap-3.5 sm:gap-4 pb-2 pt-1 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
@@ -1056,26 +1056,26 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="relative group/carousel">
-                  {/* Left Floating Arrow */}
+                  {/* Left Floating Arrow (mobile only) */}
                   <button
                     type="button"
                     onClick={() => handleScrollCarousel(historyScrollRef, 'left')}
-                    className="absolute left-1 sm:-left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                    className="sm:hidden absolute left-0.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-900/85 dark:bg-black/80 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
                     title="Previous watched"
                     aria-label="Scroll left"
                   >
-                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
 
-                  {/* Right Floating Arrow */}
+                  {/* Right Floating Arrow (mobile only) */}
                   <button
                     type="button"
                     onClick={() => handleScrollCarousel(historyScrollRef, 'right')}
-                    className="absolute right-1 sm:-right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 dark:bg-black/75 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
+                    className="sm:hidden absolute right-0.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-900/85 dark:bg-black/80 hover:bg-rose-600 dark:hover:bg-rose-600 text-white backdrop-blur-md shadow-xl border border-white/10 flex items-center justify-center transition active:scale-95 cursor-pointer"
                     title="Next watched"
                     aria-label="Scroll right"
                   >
-                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <ChevronRight className="w-4 h-4" />
                   </button>
 
                   <div ref={historyScrollRef} className="flex overflow-x-auto gap-3.5 sm:gap-4 pb-2 pt-1 scrollbar-none snap-x snap-mandatory sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible">
