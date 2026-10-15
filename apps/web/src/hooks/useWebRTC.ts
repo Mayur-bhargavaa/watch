@@ -460,7 +460,7 @@ export function useWebRTC({
           members.forEach((m) => {
             if (m.userId && m.userId !== myUserId && m.isConnected !== false) {
               if (!userPeerConnectionsRef.current.has(m.userId)) {
-                initiateUserCall(m.userId, stream!);
+                void initiateUserCall(m.userId, stream!);
               }
             }
           });
@@ -676,7 +676,7 @@ export function useWebRTC({
         if (m.userId && m.userId !== myUserId && m.isConnected !== false && !userPeerConnectionsRef.current.has(m.userId)) {
           const fail = failedPeersCooldownRef.current.get(m.userId);
           if (!fail || Date.now() >= fail.nextAllowedTime) {
-            initiateUserCall(m.userId, localUserStream);
+            void initiateUserCall(m.userId, localUserStream);
           }
         }
       });
@@ -733,12 +733,33 @@ export function useWebRTC({
     closeAllScreenConnections();
   }, [sendScreenState, closeAllScreenConnections]);
 
-  const startScreenShare = useCallback(async () => {
+  // True while the browser's screen-picker is open (or a share is being set up): a second call is ignored, so the
+  // picker can never stack up 2-3 times from repeated clicks or from several UI buttons calling this together.
+  const screenShareInFlightRef = useRef(false);
+
+  /** Resolves true only when a screen was actually captured and sharing started (false on cancel / denial / error). */
+  const startScreenShare = useCallback(async (): Promise<boolean> => {
+    if (screenShareInFlightRef.current) return false;
+    screenShareInFlightRef.current = true;
     try {
-      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
-        setMediaNotice('Screen sharing is not supported by mobile Safari. To stream Netflix or movies, please host from a desktop browser.');
-        return;
+      // Hosting / sharing is desktop-only; phones can join and watch. (UI shows a dialog first; this is the backstop.)
+      if (typeof window !== 'undefined') {
+        const phone =
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+          ('ontouchstart' in window && Math.max(window.innerWidth, window.innerHeight) <= 1024);
+        if (phone) {
+          setMediaNotice('Hosting and screen sharing need a laptop or PC. Sign in on a desktop browser to share; you can keep watching on your phone.');
+          return false;
+        }
       }
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+        setMediaNotice('Screen sharing is not supported by this browser. To stream Netflix or movies, please host from a desktop browser.');
+        return false;
+      }
+
+      // Ask once with the best settings. Only if the browser says those *settings* are unsupported do we retry with
+      // simpler ones. A user who presses Cancel (NotAllowedError / AbortError) must never get the picker again.
+      const isCancel = (e: any) => e?.name === 'NotAllowedError' || e?.name === 'AbortError' || e?.name === 'SecurityError';
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getDisplayMedia({
@@ -753,17 +774,13 @@ export function useWebRTC({
             channelCount: 2
           }
         } as any);
-      } catch {
-        try {
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: true
-          });
-        } catch {
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true
-          });
+      } catch (firstErr: any) {
+        if (isCancel(firstErr)) {
+          console.info('Screen share cancelled by the user');
+          return false;
         }
+        // Unsupported constraints (OverconstrainedError / TypeError): one simpler attempt, still never after a cancel
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       }
 
       setLocalScreenStream(stream);
@@ -779,15 +796,21 @@ export function useWebRTC({
       if (myUserId) {
         members.forEach((m) => {
           if (m.userId && m.userId !== myUserId && m.isConnected) {
-            initiateScreenShare(m.userId, stream);
+            void initiateScreenShare(m.userId, stream);
           }
         });
       }
+      return true;
     } catch (err: any) {
-      console.warn('Screen share canceled or denied:', err);
-      if (err?.name && err.name !== 'NotAllowedError') {
-        setMediaNotice('Screen sharing failed on this mobile device. To stream Netflix or protected movies, please host from a desktop browser.');
+      if (err?.name === 'NotAllowedError' || err?.name === 'AbortError') {
+        console.info('Screen share cancelled or denied');
+      } else {
+        console.warn('Screen share failed:', err);
+        setMediaNotice('Screen sharing could not start in this browser. Please use a current desktop Chrome or Edge.');
       }
+      return false;
+    } finally {
+      screenShareInFlightRef.current = false;
     }
   }, [members, myUserId, sendScreenState, initiateScreenShare, stopScreenShare]);
 
@@ -795,7 +818,7 @@ export function useWebRTC({
     if (!localScreenStream || !myUserId) return;
     members.forEach((m) => {
       if (m.userId && m.userId !== myUserId && m.isConnected && !screenPeerConnectionsRef.current.has(m.userId)) {
-        initiateScreenShare(m.userId, localScreenStream);
+        void initiateScreenShare(m.userId, localScreenStream);
       }
     });
   }, [members, localScreenStream, myUserId, initiateScreenShare]);
@@ -814,6 +837,7 @@ export function useWebRTC({
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- async signal listener that handles its own errors
     const unregisterSignal = registerWebRTCListener(async (fromUserId, signal) => {
       if (!signal || !fromUserId || !myUserId || fromUserId === myUserId) return;
 

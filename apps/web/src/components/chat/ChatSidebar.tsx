@@ -11,14 +11,14 @@ import {
   Check,
   X,
   UserPlus,
-  Copy,
-  Sparkles,
-} from 'lucide-react';
+  Copy
+  } from 'lucide-react';
 import { ChatConversation, ChatUser, ChatMessageRequest } from '@/types/chat';
 import { ChatStore } from '@/lib/chatStore';
 import { getStoredSession } from '@/lib/api';
 import { ConversationList } from './ConversationList';
 import { ModalPortal } from './ModalPortal';
+import { copyToClipboard } from '../../lib/clipboard';
 
 interface ChatSidebarProps {
   conversations: ChatConversation[];
@@ -45,10 +45,10 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onDeclineRequest,
   onOpenCreateGroup,
   onOpenSearchModal,
-  onStartDirectChatWithUser,
+  onStartDirectChatWithUser
 }) => {
   const [activeTab, setActiveTab] = useState<'chats' | 'friends' | 'requests'>('chats');
-  const [localSearch, setLocalSearch] = useState('');
+  const [localSearch] = useState('');
 
   // Add friend state
   const [showAddFriend, setShowAddFriend] = useState(false);
@@ -145,8 +145,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </span>
           <button
             type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(myFriendCode);
+            onClick={async () => {
+              if (!(await copyToClipboard(myFriendCode))) return;
               setCopiedCode(true);
               setTimeout(() => setCopiedCode(false), 2000);
             }}

@@ -86,6 +86,13 @@ export interface BingoDuelGameState {
   callingPaused: boolean;
   startedAt: number;
   statusMessage: string;
+  roundStarterUserId?: string | null; // who picks first in the current round (alternates)
+  turnStartedAt?: number; // ms timestamp when the current turn began (server turn timer)
+  turnTimeoutMs?: number; // idle turns are auto-picked after this many ms
+  lastRoundWinnerUserId?: string | null; // winner of the most recently finished round (set on ROUND_OVER too)
+  // Present only in the per-viewer public projection (publicStateFor): callQueue is sent empty
+  remainingCount?: number;
+  markedCounts?: Record<string, number>; // userId -> numbers marked (opponent marks are hidden)
 }
 
 export interface BingoDuelCallEvent {

@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
 import React from 'react';
 import { X, Trophy, Award, CheckCircle2 } from 'lucide-react';
 import { BingoWinCondition } from '@synccinema/common';
@@ -43,7 +44,7 @@ export const BingoGameHistory: React.FC<BingoGameHistoryProps> = ({
         {/* Overall Match Winner */}
         {winnerDisplayName && (
           <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-3">
-            <div className="text-2xl">👑</div>
+            <div><AppIcon name="crown" className="w-6 h-6 text-rose-400" /></div>
             <div>
               <span className="text-[10px] text-rose-400 font-black uppercase tracking-wider">Match Champion</span>
               <div className="text-base font-black text-white">{winnerDisplayName}</div>

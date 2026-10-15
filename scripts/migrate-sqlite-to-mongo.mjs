@@ -2,7 +2,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { MongoClient } from 'mongodb';
 
 const SQLITE_PATH = process.argv[2] || '/tmp/synccinema.db';
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://DBmayur:Mayur%402608@cluster0.ytcpzbb.mongodb.net/';
+const MONGO_URI = process.env.MONGODB_URI;
+if (!MONGO_URI) {
+  console.error('MONGODB_URI is required (no default connection string is baked into this script).');
+  process.exit(1);
+}
 const DB_NAME = 'stitchbyte_watch_party';
 
 // The only 3 allowed users as instructed:

@@ -84,7 +84,7 @@ export const ClaimBingoButton: React.FC<ClaimBingoButtonProps> = ({
           }`}
         >
           <Sparkles className="w-5 h-5 text-yellow-300" />
-          <span>{isPenalized ? `Penalty (${penaltySeconds}s)` : '🎉 I HAVE A BINGO!'}</span>
+          <span>{isPenalized ? `Penalty (${penaltySeconds}s)` : 'I HAVE A BINGO!'}</span>
           {completedClaims.length > 0 && !isPenalized && (
             <span className="px-2 py-0.5 rounded-full bg-white text-rose-600 font-black text-xs shadow-sm">
               {completedClaims.length}
@@ -139,7 +139,7 @@ export const ClaimBingoButton: React.FC<ClaimBingoButtonProps> = ({
                     <div>
                       <div className="text-xs font-bold">{name}</div>
                       <div className="text-[10px] text-zinc-400">
-                        {isReady ? 'Completed! 🎯' : `${info.current} / ${info.total} numbers called`}
+                        {isReady ? 'Completed!' : `${info.current} / ${info.total} numbers called`}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">

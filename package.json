@@ -13,7 +13,13 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:ludo": "tsx scripts/test-ludo-bugs.ts",
-    "test:sim": "tsx scripts/simulate-watch-party.ts"
+    "test:sim": "tsx scripts/simulate-watch-party.ts",
+    "build:server": "npm run build -w @synccinema/common && npm run build -w @synccinema/server",
+    "billing:check": "node scripts/billing-check.mjs",
+    "retention:report": "node scripts/retention-report.mjs",
+    "email:game-launch": "node scripts/email-game-launch.mjs",
+    "test:scripts": "node --test scripts/__tests__/*.test.mjs",
+    "audit:security": ".claude/skills/security-audit/scripts/run-all.sh"
   },
   "keywords": [
     "watch-party",

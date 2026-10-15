@@ -1,5 +1,6 @@
 'use client';
 
+import { DOODLE_CHAT_PILLS } from '../../../lib/reactionEmojis';
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send, MessageCircle } from 'lucide-react';
 import { GameChatMessage } from '../../../hooks/useGameRoom';
@@ -11,9 +12,11 @@ interface DoodleChatDrawerProps {
   myUserId: string;
   onSendMessage: (content: string) => void;
   isDark?: boolean;
+  /** Spectators can read but not write. */
+  readOnly?: boolean;
 }
 
-const QUICK_PILLS = ['Good job! 👏', 'Haha nice! 😂', 'Hurry up! ⏳', 'Close one! 🔥', 'What is that?! 🤯'];
+const QUICK_PILLS = DOODLE_CHAT_PILLS;
 
 export const DoodleChatDrawer: React.FC<DoodleChatDrawerProps> = ({
   isOpen,
@@ -21,7 +24,8 @@ export const DoodleChatDrawer: React.FC<DoodleChatDrawerProps> = ({
   messages,
   myUserId,
   onSendMessage,
-  isDark = true
+  isDark = true,
+  readOnly = false
 }) => {
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -74,7 +78,8 @@ export const DoodleChatDrawer: React.FC<DoodleChatDrawerProps> = ({
         </button>
       </div>
 
-      {/* Quick Pills */}
+      {!readOnly && (<>
+{/* Quick Pills */}
       <div
         className={`px-3 py-2 border-b flex items-center gap-1.5 overflow-x-auto scrollbar-none ${
           isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'
@@ -96,6 +101,8 @@ export const DoodleChatDrawer: React.FC<DoodleChatDrawerProps> = ({
         ))}
       </div>
 
+
+</>)}
       {/* Message List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 ? (
@@ -142,7 +149,8 @@ export const DoodleChatDrawer: React.FC<DoodleChatDrawerProps> = ({
         )}
       </div>
 
-      {/* Input */}
+      {!readOnly && (<>
+{/* Input */}
       <form
         onSubmit={handleSend}
         className={`p-3 border-t flex items-center gap-2 ${
@@ -168,6 +176,8 @@ export const DoodleChatDrawer: React.FC<DoodleChatDrawerProps> = ({
           <Send className="w-3.5 h-3.5" />
         </button>
       </form>
+</>)}
+
     </div>
   );
 };

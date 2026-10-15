@@ -1,9 +1,11 @@
 'use client';
 
+import { ArrowRight } from 'lucide-react';
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Palette, Trash2 } from 'lucide-react';
 import { DoodleStroke, DoodlePoint } from '@synccinema/common';
 import { DoodleToolType } from './DrawingToolbar';
+import { chunkPoints, clamp01 } from '../../../lib/doodleView';
 
 interface DrawingCanvasProps {
   isDrawer: boolean;
@@ -93,7 +95,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     ];
   };
 
-  // Resize canvas according to container
+  const renderRef = useRef<() => void>(() => {});
+  const sizeRef = useRef<{ w: number; h: number; dpr: number }>({ w: 0, h: 0, dpr: 0 });
+
+  // Resize canvas according to container. Only reallocates the bitmap when the size really changes (DD-22),
+  // so it no longer depends on the (every-second) strokes array.
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current || !canvasRef.current) return;
@@ -101,10 +107,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
       const width = Math.max(1, Math.floor(rect.width));
       const height = Math.max(1, Math.floor(rect.height));
-
       if (width <= 0 || height <= 0) return;
 
-      setCanvasDimensions({ width, height });
+      const prev = sizeRef.current;
+      if (prev.w === width && prev.h === height && prev.dpr === dpr) return;
+      sizeRef.current = { w: width, h: height, dpr };
 
       const canvas = canvasRef.current;
       canvas.width = Math.floor(width * dpr);
@@ -114,9 +121,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.scale(dpr, dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-      renderAllStrokes(strokes, currentPointsRef.current, width, height);
+      setCanvasDimensions({ width, height });
+      renderRef.current();
     };
 
     updateSize();
@@ -129,7 +137,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       ro.disconnect();
       window.removeEventListener('resize', updateSize);
     };
-  }, [canvasBg, strokes]);
+  }, []);
 
   // Helper to render all strokes to canvas
   const renderAllStrokes = useCallback(
@@ -195,7 +203,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           size: currentBrushSize,
           isEraser: currentTool === 'eraser'
         });
-      } else if (!isDrawer && liveDrawingStroke && liveDrawingStroke.points?.length > 0) {
+      } else if (!isDrawer && phase === 'DRAWING' && liveDrawingStroke && Array.isArray(liveDrawingStroke.points) && liveDrawingStroke.points.length > 0) {
         drawStrokeOnCtx({
           points: liveDrawingStroke.points,
           color: liveDrawingStroke.color || '#ff3864',
@@ -204,15 +212,45 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         });
       }
     },
-    [currentColor, currentBrushSize, currentTool, canvasBg, isDrawer, liveDrawingStroke]
+    [currentColor, currentBrushSize, currentTool, canvasBg, isDrawer, liveDrawingStroke, phase]
   );
 
-  // Re-render when strokes change or active points update
+  // Re-render when strokes change or active points update (redraw only, no bitmap reallocation)
   useEffect(() => {
-    renderAllStrokes(strokes, activePoints, canvasDimensions.width, canvasDimensions.height);
+    const redraw = () => {
+      const w = sizeRef.current.w || canvasDimensions.width;
+      const h = sizeRef.current.h || canvasDimensions.height;
+      // While a freehand stroke is in progress use the live ref so a periodic state_sync never drops points
+      const live = isDrawingRef.current && currentPointsRef.current.length > 0 ? currentPointsRef.current : activePoints;
+      renderAllStrokes(strokes, live, w, h);
+    };
+    renderRef.current = redraw;
+    redraw();
   }, [strokes, activePoints, liveDrawingStroke, canvasDimensions, renderAllStrokes]);
 
-  const canDraw = Boolean(isDrawer && !disabled);
+  const canDraw = Boolean(isDrawer && !disabled && phase === 'DRAWING');
+
+  const onLiveDrawRef = useRef(onLiveDraw);
+  onLiveDrawRef.current = onLiveDraw;
+
+  // If drawing becomes impossible mid-gesture (phase change, role change) or on unmount: stop the gesture and
+  // clear the ghost stroke on the other player's screen (DD-21).
+  useEffect(() => {
+    if (!canDraw && isDrawingRef.current) {
+      isDrawingRef.current = false;
+      currentPointsRef.current = [];
+      setActivePoints([]);
+      onLiveDrawRef.current?.(null);
+    }
+  }, [canDraw]);
+  useEffect(() => {
+    return () => {
+      if (isDrawingRef.current) {
+        isDrawingRef.current = false;
+        onLiveDrawRef.current?.(null);
+      }
+    };
+  }, []);
 
   // Pointer event handlers for Drawer
   const getNormalizedPoint = (e: React.PointerEvent<HTMLCanvasElement>): DoodlePoint | null => {
@@ -220,8 +258,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return null;
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const x = clamp01((e.clientX - rect.left) / rect.width);
+    const y = clamp01((e.clientY - rect.top) / rect.height);
     return { x, y };
   };
 
@@ -308,6 +346,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         }
       }
 
+      // Server accepts at most ~600 points per stroke: commit a chunk and continue from its last point
+      if (currentPointsRef.current.length >= 580) {
+        const chunk = currentPointsRef.current;
+        currentPointsRef.current = [chunk[chunk.length - 1]];
+        onStrokeComplete?.({
+          id: `strk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          color: currentColor,
+          size: currentBrushSize,
+          points: chunk,
+          isEraser: currentTool === 'eraser',
+          timestamp: Date.now()
+        });
+      }
+
       if (currentPointsRef.current.length % 3 === 0) {
         setActivePoints([...currentPointsRef.current]);
       }
@@ -326,12 +378,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawingRef.current || !canDraw) return;
+    if (!isDrawingRef.current) return;
     isDrawingRef.current = false;
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
     } catch {}
 
+    // Always clear the ghost stroke on the other screen, even if drawing was just disabled (DD-21)
     if (onLiveDraw) {
       onLiveDraw(null);
     }
@@ -352,23 +405,28 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     currentPointsRef.current = [];
     setActivePoints([]);
 
-    if (finalPts.length > 0) {
+    if (!canDraw) {
+      // Phase ended mid-gesture: discard the local preview
+      renderRef.current();
+      return;
+    }
+
+    for (const part of chunkPoints(finalPts)) {
       const stroke: DoodleStroke = {
         id: `strk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         color: currentColor,
         size: currentBrushSize,
-        points: finalPts,
+        points: part,
         isEraser: currentTool === 'eraser',
         timestamp: Date.now()
       };
-      renderAllStrokes([...strokes, stroke], [], canvasDimensions.width, canvasDimensions.height);
       if (onStrokeComplete) {
         onStrokeComplete(stroke);
       }
     }
   };
 
-  const hasStrokes = strokes.length > 0 || activePoints.length > 0 || Boolean(liveDrawingStroke?.points?.length > 0);
+  const hasStrokes = strokes.length > 0 || activePoints.length > 0 || Boolean(phase === 'DRAWING' && !isDrawer && liveDrawingStroke?.points?.length > 0);
 
   return (
     <div
@@ -413,7 +471,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
             onClick={onDoneDrawing}
             className="flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-gradient-to-r from-[#ff3864] to-[#f43f5e] hover:brightness-110 text-white text-[9px] xs:text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-sm transition active:scale-95 cursor-pointer shrink-0"
           >
-            <span>Done Drawing ➔</span>
+            <span className="inline-flex items-center gap-1">Done Drawing <ArrowRight className="w-3.5 h-3.5" /></span>
           </button>
         )}
       </div>
@@ -430,6 +488,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
+          onContextMenu={e => e.preventDefault()}
           className={`w-full h-full block touch-none select-none ${
             canDraw ? 'cursor-crosshair' : 'cursor-default'
           }`}

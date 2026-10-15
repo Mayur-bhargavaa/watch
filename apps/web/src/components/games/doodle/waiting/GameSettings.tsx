@@ -17,10 +17,9 @@ export const GameSettings: React.FC<GameSettingsProps> = ({
   onUpdateConfig,
   isDark = false
 }) => {
-  const currentRounds = config?.rounds || config?.totalRounds || 6;
-  const currentDrawTime = config?.drawTime || config?.drawTimeSeconds || 60;
+  const currentRounds = config?.rounds ?? config?.totalRounds ?? 6;
+  const currentDrawTime = config?.drawTime ?? config?.drawTimeSeconds ?? 60;
   const currentDifficulty = (config as any)?.difficulty || 'mixed';
-  const humanOnly = (config as any)?.humanOnly !== false;
 
   return (
     <div className="relative w-full rounded-2xl sm:rounded-3xl p-3 sm:p-3.5 bg-white/80 dark:bg-[#121629]/80 border border-white/70 dark:border-white/10 shadow-[0_4px_20px_rgba(255,43,112,0.05)] backdrop-blur-xl transition-all space-y-2.5">
@@ -47,15 +46,15 @@ export const GameSettings: React.FC<GameSettingsProps> = ({
         <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 block mb-1">
           Total Rounds
         </span>
-        <div className="grid grid-cols-4 gap-1">
-          {[4, 6, 8, 10].map(r => {
+        <div className="grid grid-cols-5 gap-1">
+          {[2, 4, 6, 8, 10].map(r => {
             const active = currentRounds === r;
             return (
               <button
                 key={r}
                 type="button"
                 disabled={!isHost}
-                onClick={() => onUpdateConfig?.({ rounds: r, totalRounds: r } as any)}
+                onClick={() => onUpdateConfig?.({ rounds: r } as any)}
                 className={`py-1 rounded-lg text-[11px] font-extrabold transition-all border ${
                   active
                     ? 'bg-[#ff2b70] border-[#ff2b70] text-white shadow-2xs'
@@ -74,15 +73,15 @@ export const GameSettings: React.FC<GameSettingsProps> = ({
         <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 block mb-1">
           Drawing Time
         </span>
-        <div className="grid grid-cols-3 gap-1">
-          {[60, 90, 120].map(sec => {
+        <div className="grid grid-cols-4 gap-1">
+          {[30, 45, 60, 90].map(sec => {
             const active = currentDrawTime === sec;
             return (
               <button
                 key={sec}
                 type="button"
                 disabled={!isHost}
-                onClick={() => onUpdateConfig?.({ drawTime: sec, drawTimeSeconds: sec } as any)}
+                onClick={() => onUpdateConfig?.({ drawTime: sec } as any)}
                 className={`py-1 rounded-lg text-[11px] font-extrabold transition-all border ${
                   active
                     ? 'bg-[#ff2b70] border-[#ff2b70] text-white shadow-2xs'
@@ -140,21 +139,9 @@ export const GameSettings: React.FC<GameSettingsProps> = ({
           </div>
         </div>
 
-        {/* Pink Switch */}
-        <button
-          type="button"
-          disabled={!isHost}
-          onClick={() => onUpdateConfig?.({ humanOnly: !humanOnly } as any)}
-          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-            humanOnly ? 'bg-[#ff2b70]' : 'bg-slate-200 dark:bg-zinc-700'
-          } ${!isHost ? 'opacity-70 cursor-not-allowed' : ''}`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-              humanOnly ? 'translate-x-5' : 'translate-x-0'
-            }`}
-          />
-        </button>
+        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 shrink-0">
+          Always on
+        </span>
       </div>
 
       {!isHost && (

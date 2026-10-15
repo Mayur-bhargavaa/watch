@@ -2,24 +2,40 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getStoredSession, UserSession, getGameRoute, getGameTitle, recordActiveDeviceToken } from '../lib/api';
+import { getStoredSession, UserSession, getGameRoute, getGameTitle, recordActiveDeviceToken, getWsTicket, WS_BASE } from '../lib/api';
 import { getRandomRoast, RoastCategory } from '../lib/roastMessages';
+import type { IconName } from '../components/ui/AppIcon';
 import { ChatStore } from '../lib/chatStore';
 import { CallSignaling } from '../lib/callSignaling';
-import { ActiveDeviceSession } from '@synccinema/common';
+import { ActiveDeviceSession, previewMessageText } from '@synccinema/common';
 import { getClientDeviceInfo, ClientDeviceInfo } from '../lib/deviceToken';
+import {
+  notificationStorageKey,
+  LEGACY_NOTIFICATION_KEY,
+  nextReconnectDelay,
+  createDeduper,
+  createChatBatcher,
+  summariseChats,
+  shouldShowOsBanner,
+  safeInternalLink,
+  emitGameInvite,
+  IncomingChat
+} from '../lib/notifyHelpers';
+import { ensurePushSubscription } from '../lib/push';
 
 export interface AppNotification {
   id: string;
   title: string;
   body: string;
-  emoji?: string;
+  icon?: IconName;
   category: 'nudge' | 'game' | 'watch' | 'streak' | 'system';
   link: string;
   fromName?: string;
   fromAvatar?: string;
   createdAt: number;
   read: boolean;
+  /** notifications with the same tag replace each other (one per chat conversation) */
+  tag?: string;
 }
 
 interface NotificationContextValue {
@@ -27,6 +43,9 @@ interface NotificationContextValue {
   unreadCount: number;
   permission: NotificationPermission | 'unsupported';
   showPermissionModal: boolean;
+  /** newest first, at most MAX_TOASTS */
+  toasts: AppNotification[];
+  /** newest toast (kept for older callers) */
   activeToast: AppNotification | null;
   activeDevice: ActiveDeviceSession | null;
   currentDevice: ClientDeviceInfo;
@@ -38,7 +57,7 @@ interface NotificationContextValue {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearAll: () => void;
-  dismissToast: () => void;
+  dismissToast: (id?: string) => void;
   triggerLocalNotification: (data: {
     title: string;
     body: string;
@@ -50,7 +69,8 @@ interface NotificationContextValue {
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
 
-const STORAGE_KEY = 'watch_party_notifications_v1';
+const MAX_TOASTS = 3;
+const MAX_STORED = 50;
 const MODAL_DISMISSED_KEY = 'watch_notif_modal_dismissed_session';
 
 let sharedAudioCtx: AudioContext | null = null;
@@ -67,7 +87,8 @@ function getSharedAudioContext(): AudioContext | null {
       sharedAudioCtx.resume().catch(() => {});
     }
     return sharedAudioCtx;
-  } catch {
+  } catch (err) {
+    console.warn('[Notification] audio unavailable:', err);
     return null;
   }
 }
@@ -105,48 +126,94 @@ function playChimeSound() {
     osc2.start(now + 0.12);
     osc2.stop(now + 0.45);
   } catch {
-    // Ignore audio restrictions
+    // Audio can be blocked until the user interacts with the page; the toast still shows
   }
 }
+
+type PushOptions = { forced?: boolean; tag?: string; renotify?: boolean; silentChime?: boolean };
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('unsupported');
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
-  const [activeToast, setActiveToast] = useState<AppNotification | null>(null);
+  const [toasts, setToasts] = useState<AppNotification[]>([]);
   const [activeDevice, setActiveDevice] = useState<ActiveDeviceSession | null>(null);
-  const currentDevice = useRef<ClientDeviceInfo>(getClientDeviceInfo()).current;
-  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const socketRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const [userId, setUserId] = useState<string | null>(null);
+  const [currentDevice] = useState<ClientDeviceInfo>(() => getClientDeviceInfo());
 
-  // Load notifications from local storage on mount + bootstrap Chrome notifications & active device
+  const toastTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const socketRef = useRef<WebSocket | null>(null);
+  const activeDeviceRef = useRef<ActiveDeviceSession | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  const dedupeRef = useRef(createDeduper(300));
+
+  activeDeviceRef.current = activeDevice;
+  userIdRef.current = userId;
+
+  const changeActiveDevice = useCallback((next: ActiveDeviceSession | null) => {
+    // Only update state when the device really changed: a new object every time would re-render every consumer
+    setActiveDevice((prev) => (prev?.deviceId === next?.deviceId && prev?.deviceType === next?.deviceType ? prev : next));
+  }, []);
+
+  // Which account is signed in (changes on sign-in / sign-out / account switch, also from other tabs)
+  useEffect(() => {
+    const sync = () => setUserId(getStoredSession()?.user?.id ?? null);
+    sync();
+    window.addEventListener('synccinema:session-updated', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('synccinema:session-updated', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  // Notification history is stored per account (the old shared key leaked it to the next person on this browser)
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setNotifications(parsed);
+      localStorage.removeItem(LEGACY_NOTIFICATION_KEY);
+    } catch {}
+    const key = notificationStorageKey(userId);
+    if (!key) {
+      setNotifications([]);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+      setNotifications(Array.isArray(parsed) ? parsed : []);
+    } catch (err) {
+      console.warn('[Notification] stored notifications were unreadable:', err);
+      setNotifications([]);
+    }
+  }, [userId]);
+
+  const updateNotifications = useCallback((fn: (prev: AppNotification[]) => AppNotification[]) => {
+    setNotifications((prev) => {
+      const next = fn(prev).slice(0, MAX_STORED);
+      const key = notificationStorageKey(userIdRef.current);
+      if (key) {
+        try {
+          localStorage.setItem(key, JSON.stringify(next));
+        } catch (err) {
+          console.warn('[Notification] could not save notifications:', err);
         }
       }
-    } catch {}
+      return next;
+    });
+  }, []);
 
-    // Initialize active device from session and sync with server
+  // Bootstrap: active device, service worker, permission state
+  useEffect(() => {
     const session = getStoredSession();
-    if (session?.user?.activeDevice) {
-      setActiveDevice(session.user.activeDevice);
-    }
+    if (session?.user?.activeDevice) changeActiveDevice(session.user.activeDevice);
     if (session?.token) {
-      recordActiveDeviceToken().then((res) => {
-        if (res?.activeDevice) {
-          setActiveDevice(res.activeDevice);
-        }
-      }).catch(() => {});
+      recordActiveDeviceToken()
+        .then((res) => {
+          if (res?.activeDevice) changeActiveDevice(res.activeDevice);
+        })
+        .catch((err) => console.warn('[Notification] could not record this device:', err));
     } else {
-      setActiveDevice({
+      changeActiveDevice({
         deviceId: currentDevice.deviceId,
         deviceType: currentDevice.deviceType,
         deviceToken: currentDevice.deviceToken,
@@ -154,33 +221,39 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         lastActiveAt: Date.now()
       });
     }
+  }, [userId, currentDevice, changeActiveDevice]);
 
-    // Register Service Worker (required for Chrome OS-level desktop banners)
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+  useEffect(() => {
+    // Service worker: needed for OS banners on Chrome and for Web Push
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('[Notification] service worker registration failed:', err));
     }
-
-    // Check current browser permission state
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    if ('Notification' in window) {
       setPermission(Notification.permission);
-      if (Notification.permission === 'default') {
-        const dismissed = sessionStorage.getItem(MODAL_DISMISSED_KEY);
-        if (!dismissed) {
-          setShowPermissionModal(true);
-        }
+      if (Notification.permission === 'default' && !sessionStorage.getItem(MODAL_DISMISSED_KEY)) {
+        setShowPermissionModal(true);
       }
     } else {
       setPermission('unsupported');
     }
   }, []);
 
+  // Keep this browser registered for Web Push while signed in; re-register if the browser rotated the subscription
+  useEffect(() => {
+    if (!userId || permission !== 'granted') return;
+    void ensurePushSubscription();
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'push:resubscribe') void ensurePushSubscription();
+    };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
+  }, [userId, permission]);
+
   // Audio unlocker on user interaction (strictly required by Safari and iOS WebKit)
   useEffect(() => {
     const unlockAudio = () => {
       const ctx = getSharedAudioContext();
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
+      if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
     };
     window.addEventListener('click', unlockAudio, { passive: true });
     window.addEventListener('touchstart', unlockAudio, { passive: true });
@@ -192,56 +265,50 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, []);
 
-  // Sync to local storage
-  const saveNotifications = (newList: AppNotification[]) => {
-    setNotifications(newList);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newList.slice(0, 50)));
-    } catch {}
-  };
+  const dismissToast = useCallback((id?: string) => {
+    const timers = toastTimersRef.current;
+    if (id) {
+      const t = timers.get(id);
+      if (t) clearTimeout(t);
+      timers.delete(id);
+      setToasts((prev) => prev.filter((n) => n.id !== id));
+    } else {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+      setToasts([]);
+    }
+  }, []);
 
-  // Send OS-level desktop popup via ServiceWorker or Notification API (compatible with Safari, Chrome, Firefox, Edge)
+  useEffect(() => {
+    const timers = toastTimersRef.current;
+    return () => timers.forEach((t) => clearTimeout(t));
+  }, []);
+
+  // OS-level banner via the service worker, falling back to the Notification constructor (Safari macOS)
   const dispatchDesktopNotification = useCallback(
-    async (notif: AppNotification, forceDesktop = false) => {
+    async (notif: AppNotification, opts: PushOptions) => {
       if (typeof window === 'undefined' || !('Notification' in window)) return;
       if (Notification.permission !== 'granted') return;
 
-      // Smart Device Routing:
-      // If current device is NOT mobile (e.g. laptop or desktop) and user's active notification device is mobile,
-      // suppress OS-level desktop popup banners on the laptop (unless explicitly forced by local action/test)!
-      if (!forceDesktop && currentDevice.deviceType !== 'mobile' && activeDevice?.deviceType === 'mobile') {
-        console.log('[Notification] Suppressed desktop OS popup: Active notification device is mobile');
-        return;
-      }
+      // Don't pop a banner while the user is already looking at the app: the in-app toast covers that
+      if (!shouldShowOsBanner({ forced: opts.forced, focused: document.hasFocus(), hidden: document.hidden })) return;
 
-      const isSafari =
-        typeof navigator !== 'undefined' &&
-        /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      // Smart device routing: a laptop stays quiet while the user's active device is their phone
+      const active = activeDeviceRef.current;
+      if (!opts.forced && currentDevice.deviceType !== 'mobile' && active?.deviceType === 'mobile') return;
 
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const iconUrl = new URL('/logos/direct.png', window.location.origin).href;
+      const url = safeInternalLink(notif.link);
+      const tag = opts.tag || notif.id;
 
-      // Clean, universally supported options for Safari/WebKit
-      // NOTE: WebKit throws a TypeError if 'badge', 'silent', or 'requireInteraction' are present in the options dictionary!
-      const options: NotificationOptions = {
-        body: notif.body,
-        tag: notif.id || `notif_${Date.now()}`
-      };
-
-      if (iconUrl) {
-        options.icon = iconUrl;
-      }
-
-      // Add advanced attributes only on non-Safari browsers to prevent WebKit TypeErrors
+      // WebKit throws a TypeError for badge / silent / requireInteraction / renotify
+      const options: NotificationOptions & Record<string, unknown> = { body: notif.body, tag, icon: iconUrl, data: { url } };
       if (!isSafari) {
-        (options as any).badge = iconUrl;
-        (options as any).requireInteraction = false;
-        (options as any).silent = false;
-        (options as any).data = { url: notif.link || '/dashboard' };
+        options.badge = iconUrl;
+        if (opts.renotify) options.renotify = true;
       }
 
-      let delivered = false;
-
-      // 1. Try ServiceWorker first (if available and registered)
       if ('serviceWorker' in navigator) {
         try {
           const reg = await Promise.race([
@@ -250,110 +317,99 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           ]);
           if (reg && typeof reg.showNotification === 'function') {
             await reg.showNotification(notif.title, options);
-            delivered = true;
+            return;
           }
-        } catch (swErr) {
-          console.warn('[Notification] SW showNotification skipped or unsupported in this browser:', swErr);
+        } catch (err) {
+          console.warn('[Notification] service worker banner failed, using Notification():', err);
         }
       }
 
-      // 2. Direct Notification constructor fallback (primary method for Safari on macOS)
-      if (!delivered && typeof window !== 'undefined' && 'Notification' in window) {
-        try {
-          // Safari macOS requires simple dictionary: { body, tag, icon }
-          const cleanOptions: NotificationOptions = {
-            body: notif.body,
-            tag: notif.id || `notif_${Date.now()}`
-          };
-          if (iconUrl) {
-            cleanOptions.icon = iconUrl;
-          }
-          if (!isSafari) {
-            (cleanOptions as any).badge = iconUrl;
-            (cleanOptions as any).data = { url: notif.link || '/dashboard' };
-          }
-
-          const n = new Notification(notif.title, cleanOptions);
-          n.onclick = () => {
-            try {
-              window.focus();
-            } catch {}
-            if (notif.link) router.push(notif.link);
-            try {
-              n.close();
-            } catch {}
-          };
-          delivered = true;
-        } catch (notifErr) {
-          console.warn('[Notification] Direct Notification constructor error:', notifErr);
-        }
+      try {
+        const n = new Notification(notif.title, { body: notif.body, tag, icon: iconUrl, data: { url } });
+        n.onclick = () => {
+          try {
+            window.focus();
+            n.close();
+          } catch {}
+          router.push(url);
+        };
+      } catch (err) {
+        console.warn('[Notification] banner failed:', err);
       }
     },
-    [router, activeDevice, currentDevice]
+    [router, currentDevice]
   );
 
-  // Add notification, play sound, show in-app toast, and fire desktop popup
+  // Record the notification, chime, show a toast and (when useful) an OS banner
   const pushNotification = useCallback(
-    (item: Omit<AppNotification, 'id' | 'createdAt' | 'read'>, forceDesktop = false) => {
-      const newNotif: AppNotification = {
-        ...item,
-        id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        createdAt: Date.now(),
-        read: false
-      };
+    (item: Omit<AppNotification, 'id' | 'createdAt' | 'read'>, opts: PushOptions = {}) => {
+      const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const tag = opts.tag ?? item.tag;
+      const notif: AppNotification = { ...item, tag, id, createdAt: Date.now(), read: false };
 
-      setNotifications((prev) => {
-        const updated = [newNotif, ...prev.filter((n) => n.id !== newNotif.id)].slice(0, 50);
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        } catch {}
-        return updated;
-      });
+      // One entry per tag (e.g. per chat conversation) instead of a pile of near-identical rows
+      updateNotifications((prev) => [notif, ...prev.filter((n) => !tag || n.tag !== tag)]);
 
-      // Play audio chime (suppressed on laptop if user is currently active on mobile, unless forced)
-      if (forceDesktop || currentDevice.deviceType === 'mobile' || activeDevice?.deviceType !== 'mobile') {
+      const active = activeDeviceRef.current;
+      if (!opts.silentChime && (opts.forced || currentDevice.deviceType === 'mobile' || active?.deviceType !== 'mobile')) {
         playChimeSound();
       }
 
-      // Show in-app toast
-      setActiveToast(newNotif);
-      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-      toastTimeoutRef.current = setTimeout(() => {
-        setActiveToast(null);
-      }, 6500);
+      setToasts((prev) => {
+        const replaced = tag ? prev.filter((t) => t.tag === tag) : [];
+        replaced.forEach((t) => {
+          const timer = toastTimersRef.current.get(t.id);
+          if (timer) clearTimeout(timer);
+          toastTimersRef.current.delete(t.id);
+        });
+        const next = [notif, ...prev.filter((t) => !tag || t.tag !== tag)];
+        next.slice(MAX_TOASTS).forEach((t) => {
+          const timer = toastTimersRef.current.get(t.id);
+          if (timer) clearTimeout(timer);
+          toastTimersRef.current.delete(t.id);
+        });
+        return next.slice(0, MAX_TOASTS);
+      });
+      toastTimersRef.current.set(
+        id,
+        setTimeout(() => dismissToast(id), 6500)
+      );
 
-      // Fire desktop popup (only if permission granted and not suppressed)
-      dispatchDesktopNotification(newNotif, forceDesktop);
+      void dispatchDesktopNotification(notif, { ...opts, tag });
     },
-    [dispatchDesktopNotification, activeDevice, currentDevice]
+    [dispatchDesktopNotification, updateNotifications, dismissToast, currentDevice]
   );
 
-  // Request browser notification permission (compatible with Safari callback style and modern Promise style)
+  // The socket handlers outlive renders, so they call the latest version through a ref (no reconnect when it changes)
+  const pushRef = useRef(pushNotification);
+  pushRef.current = pushNotification;
+
   const requestPermission = async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       setPermission('unsupported');
       setShowPermissionModal(false);
       return false;
     }
+    // The browser never shows the prompt again once blocked: the UI explains how to unblock instead
+    if (Notification.permission === 'denied') {
+      setPermission('denied');
+      return false;
+    }
 
     try {
       let resolvedStatus: NotificationPermission = Notification.permission;
-
-      // Handle both legacy Safari callback and modern Promise syntax
       try {
+        // Legacy Safari uses a callback, modern browsers a Promise
         const resultOrPromise = Notification.requestPermission((status) => {
           if (status) {
             resolvedStatus = status;
             setPermission(status);
           }
         });
-
-        if (resultOrPromise && typeof resultOrPromise.then === 'function') {
-          const promiseResult = await resultOrPromise;
-          if (promiseResult) {
-            resolvedStatus = promiseResult;
-            setPermission(promiseResult);
-          }
+        const thenable = resultOrPromise as unknown as { then?: unknown } | undefined;
+        if (thenable && typeof thenable.then === 'function') {
+          const promiseResult = await (resultOrPromise as Promise<NotificationPermission>);
+          if (promiseResult) resolvedStatus = promiseResult;
         }
       } catch {
         resolvedStatus = Notification.permission;
@@ -364,22 +420,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setShowPermissionModal(false);
 
       if (finalStatus === 'granted') {
-        playChimeSound();
         pushNotification(
           {
-            title: '🔔 Notifications Activated!',
+            title: 'Notifications Activated!',
             body: "You'll now get partner roasts, game invites and watch party alerts even when this tab is hidden.",
             category: 'system',
-            emoji: '🔔',
+            icon: 'bell',
             link: '/dashboard'
           },
-          true
+          { forced: true }
         );
         return true;
-      } else {
-        sessionStorage.setItem(MODAL_DISMISSED_KEY, 'true');
-        return false;
       }
+      sessionStorage.setItem(MODAL_DISMISSED_KEY, 'true');
+      return false;
     } catch (err) {
       console.warn('[Notification] requestPermission error:', err);
       setShowPermissionModal(false);
@@ -392,270 +446,281 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     sessionStorage.setItem(MODAL_DISMISSED_KEY, 'true');
   };
 
-  const markAsRead = (id: string) => {
-    const updated = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
-    saveNotifications(updated);
-  };
+  const markAsRead = useCallback(
+    (id: string) => updateNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n))),
+    [updateNotifications]
+  );
+  const markAllAsRead = useCallback(
+    () => updateNotifications((prev) => prev.map((n) => ({ ...n, read: true }))),
+    [updateNotifications]
+  );
+  const clearAll = useCallback(() => updateNotifications(() => []), [updateNotifications]);
 
-  const markAllAsRead = () => {
-    const updated = notifications.map((n) => ({ ...n, read: true }));
-    saveNotifications(updated);
-  };
-
-  const clearAll = () => {
-    saveNotifications([]);
-  };
-
-  const dismissToast = () => {
-    setActiveToast(null);
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-  };
-
-  // Helper to trigger a local test or custom notification
-  const triggerLocalNotification = (data: {
-    title: string;
-    body: string;
-    link?: string;
-    category?: RoastCategory;
-    fromName?: string;
-  }) => {
+  const triggerLocalNotification = (data: { title: string; body: string; link?: string; category?: RoastCategory; fromName?: string }) => {
     const roast = getRandomRoast(data.category || 'nudge', data.fromName);
     pushNotification(
       {
         title: data.title || roast.title,
         body: data.body || roast.body,
-        emoji: roast.emoji,
+        icon: roast.icon,
         category: data.category || 'nudge',
         link: data.link || '/dashboard',
         fromName: data.fromName
       },
-      true
+      { forced: true }
     );
   };
 
-  // Connect to /ws/presence WebSocket to listen for live events
+  // Live events over /ws/presence. Reconnects with backoff, stops when signed out, and does not depend on
+  // anything that changes during normal use (so it is not torn down and rebuilt on every notification).
   useEffect(() => {
+    if (!userId) return;
     let active = true;
+    let attempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    const dedupe = dedupeRef.current;
 
-    const connectPresence = () => {
-      if (!active) return;
-      const session: UserSession | null = getStoredSession();
-      const token = session?.token;
-      const guestId = session?.user?.id;
-      const guestName = session?.user?.displayName;
-
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsHost = window.location.host;
-      const queryParams = new URLSearchParams();
-      if (token) queryParams.set('token', token);
-      if (guestId) queryParams.set('guestId', guestId);
-      if (guestName) queryParams.set('guestName', guestName);
-      queryParams.set('deviceId', currentDevice.deviceId);
-      queryParams.set('deviceType', currentDevice.deviceType);
-      queryParams.set('deviceToken', currentDevice.deviceToken);
-      queryParams.set('browserName', currentDevice.browserName);
-
-      const url = `${wsProtocol}//${wsHost}/ws/presence?${queryParams.toString()}`;
-
-      try {
-        const ws = new WebSocket(url);
-        socketRef.current = ws;
-
-        ws.onopen = () => {
-          // Register socket sender for real-time chat messages
-          ChatStore.registerSocketSender((payload) => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify(payload));
-            }
-          });
-
-          // Heartbeat interval
-          const hbInterval = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'presence:heartbeat' }));
-            } else {
-              clearInterval(hbInterval);
-            }
-          }, 15000);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (!data || !data.type) return;
-
-            // Handle Connected Event & sync active notification device
-            if (data.type === 'presence:connected' && data.activeDevice) {
-              setActiveDevice(data.activeDevice);
-            }
-
-            // Handle Active Device Changed Event
-            if (data.type === 'presence:active_device_changed' && data.activeDevice) {
-              setActiveDevice(data.activeDevice);
-            }
-
-            // Handle Real-Time Voice & Video Calling Signaling
-            if (typeof data.type === 'string' && data.type.startsWith('call:')) {
-              CallSignaling.dispatch(data);
-              return;
-            }
-
-            // Handle Direct Chat Messages
-            if (data.type === 'chat:message' && data.message) {
-              const msg = data.message;
-              ChatStore.receiveIncomingMessage(msg);
-
-              const isSeen = msg.id && seenMessageIdsRef.current.has(msg.id);
-              if (msg.id && !isSeen) {
-                seenMessageIdsRef.current.add(msg.id);
-                if (seenMessageIdsRef.current.size > 200) {
-                  const first = seenMessageIdsRef.current.values().next().value;
-                  if (first) seenMessageIdsRef.current.delete(first);
-                }
-
-                const sender = msg.senderName || 'A friend';
-                const isChatPage = typeof window !== 'undefined' && window.location.pathname === '/chat';
-                if (!isChatPage || (typeof document !== 'undefined' && document.hidden)) {
-                  pushNotification({
-                    title: `💬 ${sender}`,
-                    body:
-                      msg.type === 'image'
-                        ? '📷 Sent a photo'
-                        : msg.type === 'sticker'
-                        ? '🎨 Sent a sticker'
-                        : msg.type === 'voice'
-                        ? '🎤 Sent a voice message'
-                        : msg.content || 'Sent a message',
-                    emoji: '💬',
-                    category: 'system',
-                    link: '/chat',
-                    fromName: sender
-                  });
-                } else {
-                  playChimeSound();
-                }
-              }
-            }
-
-            // Handle Direct Chat Status Updates (delivered / read ticks)
-            if (data.type === 'chat:status_update') {
-              ChatStore.updateMessageStatus(data.messageId, data.conversationId, data.status, data.messageIds);
-            }
-
-            // Handle View Once Opened event
-            if (data.type === 'chat:view_once_opened' && data.messageId) {
-              ChatStore.markViewOnceOpened(data.conversationId, data.messageId, false);
-            }
-
-            // Handle Real-Time User Online/Offline updates
-            if (data.type === 'presence:user_status') {
-              ChatStore.setUserOnline(data.userId, data.isOnline, data.lastSeen);
-            }
-
-            // Handle Initial list of online users
-            if (data.type === 'presence:initial_online_users' && Array.isArray(data.userIds)) {
-              ChatStore.setInitialOnlineUsers(data.userIds);
-            }
-
-            // Handle Partner Ping
-            if (data.type === 'partner:ping') {
-              const payload = data.payload || {};
-              const sender = payload.fromName || 'Your Partner';
-              const targetUrl = getGameRoute(payload.gameType, payload.roomCode);
-
-              const roast = payload.customMessage
-                ? { title: `${sender} Nudged You! 💬`, body: payload.customMessage, emoji: '💬' }
-                : getRandomRoast(payload.roomCode ? 'game' : 'nudge', sender);
-
-              pushNotification({
-                title: roast.title,
-                body: roast.body,
-                emoji: roast.emoji,
-                category: payload.roomCode ? 'game' : 'nudge',
-                link: targetUrl,
-                fromName: sender
-              });
-            }
-
-            // Handle Partner Game Invite
-            if (data.type === 'partner:game_invite') {
-              const payload = data.payload || {};
-              const sender = payload.fromDisplayName || 'Your Partner';
-              const targetUrl = getGameRoute(payload.gameType, payload.roomCode);
-              const titleGame = getGameTitle(payload.gameType, payload.roomCode);
-
-              const roast = getRandomRoast('game', sender);
-              pushNotification({
-                title: `🎮 ${sender} challenged you to ${titleGame}!`,
-                body: roast.body,
-                emoji: '🎲',
-                category: 'game',
-                link: targetUrl,
-                fromName: sender
-              });
-            }
-
-            // Handle Nudge
-            if (data.type === 'partner:nudge') {
-              const payload = data.payload || {};
-              const sender = payload.fromName || 'Your Partner';
-              const roast = payload.message
-                ? { title: `${sender} sent a roast! 🌶️`, body: payload.message, emoji: '🌶️' }
-                : getRandomRoast('nudge', sender);
-
-              pushNotification({
-                title: roast.title,
-                body: roast.body,
-                emoji: roast.emoji,
-                category: 'nudge',
-                link: payload.link || '/friends',
-                fromName: sender
-              });
-            }
-          } catch {}
-        };
-
-        ws.onclose = () => {
-          if (active) {
-            reconnectTimeoutRef.current = setTimeout(connectPresence, 5000);
-          }
-        };
-
-        ws.onerror = () => {
-          ws.close();
-        };
-      } catch {
-        if (active) {
-          reconnectTimeoutRef.current = setTimeout(connectPresence, 6000);
-        }
+    // Several messages arriving together (a backlog after reconnecting, a chatty friend) become ONE alert
+    const batcher = createChatBatcher((items: IncomingChat[]) => {
+      const summary = summariseChats(items);
+      if (!summary) return;
+      const onChatPage = window.location.pathname === '/chat' && !document.hidden;
+      if (onChatPage) {
+        playChimeSound();
+        return;
       }
+      pushRef.current(
+        {
+          title: summary.title,
+          body: summary.body,
+          icon: 'message',
+          category: 'system',
+          link: summary.senderId ? `/chat?userId=${encodeURIComponent(summary.senderId)}` : '/chat',
+          fromName: items[items.length - 1].senderName,
+          fromAvatar: summary.senderAvatar
+        },
+        { tag: summary.conversationId ? `chat:${summary.conversationId}` : 'chat:multiple', renotify: true }
+      );
+    });
+
+    const scheduleReconnect = () => {
+      if (!active || !getStoredSession()?.user) return; // signed out: nothing to reconnect to
+      reconnectTimer = setTimeout(() => void connect(), nextReconnectDelay(attempt++));
     };
 
-    connectPresence();
+    const connect = async () => {
+      if (!active || !getStoredSession()?.user) return;
+      let ticket: string;
+      try {
+        ticket = await getWsTicket();
+      } catch {
+        scheduleReconnect();
+        return;
+      }
+      if (!active) return;
+
+      const params = new URLSearchParams({
+        ticket,
+        deviceId: currentDevice.deviceId,
+        deviceType: currentDevice.deviceType,
+        deviceToken: currentDevice.deviceToken,
+        browserName: currentDevice.browserName
+      });
+
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(`${WS_BASE}/ws/presence?${params.toString()}`);
+      } catch (err) {
+        console.warn('[Notification] could not open the presence socket:', err);
+        scheduleReconnect();
+        return;
+      }
+      socketRef.current = ws;
+
+      ws.onopen = () => {
+        ChatStore.registerSocketSender((payload) => {
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(payload));
+        });
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'presence:heartbeat' }));
+        }, 15000);
+      };
+
+      ws.onmessage = (event) => {
+        let data: any;
+        try {
+          data = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (!data || !data.type) return;
+
+        switch (data.type) {
+          case 'presence:connected':
+            attempt = 0; // healthy connection: next drop starts the backoff from scratch
+            changeActiveDevice(data.activeDevice || null);
+            return;
+          case 'presence:active_device_changed':
+            changeActiveDevice(data.activeDevice || null);
+            return;
+          case 'chat:message': {
+            const msg = data.message;
+            if (!msg) return;
+            ChatStore.receiveIncomingMessage(msg);
+            if (!dedupe.first(msg.id ? `chat:${msg.id}` : undefined)) return;
+            batcher.add({
+              conversationId: msg.conversationId || msg.senderId || 'unknown',
+              senderId: msg.senderId,
+              senderName: msg.senderName || 'A friend',
+              senderAvatar: msg.senderAvatar,
+              preview: previewMessageText(msg.content, msg.type)
+            });
+            return;
+          }
+          case 'chat:status_update':
+            ChatStore.updateMessageStatus(data.messageId, data.conversationId, data.status, data.messageIds);
+            return;
+          case 'chat:view_once_opened':
+            if (data.messageId) ChatStore.markViewOnceOpened(data.conversationId, data.messageId, false);
+            return;
+          case 'presence:user_status':
+            ChatStore.setUserOnline(data.userId, data.isOnline, data.lastSeen);
+            return;
+          case 'presence:initial_online_users':
+            if (Array.isArray(data.userIds)) ChatStore.setInitialOnlineUsers(data.userIds);
+            return;
+          case 'partner:ping': {
+            const payload = data.payload || {};
+            if (!dedupe.first(payload.id ? `ping:${payload.id}` : undefined)) return;
+            const sender = payload.fromName || 'Your Partner';
+            const roast = payload.customMessage
+              ? { title: `${sender} Nudged You!`, body: payload.customMessage, icon: 'message' as IconName }
+              : getRandomRoast(payload.roomCode ? 'game' : 'nudge', sender);
+            pushRef.current({
+              title: roast.title,
+              body: roast.body,
+              icon: roast.icon,
+              category: payload.roomCode ? 'game' : 'nudge',
+              link: getGameRoute(payload.gameType, payload.roomCode),
+              fromName: sender,
+              fromAvatar: payload.fromAvatar
+            });
+            return;
+          }
+          case 'partner:game_invite': {
+            const payload = data.payload || data.invite || {};
+            if (!dedupe.first(payload.id ? `invite:${payload.id}` : payload.roomCode ? `invite:${payload.roomCode}` : undefined)) return;
+            const sender = payload.fromDisplayName || 'Your Partner';
+            const roast = getRandomRoast('game', sender);
+            emitGameInvite(payload); // pages such as Ludo show their own invite card from this
+            pushRef.current({
+              title: `${sender} challenged you to ${getGameTitle(payload.gameType, payload.roomCode)}!`,
+              body: roast.body,
+              icon: 'game',
+              category: 'game',
+              link: getGameRoute(payload.gameType, payload.roomCode),
+              fromName: sender,
+              fromAvatar: payload.fromAvatar
+            });
+            return;
+          }
+          case 'partner:nudge': {
+            const payload = data.payload || {};
+            if (!dedupe.first(payload.id ? `nudge:${payload.id}` : undefined)) return;
+            const sender = payload.fromName || 'Your Partner';
+            const roast = payload.message
+              ? { title: `${sender} sent a roast!`, body: payload.message, icon: 'fire' as IconName }
+              : getRandomRoast('nudge', sender);
+            pushRef.current({
+              title: roast.title,
+              body: roast.body,
+              icon: roast.icon,
+              category: 'nudge',
+              link: safeInternalLink(payload.link, '/friends'),
+              fromName: sender,
+              fromAvatar: payload.fromAvatar
+            });
+            return;
+          }
+          case 'partner:request':
+          case 'partner:accepted':
+          case 'game:launched': {
+            const payload = data.payload || {};
+            if (!dedupe.first(payload.id ? `${data.type}:${payload.id}` : undefined)) return;
+            const isGame = data.type === 'game:launched';
+            pushRef.current(
+              {
+                title: String(payload.title || (isGame ? 'Game update' : 'Partner update')).slice(0, 120),
+                body: String(payload.body || (isGame ? '' : 'Open Friends to respond.')).slice(0, 200),
+                icon: isGame ? 'game' : 'users',
+                category: isGame ? 'game' : 'system',
+                link: safeInternalLink(payload.link, isGame ? '/games' : '/friends'),
+                fromName: payload.fromDisplayName,
+                fromAvatar: payload.fromAvatarUrl || undefined
+              },
+              { tag: payload.id ? `${data.type}:${payload.id}` : undefined }
+            );
+            if (!isGame && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('partner-requests-changed'));
+            return;
+          }
+          case 'plan:notification': {
+            const payload = data.payload || {};
+            if (!dedupe.first(payload.id ? `plan:${payload.id}:${payload.title}` : undefined)) return;
+            pushRef.current(
+              {
+                title: String(payload.title || 'Plan update').slice(0, 120),
+                body: String(payload.body || '').slice(0, 200),
+                icon: 'calendar',
+                category: 'watch',
+                link: safeInternalLink(payload.link, '/plans')
+              },
+              { tag: payload.id ? `plan:${payload.id}` : undefined }
+            );
+            return;
+          }
+          default:
+            if (typeof data.type === 'string' && data.type.startsWith('call:')) CallSignaling.dispatch(data);
+        }
+      };
+
+      ws.onclose = () => {
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = null;
+        if (socketRef.current === ws) socketRef.current = null;
+        scheduleReconnect();
+      };
+      ws.onerror = () => ws.close();
+    };
+
+    void connect();
 
     return () => {
       active = false;
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (socketRef.current) socketRef.current.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (heartbeat) clearInterval(heartbeat);
+      batcher.cancel();
+      const ws = socketRef.current;
+      socketRef.current = null;
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
     };
-  }, [pushNotification, currentDevice]);
+  }, [userId, currentDevice, changeActiveDevice]);
 
   const switchToThisDevice = useCallback(async () => {
     try {
       const res = await recordActiveDeviceToken();
-      if (res?.activeDevice) {
-        setActiveDevice(res.activeDevice);
-      }
+      if (res?.activeDevice) changeActiveDevice(res.activeDevice);
       if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        socketRef.current.send(
-          JSON.stringify({
-            type: 'presence:activate_device',
-            ...currentDevice
-          })
-        );
+        socketRef.current.send(JSON.stringify({ type: 'presence:activate_device', ...currentDevice }));
       }
-    } catch {}
-  }, [currentDevice]);
+    } catch (err) {
+      console.warn('[Notification] could not switch device:', err);
+    }
+  }, [currentDevice, changeActiveDevice]);
 
   const isMobileActive = activeDevice?.deviceType === 'mobile';
   const isCurrentDeviceActive = !activeDevice || activeDevice.deviceId === currentDevice.deviceId;
@@ -668,7 +733,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         unreadCount,
         permission,
         showPermissionModal,
-        activeToast,
+        toasts,
+        activeToast: toasts[0] ?? null,
         activeDevice,
         currentDevice,
         isMobileActive,

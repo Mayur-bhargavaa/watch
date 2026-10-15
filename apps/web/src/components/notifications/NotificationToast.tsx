@@ -3,32 +3,35 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { X, ExternalLink } from 'lucide-react';
+import { AppIcon } from '../ui/AppIcon';
 import { useNotifications } from '../../context/NotificationContext';
 
 export const NotificationToast: React.FC = () => {
   const router = useRouter();
-  const { activeToast, dismissToast, markAsRead } = useNotifications();
+  const { toasts, dismissToast, markAsRead } = useNotifications();
 
-  if (!activeToast) return null;
-
-  const handleAction = () => {
-    markAsRead(activeToast.id);
-    dismissToast();
-    if (activeToast.link) {
-      router.push(activeToast.link);
-    }
-  };
+  if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-3 sm:top-5 sm:right-5 z-[99990] w-[calc(100vw-24px)] sm:w-auto sm:max-w-sm animate-slideInRight select-none pointer-events-auto">
+    <div className="fixed top-4 right-3 sm:top-5 sm:right-5 z-[99990] w-[calc(100vw-24px)] sm:w-auto sm:max-w-sm flex flex-col gap-2 select-none pointer-events-none">
+      {toasts.map((activeToast) => {
+        const handleAction = () => {
+          markAsRead(activeToast.id);
+          dismissToast(activeToast.id);
+          if (activeToast.link) {
+            router.push(activeToast.link);
+          }
+        };
+        return (
+    <div key={activeToast.id} className="animate-slideInRight pointer-events-auto">
       <div className="relative overflow-hidden rounded-2xl bg-white/95 dark:bg-[#181324]/95 backdrop-blur-xl border border-slate-200/90 dark:border-white/10 p-4 shadow-2xl shadow-black/30">
         {/* Top accent bar */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#ee1d49] via-purple-500 to-[#ff3b68]" />
 
         <div className="flex items-start space-x-3">
           {/* Emoji / Icon */}
-          <div className="w-10 h-10 rounded-xl bg-[#ee1d49]/10 text-[#ee1d49] flex items-center justify-center text-xl shrink-0">
-            {activeToast.emoji || '🔔'}
+          <div className="w-10 h-10 rounded-xl bg-[#ee1d49]/10 text-[#ee1d49] flex items-center justify-center shrink-0">
+            <AppIcon name={activeToast.icon || 'bell'} className="w-5 h-5" />
           </div>
 
           <div className="min-w-0 flex-1">
@@ -38,7 +41,8 @@ export const NotificationToast: React.FC = () => {
               </h4>
               <button
                 type="button"
-                onClick={dismissToast}
+                onClick={() => dismissToast(activeToast.id)}
+                aria-label="Dismiss notification"
                 className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
@@ -68,6 +72,9 @@ export const NotificationToast: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
+        );
+      })}
     </div>
   );
 };

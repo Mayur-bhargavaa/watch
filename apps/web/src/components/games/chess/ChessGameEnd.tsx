@@ -23,6 +23,11 @@ interface ChessGameEndProps {
   onReview?: () => void;
   onLeave?: () => void;
   rematchRequested?: boolean;
+  /** Spectators only see the result; no rematch. */
+  isSpectator?: boolean;
+  /** Opponent left / server refused a rematch: newGameSlot replaces the Rematch button. */
+  rematchUnavailable?: boolean;
+  newGameSlot?: React.ReactNode;
   rematchStatus?: {
     requesterId?: string;
     requesterName?: string;
@@ -37,6 +42,9 @@ export const ChessGameEnd: React.FC<ChessGameEndProps> = ({
   onReview,
   onLeave,
   rematchRequested = false,
+  isSpectator = false,
+  rematchUnavailable = false,
+  newGameSlot,
   rematchStatus
 }) => {
   const [copiedPgn, setCopiedPgn] = useState(false);
@@ -90,7 +98,7 @@ export const ChessGameEnd: React.FC<ChessGameEndProps> = ({
     else if (gameState.winnerColor === 'b') pgn += '0-1';
     else if (gameState.status === 'DRAW' || gameState.status === 'STALEMATE') pgn += '1/2-1/2';
 
-    navigator.clipboard.writeText(pgn.trim());
+    void navigator.clipboard.writeText(pgn.trim());
     setCopiedPgn(true);
     setTimeout(() => setCopiedPgn(false), 2000);
   };
@@ -116,6 +124,10 @@ export const ChessGameEnd: React.FC<ChessGameEndProps> = ({
     const reason = gameState.drawReason || 'Agreement';
     badgeText = `Draw (${reason})`;
     badgeColor = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+  }
+
+  if (isSpectator && !isDraw) {
+    title = `${winnerPlayer?.displayName || 'The winner'} wins`;
   }
 
   return (
@@ -180,7 +192,8 @@ export const ChessGameEnd: React.FC<ChessGameEndProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-2.5 relative z-10">
-          {onRematch && (
+          {rematchUnavailable && !isSpectator && newGameSlot}
+          {onRematch && !isSpectator && !rematchUnavailable && (
             <button
               type="button"
               onClick={onRematch}

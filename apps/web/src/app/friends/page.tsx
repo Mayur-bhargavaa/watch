@@ -38,7 +38,9 @@ import {
   Send,
   Trash2,
   Menu,
-  MessageSquare
+  MessageSquare,
+  TriangleAlert,
+  Bike,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -54,6 +56,11 @@ import {
   removeFriend,
   createPartyRoom,
   connectUserPartner,
+  getPartnerRequests,
+  acceptPartnerRequest,
+  declinePartnerRequest,
+  cancelPartnerRequest,
+  PartnerRequestRow,
   sendPartnerNudge,
   FriendWithStreak,
   FriendRequestsData,
@@ -64,6 +71,7 @@ import { getRandomRoast } from '../../lib/roastMessages';
 import { StreakDetailsDrawer } from '../../components/streaks/StreakDetailsDrawer';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 import { AppHeader } from '../../components/layout/AppHeader';
+import { MembershipBadge } from '../../components/membership/MembershipBadge';
 
 // Bitmoji avatar helper
 function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string {
@@ -87,11 +95,80 @@ function dedupeFriends(list: FriendWithStreak[]): FriendWithStreak[] {
   });
 }
 
+// ---------------------------------------------------------------------------------------------
+// Instagram x Facebook visual kit
+// ---------------------------------------------------------------------------------------------
+const IG_GRADIENT = 'linear-gradient(45deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)';
+const CARD = 'rounded-2xl bg-white dark:bg-[#242526] shadow-[0_1px_2px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.04] dark:ring-white/10';
+const BTN_BASE = 'inline-flex items-center justify-center gap-1.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 cursor-pointer whitespace-nowrap';
+const BTN_BLUE = `${BTN_BASE} px-4 py-2.5 rounded-lg bg-[#ee1d49] hover:bg-[#d6143c] text-white text-[14px]`;
+const BTN_BLUE_SM = `${BTN_BASE} px-3 py-2 rounded-lg bg-[#ee1d49] hover:bg-[#d6143c] text-white text-[13px]`;
+const BTN_GREY = `${BTN_BASE} px-4 py-2.5 rounded-lg bg-[#e4e6eb] hover:bg-[#d8dadf] dark:bg-[#3a3b3c] dark:hover:bg-[#4e4f50] text-[#050505] dark:text-[#e4e6eb] text-[14px]`;
+const BTN_GREY_SM = `${BTN_BASE} px-3 py-2 rounded-lg bg-[#e4e6eb] hover:bg-[#d8dadf] dark:bg-[#3a3b3c] dark:hover:bg-[#4e4f50] text-[#050505] dark:text-[#e4e6eb] text-[13px]`;
+// One colour for every action button in every row (friends, requests, find people)
+const ROW_BTN = 'inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-lg bg-[#ffe9ee] hover:bg-[#ffd6df] dark:bg-[#ee1d4933] dark:hover:bg-[#ee1d494d] text-[#ee1d49] text-[13px] font-semibold transition active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap';
+const ACTION = `${ROW_BTN} flex-col h-auto py-1.5 gap-0.5 text-[11px]`;
+const ACTION_PRIMARY = ACTION;
+
+/** Avatar with an Instagram "story" gradient ring (or a quiet grey ring) and an optional online dot. */
+function RingAvatar({
+  src,
+  alt,
+  size = 56,
+  ring = 'none',
+  online,
+  className = ''
+}: {
+  src: string;
+  alt: string;
+  size?: number;
+  ring?: 'story' | 'none';
+  online?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`relative shrink-0 ${className}`} style={{ width: size, height: size }}>
+      <div
+        className={`absolute inset-0 rounded-full p-[2.5px] ${ring === 'none' ? 'bg-[#dadde1] dark:bg-white/15' : ''}`}
+        style={ring === 'story' ? { background: IG_GRADIENT } : undefined}
+      >
+        <div className="w-full h-full rounded-full bg-white dark:bg-[#242526] p-[2.5px]">
+          <img src={src} alt={alt} className="w-full h-full rounded-full object-cover bg-[#f0f2f5]" />
+        </div>
+      </div>
+      {online && (
+        <span className="absolute bottom-0 right-0 w-[26%] h-[26%] min-w-[10px] min-h-[10px] rounded-full bg-[#31a24c] ring-2 ring-white dark:ring-[#242526]" />
+      )}
+    </div>
+  );
+}
+
+function Loader({ text }: { text: string }) {
+  return (
+    <div className={`${CARD} py-16 flex flex-col items-center justify-center text-center`}>
+      <div className="w-9 h-9 border-[3px] border-[#ee1d49] border-t-transparent rounded-full animate-spin mb-3" />
+      <p className="text-[13px] text-[#65676b] dark:text-[#b0b3b8] font-medium">{text}</p>
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, text, action }: { icon: React.ReactNode; title: string; text: string; action?: React.ReactNode }) {
+  return (
+    <div className={`${CARD} py-14 px-6 text-center`}>
+      <div className="w-16 h-16 rounded-full bg-[#f0f2f5] dark:bg-[#3a3b3c] text-[#65676b] dark:text-[#b0b3b8] flex items-center justify-center mx-auto mb-3">{icon}</div>
+      <h3 className="text-[17px] font-bold text-[#050505] dark:text-[#e4e6eb] mb-1">{title}</h3>
+      <p className="text-[14px] text-[#65676b] dark:text-[#b0b3b8] max-w-sm mx-auto mb-4">{text}</p>
+      {action}
+    </div>
+  );
+}
+
 function FriendsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get('tab') as 'discover' | 'requests' | 'friends') || 'discover';
   const urlFriendCode = searchParams.get('code') || searchParams.get('partnerCode');
+  // Opening an invite link (?code=...) lands on "Find people"; otherwise start on your friends list
+  const initialTab = (searchParams.get('tab') as 'discover' | 'requests' | 'friends') || (urlFriendCode ? 'discover' : 'friends');
 
   const { resolvedTheme, toggleTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
@@ -130,6 +207,9 @@ function FriendsPageContent() {
   const [activeFriendMenuId, setActiveFriendMenuId] = useState<string | null>(null);
   const [selectedStreakFriend, setSelectedStreakFriend] = useState<FriendWithStreak | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showSentModal, setShowSentModal] = useState(false);
+  const [partnerReqs, setPartnerReqs] = useState<{ incoming: PartnerRequestRow[]; outgoing: PartnerRequestRow[] }>({ incoming: [], outgoing: [] });
+  const [partnerReqBusy, setPartnerReqBusy] = useState<string | null>(null);
 
   // Load Session
   useEffect(() => {
@@ -151,10 +231,12 @@ function FriendsPageContent() {
     setLoadingFriends(true);
     setLoadingRequests(true);
     try {
-      const [friendsRes, requestsRes] = await Promise.all([
+      const [friendsRes, requestsRes, partnerRes] = await Promise.all([
         getFriendsWithStreaks(session.token).catch(() => ({ friends: [], myFriendCode: '' })),
-        getFriendRequests(session.token).catch(() => ({ incoming: [], outgoing: [] }))
+        getFriendRequests(session.token).catch(() => ({ incoming: [], outgoing: [] })),
+        getPartnerRequests(session.token).catch(() => ({ incoming: [], outgoing: [] }))
       ]);
+      setPartnerReqs(partnerRes);
       setFriends(dedupeFriends(friendsRes.friends || []));
       if (friendsRes.myFriendCode) {
         setMyFriendCode(friendsRes.myFriendCode);
@@ -183,16 +265,41 @@ function FriendsPageContent() {
 
   useEffect(() => {
     if (session?.token) {
-      loadAllFriendsData();
-      loadDiscoverDirectory();
+      void loadAllFriendsData();
+      void loadDiscoverDirectory();
     }
   }, [session]);
+
+  // A live partner request / acceptance arrived (NotificationContext) -> refresh the block
+  useEffect(() => {
+    if (!session?.token) return;
+    const refresh = () => void getPartnerRequests(session.token).then(setPartnerReqs).catch(() => {});
+    window.addEventListener('partner-requests-changed', refresh);
+    return () => window.removeEventListener('partner-requests-changed', refresh);
+  }, [session]);
+
+  const handlePartnerRequest = async (kind: 'accept' | 'decline' | 'cancel', otherId: string, name: string) => {
+    if (!session?.token || partnerReqBusy) return;
+    setPartnerReqBusy(otherId);
+    try {
+      if (kind === 'accept') await acceptPartnerRequest(session.token, otherId);
+      else if (kind === 'decline') await declinePartnerRequest(session.token, otherId);
+      else await cancelPartnerRequest(session.token, otherId);
+      setFeedback({ type: 'success', message: kind === 'accept' ? `You and ${name} are now partners.` : kind === 'decline' ? 'Request declined.' : 'Request cancelled.' });
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Could not update the request.' });
+    } finally {
+      setPartnerReqBusy(null);
+      setPartnerReqs(await getPartnerRequests(session.token).catch(() => partnerReqs));
+      setTimeout(() => setFeedback(null), 5000);
+    }
+  };
 
   // Debounce discover search
   useEffect(() => {
     if (!session?.token) return;
     const timer = setTimeout(() => {
-      loadDiscoverDirectory(discoverSearch);
+      void loadDiscoverDirectory(discoverSearch);
     }, 250);
     return () => clearTimeout(timer);
   }, [discoverSearch, session]);
@@ -215,7 +322,7 @@ function FriendsPageContent() {
       if (navigator.share) {
         await navigator.share({
           title: 'Join me on SyncCinema!',
-          text: `Add me as a friend on SyncCinema using my code ${myFriendCode} to watch movies and play games together! 🔥`,
+          text: `Add me as a friend on SyncCinema using my code ${myFriendCode} to watch movies and play games together!`,
           url: inviteUrl
         });
       } else {
@@ -249,7 +356,7 @@ function FriendsPageContent() {
         if (res.status === 'ACCEPTED' && res.friend) {
           setFeedback({
             type: 'success',
-            message: `🎉 You and ${res.friend.friendUser.displayName} are now friends! Streak started 🔥`
+            message: `You and ${res.friend.friendUser.displayName} are now friends! Streak started`
           });
           setFriends((prev) => dedupeFriends([res.friend!, ...prev]));
         } else {
@@ -283,7 +390,7 @@ function FriendsPageContent() {
         if (res.status === 'ACCEPTED' && res.friend) {
           setFeedback({
             type: 'success',
-            message: `🎉 You and ${user.displayName} are now friends!`
+            message: `You and ${user.displayName} are now friends!`
           });
           setFriends((prev) => dedupeFriends([res.friend!, ...prev]));
         } else {
@@ -312,7 +419,7 @@ function FriendsPageContent() {
       if (res.success && res.friend) {
         setFeedback({
           type: 'success',
-          message: `🎉 You and ${displayName} are now friends! Daily streak unlocked 🔥`
+          message: `You and ${displayName} are now friends! Daily streak unlocked`
         });
         setFriends((prev) => dedupeFriends([res.friend!, ...prev]));
         await loadAllFriendsData();
@@ -387,7 +494,7 @@ function FriendsPageContent() {
       });
       setFeedback({
         type: 'success',
-        message: `🛵 Sent roast to ${friend.friendUser.displayName}: "${roast.body}"`
+        message: `Sent roast to ${friend.friendUser.displayName}: "${roast.body}"`
       });
     } catch (err: any) {
       setFeedback({
@@ -438,14 +545,14 @@ function FriendsPageContent() {
 
   if (!sessionLoaded) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0d0a14] flex items-center justify-center">
-        <div className="w-10 h-10 border-3 border-[#ee1d49] border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-[#f0f2f5] dark:bg-[#18191a] flex items-center justify-center">
+        <div className="w-10 h-10 border-[3px] border-[#ee1d49] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen flex ${isDark ? 'bg-[#0f0b17] text-white' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen flex ${isDark ? 'bg-[#18191a] text-[#e4e6eb]' : 'bg-[#f0f2f5] text-[#050505]'}`}>
       
       {/* ========================================================================= */}
       {/* 1. LEFT SIDEBAR NAVIGATION (Matching SyncCinema Design System)             */}
@@ -455,7 +562,7 @@ function FriendsPageContent() {
         activeNav="friends"
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
-        incomingRequestsCount={requests.incoming.length}
+        incomingRequestsCount={requests.incoming.length + partnerReqs.incoming.length}
       />
 
       {/* ========================================================================= */}
@@ -466,782 +573,443 @@ function FriendsPageContent() {
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
         />
 
-        {/* Inner Container */}
-        <div className="max-w-7xl mx-auto w-full space-y-8 animate-fadeIn">
-          
-          {/* Top Feedback Banner */}
+        {/* Inner Container: Instagram × Facebook look (soft grey canvas, white rounded cards, gradient story rings, blue actions) */}
+        <div className="max-w-5xl mx-auto w-full space-y-4 animate-fadeIn">
+
+          {/* Snackbar feedback (Facebook style dark pill) */}
           {feedback && (
-            <div
-              className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold transition-all animate-fadeIn ${
-                feedback.type === 'success'
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                {feedback.type === 'success' ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-rose-500 shrink-0" />
-                )}
-                <span>{feedback.message}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFeedback(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1"
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] w-[min(92vw,28rem)] animate-fadeIn">
+              <div
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-[13px] font-medium text-white ${
+                  feedback.type === 'success' ? 'bg-[#242526]' : 'bg-[#c0392b]'
+                }`}
               >
-                ✕
-              </button>
+                {feedback.type === 'success' ? (
+                  <CheckCircle2 className="w-5 h-5 text-[#31a24c] shrink-0" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-white shrink-0" />
+                )}
+                <span className="flex-1 leading-snug">{feedback.message}</span>
+                <button type="button" onClick={() => setFeedback(null)} className="p-1 rounded-full hover:bg-white/10 cursor-pointer" aria-label="Dismiss">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
 
-          {/* ========================================================================= */}
-          {/* HERO SECTION & QUICK SHARE CARD                                           */}
-          {/* ========================================================================= */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-            
-            {/* Hero Left: Heading & Intro */}
-            <div className="lg:col-span-7 flex flex-col justify-center space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ee1d49]/10 text-[#ee1d49] text-xs font-bold tracking-wide uppercase w-fit">
-                <Flame className="w-3.5 h-3.5 fill-current" />
-                <span>SyncCinema Social Hub</span>
-              </div>
-
-              <h1 className="text-2xl xs:text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
-                Friends & <span className="text-[#ee1d49]">Requests</span>
-              </h1>
-
-              <p className="text-xs sm:text-sm lg:text-base text-slate-600 dark:text-zinc-400 max-w-xl leading-relaxed">
-                Connect with your movie companions, challenge players to games, manage invitations, and keep your daily watch streaks alive! 🔥
-              </p>
-
-              {/* Quick Stat Chips */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2">
-                <div className="px-2.5 sm:px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-1.5 sm:gap-2 min-w-0">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xs shrink-0">
-                    <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </div>
-                  <div className="min-w-0 truncate">
-                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">{friends.length}</span>
-                    <span className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 block sm:inline sm:ml-1.5 font-medium truncate">Friends</span>
-                  </div>
-                </div>
-
-                <div className="px-2.5 sm:px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-1.5 sm:gap-2 min-w-0">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs shrink-0">
-                    <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
-                  </div>
-                  <div className="min-w-0 truncate">
-                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">{totalStreaksCount}</span>
-                    <span className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 block sm:inline sm:ml-1.5 font-medium truncate">Streaks</span>
-                  </div>
-                </div>
-
-                <div className="px-2.5 sm:px-3.5 py-2 rounded-2xl bg-white dark:bg-[#161020] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center gap-1.5 sm:gap-2 min-w-0">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-[#ee1d49]/10 text-[#ee1d49] flex items-center justify-center font-bold text-xs shrink-0">
-                    <Inbox className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </div>
-                  <div className="min-w-0 truncate">
-                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white">{requests.incoming.length}</span>
-                    <span className="text-[9.5px] sm:text-[10px] text-slate-500 dark:text-zinc-400 block sm:inline sm:ml-1.5 font-medium truncate">Pending</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Hero Right: Your Friend Code & Quick Share Card */}
-            <div className="lg:col-span-5 bg-gradient-to-br from-[#fff5f7] to-white dark:from-[#1b1224] dark:to-[#130e1b] border border-[#fde4eb] dark:border-white/10 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#ee1d49] text-white flex items-center justify-center shadow-xs">
-                    <KeyRound className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      Your Friend Code
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">Share with friends to connect</p>
-                  </div>
-                </div>
-
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-                  Active
-                </span>
-              </div>
-
-              {/* Code Display Box */}
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-black/40 border border-rose-100 dark:border-white/5 flex flex-col xs:flex-row items-stretch xs:items-center justify-between gap-3">
-                <div className="font-mono text-xl sm:text-2xl font-black tracking-widest text-[#ee1d49] text-center xs:text-left">
-                  {myFriendCode || 'LOADING...'}
-                </div>
+          {/* ===================================================================== */}
+          {/* TABS: Instagram-style icon tabs with a Facebook-blue indicator         */}
+          {/* ===================================================================== */}
+          <nav className={`${CARD} flex items-stretch`}>
+            {([
+              { id: 'friends', label: 'Friends', icon: Users, count: friends.length, alert: false },
+              { id: 'requests', label: 'Requests', icon: Inbox, count: requests.incoming.length + partnerReqs.incoming.length, alert: requests.incoming.length + partnerReqs.incoming.length > 0 },
+              { id: 'discover', label: 'Find people', icon: Search, count: 0, alert: false }
+            ] as const).map((t) => {
+              const Icon = t.icon;
+              const active = activeTab === t.id;
+              return (
                 <button
+                  key={t.id}
                   type="button"
-                  onClick={handleCopyCode}
-                  className="px-3.5 py-2 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-xs cursor-pointer shrink-0"
+                  onClick={() => setActiveTab(t.id)}
+                  className={`relative flex-1 py-3.5 flex items-center justify-center gap-2 text-[13px] sm:text-sm font-semibold transition cursor-pointer ${
+                    active ? 'text-[#ee1d49]' : 'text-[#65676b] dark:text-[#b0b3b8] hover:bg-black/[0.04] dark:hover:bg-white/5'
+                  }`}
                 >
-                  {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                  <Icon className="w-5 h-5" />
+                  <span className="hidden xs:inline sm:inline">{t.label}</span>
+                  {t.count > 0 && (
+                    <span className={`min-w-[20px] px-1.5 py-0.5 rounded-full text-[11px] font-bold leading-none text-center ${
+                      t.alert ? 'bg-[#f02849] text-white' : 'bg-[#e4e6eb] dark:bg-white/10 text-[#050505] dark:text-[#e4e6eb]'
+                    }`}>
+                      {t.count}
+                    </span>
+                  )}
+                  {active && <span className="absolute bottom-0 left-4 right-4 h-[3px] rounded-t-full bg-[#ee1d49]" />}
                 </button>
-              </div>
-
-              {/* Quick Share Link Button */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopyInviteLink}
-                  className="w-full py-2.5 px-3 rounded-xl border border-slate-200 dark:border-white/10 bg-white/60 dark:bg-white/5 hover:bg-white dark:hover:bg-white/10 text-slate-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
-                >
-                  <Share2 className="w-3.5 h-3.5 text-[#ee1d49]" />
-                  <span>{copiedInviteLink ? 'Link Copied!' : 'Share Direct Invite Link'}</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-          {/* ========================================================================= */}
-          {/* TAB NAVIGATION BAR                                                        */}
-          {/* ========================================================================= */}
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 gap-2 overflow-x-auto scrollbar-none pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
-            <div className="flex items-center gap-1 sm:gap-4 shrink-0">
-              
-              {/* Tab 1: Discover & Add */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('discover')}
-                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition relative cursor-pointer shrink-0 ${
-                  activeTab === 'discover'
-                    ? 'text-[#ee1d49]'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Users className="w-4 h-4 shrink-0" />
-                <span>Discover & Add</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300">
-                  {discoverUsers.length}
-                </span>
-                {activeTab === 'discover' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ee1d49] rounded-full" />
-                )}
-              </button>
-
-              {/* Tab 2: Requests Inbox */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('requests')}
-                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition relative cursor-pointer shrink-0 ${
-                  activeTab === 'requests'
-                    ? 'text-[#ee1d49]'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Inbox className="w-4 h-4 shrink-0" />
-                <span>Requests</span>
-                {requests.incoming.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-[#ee1d49] text-white animate-pulse">
-                    {requests.incoming.length}
-                  </span>
-                )}
-                {activeTab === 'requests' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ee1d49] rounded-full" />
-                )}
-              </button>
-
-              {/* Tab 3: My Friends & Streaks */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('friends')}
-                className={`pb-3.5 px-2 text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition relative cursor-pointer shrink-0 ${
-                  activeTab === 'friends'
-                    ? 'text-[#ee1d49]'
-                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Flame className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-                <span>My Friends</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300">
-                  {friends.length}
-                </span>
-                {activeTab === 'friends' && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#ee1d49] rounded-full" />
-                )}
-              </button>
-
-            </div>
-
-            {/* Refresh Button */}
+              );
+            })}
             <button
               type="button"
               onClick={() => {
-                loadAllFriendsData();
-                loadDiscoverDirectory(discoverSearch);
+                void loadAllFriendsData();
+                void loadDiscoverDirectory(discoverSearch);
               }}
-              title="Refresh Data"
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer shrink-0"
+              title="Refresh"
+              className="px-3.5 text-[#65676b] dark:text-[#b0b3b8] hover:bg-black/[0.04] dark:hover:bg-white/5 transition cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${loadingDiscover || loadingFriends || loadingRequests ? 'animate-spin text-[#ee1d49]' : ''}`} />
             </button>
-          </div>
+          </nav>
 
-          {/* ========================================================================= */}
-          {/* TAB 1 CONTENT: DISCOVER & ADD PEOPLE                                      */}
-          {/* ========================================================================= */}
-          {activeTab === 'discover' && (
-            <div className="space-y-6">
-              
-              {/* Card A: Add Friend by Code Input */}
-              <div className="p-4 sm:p-6 rounded-3xl bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 shadow-xs">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <KeyRound className="w-4 h-4 text-[#ee1d49]" />
-                      <span>Have a Friend&apos;s Code?</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                      Enter any user&apos;s Partner Code directly to send an instant friend request.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleAddByCode} className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 w-full sm:w-auto">
-                    <input
-                      type="text"
-                      value={friendCodeInput}
-                      onChange={(e) => setFriendCodeInput(e.target.value.toUpperCase())}
-                      placeholder="E.G. JAYD91, RAHUL42"
-                      className="w-full sm:w-64 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ee1d49]/30 focus:border-[#ee1d49] transition"
-                    />
-                    <button
-                      type="submit"
-                      disabled={submittingCode || !friendCodeInput.trim()}
-                      className="py-2.5 px-5 rounded-2xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-xs sm:text-sm shadow-md shadow-[#ee1d49]/20 transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>{submittingCode ? 'Sending...' : 'Send'}</span>
-                    </button>
-                  </form>
-                </div>
+          {/* ===================================================================== */}
+          {/* FRIENDS                                                                */}
+          {/* ===================================================================== */}
+          {activeTab === 'friends' && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-lg font-bold text-[#050505] dark:text-[#e4e6eb]">
+                  All friends <span className="text-[#65676b] dark:text-[#b0b3b8] font-semibold text-base">· {friends.length}</span>
+                </h2>
+                <button type="button" onClick={() => setActiveTab('discover')} className={BTN_BLUE_SM}>
+                  <UserPlus className="w-4 h-4" />
+                  <span>Find friends</span>
+                </button>
               </div>
 
-              {/* Directory Search & Filter Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                <div>
-                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>People on SyncCinema</span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#ee1d49]/10 text-[#ee1d49]">
-                      {filteredDiscoverUsers.length}
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Find active users, send friend requests, and start playing games together.
-                  </p>
-                </div>
+              {loadingFriends && friends.length === 0 ? (
+                <Loader text="Loading your friends…" />
+              ) : friends.length === 0 ? (
+                <EmptyState
+                  icon={<Users className="w-8 h-8" />}
+                  title="No friends yet"
+                  text="Find people you know, or share your friend code to connect and start your first streak."
+                  action={<button type="button" onClick={() => setActiveTab('discover')} className={BTN_BLUE}>Find people</button>}
+                />
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  {friends.map((friend) => {
+                    const isLaunching = launchingActionId === friend.friendUser.id;
+                    const isMenuOpen = activeFriendMenuId === friend.friendUser.id;
+                    const streak = friend.streak?.currentStreak ?? 0;
 
+                    return (
+                      <article key={friend.friendshipId || friend.friendUser.id} className={`${CARD} relative p-3 sm:p-3.5 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4`}>
+                        {/* Left: avatar + who */}
+                        <div className="flex items-center gap-3.5 min-w-0 lg:flex-1">
+                          <RingAvatar
+                            src={getBitmojiAvatarUrl(friend.friendUser.avatarUrl, friend.friendUser.displayName)}
+                            alt={friend.friendUser.displayName}
+                            size={52}
+                            ring={friend.friendUser.isOnline || streak > 0 ? 'story' : 'none'}
+                            online={friend.friendUser.isOnline}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <h3 className="text-[15px] font-bold text-[#050505] dark:text-[#e4e6eb] truncate">{friend.friendUser.displayName}</h3>
+                              {(friend.friendUser.membershipTier === 'plus' || friend.friendUser.membershipTier === 'creator') && (
+                                <MembershipBadge tier={friend.friendUser.membershipTier} />
+                              )}
+                            </div>
+                            <p className="text-[13px] text-[#65676b] dark:text-[#b0b3b8] truncate">
+                              {friend.friendUser.isOnline ? <span className="text-[#31a24c] font-semibold">Active now</span> : 'Offline'}
+                              <span className="mx-1.5">·</span>
+                              <span className="font-mono">#{friend.friendUser.partnerCode}</span>
+                            </p>
+                            <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedStreakFriend(friend)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#fff1e6] dark:bg-[#f0284926] text-[#f02849] text-[12px] font-bold hover:opacity-80 transition cursor-pointer"
+                                title="View streak calendar and details"
+                              >
+                                <Flame className="w-3.5 h-3.5 fill-current" />
+                                <span>{streak}-day streak</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+                              {friend.streak?.atRisk && <span className="text-[11px] font-bold text-[#f02849] whitespace-nowrap"><TriangleAlert className="inline w-3 h-3 align-[-0.125em]" /> At risk today</span>}
+                            </div>
+                          </div>
+
+                          {/* 3-dots menu (stays next to the name on small screens, moves to the far right on wide ones) */}
+                          <div className="relative shrink-0 self-start lg:hidden">
+                            <button
+                              type="button"
+                              onClick={() => setActiveFriendMenuId(isMenuOpen ? null : friend.friendUser.id)}
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] hover:bg-[#e4e6eb] dark:hover:bg-white/10 transition cursor-pointer"
+                              aria-label="More"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Right: actions in one line */}
+                        <div className="grid grid-cols-5 lg:flex lg:items-center gap-1.5 lg:gap-2 lg:shrink-0">
+                          <button type="button" onClick={() => router.push(`/chat?userId=${friend.friendUser.id}`)} className={`${ACTION_PRIMARY} lg:w-[84px]`} title="Message">
+                            <MessageSquare className="w-[18px] h-[18px]" />
+                            <span>Message</span>
+                          </button>
+                          <button type="button" disabled={isLaunching} onClick={() => handleWatchPartyWithFriend(friend)} className={`${ACTION} lg:w-[84px]`} title="Watch together">
+                            <Video className="w-[18px] h-[18px]" />
+                            <span>{isLaunching ? 'Starting…' : 'Watch'}</span>
+                          </button>
+                          <button type="button" onClick={() => handlePlayGame(friend, 'ludo')} className={`${ACTION} lg:w-[84px]`} title="Play Ludo">
+                            <Gamepad2 className="w-[18px] h-[18px]" />
+                            <span>Ludo</span>
+                          </button>
+                          <button type="button" onClick={() => handlePlayGame(friend, 'four-in-a-row')} className={`${ACTION} lg:w-[84px]`} title="Play Four in a Row">
+                            <Gamepad2 className="w-[18px] h-[18px]" />
+                            <span>4-in-row</span>
+                          </button>
+                          <button type="button" disabled={actionLoadingId === friend.friendUser.id} onClick={() => handleNudgeFriend(friend)} className={`${ACTION} lg:w-[84px]`} title="Send a playful nudge">
+                            <Bike className="w-[18px] h-[18px]" />
+                            <span>Nudge</span>
+                          </button>
+
+                          <div className="relative hidden lg:block shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setActiveFriendMenuId(isMenuOpen ? null : friend.friendUser.id)}
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-[#65676b] dark:text-[#b0b3b8] hover:bg-[#e4e6eb] dark:hover:bg-white/10 transition cursor-pointer"
+                              aria-label="More"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {isMenuOpen && (
+                          <div className="absolute right-3 top-14 w-52 rounded-xl bg-white dark:bg-[#3a3b3c] shadow-2xl ring-1 ring-black/10 dark:ring-white/10 p-1.5 z-30 animate-fadeIn">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFriend(friend.friendUser.id, friend.friendUser.displayName)}
+                              className="w-full px-3 py-2 rounded-lg text-left text-[13px] font-semibold text-[#050505] dark:text-[#e4e6eb] hover:bg-[#f0f2f5] dark:hover:bg-white/10 flex items-center gap-2.5 cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              <span>Unfriend {friend.friendUser.displayName.split(' ')[0]}</span>
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ===================================================================== */}
+          {/* REQUESTS                                                               */}
+          {/* ===================================================================== */}
+          {activeTab === 'requests' && (
+            <section className="space-y-5">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3 px-1">
+                  <h2 className="text-lg font-bold text-[#050505] dark:text-[#e4e6eb]">
+                    Friend requests <span className="text-[#f02849] font-bold text-base">{requests.incoming.length > 0 ? requests.incoming.length : ''}</span>
+                  </h2>
+                  <button type="button" onClick={() => setShowSentModal(true)} className={ROW_BTN}>
+                    <Clock className="w-4 h-4" />
+                    <span>Sent requests{requests.outgoing.length > 0 ? ` · ${requests.outgoing.length}` : ''}</span>
+                  </button>
+                </div>
+                {requests.incoming.length === 0 ? (
+                  <EmptyState
+                    icon={<Inbox className="w-8 h-8" />}
+                    title="No new requests"
+                    text="When someone sends you a friend request it will show up here."
+                  />
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {requests.incoming.map((req) => {
+                      const busy = actionLoadingId === req.user.id;
+                      return (
+                        <article key={req.requestId} className={`${CARD} p-2.5 sm:p-3 flex items-center gap-3`}>
+                          <RingAvatar src={getBitmojiAvatarUrl(req.user.avatarUrl, req.user.displayName)} alt={req.user.displayName} size={44} ring="none" />
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-[14px] font-bold text-[#050505] dark:text-[#e4e6eb] truncate">{req.user.displayName}</h3>
+                            <p className="text-[12px] text-[#65676b] dark:text-[#b0b3b8] truncate">
+                              <span className="font-mono">#{req.user.partnerCode}</span>
+                              <span className="mx-1.5">·</span>
+                              {new Date(req.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button type="button" disabled={busy} onClick={() => handleAccept(req.user.id, req.user.displayName)} className={ROW_BTN}>
+                              <Check className="w-4 h-4" />
+                              <span>{busy ? 'Confirming…' : 'Confirm'}</span>
+                            </button>
+                            <button type="button" disabled={busy} onClick={() => handleDecline(req.user.id)} className={ROW_BTN}>
+                              <X className="w-4 h-4" />
+                              <span className="hidden sm:inline">Delete</span>
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {(partnerReqs.incoming.length > 0 || partnerReqs.outgoing.length > 0) && (
+                <div className="space-y-2">
+                  <h2 className="px-1 text-lg font-bold text-[#050505] dark:text-[#e4e6eb]">Partner requests</h2>
+                  {[
+                    ...partnerReqs.incoming.map((r) => ({ ...r, incoming: true })),
+                    ...partnerReqs.outgoing.map((r) => ({ ...r, incoming: false }))
+                  ].map((r) => {
+                    const busy = partnerReqBusy === r.userId;
+                    return (
+                      <article key={`${r.incoming ? 'in' : 'out'}:${r.userId}`} className={`${CARD} p-2.5 sm:p-3 flex items-center gap-3`}>
+                        <RingAvatar src={getBitmojiAvatarUrl(r.avatarUrl, r.displayName)} alt={r.displayName} size={44} ring="none" />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-[14px] font-bold text-[#050505] dark:text-[#e4e6eb] truncate">{r.displayName}</h3>
+                          <p className="text-[12px] text-[#65676b] dark:text-[#b0b3b8] truncate">
+                            {r.incoming ? 'Wants to be your partner' : 'Waiting for them to accept'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {r.incoming ? (
+                            <>
+                              <button type="button" disabled={busy} onClick={() => handlePartnerRequest('accept', r.userId, r.displayName)} className={ROW_BTN}>
+                                <Check className="w-4 h-4" />
+                                <span>Accept</span>
+                              </button>
+                              <button type="button" disabled={busy} onClick={() => handlePartnerRequest('decline', r.userId, r.displayName)} className={ROW_BTN}>
+                                <X className="w-4 h-4" />
+                                <span className="hidden sm:inline">Decline</span>
+                              </button>
+                            </>
+                          ) : (
+                            <button type="button" disabled={busy} onClick={() => handlePartnerRequest('cancel', r.userId, r.displayName)} className={ROW_BTN}>
+                              <X className="w-4 h-4" />
+                              <span>Cancel</span>
+                            </button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* ===================================================================== */}
+          {/* FIND PEOPLE: add by code + "People you may know" grid                  */}
+          {/* ===================================================================== */}
+          {activeTab === 'discover' && (
+            <section className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+                <h2 className="text-lg font-bold text-[#050505] dark:text-[#e4e6eb]">
+                  People <span className="text-[#65676b] dark:text-[#b0b3b8] font-semibold text-base">· {filteredDiscoverUsers.length}</span>
+                </h2>
                 <div className="relative w-full sm:w-72">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#65676b]" />
                   <input
                     type="text"
                     value={discoverSearch}
                     onChange={(e) => setDiscoverSearch(e.target.value)}
-                    placeholder="Search by name or code..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ee1d49]/30 transition"
+                    placeholder="Search name or code"
+                    className="w-full pl-10 pr-9 py-2.5 rounded-full bg-white dark:bg-[#3a3b3c] ring-1 ring-black/5 dark:ring-white/10 text-[14px] text-[#050505] dark:text-[#e4e6eb] placeholder-[#65676b] focus:outline-none focus:ring-2 focus:ring-[#ee1d49]/40 transition"
                   />
                   {discoverSearch && (
-                    <button
-                      type="button"
-                      onClick={() => setDiscoverSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold"
-                    >
-                      ✕
+                    <button type="button" onClick={() => setDiscoverSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center text-[#65676b] hover:bg-[#e4e6eb] dark:hover:bg-white/10 cursor-pointer" aria-label="Clear search">
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* User Directory Grid */}
               {loadingDiscover && discoverUsers.length === 0 ? (
-                <div className="py-20 flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 border-3 border-[#ee1d49] border-t-transparent rounded-full animate-spin mb-3"></div>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Discovering SyncCinema users...</p>
-                </div>
+                <Loader text="Finding people…" />
               ) : filteredDiscoverUsers.length === 0 ? (
-                <div className="py-16 text-center bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 rounded-3xl p-8">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                    <Users className="w-6 h-6" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-zinc-200 mb-1">
-                    {discoverSearch ? 'No users found matching your search' : 'No users found'}
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto mb-4">
-                    {discoverSearch
-                      ? 'Try searching by a different name or exact partner code.'
-                      : 'Share your friend code to invite companions to SyncCinema!'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleCopyInviteLink}
-                    className="py-2 px-4 rounded-xl bg-[#ee1d49] text-white text-xs font-bold shadow-xs hover:bg-[#d6143c] transition"
-                  >
-                    Share Your Code
-                  </button>
-                </div>
+                <EmptyState
+                  icon={<Search className="w-8 h-8" />}
+                  title={discoverSearch ? 'No results' : 'No suggestions right now'}
+                  text={discoverSearch ? 'Try a different name, or enter an exact friend code above.' : 'Share your friend code so people can find you.'}
+                  action={<button type="button" onClick={handleCopyInviteLink} className={BTN_BLUE}>Share your code</button>}
+                />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-2">
                   {filteredDiscoverUsers.map((user) => {
                     const isSending = sendingUserId === user.id;
-
                     return (
-                      <div
-                        key={user.id}
-                        className="p-4 rounded-3xl bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
-                      >
-                        {/* Top: Avatar & Info */}
-                        <div className="flex items-center gap-3.5">
-                          <div className="relative shrink-0">
-                            <img
-                              src={getBitmojiAvatarUrl(user.avatarUrl, user.displayName)}
-                              alt={user.displayName}
-                              className="w-13 h-13 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shadow-xs bg-slate-100"
-                            />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                              {user.displayName}
-                            </h4>
-                            <p className="text-xs font-mono text-[#ee1d49] font-semibold truncate">
-                              #{user.partnerCode}
-                            </p>
-                            <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 flex items-center gap-1">
-                              <span>SyncCinema Explorer</span>
-                            </p>
-                          </div>
+                      <article key={user.id} className={`${CARD} p-2.5 sm:p-3 flex items-center gap-3`}>
+                        <RingAvatar src={getBitmojiAvatarUrl(user.avatarUrl, user.displayName)} alt={user.displayName} size={44} ring="none" />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-[14px] font-bold text-[#050505] dark:text-[#e4e6eb] truncate">{user.displayName}</h3>
+                          <p className="text-[12px] text-[#65676b] dark:text-[#b0b3b8] font-mono truncate">#{user.partnerCode}</p>
                         </div>
-
-                        {/* Bottom Action Button */}
-                        <div>
+                        <div className="flex items-center gap-2 shrink-0">
                           {user.requestStatus === 'SENT' ? (
-                            <button
-                              type="button"
-                              onClick={() => handleCancelOutgoing(user.id)}
-                              className="w-full py-2 px-3 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-600 dark:text-zinc-300 hover:text-rose-600 text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <Clock className="w-3.5 h-3.5" />
-                              <span>Request Sent • Cancel</span>
+                            <button type="button" onClick={() => handleCancelOutgoing(user.id)} className={ROW_BTN}>
+                              <Clock className="w-4 h-4" />
+                              <span>Cancel request</span>
                             </button>
                           ) : user.requestStatus === 'RECEIVED' ? (
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleAccept(user.id, user.displayName)}
-                                className="flex-1 py-2 px-3 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-bold shadow-xs transition flex items-center justify-center gap-1 cursor-pointer"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                                <span>Accept</span>
+                            <>
+                              <button type="button" onClick={() => handleAccept(user.id, user.displayName)} className={ROW_BTN}>
+                                <Check className="w-4 h-4" />
+                                <span>Confirm</span>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDecline(user.id)}
-                                className="py-2 px-3 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 text-xs font-semibold transition cursor-pointer"
-                              >
-                                Decline
+                              <button type="button" onClick={() => handleDecline(user.id)} className={ROW_BTN}>
+                                <X className="w-4 h-4" />
+                                <span className="hidden sm:inline">Delete</span>
                               </button>
-                            </div>
+                            </>
                           ) : (
-                            <button
-                              type="button"
-                              disabled={isSending}
-                              onClick={() => handleAddFromDirectory(user)}
-                              className="w-full py-2 px-3 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-bold shadow-sm shadow-[#ee1d49]/20 transition active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <UserPlus className="w-3.5 h-3.5" />
-                              <span>{isSending ? 'Sending...' : '+ Add Friend'}</span>
+                            <button type="button" disabled={isSending} onClick={() => handleAddFromDirectory(user)} className={ROW_BTN}>
+                              <UserPlus className="w-4 h-4" />
+                              <span>{isSending ? 'Sending…' : 'Add friend'}</span>
                             </button>
                           )}
                         </div>
-
-                      </div>
+                      </article>
                     );
                   })}
                 </div>
               )}
-
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 2 CONTENT: REQUESTS INBOX & SENT                                      */}
-          {/* ========================================================================= */}
-          {activeTab === 'requests' && (
-            <div className="space-y-8">
-              
-              {/* Section A: Incoming Requests */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <Inbox className="w-4 h-4 text-[#ee1d49]" />
-                      <span>Incoming Requests</span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#ee1d49]/10 text-[#ee1d49]">
-                        {requests.incoming.length}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400">
-                      People who want to become friends with you on SyncCinema.
-                    </p>
-                  </div>
-                </div>
-
-                {requests.incoming.length === 0 ? (
-                  <div className="py-12 text-center bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                      <Inbox className="w-6 h-6" />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-800 dark:text-zinc-200 mb-1">
-                      No incoming requests
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto">
-                      You&apos;re all caught up! Share your friend code with friends to connect.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {requests.incoming.map((req) => {
-                      const isLoadingThis = actionLoadingId === req.user.id;
-
-                      return (
-                        <div
-                          key={req.requestId}
-                          className="p-4.5 rounded-3xl bg-white dark:bg-[#150f1d] border border-[#ee1d49]/20 ring-1 ring-[#ee1d49]/10 shadow-xs flex flex-col justify-between space-y-4"
-                        >
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={getBitmojiAvatarUrl(req.user.avatarUrl, req.user.displayName)}
-                              alt={req.user.displayName}
-                              className="w-12 h-12 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shrink-0"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                                {req.user.displayName}
-                              </h4>
-                              <p className="text-xs font-mono text-[#ee1d49] font-bold truncate">
-                                #{req.user.partnerCode}
-                              </p>
-                              <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5">
-                                Sent {new Date(req.createdAt).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              disabled={isLoadingThis}
-                              onClick={() => handleAccept(req.user.id, req.user.displayName)}
-                              className="flex-1 py-2 px-3.5 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-bold shadow-xs transition active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>{isLoadingThis ? 'Accepting...' : 'Accept'}</span>
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isLoadingThis}
-                              onClick={() => handleDecline(req.user.id)}
-                              className="py-2 px-3.5 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-zinc-300 text-xs font-semibold transition active:scale-95 disabled:opacity-50 cursor-pointer"
-                            >
-                              Decline
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Section B: Sent Requests (Outgoing) */}
-              <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-white/10">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-amber-500" />
-                      <span>Sent Requests (Pending)</span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300">
-                        {requests.outgoing.length}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400">
-                      Requests you sent that haven&apos;t been accepted yet.
-                    </p>
-                  </div>
-                </div>
-
-                {requests.outgoing.length === 0 ? (
-                  <div className="py-8 text-center bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 rounded-3xl p-6 text-xs text-slate-400 dark:text-zinc-500">
-                    No pending sent requests.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {requests.outgoing.map((req) => {
-                      const isLoadingThis = actionLoadingId === req.user.id;
-
-                      return (
-                        <div
-                          key={req.requestId}
-                          className="p-4 rounded-3xl bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 shadow-xs flex items-center justify-between gap-3"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={getBitmojiAvatarUrl(req.user.avatarUrl, req.user.displayName)}
-                              alt={req.user.displayName}
-                              className="w-10 h-10 rounded-full object-cover shrink-0"
-                            />
-                            <div className="min-w-0">
-                              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                                {req.user.displayName}
-                              </h4>
-                              <p className="text-[11px] font-mono text-[#ee1d49]">
-                                #{req.user.partnerCode}
-                              </p>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            disabled={isLoadingThis}
-                            onClick={() => handleCancelOutgoing(req.user.id)}
-                            className="py-1.5 px-3 rounded-xl border border-rose-200 dark:border-rose-900/40 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-rose-600 dark:text-rose-400 text-xs font-semibold transition active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* TAB 3 CONTENT: MY FRIENDS & STREAKS                                       */}
-          {/* ========================================================================= */}
-          {activeTab === 'friends' && (
-            <div className="space-y-6">
-              
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <Flame className="w-5 h-5 text-amber-500 fill-amber-500" />
-                    <span>Your Connected Friends</span>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#ee1d49]/10 text-[#ee1d49]">
-                      {friends.length}
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Watch movies or play arena games together to increase your daily streak count!
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('discover')}
-                  className="py-2 px-4 rounded-2xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5 w-fit cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>+ Find More Friends</span>
-                </button>
-              </div>
-
-              {loadingFriends && friends.length === 0 ? (
-                <div className="py-20 flex flex-col items-center justify-center text-center">
-                  <div className="w-10 h-10 border-3 border-[#ee1d49] border-t-transparent rounded-full animate-spin mb-3"></div>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Loading your friends list...</p>
-                </div>
-              ) : friends.length === 0 ? (
-                <div className="py-16 text-center bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 rounded-3xl p-8">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto mb-3">
-                    <Flame className="w-6 h-6 fill-current" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-zinc-200 mb-1">
-                    No friends connected yet
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm mx-auto mb-4">
-                    Head over to the &quot;Discover &amp; Add&quot; tab to search active players or invite your loved ones!
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('discover')}
-                    className="py-2 px-4 rounded-xl bg-[#ee1d49] text-white text-xs font-bold shadow-xs hover:bg-[#d6143c] transition"
-                  >
-                    Discover People
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {friends.map((friend) => {
-                    const isLaunching = launchingActionId === friend.friendUser.id;
-                    const isMenuOpen = activeFriendMenuId === friend.friendUser.id;
-
-                    return (
-                      <div
-                        key={friend.friendshipId || friend.friendUser.id}
-                        className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#150f1d] border border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 shadow-xs transition-all flex flex-col justify-between space-y-4"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          {/* Left: Avatar & Details */}
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <div className="relative shrink-0">
-                              <img
-                                src={getBitmojiAvatarUrl(friend.friendUser.avatarUrl, friend.friendUser.displayName)}
-                                alt={friend.friendUser.displayName}
-                                className="w-13 h-13 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shadow-xs"
-                              />
-                              <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white dark:bg-zinc-900 ring-1 ring-white/50">
-                                <span
-                                  className={`h-2.5 w-2.5 rounded-full ${
-                                    friend.friendUser.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'
-                                  }`}
-                                />
-                              </span>
-                            </div>
-
-                            <div className="min-w-0">
-                              <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
-                                {friend.friendUser.displayName}
-                              </h4>
-                              <p className="text-xs font-mono text-slate-500 dark:text-zinc-400 font-semibold truncate">
-                                #{friend.friendUser.partnerCode}
-                              </p>
-                              <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">
-                                {friend.friendUser.isOnline ? (
-                                  <span className="text-emerald-500 font-medium">Online now</span>
-                                ) : (
-                                  'Offline'
-                                )}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Streak Badge (Click to open streak drawer) */}
-                          <div className="flex flex-col items-end shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedStreakFriend(friend)}
-                              className="px-3 py-1 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center gap-1.5 shadow-2xs transition cursor-pointer hover:scale-105 active:scale-95"
-                              title="View streak calendar and details"
-                            >
-                              <Flame className="w-4 h-4 fill-amber-500 text-amber-500" />
-                              <span className="font-black text-xs sm:text-sm">
-                                {friend.streak?.currentStreak ?? 0}d
-                              </span>
-                              <ChevronRight className="w-3.5 h-3.5 text-amber-500/70" />
-                            </button>
-                            {friend.streak?.atRisk && (
-                              <span className="text-[10px] text-rose-500 font-bold mt-1 animate-pulse">
-                                At risk today! 🔥
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Action Toolbar */}
-                        <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-1.5 sm:gap-2">
-                          <div className="flex items-center gap-1 sm:gap-1.5 flex-1 overflow-x-auto scrollbar-none py-0.5 min-w-0">
-                            {/* Direct Chat */}
-                            <button
-                              type="button"
-                              onClick={() => router.push(`/chat?userId=${friend.friendUser.id}`)}
-                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-[#ee1d49] font-bold text-[11px] sm:text-xs flex items-center gap-1 transition active:scale-95 cursor-pointer shrink-0"
-                              title="Chat now"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>Chat</span>
-                            </button>
-
-                            {/* Watch Together */}
-                            <button
-                              type="button"
-                              disabled={isLaunching}
-                              onClick={() => handleWatchPartyWithFriend(friend)}
-                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1 transition active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
-                            >
-                              <Video className="w-3.5 h-3.5 text-[#ee1d49]" />
-                              <span>{isLaunching ? 'Starting...' : 'Watch'}</span>
-                            </button>
-
-                            {/* Play Ludo */}
-                            <button
-                              type="button"
-                              onClick={() => handlePlayGame(friend, 'ludo')}
-                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white font-bold text-[11px] sm:text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-                              title="Play Ludo Arena"
-                            >
-                              <Gamepad2 className="w-3.5 h-3.5" />
-                              <span>Ludo</span>
-                            </button>
-
-                            {/* Play Four in a Row */}
-                            <button
-                              type="button"
-                              onClick={() => handlePlayGame(friend, 'four-in-a-row')}
-                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] sm:text-xs flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer shrink-0"
-                              title="Play Four in a Row"
-                            >
-                              <Gamepad2 className="w-3.5 h-3.5" />
-                              <span>4-in-Row</span>
-                            </button>
-
-                            {/* Nudge with Zomato Roast */}
-                            <button
-                              type="button"
-                              disabled={actionLoadingId === friend.friendUser.id}
-                              onClick={() => handleNudgeFriend(friend)}
-                              className="py-1.5 sm:py-2 px-2 sm:px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-[11px] sm:text-xs flex items-center gap-1 shadow-2xs transition active:scale-95 cursor-pointer disabled:opacity-50 shrink-0"
-                              title="Send playful Zomato-style roast nudge"
-                            >
-                              <span>🛵</span>
-                              <span>Nudge</span>
-                            </button>
-                          </div>
-
-                          {/* 3-Dots Menu */}
-                          <div className="relative shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => setActiveFriendMenuId(isMenuOpen ? null : friend.friendUser.id)}
-                              className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
-                            >
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
-
-                            {isMenuOpen && (
-                              <div className="absolute right-0 bottom-full mb-2 w-44 rounded-2xl bg-white dark:bg-[#1b1224] border border-slate-200 dark:border-white/10 shadow-xl py-1 z-30 animate-fadeIn">
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveFriend(friend.friendUser.id, friend.friendUser.displayName)}
-                                  className="w-full px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2 cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Remove Friend</span>
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-            </div>
+            </section>
           )}
 
         </div>
       </main>
+
+      {/* Sent requests modal */}
+      {showSentModal && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/40 flex justify-end animate-fadeIn"
+          onClick={() => setShowSentModal(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Sent requests"
+            className="h-full w-full max-w-sm sm:max-w-md flex flex-col bg-white dark:bg-[#242526] shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden animate-slideInRight"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#e4e6eb] dark:border-white/10">
+              <h3 className="text-[17px] font-bold text-[#050505] dark:text-[#e4e6eb]">
+                Sent requests <span className="text-[#65676b] dark:text-[#b0b3b8] font-semibold text-[15px]">· {requests.outgoing.length}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowSentModal(false)}
+                className="w-8 h-8 rounded-full bg-[#e4e6eb] dark:bg-[#3a3b3c] hover:opacity-80 flex items-center justify-center text-[#050505] dark:text-[#e4e6eb] cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-3 space-y-2">
+              {requests.outgoing.length === 0 ? (
+                <p className="py-10 text-center text-[14px] text-[#65676b] dark:text-[#b0b3b8]">You have no pending sent requests.</p>
+              ) : (
+                requests.outgoing.map((req) => {
+                  const busy = actionLoadingId === req.user.id;
+                  return (
+                    <div key={req.requestId} className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#f0f2f5] dark:hover:bg-white/5">
+                      <RingAvatar src={getBitmojiAvatarUrl(req.user.avatarUrl, req.user.displayName)} alt={req.user.displayName} size={44} ring="none" />
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-[14px] font-bold text-[#050505] dark:text-[#e4e6eb] truncate">{req.user.displayName}</h4>
+                        <p className="text-[12px] text-[#65676b] dark:text-[#b0b3b8] font-mono truncate">#{req.user.partnerCode}</p>
+                      </div>
+                      <button type="button" disabled={busy} onClick={() => handleCancelOutgoing(req.user.id)} className={`${ROW_BTN} shrink-0`}>
+                        <X className="w-4 h-4" />
+                        <span>{busy ? 'Cancelling…' : 'Cancel'}</span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Streak Calendar & Activity Drawer */}
       <StreakDetailsDrawer
@@ -1260,8 +1028,8 @@ export default function FriendsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-50 dark:bg-[#0d0a14] flex items-center justify-center">
-          <div className="w-10 h-10 border-3 border-[#ee1d49] border-t-transparent rounded-full animate-spin"></div>
+        <div className="min-h-screen bg-[#f0f2f5] dark:bg-[#18191a] flex items-center justify-center">
+          <div className="w-10 h-10 border-[3px] border-[#ee1d49] border-t-transparent rounded-full animate-spin"></div>
         </div>
       }
     >

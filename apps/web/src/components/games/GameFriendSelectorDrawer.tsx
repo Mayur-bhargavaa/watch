@@ -14,8 +14,7 @@ import {
 } from 'lucide-react';
 import {
   FriendWithStreak,
-  getFriendsWithStreaks,
-  connectUserPartner
+  getFriendsWithStreaks
 } from '../../lib/api';
 
 // Dicebear Bitmoji avatar helper
@@ -88,7 +87,7 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
 
   useEffect(() => {
     if (isOpen && token) {
-      fetchFriends();
+      void fetchFriends();
       setSearchQuery('');
     }
   }, [isOpen, token]);
@@ -107,10 +106,7 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
   const handleSelect = async (friend: FriendWithStreak, playImmediately = false) => {
     setSelectingFriendId(friend.friendUser.id);
     try {
-      if (token) {
-        // Sync active connection in background
-        await connectUserPartner(token, friend.friendUser.partnerCode, friend.friendUser.id).catch(() => {});
-      }
+      // Picking an opponent never re-pairs the user's partner (GR-21): the friend id is passed to the room API directly.
       onSelectFriend(friend);
       if (playImmediately && onPlayWithFriend) {
         onPlayWithFriend(friend);
@@ -226,7 +222,7 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-xs mx-auto mb-4">
                   {searchQuery
                     ? 'Check spelling or try searching for their partner code.'
-                    : 'Add friends to play games together and build daily watch streaks! 🔥'}
+                    : 'Add friends to play games together and build daily watch streaks!'}
                 </p>
                 {onOpenAddFriend && (
                   <button
@@ -375,7 +371,7 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
               </button>
             ) : (
               <span className="text-[11px] text-zinc-400">
-                Playing with friends preserves streaks! 🔥
+                Playing with friends preserves streaks!
               </span>
             )}
 

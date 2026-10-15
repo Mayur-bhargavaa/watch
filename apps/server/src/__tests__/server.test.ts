@@ -1,9 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { WebSocket } from 'ws';
-import { createServer } from '../index.js';
+
+// The server refuses to boot without these. Tests never touch a real database: unless MONGODB_URI is
+// provided, a throwaway local mongod is started on a random port and removed afterwards.
+process.env.JWT_SECRET ||= 'test-' + 'x'.repeat(40);
+process.env.LOG_LEVEL ||= 'silent';
+process.env.MAIL_TRANSPORT = 'memory';
+let mongod: ChildProcess | null = null;
+let mongoDir = '';
+async function ensureMongo(): Promise<void> {
+  if (process.env.MONGODB_URI) return;
+  const port: number = await new Promise((res) => {
+    const s = net.createServer().listen(0, '127.0.0.1', () => { const p = (s.address() as any).port; s.close(() => res(p)); });
+  });
+  mongoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-mongo-'));
+  mongod = spawn('mongod', ['--dbpath', mongoDir, '--port', String(port), '--bind_ip', '127.0.0.1', '--quiet'], { stdio: 'ignore' });
+  mongod.on('error', () => {});
+  process.env.MONGODB_URI = `mongodb://127.0.0.1:${port}/`;
+  for (let i = 0; i < 80; i++) {
+    if (await new Promise<boolean>((r) => { const c = net.connect(port, '127.0.0.1'); c.on('connect', () => { c.destroy(); r(true); }); c.on('error', () => r(false)); })) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error('mongod did not start; install MongoDB or set MONGODB_URI to a disposable instance');
+}
 
 test('SyncCinema Server End-to-End Test Suite', async (t) => {
+  await ensureMongo();
+  const { createServer } = await import('../index.js');
   let app: any;
   let db: any;
   let baseUrl = '';
@@ -23,25 +52,59 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
 
   t.after(async () => {
     if (app) await app.close();
+    mongod?.kill('SIGKILL');
+    if (mongoDir) fs.rmSync(mongoDir, { recursive: true, force: true });
   });
 
+  // WebSockets authenticate with one-time tickets, never a JWT in the URL
+  async function wsUrl(path: string, token: string) {
+    const r = await fetch(`${baseUrl}/api/auth/ws-ticket`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+    const { ticket } = await r.json();
+    return `${wsBaseUrl}${path}?ticket=${encodeURIComponent(ticket)}`;
+  }
+
+  let seq = 0;
   let hostToken = '';
   let hostUserId = '';
   let roomSlug = '';
   let roomId = '';
 
-  await t.test('1. Guest Authentication', async () => {
-    const res = await fetch(`${baseUrl}/api/auth/guest`, {
+  // Signup is verify-first: register, read the confirmation link from the in-memory mailer, confirm it.
+  async function register(displayName: string, password = 'securePassword123') {
+    const { mailer } = await import('../services/mailer.js');
+    const email = `e2e${++seq}_${Date.now()}@stitchbyte.in`;
+    const res = await fetch(`${baseUrl}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ displayName: 'Alex Host' })
+      body: JSON.stringify({ email, password, displayName })
     });
     assert.equal(res.status, 200);
-    const data = await res.json();
-    assert.ok(data.token);
-    assert.equal(data.user.displayName, 'Alex Host');
-    hostToken = data.token;
-    hostUserId = data.user.id;
+    let token = '';
+    for (let i = 0; i < 80 && !token; i++) {
+      const mail = mailer.outbox.find((m) => m.to === email);
+      token = mail ? /verify=([A-Za-z0-9_-]+)/.exec(mail.text)?.[1] ?? '' : '';
+      if (!token) await new Promise((r) => setTimeout(r, 25));
+    }
+    assert.ok(token, 'confirmation email was not sent');
+    const v = await fetch(`${baseUrl}/api/auth/verify-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    assert.equal(v.status, 200);
+    const data = await v.json();
+    return { email, password, token: data.token as string, user: data.user };
+  }
+
+  await t.test('1. Registration (guest sign-in is disabled)', async () => {
+    const guest = await fetch(`${baseUrl}/api/auth/guest`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(guest.status, 403);
+
+    const host = await register('Alex Host');
+    assert.ok(host.token);
+    assert.equal(host.user.displayName, 'Alex Host');
+    hostToken = host.token;
+    hostUserId = host.user.id;
   });
 
   await t.test('2. Room Creation', async () => {
@@ -68,7 +131,7 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
   });
 
   await t.test('3. WebSocket Connect & Initial State Snapshot', async () => {
-    const ws = new WebSocket(`${wsBaseUrl}/ws/rooms/${roomSlug}?token=${hostToken}`);
+    const ws = new WebSocket(await wsUrl(`/ws/rooms/${roomSlug}`, hostToken));
 
     const snapshotPromise = new Promise<any>((resolve) => {
       ws.on('message', (raw) => {
@@ -89,7 +152,7 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
   });
 
   await t.test('4. Clock Sync Ping / Pong Exchange', async () => {
-    const ws = new WebSocket(`${wsBaseUrl}/ws/rooms/${roomSlug}?token=${hostToken}`);
+    const ws = new WebSocket(await wsUrl(`/ws/rooms/${roomSlug}`, hostToken));
 
     await new Promise((resolve) => ws.on('open', resolve));
 
@@ -118,8 +181,9 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
   });
 
   await t.test('5. Multi-User Synchronization: Host Play, Seek & Participant Sync', async () => {
-    const hostWs = new WebSocket(`${wsBaseUrl}/ws/rooms/${roomSlug}?token=${hostToken}`);
-    const participantWs = new WebSocket(`${wsBaseUrl}/ws/rooms/${roomSlug}?guestName=SarahViewer`);
+    const sarah = await register('SarahViewer');
+    const hostWs = new WebSocket(await wsUrl(`/ws/rooms/${roomSlug}`, hostToken));
+    const participantWs = new WebSocket(await wsUrl(`/ws/rooms/${roomSlug}`, sarah.token));
 
     await Promise.all([
       new Promise((res) => hostWs.on('open', res)),
@@ -182,7 +246,7 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
   });
 
   await t.test('6. Post-Watch Recap & Reaction Heatmap API', async () => {
-    const res = await fetch(`${baseUrl}/api/rooms/${roomSlug}/recap`);
+    const res = await fetch(`${baseUrl}/api/rooms/${roomSlug}/recap`, { headers: { Authorization: `Bearer ${hostToken}` } });
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.ok(Array.isArray(data.heatmap));
@@ -203,19 +267,23 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
   });
 
   await t.test('8. User Login & Account Verification', async () => {
+    const acct = await register('RetroGamer');
+    const bad = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: acct.email, password: 'wrong-password' })
+    });
+    assert.equal(bad.status, 401);
+
     const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: 'gamer@stitchbyte.in',
-        password: 'securePassword123',
-        displayName: 'RetroGamer'
-      })
+      body: JSON.stringify({ email: acct.email, password: acct.password })
     });
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.ok(data.token);
-    assert.equal(data.user.email, 'gamer@stitchbyte.in');
+    assert.equal(data.user.email, acct.email);
     assert.equal(data.user.displayName, 'RetroGamer');
 
     // Verify /api/auth/me
@@ -239,13 +307,7 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
   });
 
   await t.test('10. Game Lounge Creation & Real-Time Multiplayer Sync', async () => {
-    // Login user first
-    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'host@games.local', displayName: 'GameMaster' })
-    });
-    const { token } = await loginRes.json();
+    const { token } = await register('GameMaster');
 
     // Create room with activityMode: 'GAMING'
     const roomRes = await fetch(`${baseUrl}/api/rooms`, {
@@ -265,8 +327,9 @@ test('SyncCinema Server End-to-End Test Suite', async (t) => {
     assert.equal(roomData.room.title, 'Trivia & Arcade Party');
 
     // Connect player 1 and player 2 to WebSocket
-    const ws1 = new WebSocket(`${wsBaseUrl}/ws/rooms/${roomData.room.slug}?token=${token}`);
-    const ws2 = new WebSocket(`${wsBaseUrl}/ws/rooms/${roomData.room.slug}?guestName=PlayerTwo`);
+    const playerTwo = await register('PlayerTwo');
+    const ws1 = new WebSocket(await wsUrl(`/ws/rooms/${roomData.room.slug}`, token));
+    const ws2 = new WebSocket(await wsUrl(`/ws/rooms/${roomData.room.slug}`, playerTwo.token));
 
     await Promise.all([
       new Promise(r => ws1.on('open', r)),

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGameRoom } from '../../../hooks/useGameRoom';
 import { useWebRTC } from '../../../hooks/useWebRTC';
 import { getStoredSession, UserSession, getGameRoute } from '../../../lib/api';
+import { isSpectateRequested } from '../../../lib/spectator';
 import { DoodleWaitingPage } from '../../../components/games/doodle/waiting/DoodleWaitingPage';
 import { DoodlePreRoomLobby } from '../../../components/games/doodle/DoodlePreRoomLobby';
 import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
@@ -13,6 +14,7 @@ function DoodleDuelPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomCodeParam = searchParams.get('room');
+  const spectateMode = isSpectateRequested(searchParams.get('spectate'));
 
   const [session, setSession] = useState<UserSession | null>(null);
 
@@ -39,8 +41,24 @@ function DoodleDuelPageContent() {
     sendVoiceState,
     registerWebRTCListener,
     registerCameraListener,
-    registerVoiceListener
-  } = useGameRoom(roomCodeParam, 'doodle-duel');
+    registerVoiceListener,
+    isSpectator
+  } = useGameRoom(roomCodeParam, 'doodle-duel', { spectate: spectateMode });
+
+  // Settings picked before the room existed (?rounds=&drawTime=): the host applies them once, the server validates them
+  const appliedPreRoomConfig = useRef(false);
+  useEffect(() => {
+    if (appliedPreRoomConfig.current || connectionStatus !== 'CONNECTED' || room?.status !== 'WAITING') return;
+    if (!myUserId || room.hostUserId !== myUserId) return;
+    const rounds = Number(searchParams.get('rounds'));
+    const drawTime = Number(searchParams.get('drawTime'));
+    if (!Number.isInteger(rounds) && !Number.isInteger(drawTime)) return;
+    appliedPreRoomConfig.current = true;
+    updateDoodleConfig({
+      ...(Number.isInteger(rounds) && rounds > 0 ? { rounds } : {}),
+      ...(Number.isInteger(drawTime) && drawTime > 0 ? { drawTime } : {})
+    } as any);
+  }, [connectionStatus, room?.status, room?.hostUserId, myUserId, searchParams, updateDoodleConfig]);
 
   // Validate room code prefixes
   useEffect(() => {
@@ -58,10 +76,11 @@ function DoodleDuelPageContent() {
 
   // Automatic redirect if match has already started / is playing
   useEffect(() => {
-    if (room?.status === 'PLAYING' && room?.roomCode) {
-      router.replace(`/games/doodle-duel/play?room=${encodeURIComponent(room.roomCode)}`);
+    // Spectators are only admitted to started games: they always go to the (read-only) play view.
+    if ((room?.status === 'PLAYING' || (isSpectator && room?.status === 'FINISHED')) && room?.roomCode) {
+      router.replace(`/games/doodle-duel/play?room=${encodeURIComponent(room.roomCode)}${spectateMode ? '&spectate=1' : ''}`);
     }
-  }, [room?.status, room?.roomCode, router]);
+  }, [room?.status, room?.roomCode, router, spectateMode, isSpectator]);
 
   const storedSessionId = useMemo(() => {
     if (typeof window === 'undefined') return '';
@@ -128,6 +147,14 @@ function DoodleDuelPageContent() {
             Connecting to room <span className="font-mono font-bold text-[#ff2b70]">{roomCodeParam}</span>
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (isSpectator) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#fdf8f6] dark:bg-[#0c0f1d]">
+        <div className="w-8 h-8 rounded-full border-2 border-[#ff2b70] border-t-transparent animate-spin" />
       </div>
     );
   }

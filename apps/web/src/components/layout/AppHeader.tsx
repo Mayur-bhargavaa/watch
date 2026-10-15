@@ -12,6 +12,7 @@ import {
   Users,
   X
 } from 'lucide-react';
+import { useMyMembership } from '../membership/useMyMembership';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { getStoredSession, createPartyRoom } from '../../lib/api';
 
@@ -47,6 +48,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   rightContent
 }) => {
   const router = useRouter();
+  const myMembership = useMyMembership();
 
   const [localQuery, setLocalQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
@@ -109,7 +111,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     if (!trimmed) return;
 
     if (detectedYtId) {
-      handleDefaultCreateRoom(detectedYtId);
+      void handleDefaultCreateRoom(detectedYtId);
       return;
     }
 
@@ -137,9 +139,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   return (
     <>
       {/* Top Header Bar */}
-      <div className="flex items-center justify-start gap-2 sm:gap-3 w-full">
+      <div className="relative flex items-center justify-center gap-2 sm:gap-3 w-full">
         {/* Mobile Menu & Back & Forward Controls */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0 sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2">
           {onOpenMobileSidebar && (
             <button
               type="button"
@@ -211,7 +213,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           {/* Live Room Limit Indicator */}
           <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
             <Users className="w-3.5 h-3.5 text-rose-500" />
-            <span>Max 6 per room</span>
+            <span>Up to {myMembership?.limits.roomCapacity ?? 6} per room</span>
           </div>
 
           {/* Notification Bell */}
@@ -306,7 +308,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                     type="button"
                     onClick={() => {
                       setIsMobileSearchOpen(false);
-                      handleDefaultCreateRoom();
+                      void handleDefaultCreateRoom();
                     }}
                     className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition"
                   >

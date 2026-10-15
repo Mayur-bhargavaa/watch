@@ -1,7 +1,13 @@
 'use client';
 
+import { TIC_TAC_TOE_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { AppIcon } from '../../../components/ui/AppIcon';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SpectatorBanner } from '../../../components/games/common/SpectatorBanner';
+import { TournamentMatchBanner } from '../../../components/games/common/TournamentMatchBanner';
+import { NewGameWithOpponent } from '../../../components/games/common/NewGameWithOpponent';
+import { isSpectateRequested } from '../../../lib/spectator';
 import {
   ArrowLeft,
   RotateCcw,
@@ -60,6 +66,7 @@ import {
   getUserMe,
   getUserPartner,
   connectUserPartner,
+  partnerRequestNotice,
   disconnectUserPartner,
   pingPartner,
   createGameRoom,
@@ -157,22 +164,22 @@ const THEMES: BoardTheme[] = [
 ];
 
 const QUICK_CHAT_PHRASES = [
-  'Your turn! 💖',
-  'So close!! 😱',
-  'Nice move! 🔥',
-  'Rematch after this! 🔄',
-  'Watch this line! 😎',
-  'Oops haha! 🙈'
+  'Your turn!',
+  'So close!!',
+  'Nice move!',
+  'Rematch after this!',
+  'Watch this line!',
+  'Oops haha!'
 ];
 
-const EMOJI_REACTIONS = ['❤️', '😂', '🔥', '👏', '🎉', '❌', '⭕', '🥳', '🥺', '✨'];
+const EMOJI_REACTIONS = TIC_TAC_TOE_REACTIONS;
 
 const FEATURED_QUICK_STICKERS = [
   { id: 'bubu_dance', name: 'Dance', gifUrl: 'https://media4.giphy.com/media/Pw4DoWaNHDj8YVCWtu/giphy.gif', tagline: 'HAPPY DANCE!' },
-  { id: 'bubu_kiss', name: 'Kiss', gifUrl: 'https://media2.giphy.com/media/fX5NLVCyAnWyGsERta/giphy.gif', tagline: 'MWAHH! ❤️' },
-  { id: 'bubu_hug', name: 'Hug', gifUrl: 'https://media3.giphy.com/media/GhUy4fOxwX1YGyIgEJ/giphy.gif', tagline: 'TIGHT HUG ❤️' },
+  { id: 'bubu_kiss', name: 'Kiss', gifUrl: 'https://media2.giphy.com/media/fX5NLVCyAnWyGsERta/giphy.gif', tagline: 'MWAHH!' },
+  { id: 'bubu_hug', name: 'Hug', gifUrl: 'https://media3.giphy.com/media/GhUy4fOxwX1YGyIgEJ/giphy.gif', tagline: 'TIGHT HUG' },
   { id: 'bubu_love', name: 'Love', gifUrl: 'https://media1.giphy.com/media/R6gvnAxj2ISzJdbAht/giphy.gif', tagline: 'I LOVE YOU!' },
-  { id: 'bubu_heart', name: 'Heart', gifUrl: 'https://media0.giphy.com/media/c76IJLufpNwSULPk77/giphy.gif', tagline: 'FOR YOU 💖' }
+  { id: 'bubu_heart', name: 'Heart', gifUrl: 'https://media0.giphy.com/media/c76IJLufpNwSULPk77/giphy.gif', tagline: 'FOR YOU' }
 ];
 
 function RemoteAudioPlayer({ stream }: { stream: MediaStream }) {
@@ -194,6 +201,7 @@ function TicTacToeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomParam = searchParams.get('room');
+  const spectateMode = isSpectateRequested(searchParams.get('spectate'));
 
   // User identity & Partner
   const [session, setSession] = useState<UserSession | null>(null);
@@ -300,6 +308,7 @@ function TicTacToeContent() {
   // Web Audio Context for synthesized sound effects
   const audioCtxRef = useRef<AudioContext | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const chatBottomMobileRef = useRef<HTMLDivElement | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const isUserScrolledUpRef = useRef<boolean>(false);
   const chatInputRef = useRef<HTMLInputElement | null>(null);
@@ -322,6 +331,8 @@ function TicTacToeContent() {
     isMyTurn,
     connectionStatus,
     error: roomError,
+    gameError,
+    clearGameError,
     disconnectedPlayer,
     opponentLeftWin,
     clearOpponentLeftWin,
@@ -342,13 +353,17 @@ function TicTacToeContent() {
     sendNudge,
     sendLeave,
     sendTyping,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    rematchUnavailable,
     sendWebRTCSignal,
     sendCameraState,
     sendVoiceState,
     registerWebRTCListener,
     registerCameraListener,
     registerVoiceListener
-  } = useGameRoom(roomParam || null);
+  } = useGameRoom(roomParam || null, undefined, { spectate: spectateMode });
 
   // If the room joined belongs to a different game type, redirect to the appropriate game page
   useEffect(() => {
@@ -378,9 +393,37 @@ function TicTacToeContent() {
   }, [room]);
 
   const opponentPlayer = useMemo(() => {
-    if (!room) return null;
+    if (!room || isSpectator) return null;
     return room.players.find(p => p.userId !== effectiveUserId) || null;
   }, [room, effectiveUserId]);
+
+  const opponentGone = !isSpectator && (!!opponentLeftWin || !opponentPlayer || opponentPlayer.status === 'LEFT');
+  const turnPlayer = room?.players.find(p => p.seat === gameState?.currentTurnSeat) || null;
+  const winnerPlayer = gameState?.winner ? room?.players.find(p => p.seat === (gameState.winner === 'X' ? 0 : 1)) || null : null;
+  const spectatorStatus = gameState?.winner
+    ? `${winnerPlayer?.displayName || gameState.winner} won`
+    : gameState?.isDraw
+      ? 'Draw'
+      : turnPlayer
+        ? `${turnPlayer.displayName} to move`
+        : null;
+  const showNewGame = !isSpectator && (opponentGone || rematchUnavailable);
+  const opponentOffline = !opponentGone && opponentPlayer?.isConnected === false;
+  const socketReady = connectionStatus === 'CONNECTED';
+
+  // Auto-scroll chat to newest message unless the user scrolled up (TT-17)
+  useEffect(() => {
+    if (isUserScrolledUpRef.current) return;
+    chatBottomRef.current?.scrollIntoView({ block: 'end' });
+    chatBottomMobileRef.current?.scrollIntoView({ block: 'end' });
+  }, [chatMessages.length]);
+
+  // Show server move rejections (game:error) briefly (TT-14)
+  useEffect(() => {
+    if (!gameError) return;
+    const t = setTimeout(() => clearGameError(), 3500);
+    return () => clearTimeout(t);
+  }, [gameError, clearGameError]);
 
   const isWaiting = room?.status === 'WAITING';
   const isPlayingOrFinished = room?.status === 'PLAYING' || room?.status === 'FINISHED';
@@ -588,7 +631,7 @@ function TicTacToeContent() {
         } catch {}
       }
     }
-    init();
+    void init();
   }, []);
 
   // Heartbeat
@@ -722,33 +765,49 @@ function TicTacToeContent() {
     } catch {}
   }, [soundEnabled, getAudioContext]);
 
-  // Sound triggers on game events
+  // Sound triggers on game events. Sound callbacks live in a ref so toggling sound never re-runs the
+  // result accounting (TT-4); results are counted once per finished game via countedResultRef.
   const prevMoveCountRef = useRef<number>(0);
+  const countedResultRef = useRef<string | null>(null);
+  const soundFnsRef = useRef({ playMarkSound, playWinFanfare, playDrawChime });
+  useEffect(() => {
+    soundFnsRef.current = { playMarkSound, playWinFanfare, playDrawChime };
+  }, [playMarkSound, playWinFanfare, playDrawChime]);
   useEffect(() => {
     if (!gameState) {
       prevMoveCountRef.current = 0;
+      countedResultRef.current = null;
       return;
     }
 
     const moveCount = typeof gameState.moveCount === 'number' ? gameState.moveCount : 0;
+    // New game (rematch) restarts moveCount at 0: re-sync so mark sounds keep playing (TT-16)
+    if (moveCount < prevMoveCountRef.current) prevMoveCountRef.current = moveCount;
     if (moveCount > prevMoveCountRef.current) {
       const lastMark = lastTicTacToeMove?.mark || (gameState.currentTurnMark === 'X' ? 'O' : 'X');
-      playMarkSound(lastMark);
+      soundFnsRef.current.playMarkSound(lastMark);
       prevMoveCountRef.current = moveCount;
     }
 
+    if (!gameState.winner && !gameState.isDraw) {
+      countedResultRef.current = null;
+      return;
+    }
+    const resultKey = `${gameState.winner || 'draw'}:${moveCount}`;
+    if (countedResultRef.current === resultKey) return;
+    countedResultRef.current = resultKey;
     if (gameState.winner) {
-      playWinFanfare();
+      soundFnsRef.current.playWinFanfare();
       setScores(prev => {
         if (gameState.winner === 'X') return { ...prev, xWins: prev.xWins + 1 };
         if (gameState.winner === 'O') return { ...prev, oWins: prev.oWins + 1 };
         return prev;
       });
-    } else if (gameState.isDraw) {
-      playDrawChime();
+    } else {
+      soundFnsRef.current.playDrawChime();
       setScores(prev => ({ ...prev, draws: prev.draws + 1 }));
     }
-  }, [gameState, lastTicTacToeMove, playMarkSound, playWinFanfare, playDrawChime]);
+  }, [gameState, lastTicTacToeMove]);
 
   const handleNudgeOpponent = useCallback(() => {
     const opp = players.find(p => p.userId !== myUserId);
@@ -839,7 +898,7 @@ function TicTacToeContent() {
         gameType: 'tic-tac-toe',
         customMessage: roastText
       });
-      setPartnerPingStatus(`Ping sent to ${partner.displayName}! 🔔`);
+      setPartnerPingStatus(`Ping sent to ${partner.displayName}!`);
       setTimeout(() => setPartnerPingStatus(null), 4000);
     } catch {
       setPartnerPingStatus('Could not reach partner right now.');
@@ -859,6 +918,9 @@ function TicTacToeContent() {
       if (res?.partner) {
         setPartner(res.partner);
         setShowPartnerConnectInput(false);
+        setPartnerInputCode('');
+      } else if (partnerRequestNotice(res)) {
+        setPartnerConnectError(partnerRequestNotice(res));
         setPartnerInputCode('');
       }
     } catch (err: any) {
@@ -903,7 +965,7 @@ function TicTacToeContent() {
 
   const handleCopyRoomCode = () => {
     if (!room?.roomCode) return;
-    navigator.clipboard.writeText(room.roomCode);
+    void navigator.clipboard.writeText(room.roomCode);
     setCopiedRoomCode(true);
     setTimeout(() => setCopiedRoomCode(false), 2000);
   };
@@ -911,7 +973,7 @@ function TicTacToeContent() {
   const handleCopyRoomLink = () => {
     if (!room?.roomCode) return;
     const link = `${window.location.origin}/games/tic-tac-toe?room=${room.roomCode}`;
-    navigator.clipboard.writeText(link);
+    void navigator.clipboard.writeText(link);
     setCopiedRoomLink(true);
     setTimeout(() => setCopiedRoomLink(false), 2000);
   };
@@ -999,7 +1061,7 @@ function TicTacToeContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-[calc(100vw-2rem)] max-w-sm max-h-[92dvh] overflow-y-auto overscroll-contain rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 bg-[#161220]/95 border border-rose-500/40 text-white shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_35px_rgba(244,63,94,0.25)] text-center space-y-4 relative">
             <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center text-2xl sm:text-3xl shadow-lg shadow-rose-500/30 animate-bounce">
-              ⚔️
+              <AppIcon name="swords" className="w-7 h-7" />
             </div>
             <div>
               <h3 className="text-lg sm:text-xl font-black text-white">Rematch Challenge!</h3>
@@ -1038,7 +1100,7 @@ function TicTacToeContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-[calc(100vw-2rem)] max-w-sm max-h-[92dvh] overflow-y-auto overscroll-contain rounded-[28px] sm:rounded-[32px] p-5 sm:p-7 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4 relative">
             <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-2xl sm:text-3xl animate-pulse">
-              ⏳
+              <AppIcon name="clock" className="w-7 h-7" />
             </div>
             <h3 className="text-lg sm:text-xl font-black text-white">Rematch Requested</h3>
             <p className="text-xs text-zinc-300 leading-relaxed">
@@ -1062,7 +1124,7 @@ function TicTacToeContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-[calc(100vw-2rem)] max-w-sm max-h-[92dvh] overflow-y-auto overscroll-contain rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 bg-[#161220]/95 border border-emerald-500/30 text-white shadow-2xl text-center space-y-4">
             <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl sm:text-3xl animate-spin">
-              🔄
+              <AppIcon name="refresh" className="w-7 h-7" />
             </div>
             <h3 className="text-lg sm:text-xl font-black text-white">Rematch Accepted!</h3>
             <p className="text-xs text-emerald-300">
@@ -1077,7 +1139,7 @@ function TicTacToeContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-[calc(100vw-2rem)] max-w-sm max-h-[92dvh] overflow-y-auto overscroll-contain rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 bg-[#161220]/95 border border-white/20 text-white shadow-2xl text-center space-y-4">
             <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-2xl sm:text-3xl">
-              🚪
+              <AppIcon name="share" className="w-7 h-7 -scale-x-100" />
             </div>
             <h3 className="text-lg sm:text-xl font-black text-white">Rematch Declined</h3>
             <p className="text-xs text-zinc-300 leading-relaxed">
@@ -1111,7 +1173,7 @@ function TicTacToeContent() {
         <AlertModal
           isOpen={!!opponentLeftWin}
           onClose={clearOpponentLeftWin}
-          title="🎉 YOU WON THE MATCH! 🏆"
+          title="YOU WON THE MATCH!"
           message={
             <div className="space-y-2 text-center">
               <p className="font-bold text-white text-base">
@@ -1263,7 +1325,7 @@ function TicTacToeContent() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleJoinByCode(joinCodeInput);
+                void handleJoinByCode(joinCodeInput);
               }}
               className="space-y-3"
             >
@@ -1327,15 +1389,15 @@ function TicTacToeContent() {
 
             <div className="space-y-3 text-xs text-zinc-300 leading-relaxed">
               <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                <span className="font-bold text-white block mb-1">🎯 Objective</span>
+                <span className="font-bold text-white block mb-1">Objective</span>
                 Place 3 of your marks (✕ or ◯) in a horizontal, vertical, or diagonal row before your opponent does.
               </div>
               <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                <span className="font-bold text-white block mb-1">⚡ Turns</span>
+                <span className="font-bold text-white block mb-1">Turns</span>
                 Host starts as ✕ (Red). Guest plays as ◯ (Blue). Players alternate one turn at a time.
               </div>
               <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                <span className="font-bold text-white block mb-1">🤝 Draw / Tie</span>
+                <span className="font-bold text-white block mb-1">Draw / Tie</span>
                 If all 9 cells are occupied with no 3-in-a-row alignment, the duel ends in a Draw.
               </div>
             </div>
@@ -1412,7 +1474,7 @@ function TicTacToeContent() {
                     <span className="font-mono text-sm font-bold text-rose-300">{myPartnerCode}</span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText(myPartnerCode);
+                        void navigator.clipboard.writeText(myPartnerCode);
                         setCopiedPartnerCode(true);
                         setTimeout(() => setCopiedPartnerCode(false), 2000);
                       }}
@@ -1472,13 +1534,15 @@ function TicTacToeContent() {
             {gameState?.winner ? (
               <>
                 <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center text-2xl sm:text-3xl shadow-lg shadow-amber-500/30 animate-bounce">
-                  🏆
+                  <AppIcon name="trophy" className="w-7 h-7" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-white">
-                  {gameState.winner === myMark ? 'VICTORY!' : 'OPPONENT WON!'}
+                  {isSpectator ? `${winnerPlayer?.displayName || gameState.winner} WON!` : gameState.winner === myMark ? 'VICTORY!' : 'OPPONENT WON!'}
                 </h3>
                 <p className="text-xs text-zinc-300">
-                  {gameState.winner === myMark
+                  {isSpectator
+                    ? 'Three in a row. Well played!'
+                    : gameState.winner === myMark
                     ? 'Outstanding strategy! You aligned three marks in a row.'
                     : 'Good try! Practice makes perfect duels.'}
                 </p>
@@ -1486,7 +1550,7 @@ function TicTacToeContent() {
             ) : (
               <>
                 <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-2xl sm:text-3xl">
-                  🤝
+                  <AppIcon name="handshake" className="w-7 h-7" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-white">STALEMATE DRAW!</h3>
                 <p className="text-xs text-zinc-300">
@@ -1497,28 +1561,38 @@ function TicTacToeContent() {
 
             {/* Action Buttons: Rematch (Primary) & Roast / Leave (Secondary Row) */}
             <div className="flex flex-col gap-2.5 pt-1">
+              {showNewGame ? (
+                <NewGameWithOpponent
+                  gameType="tic-tac-toe"
+                  opponentUserId={players.find(p => p.userId !== effectiveUserId)?.userId}
+                  opponentName={players.find(p => p.userId !== effectiveUserId)?.displayName}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-[#ff2b5e] via-rose-500 to-[#f43f5e] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-rose-500/30 transition active:scale-95 cursor-pointer"
+                />
+              ) : !isSpectator && (
               <button
                 type="button"
                 onClick={rematch}
-                className="w-full py-3 px-4 bg-gradient-to-r from-[#ff2b5e] via-rose-500 to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-rose-500/30 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                disabled={opponentGone}
+                className="disabled:opacity-40 disabled:cursor-not-allowed w-full py-3 px-4 bg-gradient-to-r from-[#ff2b5e] via-rose-500 to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-rose-500/30 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4 shrink-0" />
                 <span>
                   {rematchStatus
-                    ? `Play Rematch (${rematchStatus.votedCount}/${rematchStatus.totalNeeded}) 🔄`
-                    : 'Play Rematch 🔄'}
+                    ? `Play Rematch (${rematchStatus.votedCount}/${rematchStatus.totalNeeded})`
+                    : 'Play Rematch'}
                 </span>
               </button>
+              )}
 
               <div className="grid grid-cols-2 gap-2 w-full">
-                <button
+                {!isSpectator && <button
                   type="button"
                   onClick={handleNudgeOpponent}
                   className="py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 active:scale-95 text-rose-300 text-xs font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Flame className="w-3.5 h-3.5 shrink-0" />
-                  <span>Roast 🔥</span>
-                </button>
+                  <span>Roast</span>
+                </button>}
 
                 <button
                   type="button"
@@ -1565,7 +1639,7 @@ function TicTacToeContent() {
               <button
                 onClick={() => {
                   showAlert(
-                    'Leave Match? 🚪',
+                    'Leave Match?',
                     'Are you sure you want to leave this game? You will disconnect from the match and return to the lounge.',
                     'warning',
                     {
@@ -1661,7 +1735,7 @@ function TicTacToeContent() {
             </button>
 
             {/* Microphone Toggle Button */}
-            {roomParam && (
+            {roomParam && !isSpectator && (
               <button
                 onClick={toggleMic}
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
@@ -1676,7 +1750,7 @@ function TicTacToeContent() {
             )}
 
             {/* Video Call Window Toggle Button */}
-            {roomParam && (
+            {roomParam && !isSpectator && (
               <button
                 onClick={() => setIsPipClosed(!isPipClosed)}
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
@@ -1735,11 +1809,11 @@ function TicTacToeContent() {
             </button>
 
             {/* Rematch Button - header shortcut only for desktop */}
-            {roomParam && isPlayingOrFinished && (
+            {roomParam && isPlayingOrFinished && !isSpectator && !showNewGame && (
               <button
                 onClick={() => {
                   triggerSound('click');
-                  rematch();
+                  if (!opponentGone) rematch();
                 }}
                 className={`hidden md:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition items-center justify-center shadow-xs cursor-pointer ${
                   isDark
@@ -1753,7 +1827,7 @@ function TicTacToeContent() {
             )}
 
             {/* Settings Modal (⚙) */}
-            <button
+            {!isSpectator && <button
               onClick={() => setShowSettingsModal(true)}
               className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
                 roomParam
@@ -1763,12 +1837,12 @@ function TicTacToeContent() {
               title="Settings"
             >
               <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
+            </button>}
           </div>
         </header>
 
         {/* MOVEABLE FLOATING VIDEO CALL WINDOW */}
-        {roomParam && !isPipClosed && (
+        {roomParam && !isPipClosed && !isSpectator && (
           <div
             ref={pipRef}
             onMouseDown={handlePipDragStart}
@@ -1799,7 +1873,7 @@ function TicTacToeContent() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleMic();
+                    void toggleMic();
                   }}
                   className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
                     isMicMuted
@@ -1815,7 +1889,7 @@ function TicTacToeContent() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleCamera();
+                    void toggleCamera();
                   }}
                   className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
                     isCameraOn
@@ -1880,7 +1954,7 @@ function TicTacToeContent() {
 
                     <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-bold text-white/90 drop-shadow pointer-events-none">
                       <span className="truncate max-w-[55px] xs:max-w-[65px]">{participant.displayName}</span>
-                      <span className="shrink-0">{!participant.isMuted ? '🟢' : '🔴'}</span>
+                      <span className="shrink-0"><span className={`inline-block w-2 h-2 rounded-full ${participant.isMuted ? 'bg-red-500' : 'bg-green-500'}`} /></span>
                     </div>
                   </div>
                 ))}
@@ -2126,7 +2200,7 @@ function TicTacToeContent() {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      navigator.clipboard.writeText(myPartnerCode);
+                                      void navigator.clipboard.writeText(myPartnerCode);
                                       setCopiedPartnerCode(true);
                                       triggerSound('click');
                                       setTimeout(() => setCopiedPartnerCode(false), 2000);
@@ -2566,33 +2640,86 @@ function TicTacToeContent() {
                 {/* Ambient Decorative Slogans (Desktop Only) */}
                 <div className="hidden lg:flex flex-col gap-6 px-2 select-none">
                   <div className="text-rose-400/30 font-serif italic text-lg leading-snug drop-shadow">
-                    “Good Friends,<br />Great Games,<br />Better Together” 💖
+                    “Good Friends,<br />Great Games,<br />Better Together”
                   </div>
 
                   <div className="p-3 rounded-2xl bg-black/30 border border-rose-500/15 text-rose-300/40 text-center font-mono text-xs shadow-inner">
-                    Same Moves,<br />Different Hearts 💕
+                    Same Moves,<br />Different Hearts
                   </div>
 
                   <div className="text-rose-500/25 font-bold text-sm uppercase tracking-wider">
-                    Three in a Row • Win ✨
+                    Three in a Row • Win
                   </div>
                 </div>
               </div>
 
               {/* Center Column: 3x3 Board with Flanking Player Video Cards (Order-1 on Mobile!) */}
               <div className="flex-1 w-full max-w-xl mx-auto flex flex-col items-center order-1 lg:order-2">
+                {/* Live status: connection, opponent presence, move rejections, nudges, reactions, typing */}
+                <div className="w-full max-w-md mb-2 space-y-1.5" aria-live="polite">
+                  <TournamentMatchBanner room={room} />
+                  {isSpectator && (
+                    <SpectatorBanner
+                      count={spectatorCount}
+                      names={spectators}
+                      status={spectatorStatus}
+                      onLeave={() => { sendLeave(); router.push('/games'); }}
+                    />
+                  )}
+                  {!socketReady && (
+                    <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 text-amber-200 text-[11px] font-semibold text-center">
+                      Reconnecting... moves are paused until you are back online.
+                    </div>
+                  )}
+                  {opponentOffline && !gameState?.winner && !gameState?.isDraw && (
+                    <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 text-amber-200 text-[11px] font-semibold text-center">
+                      {opponentPlayer?.displayName || 'Opponent'} disconnected. Waiting for them to reconnect...
+                    </div>
+                  )}
+                  {opponentGone && !opponentLeftWin && (
+                    <div className="px-3 py-1.5 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-200 text-[11px] font-semibold text-center">
+                      Your opponent has left the game.
+                    </div>
+                  )}
+                  {gameError && (
+                    <div role="alert" className="px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-400/40 text-rose-100 text-[11px] font-semibold text-center">
+                      {gameError.message}
+                    </div>
+                  )}
+                  {nudgeAlert && (
+                    <div className="px-3 py-1.5 rounded-xl bg-fuchsia-500/20 border border-fuchsia-400/40 text-fuchsia-100 text-[11px] font-semibold text-center flex items-center justify-between gap-2">
+                      <span className="truncate">{nudgeAlert.fromDisplayName}: {nudgeAlert.message || 'Your move!'}</span>
+                      <button type="button" onClick={clearNudgeAlert} className="shrink-0 underline cursor-pointer">Dismiss</button>
+                    </div>
+                  )}
+                  {Object.entries(typingUsers).some(([uid]) => uid !== effectiveUserId) && (
+                    <div className="text-[10px] text-zinc-400 text-center">
+                      {opponentPlayer?.displayName || 'Opponent'} is typing...
+                    </div>
+                  )}
+                  {floatingReactions.length > 0 && (
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {floatingReactions.slice(-6).map(r => (
+                        <span key={r.id} className="px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-base animate-bounce" title={r.userName}>
+                          {r.emoji}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Turn Banner with Active Turn Indicator */}
                 <div className="w-full max-w-md mb-2.5 sm:mb-3 flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-md">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${gameState?.currentTurnSeat === 0 ? 'bg-rose-500' : 'bg-cyan-400'} animate-pulse shrink-0`} />
                     <span className="text-[11px] sm:text-xs font-black tracking-wide uppercase text-white truncate">
                       {gameState?.winner
-                        ? `🎉 ${gameState.winner === 'X' ? 'RED (✕)' : 'BLUE (◯)'} WON!`
+                        ? `${gameState.winner === 'X' ? 'RED (✕)' : 'BLUE (◯)'} WON!`
                         : gameState?.isDraw
-                        ? '🤝 MATCH DRAW!'
+                        ? 'MATCH DRAW!'
                         : gameState?.currentTurnSeat === 0
-                        ? "🔴 RED'S TURN (✕)"
-                        : "🔵 BLUE'S TURN (◯)"}
+                        ? "RED'S TURN (✕)"
+                        : "BLUE'S TURN (◯)"}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 font-mono text-[11px] sm:text-xs text-rose-300 font-bold shrink-0">
@@ -2715,13 +2842,13 @@ function TicTacToeContent() {
                         <button
                           key={idx}
                           onClick={() => {
-                            if (!mark && isMyTurn && !gameState?.winner && !gameState?.isDraw) {
+                            if (!mark && isMyTurn && socketReady && !gameState?.winner && !gameState?.isDraw) {
                               makeTicTacToeMove(idx);
                             }
                           }}
                           onMouseEnter={() => setHoveredCell(idx)}
                           onMouseLeave={() => setHoveredCell(null)}
-                          disabled={Boolean(mark) || !isMyTurn || Boolean(gameState?.winner) || Boolean(gameState?.isDraw)}
+                          disabled={Boolean(mark) || !isMyTurn || !socketReady || Boolean(gameState?.winner) || Boolean(gameState?.isDraw)}
                           className={`relative rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-200 transform ${
                             isWinningCell
                               ? 'bg-amber-500/25 border-2 border-amber-400 shadow-xl shadow-amber-500/30 scale-102'
@@ -2769,16 +2896,26 @@ function TicTacToeContent() {
 
                 {/* Bottom Controls / Rematch / Reaction Bar */}
                 <div className="w-full max-w-[310px] xs:max-w-[350px] sm:max-w-md mt-3 sm:mt-4 flex items-center justify-between gap-2">
-                  {(gameState?.winner || gameState?.isDraw) ? (
+                  {(gameState?.winner || gameState?.isDraw) && showNewGame ? (
+                    <NewGameWithOpponent
+                      gameType="tic-tac-toe"
+                      opponentUserId={players.find(p => p.userId !== effectiveUserId)?.userId}
+                      opponentName={players.find(p => p.userId !== effectiveUserId)?.displayName}
+                      className="flex-1 py-2.5 sm:py-3 px-4 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-500/30 cursor-pointer active:scale-95"
+                    />
+                  ) : (gameState?.winner || gameState?.isDraw) && isSpectator ? (
+                    <div className="flex-1 text-center text-xs text-zinc-300 py-2">Game over. {spectatorStatus}</div>
+                  ) : (gameState?.winner || gameState?.isDraw) ? (
                     <button
                       onClick={rematch}
-                      className="flex-1 py-2.5 sm:py-3 px-4 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-500/30 flex items-center justify-center gap-2 transition transform hover:-translate-y-0.5 cursor-pointer active:scale-95"
+                      disabled={opponentGone}
+                      className="disabled:opacity-40 disabled:cursor-not-allowed flex-1 py-2.5 sm:py-3 px-4 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-rose-500/30 flex items-center justify-center gap-2 transition transform hover:-translate-y-0.5 cursor-pointer active:scale-95"
                     >
                       <RotateCcw className="w-4 h-4" />
                       <span>
                         {rematchStatus
                           ? `Rematch (${rematchStatus.votedCount}/${rematchStatus.totalNeeded})`
-                          : 'Vote Rematch 🔄'}
+                          : 'Vote Rematch'}
                       </span>
                     </button>
                   ) : (
@@ -2793,14 +2930,14 @@ function TicTacToeContent() {
                           {emoji}
                         </button>
                       ))}
-                      <button
+                      {!isSpectator && <button
                         onClick={handleNudgeOpponent}
                         className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[11px] sm:text-xs text-rose-300 font-semibold transition shrink-0 flex items-center gap-1 cursor-pointer"
                         title="Send Friendly Roast"
                       >
                         <Flame className="w-3.5 h-3.5" />
                         <span>Roast</span>
-                      </button>
+                      </button>}
                     </div>
                   )}
                 </div>
@@ -2869,7 +3006,7 @@ function TicTacToeContent() {
                   </div>
 
                   {/* Quick Chat Buttons */}
-                  <div className="px-2 py-1.5 border-t border-white/10 flex items-center gap-1 overflow-x-auto bg-black/20 shrink-0">
+                  {!isSpectator && <div className="px-2 py-1.5 border-t border-white/10 flex items-center gap-1 overflow-x-auto bg-black/20 shrink-0">
                     {QUICK_CHAT_PHRASES.map(phrase => (
                       <button
                         key={phrase}
@@ -2879,9 +3016,12 @@ function TicTacToeContent() {
                         {phrase}
                       </button>
                     ))}
-                  </div>
+                  </div>}
 
                   {/* Chat Input */}
+                  {isSpectator ? (
+                    <div className="p-2.5 border-t border-white/10 text-center text-[11px] text-zinc-400 bg-black/40 shrink-0">Chat is read-only while watching.</div>
+                  ) : (
                   <form onSubmit={handleSendChat} className="p-2.5 border-t border-white/10 flex items-center gap-1.5 bg-black/40 shrink-0">
                     <input
                       ref={chatInputRef}
@@ -2900,6 +3040,7 @@ function TicTacToeContent() {
                       <Send className="w-3.5 h-3.5" />
                     </button>
                   </form>
+                  )}
                 </div>
               )}
 
@@ -2987,11 +3128,11 @@ function TicTacToeContent() {
                   );
                 })
               )}
-              <div ref={chatBottomRef} />
+              <div ref={chatBottomMobileRef} />
             </div>
 
             {/* Quick Chat Buttons */}
-            <div className="px-2.5 py-2 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar bg-black/30 shrink-0">
+            {!isSpectator && <div className="px-2.5 py-2 border-t border-white/10 flex items-center gap-1.5 overflow-x-auto no-scrollbar bg-black/30 shrink-0">
               {QUICK_CHAT_PHRASES.map(phrase => (
                 <button
                   key={phrase}
@@ -3001,9 +3142,12 @@ function TicTacToeContent() {
                   {phrase}
                 </button>
               ))}
-            </div>
+            </div>}
 
             {/* Chat Input */}
+            {isSpectator ? (
+              <div className="p-2.5 border-t border-white/10 text-center text-[11px] text-zinc-400 bg-[#0e0c18] shrink-0">Chat is read-only while watching.</div>
+            ) : (
             <form onSubmit={handleSendChat} className="p-2.5 sm:p-3 border-t border-white/10 flex items-center gap-2 bg-[#0e0c18] shrink-0">
               <input
                 ref={chatInputRef}
@@ -3022,6 +3166,7 @@ function TicTacToeContent() {
                 <Send className="w-4 h-4" />
               </button>
             </form>
+            )}
           </div>
         </div>
       )}

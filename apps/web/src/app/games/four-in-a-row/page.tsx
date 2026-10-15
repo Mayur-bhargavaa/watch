@@ -1,7 +1,14 @@
 'use client';
 
+import { ReactionGlyph } from '../../../components/ui/ReactionGlyph';
+import { FOUR_IN_A_ROW_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { AppIcon } from '../../../components/ui/AppIcon';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SpectatorBanner } from '../../../components/games/common/SpectatorBanner';
+import { TournamentMatchBanner } from '../../../components/games/common/TournamentMatchBanner';
+import { NewGameWithOpponent } from '../../../components/games/common/NewGameWithOpponent';
+import { isSpectateRequested } from '../../../lib/spectator';
 import {
   ArrowLeft,
   RotateCcw,
@@ -61,6 +68,7 @@ import {
   getUserMe,
   getUserPartner,
   connectUserPartner,
+  partnerRequestNotice,
   disconnectUserPartner,
   pingPartner,
   createGameRoom,
@@ -89,6 +97,7 @@ import { FriendWithStreak } from '../../../lib/api';
 import { getRandomRoast } from '../../../lib/roastMessages';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
+import { colorForSeat, victoryCopy, rematchButtonLabel, canDropInColumn } from '../../../lib/fourInARowUi';
 
 export interface BoardTheme {
   id: string;
@@ -139,24 +148,24 @@ const ROWS = 6;
 const COLS = 7;
 
 const QUICK_CHAT_PHRASES = [
-  'Your turn, sweetie! 💖',
-  'So close!! 😱',
-  'Nice drop! 🔥',
-  'Rematch after this! 🔄',
-  'Watch this move! 😎',
-  'Oops haha! 🙈'
+  'Your turn, sweetie!',
+  'So close!!',
+  'Nice drop!',
+  'Rematch after this!',
+  'Watch this move!',
+  'Oops haha!'
 ];
 
-const EMOJI_REACTIONS = ['❤️', '😂', '🔥', '👏', '🎉', '🔴', '🟡', '🥳', '🥺', '✨'];
+const EMOJI_REACTIONS = FOUR_IN_A_ROW_REACTIONS;
 
 const FEATURED_QUICK_STICKERS = [
   { id: 'bubu_dance', name: 'Dance', gifUrl: 'https://media4.giphy.com/media/Pw4DoWaNHDj8YVCWtu/giphy.gif', tagline: 'HAPPY DANCE!' },
-  { id: 'bubu_kiss', name: 'Kiss', gifUrl: 'https://media2.giphy.com/media/fX5NLVCyAnWyGsERta/giphy.gif', tagline: 'MWAHH! ❤️' },
-  { id: 'bubu_hug', name: 'Hug', gifUrl: 'https://media3.giphy.com/media/GhUy4fOxwX1YGyIgEJ/giphy.gif', tagline: 'TIGHT HUG ❤️' },
-  { id: 'bubu_headpat', name: 'Headpat', gifUrl: 'https://media3.giphy.com/media/6FfOKVchlToDnqtd00/giphy.gif', tagline: 'GOOD JOB! 🐾' },
+  { id: 'bubu_kiss', name: 'Kiss', gifUrl: 'https://media2.giphy.com/media/fX5NLVCyAnWyGsERta/giphy.gif', tagline: 'MWAHH!' },
+  { id: 'bubu_hug', name: 'Hug', gifUrl: 'https://media3.giphy.com/media/GhUy4fOxwX1YGyIgEJ/giphy.gif', tagline: 'TIGHT HUG' },
+  { id: 'bubu_headpat', name: 'Headpat', gifUrl: 'https://media3.giphy.com/media/6FfOKVchlToDnqtd00/giphy.gif', tagline: 'GOOD JOB!' },
   { id: 'bubu_loveheart', name: 'Love', gifUrl: 'https://media4.giphy.com/media/ZO6uFYmEKnPWUQQsf7/giphy.gif', tagline: 'I LOVE YOU' },
-  { id: 'milk_snuggle', name: 'Snuggle', gifUrl: 'https://media1.giphy.com/media/pGZe55TzZ6AAmZ4g9E/giphy.gif', tagline: 'SNUGGLE 💕' },
-  { id: 'peach_goma_love', name: 'Peach', gifUrl: 'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHpqZ2psdHk0NWF3N3J1dzRzcmF4dGpqYnk2bWVrOWVpaXV6c3NlciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/MDJ9IbxxvDUQM/giphy.gif', tagline: 'LOVE YOU 🐱' },
+  { id: 'milk_snuggle', name: 'Snuggle', gifUrl: 'https://media1.giphy.com/media/pGZe55TzZ6AAmZ4g9E/giphy.gif', tagline: 'SNUGGLE' },
+  { id: 'peach_goma_love', name: 'Peach', gifUrl: 'https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHpqZ2psdHk0NWF3N3J1dzRzcmF4dGpqYnk2bWVrOWVpaXV6c3NlciZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/MDJ9IbxxvDUQM/giphy.gif', tagline: 'LOVE YOU' },
   { id: 'capy_pullup', name: 'Capy', gifUrl: 'https://media0.giphy.com/media/RtdRhc7TxBxB0YAsK6/giphy.gif', tagline: 'OK I PULL UP' }
 ];
 
@@ -179,6 +188,7 @@ function FourInARowContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomParam = searchParams.get('room');
+  const spectateMode = isSpectateRequested(searchParams.get('spectate'));
 
   // User identity & Partner
   const [session, setSession] = useState<UserSession | null>(null);
@@ -224,6 +234,7 @@ function FourInARowContent() {
   const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [showDrawModal, setShowDrawModal] = useState(false);
   const [hoveredCol, setHoveredCol] = useState<number | null>(null);
+  const [moveErrorText, setMoveErrorText] = useState<string | null>(null);
   const [nudgeFeedback, setNudgeFeedback] = useState<string | null>(null);
 
   // Elegant Modal Alert State
@@ -304,10 +315,16 @@ function FourInARowContent() {
     dropDisc,
     rematch,
     rematchStatus,
+    gameActionError,
+    clearGameActionError,
     sendChat,
     sendReaction,
     sendNudge,
     sendLeave,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    rematchUnavailable,
     lastDiscDrop,
     chatMessages,
     floatingReactions,
@@ -317,7 +334,7 @@ function FourInARowContent() {
     registerWebRTCListener,
     registerCameraListener,
     registerVoiceListener
-  } = useGameRoom(roomParam);
+  } = useGameRoom(roomParam, undefined, { spectate: spectateMode });
 
   // Cross-game redirect guard
   useEffect(() => {
@@ -345,9 +362,9 @@ function FourInARowContent() {
   }, [room]);
 
   const opponentPlayer = useMemo(() => {
-    if (!room) return null;
+    if (!room || isSpectator) return null;
     return room.players.find(p => p.userId !== (session?.user?.id || myUserId)) || null;
-  }, [room, session, myUserId]);
+  }, [room, session, myUserId, isSpectator]);
 
   // Friend streak celebration state
   const [streakCelebration, setStreakCelebration] = useState<{
@@ -364,7 +381,7 @@ function FourInARowContent() {
     const roast = getRandomRoast('game');
     sendNudge(undefined, roast.body);
     triggerSound('nudge');
-    setNudgeFeedback(`🛵 Nudge sent: "${roast.body}"`);
+    setNudgeFeedback(`Nudge sent: "${roast.body}"`);
     setTimeout(() => setNudgeFeedback(null), 4000);
   };
 
@@ -391,7 +408,8 @@ function FourInARowContent() {
   }, [room?.status, opponentPlayer?.userId, session?.token, opponentPlayer?.displayName]);
 
   const isHost = myPlayer?.seat === 0;
-  const myColor: 'R' | 'Y' = myPlayer?.seat === 0 ? 'R' : 'Y';
+  const mySeatColor = colorForSeat(myPlayer?.seat);
+  const myColor: 'R' | 'Y' = mySeatColor ?? 'Y';
 
   // WebRTC Audio/Video Calls
   const effectiveUserId = myPlayer?.userId || session?.user?.id || myUserId || (typeof window !== 'undefined' ? getStoredSession()?.user?.id : '') || '';
@@ -565,7 +583,7 @@ function FourInARowContent() {
         const ctx = audioCtxRef.current;
         if (!ctx) return;
         if (ctx.state === 'suspended') {
-          ctx.resume();
+          void ctx.resume();
         }
 
         const now = ctx.currentTime;
@@ -677,12 +695,13 @@ function FourInARowContent() {
   }, []);
 
   useEffect(() => {
-    loadUserAndPartner();
+    void loadUserAndPartner();
   }, [loadUserAndPartner]);
 
   // Periodic heartbeat
   useEffect(() => {
     if (!session?.token) return;
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- async poll that catches its own errors
     const interval = setInterval(async () => {
       try {
         const hb = await sendHeartbeat(session.token);
@@ -710,6 +729,9 @@ function FourInARowContent() {
       if (res.partner) {
         setPartner(res.partner);
         setPartnerInputCode('');
+      } else if (partnerRequestNotice(res)) {
+        setPartnerConnectError(partnerRequestNotice(res));
+        setPartnerInputCode('');
       }
     } catch (err: any) {
       setPartnerConnectError(err.message || 'Failed to connect partner');
@@ -721,12 +743,13 @@ function FourInARowContent() {
   const handleDisconnectPartner = async () => {
     if (!session?.token) return;
     showAlert(
-      'Disconnect Partner? 💔',
+      'Disconnect Partner?',
       'Are you sure you want to disconnect from your partner? You can reconnect anytime with their partner code.',
       'warning',
       {
         confirmText: 'Disconnect',
         cancelText: 'Keep Partner',
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- async confirm handler that catches its own errors
         onConfirm: async () => {
           try {
             await disconnectUserPartner(session.token);
@@ -748,9 +771,9 @@ function FourInARowContent() {
       if (currentRoomCode) {
         const res = await invitePartnerToGame(session.token, partner.partnerCode, currentRoomCode, 'four-in-a-row');
         if (res.deliveredLive) {
-          setPartnerPingStatus(`🚀 Game invite delivered live to ${partner.displayName}!`);
+          setPartnerPingStatus(`Game invite delivered live to ${partner.displayName}!`);
         } else {
-          setPartnerPingStatus(`🔔 Game invite sent to ${partner.displayName}!`);
+          setPartnerPingStatus(`Game invite sent to ${partner.displayName}!`);
         }
       } else {
         const roast = getRandomRoast('game');
@@ -763,13 +786,13 @@ function FourInARowContent() {
           customMessage: roast.body
         });
         if (res.deliveredLive) {
-          setPartnerPingStatus(`🚀 Live roast delivered to ${partner.displayName}! "${roast.body}"`);
+          setPartnerPingStatus(`Live roast delivered to ${partner.displayName}! "${roast.body}"`);
         } else {
-          setPartnerPingStatus(`🔔 Ping notification queued for ${partner.displayName}!`);
+          setPartnerPingStatus(`Ping notification queued for ${partner.displayName}!`);
         }
       }
     } catch (err: any) {
-      setPartnerPingStatus(`⚠️ ${err.message || 'Failed to ping partner'}`);
+      setPartnerPingStatus(`${err.message || 'Failed to ping partner'}`);
     } finally {
       setIsPingingPartner(false);
       setTimeout(() => setPartnerPingStatus(null), 5000);
@@ -779,7 +802,7 @@ function FourInARowContent() {
   // Nudge opponent in-game
   const handleNudgePlayer = (targetUserId?: string, targetName?: string) => {
     sendNudge(targetUserId);
-    setNudgeFeedback(`🔔 Nudged ${targetName || 'opponent'}!`);
+    setNudgeFeedback(`Nudged ${targetName || 'opponent'}!`);
     setTimeout(() => setNudgeFeedback(null), 3000);
   };
 
@@ -810,7 +833,7 @@ function FourInARowContent() {
 
   const handlePlayWithFriendFromDrawer = (friend: FriendWithStreak) => {
     handleSelectFriendFromDrawer(friend);
-    handlePlayWithPartner(friend.friendUser.id);
+    void handlePlayWithPartner(friend.friendUser.id);
   };
 
   // Create Private Room
@@ -862,11 +885,17 @@ function FourInARowContent() {
       if (session?.token) {
         try {
           const partnerRes = await connectUserPartner(session.token, code);
+          if (partnerRequestNotice(partnerRes)) {
+            setIsJoiningRoom(false);
+            setRoomCodeInput('');
+            showAlert('Request sent', partnerRequestNotice(partnerRes) as string, 'success');
+            return;
+          }
           if (partnerRes?.partner) {
             setPartner(partnerRes.partner);
             setIsJoiningRoom(false);
             setRoomCodeInput('');
-            showAlert('Partner Connected! 💕', `Connected with partner ${partnerRes.partner.displayName}! You can now challenge them to a match.`, 'success');
+            showAlert('Partner Connected!', `Connected with partner ${partnerRes.partner.displayName}! You can now challenge them to a match.`, 'success');
             return;
           }
         } catch {
@@ -885,7 +914,7 @@ function FourInARowContent() {
   // Copy Room code & link
   const handleCopyRoomCode = () => {
     if (!roomParam) return;
-    navigator.clipboard.writeText(roomParam);
+    void navigator.clipboard.writeText(roomParam);
     setCopiedRoomCode(true);
     triggerSound('click');
     setTimeout(() => setCopiedRoomCode(false), 2000);
@@ -893,7 +922,7 @@ function FourInARowContent() {
 
   const handleCopyRoomLink = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href);
     setCopiedRoomLink(true);
     triggerSound('click');
     setTimeout(() => setCopiedRoomLink(false), 2000);
@@ -901,10 +930,11 @@ function FourInARowContent() {
 
   // Drop Disc Action
   const handleColumnClick = (col: number) => {
-    if (!isMyTurn) return;
+    if (!isMyTurn || gameState?.winner || gameState?.isDraw) return;
     if (!room || room.status !== 'PLAYING') return;
-    if (boardState[0][col] !== null) return;
+    if (!canDropInColumn(boardState, col)) return;
     triggerSound('click');
+    setHoveredCol(null);
     dropDisc(col);
   };
 
@@ -981,6 +1011,39 @@ function FourInARowContent() {
   }, [gameState]);
 
   const isDraw = Boolean(gameState?.isDraw);
+
+  const spectatorTurnPlayer = room?.players.find(p => p.seat === gameState?.currentTurnSeat) || null;
+  const spectatorStatus = winnerInfo
+    ? `${(winnerInfo.winnerColor || winnerInfo.winner || '').toString().toUpperCase()} won`
+    : isDraw
+      ? 'Draw'
+      : spectatorTurnPlayer
+        ? `${spectatorTurnPlayer.displayName} to move`
+        : null;
+  const opponentLeftRoom = !isSpectator && (Boolean(opponentLeftWin) || room?.players.some(p => p.userId !== effectiveUserId && (p.status as string) === 'LEFT') === true);
+  const showNewGame = !isSpectator && (opponentLeftRoom || rematchUnavailable);
+  const newGameOpponent = room?.players.find(p => p.userId !== effectiveUserId) || null;
+
+  const victoryText = victoryCopy({
+    hasWinner: Boolean(winnerInfo),
+    isDraw,
+    hasWinningLine: Boolean(winnerInfo && winnerInfo.winningCells.length > 0),
+    winnerColor: winnerInfo?.winnerColor,
+    iWon: Boolean(winnerInfo && mySeatColor && winnerInfo.winner === mySeatColor)
+  });
+
+  // Server rejected a move (not your turn, column full, ...): clear ghost disc and tell the user.
+  useEffect(() => {
+    if (!gameActionError) return;
+    setHoveredCol(null);
+    setMoveErrorText(gameActionError.message);
+    const t = setTimeout(() => {
+      setMoveErrorText(null);
+      clearGameActionError();
+    }, 3500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameActionError]);
 
   const [showPartyPoppers, setShowPartyPoppers] = useState(false);
   const [showDelayedWinModal, setShowDelayedWinModal] = useState(false);
@@ -1102,7 +1165,7 @@ function FourInARowContent() {
             key={r.id}
             className="absolute bottom-20 left-1/2 -translate-x-1/2 animate-float-up text-3xl font-bold flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20 shadow-2xl"
           >
-            <span>{r.emoji}</span>
+            <span><ReactionGlyph value={r.emoji} /></span>
             <span className="text-xs text-rose-200 font-semibold">{r.userName}</span>
           </div>
         ))}
@@ -1113,11 +1176,17 @@ function FourInARowContent() {
         <AlertModal
           isOpen={!!nudgeAlert}
           onClose={clearNudgeAlert}
-          title="It's Your Turn! 🔴"
+          title="It's Your Turn!"
           message={`${nudgeAlert.fromDisplayName} nudged you! It's your turn to drop a disc.`}
           type="warning"
           confirmText="Got It"
         />
+      )}
+
+      {moveErrorText && (
+        <div role="alert" className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-xl bg-rose-600/90 text-white text-xs font-bold shadow-xl">
+          {moveErrorText}
+        </div>
       )}
 
       {/* Opponent Left Victory Modal */}
@@ -1125,7 +1194,7 @@ function FourInARowContent() {
         <AlertModal
           isOpen={!!opponentLeftWin}
           onClose={clearOpponentLeftWin}
-          title="🎉 YOU WON THE MATCH! 🏆"
+          title="YOU WON THE MATCH!"
           message={
             <div className="space-y-2 text-center">
               <p className="font-bold text-white text-base">
@@ -1222,7 +1291,7 @@ function FourInARowContent() {
                 type="button"
                 onClick={() => {
                   showAlert(
-                    'Leave Match? 🚪',
+                    'Leave Match?',
                     'Are you sure you want to leave this game? You will disconnect from the match and return to the lounge.',
                     'warning',
                     {
@@ -1291,7 +1360,7 @@ function FourInARowContent() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span>Room: <strong className={isDark ? 'text-white font-bold' : 'text-zinc-900 font-bold'}>{roomParam}</strong></span>
               </div>
-              {isPipClosed && (
+              {isPipClosed && !isSpectator && (
                 <button
                   type="button"
                   onClick={() => setIsPipClosed(false)}
@@ -1325,7 +1394,7 @@ function FourInARowContent() {
             </button>
 
             {/* Microphone Toggle Button */}
-            {roomParam && (
+            {roomParam && !isSpectator && (
               <button
                 type="button"
                 onClick={toggleMic}
@@ -1341,7 +1410,7 @@ function FourInARowContent() {
             )}
 
             {/* Video Call Window Toggle Button */}
-            {roomParam && (
+            {roomParam && !isSpectator && (
               <button
                 type="button"
                 onClick={() => setIsPipClosed(!isPipClosed)}
@@ -1404,7 +1473,7 @@ function FourInARowContent() {
             </button>
 
             {/* Rematch / Restart Button */}
-            {roomParam && isPlayingOrFinished && (
+            {roomParam && isPlayingOrFinished && !isSpectator && !showNewGame && (
               <button
                 type="button"
                 onClick={() => {
@@ -1413,7 +1482,7 @@ function FourInARowContent() {
                     rematch();
                   } else {
                     showAlert(
-                      'Restart Match? 🔄',
+                      'Restart Match?',
                       'Would you like to reset the board and restart the match with your opponent?',
                       'info',
                       {
@@ -1436,7 +1505,7 @@ function FourInARowContent() {
             )}
 
             {/* Settings Modal (⚙) */}
-            <button
+            {!isSpectator && <button
               type="button"
               onClick={() => setShowSettingsModal(true)}
               className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
@@ -1447,12 +1516,12 @@ function FourInARowContent() {
               title="Settings"
             >
               <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
+            </button>}
           </div>
         </header>
 
       {/* MOVEABLE FLOATING VIDEO CALL WINDOW (Draggable across the whole screen with in-box Cam & Mic controls) */}
-      {roomParam && !isPipClosed && (
+      {roomParam && !isPipClosed && !isSpectator && (
         <div
           ref={pipRef}
           onMouseDown={handlePipDragStart}
@@ -1486,7 +1555,7 @@ function FourInARowContent() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleMic();
+                  void toggleMic();
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
                   isMicMuted
@@ -1503,7 +1572,7 @@ function FourInARowContent() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleCamera();
+                  void toggleCamera();
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-sm ${
                   isCameraOn
@@ -1826,7 +1895,7 @@ function FourInARowContent() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText(myPartnerCode);
+                                    void navigator.clipboard.writeText(myPartnerCode);
                                     setCopiedPartnerCode(true);
                                     triggerSound('click');
                                     setTimeout(() => setCopiedPartnerCode(false), 2000);
@@ -2127,11 +2196,11 @@ function FourInARowContent() {
                           <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
                             {player.seat === 0 ? (
                               <>
-                                <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Host (Red 🔴)
+                                <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Host (Red)
                               </>
                             ) : (
                               <>
-                                <User className="w-3.5 h-3.5 text-zinc-400" /> Player 2 (Yellow 🟡)
+                                <User className="w-3.5 h-3.5 text-zinc-400" /> Player 2 (Yellow)
                               </>
                             )}
                           </span>
@@ -2148,7 +2217,7 @@ function FourInARowContent() {
                           <User className="w-5 h-5 text-zinc-400" />
                         </div>
                         <span className="text-xs sm:text-sm font-semibold text-zinc-300">Waiting...</span>
-                        <span className="text-[11px] text-zinc-500 mt-0.5">Player {seatIdx + 1} (Yellow 🟡)</span>
+                        <span className="text-[11px] text-zinc-500 mt-0.5">Player {seatIdx + 1} (Yellow)</span>
                       </div>
                     );
                   })}
@@ -2253,27 +2322,37 @@ function FourInARowContent() {
               {/* Ambient Decorative Slogans matching Ludo layout */}
               <div className="hidden lg:flex flex-col gap-8 px-2 select-none">
                 <div className="text-rose-400/30 font-serif italic text-lg leading-snug drop-shadow">
-                  “Good Friends,<br />Great Games,<br />Better Together” 💖
+                  “Good Friends,<br />Great Games,<br />Better Together”
                 </div>
 
                 <div className="p-3.5 rounded-2xl bg-black/30 border border-rose-500/15 text-rose-300/40 text-center font-mono text-xs shadow-inner">
-                  Same Moves,<br />Different Hearts 💕
+                  Same Moves,<br />Different Hearts
                 </div>
 
                 <div className="text-rose-500/25 font-bold text-sm uppercase tracking-wider">
-                  Drop • Connect • Celebrate ✨
+                  Drop • Connect • Celebrate
                 </div>
               </div>
             </div>
 
             {/* Center Column: The 3D Chassis Board with Flanking Player Video Cards */}
             <div className="flex-1 w-full max-w-full lg:max-w-3xl mx-auto flex flex-col items-center order-1 lg:order-2 min-w-0 px-0.5 sm:px-0">
+              <TournamentMatchBanner room={room} className="w-full max-w-md sm:max-w-lg mb-2" />
+              {isSpectator && (
+                <SpectatorBanner
+                  className="w-full max-w-md sm:max-w-lg mb-2"
+                  count={spectatorCount}
+                  names={spectators}
+                  status={spectatorStatus}
+                  onLeave={() => { sendLeave(); router.push('/games'); }}
+                />
+              )}
               {/* Turn Banner with Active Turn Indicator */}
               <div className="w-full max-w-md sm:max-w-lg mb-2 sm:mb-3 flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-black/50 border border-white/10 backdrop-blur-md shadow-sm">
                 <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                   <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 ${gameState.currentTurnSeat === 0 ? 'bg-rose-500' : 'bg-yellow-400'} animate-pulse`} />
                   <span className="text-[11px] sm:text-xs font-black tracking-wide uppercase text-white truncate">
-                    {gameState.currentTurnSeat === 0 ? "🔴 RED'S TURN" : "🟡 YELLOW'S TURN"}
+                    {gameState.currentTurnSeat === 0 ? "RED'S TURN" : "YELLOW'S TURN"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 font-mono text-[10px] sm:text-xs text-rose-300 font-bold shrink-0">
@@ -2317,7 +2396,6 @@ function FourInARowContent() {
                       <RemoteAudioPlayer stream={hostStream.stream} />
                     )}
                     <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-rose-600 border border-black flex items-center justify-center text-[7px] font-black">
-                      🔴
                     </span>
                   </div>
                   <div className="text-left min-w-0 flex-1 overflow-hidden">
@@ -2381,7 +2459,6 @@ function FourInARowContent() {
                       <RemoteAudioPlayer stream={guestStream.stream} />
                     )}
                     <span className="absolute -bottom-0.5 -left-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-yellow-500 border border-black flex items-center justify-center text-[7px] font-black">
-                      🟡
                     </span>
                   </div>
                 </div>
@@ -2399,7 +2476,7 @@ function FourInARowContent() {
                       onMouseLeave={() => setHoveredCol(null)}
                       onClick={() => handleColumnClick(c)}
                     >
-                      {isMyTurn && hoveredCol === c && boardState[0][c] === null && (
+                      {isMyTurn && mySeatColor && hoveredCol === c && boardState[0][c] === null && (
                         <div
                           className={`w-[min(26px,7.5vw)] h-[min(26px,7.5vw)] sm:w-8 sm:h-8 md:w-10 md:h-10 rounded-full shadow-lg animate-bounce transition-all ${
                             myColor === 'R'
@@ -2586,7 +2663,8 @@ function FourInARowContent() {
                         ))}
                       </div>
 
-                      {/* Quick Chat Phrases */}
+                      {!isSpectator && (<>
+{/* Quick Chat Phrases */}
                       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                         {QUICK_CHAT_PHRASES.map(phrase => (
                           <button
@@ -2622,6 +2700,8 @@ function FourInARowContent() {
                           </button>
                         ))}
                       </div>
+
+</>)}
                     </div>
 
                     {/* Floating Sticker Tray Drawer Popup */}
@@ -2658,7 +2738,8 @@ function FourInARowContent() {
                       </div>
                     )}
 
-                    {/* Chat Input Bar */}
+                    {!isSpectator && (<>
+{/* Chat Input Bar */}
                     <form onSubmit={handleSendChat} className="flex items-center gap-2 pt-2 border-t border-rose-500/20">
                       <div className="flex-1 relative flex items-center">
                         <input
@@ -2706,6 +2787,8 @@ function FourInARowContent() {
                         <Send className="w-4 h-4" />
                       </button>
                     </form>
+</>)}
+
                 </div>
             )}
           </div>
@@ -2737,21 +2820,15 @@ function FourInARowContent() {
 
             <div>
               <h2 className="text-2xl font-black text-white">
-                {winnerInfo
-                  ? winnerInfo.winner === myColor
-                    ? '🎉 YOU WON!'
-                    : `🎉 ${winnerInfo.winnerColor?.toUpperCase()} WINS!`
-                  : '🤝 GAME DRAW!'}
+                {victoryText.title}
               </h2>
               <p className="text-xs text-zinc-300 mt-1">
-                {winnerInfo
-                  ? `${winnerInfo.winnerColor?.toUpperCase()} connected 4 discs in a row!`
-                  : 'All 42 grid slots were filled with no 4-in-a-row.'}
+                {victoryText.subtitle}
               </p>
             </div>
 
             {/* Rematch Agreement & Waiting Status */}
-            {(() => {
+            {!isSpectator && !showNewGame && (() => {
               const myId = session?.user?.id || myUserId;
               const hasVoted = Boolean(rematchStatus?.votedUserIds?.includes(myId));
               const votedCount = rematchStatus?.votedCount ?? 0;
@@ -2786,8 +2863,8 @@ function FourInARowContent() {
                       onClick={handleNudgeForRematch}
                       className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20 cursor-pointer"
                     >
-                      <span>🛵</span>
-                      <span>Nudge Partner to Rematch 💬</span>
+                      <AppIcon name="bell" className="w-3.5 h-3.5" />
+                      <span>Nudge Partner to Rematch</span>
                     </button>
                     {nudgeFeedback && (
                       <p className="text-[10px] text-emerald-400 font-semibold animate-fadeIn">
@@ -2802,7 +2879,7 @@ function FourInARowContent() {
                 return (
                   <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-center space-y-1 animate-pulse">
                     <p className="text-xs font-black text-rose-300">
-                      🔥 Partner wants a rematch! ({votedCount}/{totalNeeded})
+                      Partner wants a rematch! ({votedCount}/{totalNeeded})
                     </p>
                     <p className="text-[11px] text-zinc-300">
                       Click Play Rematch below to accept and begin!
@@ -2831,10 +2908,18 @@ function FourInARowContent() {
                 className="flex-1 py-3 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-95 text-white text-xs font-bold border border-white/10 transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Home className="w-4 h-4 text-zinc-400" />
-                <span>Go Home 🏠</span>
+                <span>Go Home</span>
               </button>
 
               {/* Rematch */}
+              {showNewGame ? (
+                <NewGameWithOpponent
+                  gameType="four-in-a-row"
+                  opponentUserId={newGameOpponent?.userId}
+                  opponentName={newGameOpponent?.displayName}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 text-white text-xs font-black shadow-lg active:scale-95 cursor-pointer"
+                />
+              ) : !isSpectator && (
               <button
                 type="button"
                 disabled={rematchStatus?.votedUserIds?.includes(session?.user?.id || myUserId)}
@@ -2850,11 +2935,14 @@ function FourInARowContent() {
               >
                 <RotateCcw className="w-4 h-4" />
                 <span>
-                  {rematchStatus?.votedUserIds?.includes(session?.user?.id || myUserId)
-                    ? 'Waiting (1/2)'
-                    : 'Play Rematch 🔄'}
+                  {rematchButtonLabel(
+                    Boolean(rematchStatus?.votedUserIds?.includes(session?.user?.id || myUserId)),
+                    rematchStatus?.votedCount ?? 0,
+                    rematchStatus?.totalNeeded ?? 2
+                  )}
                 </span>
               </button>
+              )}
             </div>
           </div>
         </div>
@@ -2864,7 +2952,7 @@ function FourInARowContent() {
       {(winnerInfo || isDraw) && dismissVictoryModal && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/85 backdrop-blur-xl border border-white/20 shadow-2xl animate-fadeIn">
           <span className="text-xs font-black text-white">
-            {winnerInfo ? `🏆 ${winnerInfo.winnerColor?.toUpperCase()} Won` : '🤝 Game Draw'}
+            {winnerInfo ? `${winnerInfo.winnerColor?.toUpperCase()} Won` : 'Game Draw'}
           </span>
           <div className="h-4 w-px bg-white/20" />
           <button
@@ -2872,7 +2960,7 @@ function FourInARowContent() {
             onClick={() => setDismissVictoryModal(false)}
             className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer"
           >
-            Rematch Menu 🔄
+            {isSpectator ? 'Result' : showNewGame ? 'New Game' : 'Rematch Menu'}
           </button>
           <button
             type="button"
@@ -2882,7 +2970,7 @@ function FourInARowContent() {
             }}
             className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition cursor-pointer"
           >
-            Home 🏠
+            Home
           </button>
         </div>
       )}
@@ -2929,7 +3017,7 @@ function FourInARowContent() {
                   <button
                     onClick={() => {
                       if (!myPartnerCode) return;
-                      navigator.clipboard.writeText(myPartnerCode);
+                      void navigator.clipboard.writeText(myPartnerCode);
                       setCopiedPartnerCode(true);
                       triggerSound('click');
                       setTimeout(() => setCopiedPartnerCode(false), 2000);
@@ -3074,7 +3162,7 @@ function FourInARowContent() {
               <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
                 <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold text-[10px]">1</span>
                 <p>
-                  <strong>Strict 2-Player Human Duel:</strong> Player 1 controls Red discs (🔴), and Player 2 controls Yellow discs (🟡).
+                  <strong>Strict 2-Player Human Duel:</strong> Player 1 controls Red discs, and Player 2 controls Yellow discs.
                 </p>
               </div>
               <div className="flex items-start gap-2.5 p-2 rounded-xl bg-white/5">
@@ -3378,7 +3466,8 @@ function FourInARowContent() {
                 ))}
               </div>
 
-              {/* Quick Chat Phrases */}
+              {!isSpectator && (<>
+{/* Quick Chat Phrases */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                 {QUICK_CHAT_PHRASES.map(phrase => (
                   <button
@@ -3414,6 +3503,9 @@ function FourInARowContent() {
                   </button>
                 ))}
               </div>
+
+
+</>)}
             </div>
 
             {/* Floating Sticker Tray Drawer Popup */}
@@ -3450,7 +3542,8 @@ function FourInARowContent() {
               </div>
             )}
 
-            {/* Chat Input Bar */}
+            {!isSpectator && (<>
+{/* Chat Input Bar */}
             <form onSubmit={handleSendChat} className="p-2.5 sm:p-3 border-t border-rose-500/20 flex items-center gap-2 bg-[#0e0a12] shrink-0">
               <div className="flex-1 relative flex items-center">
                 <input
@@ -3497,6 +3590,8 @@ function FourInARowContent() {
                 <Send className="w-4 h-4" />
               </button>
             </form>
+</>)}
+
           </div>
         </div>
       )}

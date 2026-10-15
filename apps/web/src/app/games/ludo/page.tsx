@@ -1,7 +1,12 @@
 'use client';
 
+import { LUDO_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { AppIcon } from '../../../components/ui/AppIcon';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SpectatorBanner } from '../../../components/games/common/SpectatorBanner';
+import { NewGameWithOpponent } from '../../../components/games/common/NewGameWithOpponent';
+import { isSpectateRequested } from '../../../lib/spectator';
 import {
   Gamepad2,
   Users,
@@ -68,6 +73,7 @@ import {
   getUserMe,
   getUserPartner,
   connectUserPartner,
+  partnerRequestNotice,
   disconnectUserPartner,
   matchmakeGame,
   createGameRoom,
@@ -78,7 +84,6 @@ import {
   sendHeartbeat,
   playWithPartner,
   recordFriendStreak,
-  WS_BASE,
   UserSession,
   getGameRoute,
   getGameTitle
@@ -98,6 +103,7 @@ import { AppHeader } from '../../../components/layout/AppHeader';
 import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
 import { FriendWithStreak } from '../../../lib/api';
 import { getRandomRoast } from '../../../lib/roastMessages';
+import { subscribeGameInvites } from '../../../lib/notifyHelpers';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 
 export interface BoardTheme {
@@ -153,6 +159,7 @@ function LudoPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomParam = searchParams.get('room');
+  const spectateMode = isSpectateRequested(searchParams.get('spectate'));
 
   // Immediate prefix check: if the room code belongs to another game, route instantly
   useEffect(() => {
@@ -419,6 +426,10 @@ function LudoPageContent() {
     sendReaction,
     sendNudge,
     sendLeave,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    rematchUnavailable,
     rematch,
     rematchStatus,
     sendChangeTheme,
@@ -429,7 +440,11 @@ function LudoPageContent() {
     registerWebRTCListener,
     registerCameraListener,
     registerVoiceListener
-  } = useGameRoom(roomParam);
+    ,
+    ludoTurnTimer,
+    gameActionError,
+    clearGameActionError
+  } = useGameRoom(roomParam, undefined, { create: false, spectate: spectateMode });
 
   // Authoritative redirect if room belongs to another game type
   useEffect(() => {
@@ -461,7 +476,7 @@ function LudoPageContent() {
   const handleNudgePlayer = useCallback((targetUserId?: string, targetDisplayName?: string) => {
     sendNudge(targetUserId);
     const name = targetDisplayName || 'Partner';
-    setNudgeFeedback(`Nudged ${name}! 🔔`);
+    setNudgeFeedback(`Nudged ${name}!`);
     setTimeout(() => setNudgeFeedback(null), 3500);
   }, [sendNudge]);
 
@@ -486,7 +501,7 @@ function LudoPageContent() {
   const handleNudgeForRematch = () => {
     const roast = getRandomRoast('game');
     sendNudge(undefined, roast.body);
-    setNudgeFeedback(`🛵 Nudge sent: "${roast.body}"`);
+    setNudgeFeedback(`Nudge sent: "${roast.body}"`);
     setTimeout(() => setNudgeFeedback(null), 4000);
   };
 
@@ -604,7 +619,7 @@ function LudoPageContent() {
   }, []);
 
   useEffect(() => {
-    loadUserAndPartner();
+    void loadUserAndPartner();
   }, [loadUserAndPartner]);
 
   // Incoming Invite
@@ -639,41 +654,18 @@ function LudoPageContent() {
     return () => clearInterval(interval);
   }, [session]);
 
-  // Global Presence WebSocket
+  // Game invites arrive on the app-wide presence socket (NotificationContext); no second socket here
   useEffect(() => {
     if (!session) return;
-    let wsUrl = `${WS_BASE}/ws/presence`;
-    if (session.token) {
-      wsUrl += `?token=${encodeURIComponent(session.token)}`;
-    } else {
-      wsUrl += `?guestId=${session.user.id}&guestName=${encodeURIComponent(session.user.displayName)}`;
-    }
-
-    let socket: WebSocket | null = null;
-    try {
-      socket = new WebSocket(wsUrl);
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'partner:game_invite') {
-            const invite = data.payload || data.invite;
-            if (invite && invite.roomCode) {
-              setIncomingInvite(invite);
-            }
-          }
-        } catch (e) {}
-      };
-    } catch (e) {}
-
-    return () => {
-      if (socket) socket.close();
-    };
+    return subscribeGameInvites((invite) => {
+      if (invite && invite.roomCode) setIncomingInvite(invite as any);
+    });
   }, [session]);
 
   // Copy helpers
   const handleCopyPartnerCode = () => {
     if (!myPartnerCode) return;
-    navigator.clipboard.writeText(myPartnerCode);
+    void navigator.clipboard.writeText(myPartnerCode);
     setCopiedPartnerCode(true);
     setTimeout(() => setCopiedPartnerCode(false), 2000);
   };
@@ -681,7 +673,7 @@ function LudoPageContent() {
   const handleCopyRoomCode = () => {
     const code = room?.roomCode || roomParam;
     if (!code) return;
-    navigator.clipboard.writeText(code);
+    void navigator.clipboard.writeText(code);
     setCopiedRoomCode(true);
     setTimeout(() => setCopiedRoomCode(false), 2000);
   };
@@ -689,7 +681,7 @@ function LudoPageContent() {
   const handleCopyRoomLink = () => {
     if (typeof window === 'undefined') return;
     const link = window.location.href;
-    navigator.clipboard.writeText(link);
+    void navigator.clipboard.writeText(link);
     setCopiedRoomLink(true);
     setTimeout(() => setCopiedRoomLink(false), 2000);
   };
@@ -705,7 +697,8 @@ function LudoPageContent() {
     try {
       if (!session?.token) throw new Error('You must be logged in to connect a partner');
       const res = await connectUserPartner(session.token, code);
-      setPartner(res.partner);
+      if (res.partner) setPartner(res.partner);
+      else setPartnerConnectError(partnerRequestNotice(res));
       setPartnerInputCode('');
     } catch (err: any) {
       setPartnerConnectError(err.message || 'Failed to connect partner');
@@ -718,12 +711,13 @@ function LudoPageContent() {
   const handleDisconnectPartner = async () => {
     if (!session?.token) return;
     showAlert(
-      'Disconnect Partner? 💔',
+      'Disconnect Partner?',
       'Are you sure you want to disconnect from your partner? You can reconnect anytime with their partner code.',
       'warning',
       {
         confirmText: 'Disconnect',
         cancelText: 'Keep Partner',
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- async confirm handler that catches its own errors
         onConfirm: async () => {
           try {
             await disconnectUserPartner(session.token);
@@ -745,9 +739,9 @@ function LudoPageContent() {
       if (currentRoomCode) {
         const res = await invitePartnerToGame(session.token, partner.partnerCode, currentRoomCode, 'ludo');
         if (res.deliveredLive) {
-          setPartnerPingStatus(`🚀 Game invite delivered live to ${partner.displayName}!`);
+          setPartnerPingStatus(`Game invite delivered live to ${partner.displayName}!`);
         } else {
-          setPartnerPingStatus(`🔔 Game invite sent to ${partner.displayName}!`);
+          setPartnerPingStatus(`Game invite sent to ${partner.displayName}!`);
         }
       } else {
         const roast = getRandomRoast('game');
@@ -760,13 +754,13 @@ function LudoPageContent() {
           customMessage: roast.body
         });
         if (res.deliveredLive) {
-          setPartnerPingStatus(`🚀 Live roast delivered to ${partner.displayName}! "${roast.body}"`);
+          setPartnerPingStatus(`Live roast delivered to ${partner.displayName}! "${roast.body}"`);
         } else {
-          setPartnerPingStatus(`🔔 Ping notification queued for ${partner.displayName}!`);
+          setPartnerPingStatus(`Ping notification queued for ${partner.displayName}!`);
         }
       }
     } catch (err: any) {
-      setPartnerPingStatus(`⚠️ ${err.message || 'Failed to ping partner'}`);
+      setPartnerPingStatus(`${err.message || 'Failed to ping partner'}`);
     } finally {
       setIsPingingPartner(false);
       setTimeout(() => setPartnerPingStatus(null), 5000);
@@ -800,7 +794,7 @@ function LudoPageContent() {
 
   const handlePlayWithFriendFromDrawer = (friend: FriendWithStreak) => {
     handleSelectFriendFromDrawer(friend);
-    handlePlayWithPartner(friend.friendUser.id);
+    void handlePlayWithPartner(friend.friendUser.id);
   };
 
   // Public Matchmaking
@@ -852,12 +846,18 @@ function LudoPageContent() {
       if (session?.token) {
         try {
           const partnerRes = await connectUserPartner(session.token, code);
+          if (partnerRequestNotice(partnerRes)) {
+            setIsJoiningRoom(false);
+            setRoomCodeInput('');
+            showAlert('Request sent', partnerRequestNotice(partnerRes) as string, 'success');
+            return;
+          }
           if (partnerRes?.partner) {
             setPartner(partnerRes.partner);
             setIsJoiningRoom(false);
             setRoomCodeInput('');
             showAlert(
-              'Partner Connected! 💕',
+              'Partner Connected!',
               `Connected with partner ${partnerRes.partner.displayName}! You can now click "Play Together" to start a match.`,
               'success'
             );
@@ -910,7 +910,7 @@ function LudoPageContent() {
 
   const handleCopyLoveCode = () => {
     if (!generatedLoveCode) return;
-    navigator.clipboard.writeText(generatedLoveCode);
+    void navigator.clipboard.writeText(generatedLoveCode);
     setCopiedLoveCode(true);
     setTimeout(() => setCopiedLoveCode(false), 2000);
   };
@@ -918,7 +918,7 @@ function LudoPageContent() {
   const handleCopyLoveLink = () => {
     if (!generatedLoveCode) return;
     const url = typeof window !== 'undefined' ? `${window.location.origin}/games/ludo?room=${generatedLoveCode}` : '';
-    navigator.clipboard.writeText(url);
+    void navigator.clipboard.writeText(url);
     setCopiedLoveLink(true);
     setTimeout(() => setCopiedLoveLink(false), 2000);
   };
@@ -977,8 +977,21 @@ function LudoPageContent() {
   // Find opponent player
   const opponentPlayer = useMemo(() => {
     if (!room) return null;
-    return room.players.find(p => p.userId !== session?.user?.id) || null;
+    // Only meaningful for 2-player rooms (streaks / single-opponent banners); null for 3-4 players.
+    const others = room.players.filter(p => p.userId !== session?.user?.id && (p.status as string) !== 'LEFT');
+    return others.length === 1 && room.players.length <= 2 ? others[0] : null;
   }, [room, session]);
+
+  const spectatorTurnPlayer = room?.players.find(p => p.color === gameState?.currentTurnColor) || null;
+  const spectatorStatus = gameState?.winnerColor
+    ? `${String(gameState.winnerColor).toUpperCase()} won`
+    : spectatorTurnPlayer
+      ? `${spectatorTurnPlayer.displayName} to move`
+      : null;
+  const opponentLeftRoom = !isSpectator && (Boolean(opponentLeftWin) || room?.players.some(p => p.userId !== effectiveUserId && (p.status as string) === 'LEFT') === true);
+  const showNewGame = !isSpectator && (opponentLeftRoom || rematchUnavailable);
+  // A new game can only be offered when there is exactly one opponent (2-player room).
+  const newGameOpponent = room && room.players.length <= 2 ? room.players.find(p => p.userId !== effectiveUserId) || null : null;
 
   // Friend streak celebration state
   const [streakCelebration, setStreakCelebration] = useState<{
@@ -1153,7 +1166,7 @@ function LudoPageContent() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Room: <strong className={isDark ? 'text-white font-bold' : 'text-zinc-900 font-bold'}>{roomParam}</strong></span>
               </div>
-              {isPipClosed && (
+              {isPipClosed && !isSpectator && (
                 <button
                   onClick={() => setIsPipClosed(false)}
                   className="hidden sm:flex px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-[11px] font-semibold items-center gap-1.5 transition cursor-pointer"
@@ -1167,7 +1180,8 @@ function LudoPageContent() {
 
             {/* Right: Controls & Theme Toggle */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {/* Audio / Mic Toggle Button */}
+              {!isSpectator && (<>
+{/* Audio / Mic Toggle Button */}
               <button
                 onClick={toggleMic}
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
@@ -1193,6 +1207,8 @@ function LudoPageContent() {
                 {isCameraOn ? <Video className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VideoOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
               </button>
 
+
+</>)}
               {/* Chat Drawer Toggle */}
               <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
@@ -1232,7 +1248,8 @@ function LudoPageContent() {
                 <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
 
-              {/* Rematch / Restart Button */}
+              {!isSpectator && (<>
+{/* Rematch / Restart Button */}
               <button
                 onClick={() => {
                   if (gameState?.winnerColor) {
@@ -1272,12 +1289,14 @@ function LudoPageContent() {
               >
                 <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
+
+</>)}
             </div>
           </header>
         )}
 
       {/* MOVEABLE FLOATING VIDEO CALL WINDOW (Draggable across the whole screen with in-box Cam & Mic controls) */}
-      {roomParam && !isPipClosed && (
+      {roomParam && !isPipClosed && !isSpectator && (
         <div
           ref={pipRef}
           onMouseDown={handlePipDragStart}
@@ -1311,7 +1330,7 @@ function LudoPageContent() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleMic();
+                  void toggleMic();
                 }}
                 className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
                   isMicMuted
@@ -1328,7 +1347,7 @@ function LudoPageContent() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleCamera();
+                  void toggleCamera();
                 }}
                 className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center transition border shadow-sm cursor-pointer ${
                   isCameraOn
@@ -1790,6 +1809,15 @@ function LudoPageContent() {
 
             {/* Center Column: The 3D Wooden Board with Flanking Cards & Bottom Controls */}
             <div className="flex-1 w-full max-w-2xl sm:max-w-3xl mx-auto flex flex-col items-center">
+              {isSpectator && (
+                <SpectatorBanner
+                  className="w-full mb-2"
+                  count={spectatorCount}
+                  names={spectators}
+                  status={spectatorStatus}
+                  onLeave={() => { sendLeave(); router.push('/games'); }}
+                />
+              )}
               <LudoGame
                 room={room}
                 gameState={gameState}
@@ -1800,7 +1828,8 @@ function LudoPageContent() {
                 legalMoves={legalMoves}
                 onRollDice={rollDice}
                 onMoveToken={moveToken}
-                onRematch={rematch}
+                onRematch={isSpectator ? undefined : rematch}
+                isSpectator={isSpectator}
                 onSendReaction={sendReaction}
                 onSendQuickChat={sendChat}
                 onNudgePlayer={handleNudgePlayer}
@@ -1811,6 +1840,11 @@ function LudoPageContent() {
                 isMicMuted={isMicMuted}
                 lastDiceRoll={lastDiceRoll}
                 lastTokenMove={lastTokenMove}
+                soundEnabled={soundEffectsEnabled}
+                turnDeadlineAt={ludoTurnTimer?.deadlineAt ?? null}
+                turnTimerSeat={ludoTurnTimer?.seat ?? null}
+                actionError={gameActionError}
+                onActionErrorShown={clearGameActionError}
               />
             </div>
 
@@ -1923,7 +1957,7 @@ function LudoPageContent() {
                     <div className="pt-2 pb-1 space-y-2 border-t border-rose-500/20">
                       {/* Emoji Reactions Row */}
                       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                        {['❤️', '😂', '🔥', '👏', '🎉', '🎲', '🥳', '🥺', '👍', '✨'].map(emoji => (
+                        {LUDO_REACTIONS.map(emoji => (
                           <button
                             key={emoji}
                             type="button"
@@ -1936,9 +1970,10 @@ function LudoPageContent() {
                         ))}
                       </div>
 
-                      {/* Quick Chat Phrases Pills */}
+                      {!isSpectator && (<>
+{/* Quick Chat Phrases Pills */}
                       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                        {['Good Luck! 🍀', 'Nice Move! 👏', 'Oops! 🙈', 'Well Played! 🌟', 'Hurry Up! ⏰', 'GG! 🏆'].map(text => (
+                        {['Good Luck!', 'Nice Move!', 'Oops!', 'Well Played!', 'Hurry Up!', 'GG!'].map(text => (
                           <button
                             key={text}
                             type="button"
@@ -1952,6 +1987,8 @@ function LudoPageContent() {
                           </button>
                         ))}
                       </div>
+
+</>)}
                     </div>
 
                     {/* Chat Input Bar */}
@@ -2009,7 +2046,8 @@ function LudoPageContent() {
                         }}
                       />
 
-                      <form onSubmit={handleSendChat} className="flex items-center gap-2">
+                      {!isSpectator && (<>
+<form onSubmit={handleSendChat} className="flex items-center gap-2">
                         <div className="flex-1 relative flex items-center">
                           <input
                             ref={chatInputRef}
@@ -2058,6 +2096,8 @@ function LudoPageContent() {
                           <Send className="w-4 h-4" />
                         </button>
                       </form>
+</>)}
+
                     </div>
                 </div>
               </div>
@@ -2628,8 +2668,8 @@ function LudoPageContent() {
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-white">
                 {myPlayer?.color === gameState.winnerColor
-                  ? '🎉 YOU WON!'
-                  : `🎉 ${gameState.winnerColor.toUpperCase()} WINS!`}
+                  ? 'YOU WON!'
+                  : `${gameState.winnerColor.toUpperCase()} WINS!`}
               </h2>
               <p className="text-xs sm:text-[13px] text-zinc-300 mt-1 max-w-xs mx-auto leading-relaxed">
                 {gameState.winnerColor.toUpperCase()} has moved all pawns Home and won the Ludo Arena!
@@ -2637,7 +2677,7 @@ function LudoPageContent() {
             </div>
 
             {/* Rematch Agreement & Waiting Status */}
-            {(() => {
+            {!isSpectator && !showNewGame && (() => {
               const myId = session?.user?.id || myPlayer?.userId || '';
               const hasVoted = Boolean(rematchStatus?.votedUserIds?.includes(myId));
               const votedCount = rematchStatus?.votedCount ?? 0;
@@ -2649,7 +2689,7 @@ function LudoPageContent() {
                   <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-center space-y-1">
                     <div className="flex items-center justify-center space-x-2 text-emerald-400 text-xs font-black">
                       <Check className="w-4 h-4" />
-                      <span>Both players agreed! Starting rematch...</span>
+                      <span>{totalNeeded > 2 ? 'Everyone agreed! Starting rematch...' : 'Both players agreed! Starting rematch...'}</span>
                     </div>
                   </div>
                 );
@@ -2660,10 +2700,10 @@ function LudoPageContent() {
                   <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2.5 animate-fadeIn">
                     <div className="flex items-center justify-center space-x-2 text-amber-400 text-xs font-black">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-                      <span>Waiting for partner to accept rematch ({votedCount}/{totalNeeded})</span>
+                      <span>Waiting for {totalNeeded > 2 ? 'other players' : 'partner'} to accept rematch ({votedCount}/{totalNeeded})</span>
                     </div>
                     <p className="text-[11px] text-zinc-400">
-                      Match will start as soon as both players click rematch.
+                      Match will start as soon as {totalNeeded > 2 ? 'everyone clicks' : 'both players click'} rematch.
                     </p>
 
                     {/* Nudge Partner Button */}
@@ -2672,8 +2712,8 @@ function LudoPageContent() {
                       onClick={handleNudgeForRematch}
                       className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-black text-xs flex items-center justify-center gap-1.5 transition shadow-md shadow-amber-500/20 cursor-pointer"
                     >
-                      <span>🛵</span>
-                      <span>Nudge Partner to Rematch 💬</span>
+                      <AppIcon name="bell" className="w-3.5 h-3.5" />
+                      <span>Nudge Partner to Rematch</span>
                     </button>
                     {nudgeFeedback && (
                       <p className="text-[10px] text-emerald-400 font-semibold animate-fadeIn">
@@ -2688,7 +2728,7 @@ function LudoPageContent() {
                 return (
                   <div className="p-3 sm:p-3.5 rounded-xl sm:rounded-2xl bg-rose-500/15 border border-rose-500/30 text-center space-y-1 animate-pulse">
                     <p className="text-xs font-black text-rose-300">
-                      🔥 Partner requested a rematch! ({votedCount}/{totalNeeded})
+                      A rematch was requested! ({votedCount}/{totalNeeded})
                     </p>
                     <p className="text-[11px] text-zinc-300">
                       Click Play Rematch below to accept and begin!
@@ -2699,7 +2739,7 @@ function LudoPageContent() {
 
               return (
                 <div className="text-[11px] text-zinc-400">
-                  Both players must agree to start a rematch.
+                  All players must agree to start a rematch.
                 </div>
               );
             })()}
@@ -2720,6 +2760,14 @@ function LudoPageContent() {
               </button>
 
               {/* Rematch */}
+              {showNewGame ? (
+                <NewGameWithOpponent
+                  gameType="ludo"
+                  opponentUserId={newGameOpponent?.userId}
+                  opponentName={newGameOpponent?.displayName}
+                  className="w-full xs:flex-1 py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 text-white text-xs sm:text-sm font-black shadow-lg active:scale-95 cursor-pointer"
+                />
+              ) : !isSpectator && (
               <button
                 type="button"
                 disabled={rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '')}
@@ -2735,10 +2783,11 @@ function LudoPageContent() {
                 <RotateCcw className={`w-4 h-4 shrink-0 ${rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '') ? 'animate-spin' : ''}`} />
                 <span>
                   {rematchStatus?.votedUserIds?.includes(session?.user?.id || myPlayer?.userId || '')
-                    ? 'Waiting (1/2)'
+                    ? `Waiting (${rematchStatus?.votedCount ?? 1}/${rematchStatus?.totalNeeded ?? room?.players.filter(p => (p.status as string) !== 'LEFT').length ?? 2})`
                     : 'Play Rematch'}
                 </span>
               </button>
+              )}
             </div>
           </div>
         </div>
@@ -2748,7 +2797,7 @@ function LudoPageContent() {
       {gameState?.winnerColor && dismissVictoryModal && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/85 backdrop-blur-xl border border-white/20 shadow-2xl animate-fadeIn">
           <span className="text-xs font-black text-white">
-            🏆 {gameState.winnerColor.toUpperCase()} Won the Game!
+            {gameState.winnerColor.toUpperCase()} Won the Game!
           </span>
           <div className="h-4 w-px bg-white/20" />
           <button
@@ -2756,7 +2805,7 @@ function LudoPageContent() {
             onClick={() => setDismissVictoryModal(false)}
             className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition cursor-pointer"
           >
-            Rematch Menu 🔄
+            {isSpectator ? 'Result' : showNewGame ? 'New Game' : 'Rematch Menu'}
           </button>
           <button
             type="button"
@@ -2766,7 +2815,7 @@ function LudoPageContent() {
             }}
             className="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition cursor-pointer"
           >
-            Home 🏠
+            Home
           </button>
         </div>
       )}
@@ -2931,7 +2980,7 @@ function LudoPageContent() {
                       <button
                         onClick={() => {
                           setShowSettingsModal(false);
-                          handlePlayWithPartner();
+                          void handlePlayWithPartner();
                         }}
                         disabled={isMatchmaking}
                         className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"

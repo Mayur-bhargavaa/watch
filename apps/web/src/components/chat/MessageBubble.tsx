@@ -1,21 +1,19 @@
 'use client';
 
+import { sanitizeSvg } from '@synccinema/common';
 import React, { useState, useRef } from 'react';
 import {
+  AlertCircle,
   Check,
   CheckCheck,
   Clock,
   Smile,
   Reply,
   Copy,
-  Share2,
   Trash2,
   Pin,
-  MoreHorizontal,
-  X,
-  Eye,
   Maximize2,
-  Forward,
+  Forward
 } from 'lucide-react';
 import { ChatMessage } from '@/types/chat';
 import { VoiceMessage } from './VoiceMessage';
@@ -24,10 +22,10 @@ import { GameInviteMessage } from './GameInviteMessage';
 import { MovieShareMessage } from './MovieShareMessage';
 import { ReactionPicker } from './ReactionPicker';
 import { parseStickerMessage } from './StickersData';
-import { ModalPortal } from './ModalPortal';
 import { FullScreenImageViewer } from './FullScreenImageViewer';
 import { formatReplySnippet } from './ChatReplyUI';
 import { ChatStore } from '@/lib/chatStore';
+import { copyToClipboard } from '../../lib/clipboard';
 
 /**
  * WhatsApp-style Emoji Count detector:
@@ -73,6 +71,37 @@ interface MessageBubbleProps {
   onJumpToReply?: (replyId: string) => void;
 }
 
+/** Delivery ticks for my own messages. A failed message shows a red marker with a Retry button. */
+function MessageStatusIcon({ message, sentClass }: { message: ChatMessage; sentClass: string }) {
+  if (message.status === 'failed') {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          ChatStore.resendMessage(message.conversationId, message.id);
+        }}
+        className="inline-flex items-center gap-1 text-[10px] font-bold text-red-200 hover:text-white underline-offset-2 hover:underline cursor-pointer"
+        title="This message was not delivered. Tap to retry."
+      >
+        <AlertCircle className="w-3.5 h-3.5 text-red-300" />
+        <span>Not sent · Retry</span>
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex">
+      {message.status === 'sending' ? (
+        <Clock className="w-3 h-3 text-white/60 animate-pulse" />
+      ) : message.status === 'sent' ? (
+        <Check className={`w-3 h-3 ${sentClass}`} />
+      ) : (
+        <CheckCheck className={`w-3.5 h-3.5 ${message.status === 'read' ? 'text-[#53bdeb]' : sentClass}`} />
+      )}
+    </span>
+  );
+}
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isSender,
@@ -83,7 +112,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReact,
   onDelete,
   onPin,
-  onJumpToReply,
+  onJumpToReply
 }) => {
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -128,7 +157,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const formattedTime = new Date(message.createdAt).toLocaleTimeString([], {
     hour: '2-digit',
-    minute: '2-digit',
+    minute: '2-digit'
   });
 
   const displayImageUrl =
@@ -143,7 +172,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       category: 'bubu_dudu' as const,
       gifUrl: message.mediaUrl,
       tagline: 'STICKER',
-      tags: ['sticker'],
+      tags: ['sticker']
     } : null);
   const emojiInfo = getEmojiOnlyInfo(!sticker && !displayImageUrl && message.type === 'text' ? message.content : undefined);
 
@@ -162,7 +191,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       reactionGroups.push({
         emoji: r.emoji,
         count: r.count || r.userIds?.length || 1,
-        userIds: [...(r.userIds || [])],
+        userIds: [...(r.userIds || [])]
       });
     }
   });
@@ -233,7 +262,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const handleCopy = () => {
     if (message.content) {
-      navigator.clipboard.writeText(message.content);
+      void copyToClipboard(message.content);
     }
     setShowActionMenu(false);
   };
@@ -252,7 +281,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-200/90 dark:bg-zinc-700/90 text-[#ee1d49] flex items-center justify-center shadow-md pointer-events-none transition-all duration-150 z-10"
           style={{
             opacity: Math.min(1, swipeOffset / 25),
-            transform: `translate3d(${Math.min(swipeOffset * 0.45, 28)}px, -50%, 0) scale(${Math.min(1.15, 0.6 + (swipeOffset / 50) * 0.5)})`,
+            transform: `translate3d(${Math.min(swipeOffset * 0.45, 28)}px, -50%, 0) scale(${Math.min(1.15, 0.6 + (swipeOffset / 50) * 0.5)})`
           }}
         >
           <Reply className="w-4 h-4" />
@@ -286,7 +315,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         onDoubleClick={() => setShowActionMenu((prev) => !prev)}
         style={{
           transform: `translate3d(${swipeOffset}px, 0px, 0px)`,
-          transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
+          transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)'
         }}
         className={`relative max-w-[85%] sm:max-w-[70%] flex flex-col ${isSender ? 'items-end' : 'items-start'}`}
       >
@@ -340,7 +369,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 />
               ) : sticker.drawingSvg ? (
                 <div
-                  dangerouslySetInnerHTML={{ __html: sticker.drawingSvg }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSvg(sticker.drawingSvg) ?? '' }}
                   className="w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center drop-shadow-md"
                 />
               ) : (
@@ -348,23 +377,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               )}
             </div>
 
+            {/* Caption typed in the "draw sticker" tool (it was stored but never shown to anybody) */}
+            {sticker.drawingSvg && sticker.tagline && (
+              <p className="text-center text-[11px] font-black tracking-wide text-rose-500 dark:text-rose-300 break-words max-w-[11rem] mx-auto">{sticker.tagline}</p>
+            )}
+
             {/* Subtle floating timestamp and ticks */}
             <div className="flex items-center justify-end gap-1 mt-1 px-1.5 py-0.5 rounded-md bg-black/40 backdrop-blur-xs text-[10px] font-semibold text-white/90 w-fit ml-auto shadow-xs">
               <span>{formattedTime}</span>
               {isSender && (
-                <span className="inline-flex">
-                  {message.status === 'sending' ? (
-                    <Clock className="w-3 h-3 text-white/60 animate-pulse" />
-                  ) : message.status === 'sent' ? (
-                    <Check className="w-3 h-3 text-white/80" />
-                  ) : (
-                    <CheckCheck
-                      className={`w-3.5 h-3.5 ${
-                        message.status === 'read' ? 'text-[#53bdeb]' : 'text-white/80'
-                      }`}
-                    />
-                  )}
-                </span>
+                <MessageStatusIcon message={message} sentClass="text-white/80" />
               )}
             </div>
           </div>
@@ -509,19 +531,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             >
               <span>{formattedTime}</span>
               {isSender && (
-                <span className="inline-flex">
-                  {message.status === 'sending' ? (
-                    <Clock className="w-3 h-3 text-white/50 animate-pulse" />
-                  ) : message.status === 'sent' ? (
-                    <Check className="w-3 h-3" />
-                  ) : (
-                    <CheckCheck
-                      className={`w-3.5 h-3.5 ${
-                        message.status === 'read' ? 'text-[#53bdeb]' : 'text-white/70'
-                      }`}
-                    />
-                  )}
-                </span>
+                <MessageStatusIcon message={message} sentClass="text-white/70" />
               )}
             </div>
           </div>

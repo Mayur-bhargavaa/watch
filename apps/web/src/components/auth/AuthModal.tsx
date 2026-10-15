@@ -24,12 +24,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setLoading(true);
 
     try {
@@ -43,9 +45,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setLoading(false);
           return;
         }
-        const session = await registerUser(email.trim(), password, displayName.trim());
-        onSuccess(session);
-        onClose();
+        const res = await registerUser(email.trim(), password, displayName.trim());
+        setNotice(res.message);
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check credentials.');
@@ -99,6 +100,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             Create Account
           </button>
         </div>
+
+        {notice && (
+          <div className="mb-4 p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs">
+            {notice}
+          </div>
+        )}
 
         {/* Error Notification */}
         {error && (

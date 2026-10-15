@@ -1,25 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  Bell,
-  ChevronDown,
-  Menu,
-  Sun,
-  Moon,
-  Calendar
-} from 'lucide-react';
+import { Plus, RefreshCw, X } from 'lucide-react';
+import { formatPlanDate, getPlanWindow } from '@synccinema/common';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 import { AppHeader } from '../../components/layout/AppHeader';
-import { useTheme } from '../../context/ThemeContext';
 import { getStoredSession, UserSession, getFriendsWithStreaks } from '../../lib/api';
-import { Plan, PlanType } from '../../types/plans';
-import { getPlans, fetchPlansFromServer, deletePlan } from '../../lib/plansStore';
+import { Plan } from '../../types/plans';
+import { listPlans, deletePlan, leavePlan, LEGACY_PLANS_KEY } from '../../lib/plansApi';
+import { countPlans, matchesFilter } from '../../lib/planUi';
 import { PlanCard } from '../../components/plans/PlanCard';
-import { PlansSidebarWidgets } from '../../components/plans/PlansSidebarWidgets';
+import { PlansCalendar } from '../../components/plans/PlansSidebarWidgets';
 import { CreatePlanModal } from '../../components/plans/CreatePlanModal';
 import {
   RealDataPlanningHub,
@@ -28,19 +20,21 @@ import {
   RealFriendItem
 } from '../../components/plans/RealDataPlanningHub';
 
+const startOf = (p: Plan) => getPlanWindow(p)?.startMs ?? 0;
+
 export default function PlansPage() {
   const router = useRouter();
-  const { resolvedTheme, toggleTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
 
   const [session, setSession] = useState<UserSession | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [friends, setFriends] = useState<RealFriendItem[]>([]);
 
   // Tabs: Upcoming | Calendar | Past
-  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'CALENDAR' | 'PAST'>('UPCOMING');
+  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'PAST'>('UPCOMING');
   const [activeFilter, setActiveFilter] = useState<string>('ALL');
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -48,52 +42,69 @@ export default function PlansPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [modalInitialData, setModalInitialData] = useState<any>(null);
 
-  useEffect(() => {
-    const s = getStoredSession();
-    if (s && s.token) {
-      setSession(s);
-      getFriendsWithStreaks(s.token)
-        .then((res) => {
-          if (res?.friends && Array.isArray(res.friends)) {
-            setFriends(
-              res.friends.map((f: any) => ({
-                userId: f.friendUser.id,
-                displayName: f.friendUser.displayName,
-                avatarUrl: f.friendUser.avatarUrl,
-                partnerCode: f.friendUser.partnerCode,
-                streakCount: f.streak?.currentStreak || 0,
-                isOnline: f.friendUser.isOnline
-              }))
-            );
-          }
-        })
-        .catch(() => {});
+  const refreshPlans = useCallback(async () => {
+    try {
+      setPlans(await listPlans());
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Could not load your plans');
+    } finally {
+      setLoading(false);
     }
-    // Load local seed / cached plans immediately
-    setPlans(getPlans());
-    setLoading(false);
-
-    // Sync real plans from server API
-    fetchPlansFromServer().then((synced) => {
-      setPlans(synced || []);
-    });
   }, []);
 
-  const refreshPlans = () => {
-    fetchPlansFromServer().then((synced) => {
-      setPlans(synced || getPlans());
-    });
+  useEffect(() => {
+    try {
+      localStorage.removeItem(LEGACY_PLANS_KEY); // older versions kept a shared, unsynced copy of plans here
+    } catch {}
+    const s = getStoredSession();
+    if (!s?.user || s.user.isAnonymous) {
+      router.replace(`/login?redirect=${encodeURIComponent('/plans')}`);
+      return;
+    }
+    setSession(s);
+    setAuthChecked(true);
+    getFriendsWithStreaks(s.token)
+      .then((res) => {
+        if (res?.friends && Array.isArray(res.friends)) {
+          setFriends(
+            res.friends.map((f: any) => ({
+              userId: f.friendUser.id,
+              displayName: f.friendUser.displayName,
+              avatarUrl: f.friendUser.avatarUrl,
+              partnerCode: f.friendUser.partnerCode,
+              streakCount: f.streak?.currentStreak || 0,
+              isOnline: f.friendUser.isOnline
+            }))
+          );
+        }
+      })
+      .catch((err) => console.warn('[plans] could not load friends:', err));
+    void refreshPlans();
+  }, [router, refreshPlans]);
+
+  // Pick up changes made by friends (RSVPs, invitations) when the user comes back to the tab
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) void refreshPlans();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [refreshPlans]);
+
+  const handleDeletePlan = async (id: string) => {
+    await deletePlan(id); // throws with the server's message; the card shows it
+    setPlans((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const handleDeletePlan = (id: string) => {
-    deletePlan(id);
-    refreshPlans();
+  const handleLeavePlan = async (id: string) => {
+    await leavePlan(id);
+    setPlans((prev) => prev.filter((p) => p.id !== id));
   };
 
   const handleSelectMovieToPlan = (movie: RealMovieItem) => {
     setModalInitialData({
       type: 'movie',
-      emoji: '🍿',
       title: `${movie.title.split(':')[0]} Watch Party`,
       description: `Synchronized watch party for ${movie.title} with friends.`,
       activities: [
@@ -121,7 +132,6 @@ export default function PlansPage() {
   const handleSelectGameToPlan = (game: RealGameItem) => {
     setModalInitialData({
       type: 'game',
-      emoji: game.icon,
       title: `${game.title} Night`,
       description: `Multiplayer showdown playing ${game.title}!`,
       activities: [
@@ -133,12 +143,7 @@ export default function PlansPage() {
           subtitle: `${game.players} · Real-time Match`,
           actionLabel: 'Play Together',
           actionUrl: game.url,
-          gameDetails: {
-            gameId: game.gameId,
-            title: game.title,
-            icon: game.icon,
-            players: game.players
-          }
+          gameDetails: { gameId: game.gameId, title: game.title, icon: game.icon, players: game.players }
         }
       ]
     });
@@ -148,7 +153,6 @@ export default function PlansPage() {
   const handleSelectFriendToPlan = (friend: RealFriendItem) => {
     setModalInitialData({
       type: 'hangout',
-      emoji: '✨',
       title: `Hangout with ${friend.displayName}`,
       description: `Watch movies or play games together!`,
       invitedFriends: [friend.userId]
@@ -161,304 +165,171 @@ export default function PlansPage() {
     setShowCreateModal(true);
   };
 
-  // Filter calculations
-  const upcomingPlans = plans.filter((p) => !p.isPast);
-  const pastPlans = plans.filter((p) => p.isPast);
+  // Upcoming: soonest first. Past: most recent first. "Past" is computed by the server from the date/time.
+  const upcomingPlans = useMemo(() => plans.filter((p) => !p.isPast).sort((a, b) => startOf(a) - startOf(b)), [plans]);
+  const pastPlans = useMemo(() => plans.filter((p) => p.isPast).sort((a, b) => startOf(b) - startOf(a)), [plans]);
 
-  const filteredPlans = upcomingPlans.filter((p) => {
-    if (selectedDate && p.date !== selectedDate) return false;
-    if (activeFilter === 'ALL') return true;
-    if (activeFilter === 'movie') return p.type === 'movie' || p.tagLabel?.toLowerCase().includes('movie');
-    if (activeFilter === 'game') return p.type === 'game' || p.tagLabel?.toLowerCase().includes('game');
-    if (activeFilter === 'birthday') return p.type === 'birthday' || p.tagLabel?.toLowerCase().includes('birthday');
-    return true;
-  });
+  const applyView = (list: Plan[]) => list.filter((p) => matchesFilter(p, activeFilter) && (!selectedDate || p.date === selectedDate));
+  const filteredUpcoming = applyView(upcomingPlans);
+  const filteredPast = applyView(pastPlans);
 
-  const counts = {
-    all: upcomingPlans.length,
-    movies: upcomingPlans.filter((p) => p.type === 'movie' || p.tagLabel?.toLowerCase().includes('movie')).length,
-    games: upcomingPlans.filter((p) => p.type === 'game' || p.tagLabel?.toLowerCase().includes('game')).length,
-    birthdays: upcomingPlans.filter((p) => p.type === 'birthday' || p.tagLabel?.toLowerCase().includes('birthday')).length
+  const counts = countPlans(upcomingPlans);
+  const currentUserId = session?.user?.id;
+
+  const clearFilters = () => {
+    setActiveFilter('ALL');
+    setSelectedDate(null);
   };
 
-  const currentUserName = session?.user?.displayName || 'Mayur';
-  const currentUserAvatar =
-    session?.user?.avatarUrl ||
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+  const renderCards = (list: Plan[]) =>
+    list.map((plan, index) => (
+      <PlanCard
+        key={plan.id}
+        plan={plan}
+        currentUserId={currentUserId}
+        isPrimary={index === 0 && !plan.isPast}
+        onDeletePlan={handleDeletePlan}
+        onLeavePlan={handleLeavePlan}
+      />
+    ));
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-[#fcfaf9] dark:bg-[#0d0a14] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[#ee1d49] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  const chips: [string, string, number][] = [
+    ['ALL', 'All', counts.all],
+    ['movie', 'Movies', counts.movies],
+    ['game', 'Games', counts.games],
+    ['birthday', 'Birthdays', counts.birthdays],
+    ['other', 'Other', counts.other]
+  ];
+  const activeList = activeTab === 'UPCOMING' ? filteredUpcoming : filteredPast;
+  const totalInTab = activeTab === 'UPCOMING' ? upcomingPlans.length : pastPlans.length;
 
   return (
     <div className="h-screen bg-[#fcfaf9] dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-hidden font-sans">
-      {/* Centralized App Sidebar */}
-      <AppSidebar
-        activeNav="plans"
-        isMobileOpen={isMobileSidebarOpen}
-        onMobileClose={() => setIsMobileSidebarOpen(false)}
-      />
+      <AppSidebar activeNav="plans" isMobileOpen={isMobileSidebarOpen} onMobileClose={() => setIsMobileSidebarOpen(false)} />
 
-      {/* Main Content Area - 100% Full Width */}
-      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-5 sm:space-y-6 relative">
-        {/* Subtle Sunset Hill Art Background (Top Right) */}
-        <div className="absolute top-0 right-0 w-[550px] max-w-full h-[340px] pointer-events-none opacity-40 dark:opacity-20 overflow-hidden z-0 select-none">
-          <svg
-            viewBox="0 0 600 350"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-full h-full object-cover object-right-top"
-          >
-            <circle cx="480" cy="120" r="60" fill="#fed7aa" opacity="0.6" />
-            <path
-              d="M200 350C280 260 380 220 600 240V350H200Z"
-              fill="url(#hillGrad1)"
-            />
-            <path
-              d="M340 350C420 200 500 180 600 190V350H340Z"
-              fill="url(#hillGrad2)"
-            />
-            <defs>
-              <linearGradient id="hillGrad1" x1="400" y1="220" x2="400" y2="350" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#f472b6" stopOpacity="0.35" />
-                <stop offset="1" stopColor="#fed7aa" stopOpacity="0.05" />
-              </linearGradient>
-              <linearGradient id="hillGrad2" x1="480" y1="180" x2="480" y2="350" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#fb7185" stopOpacity="0.25" />
-                <stop offset="1" stopColor="#e2e8f0" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
+      <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 space-y-5">
+        <AppHeader onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)} onCreateRoom={handleOpenGeneralCreate} />
 
-        <AppHeader
-          onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
-          onCreateRoom={() => setShowCreateModal(true)}
-        />
-
-        {/* 100% Full Width Container */}
-        <div className="w-full space-y-6 sm:space-y-8 relative z-10">
-          {/* Header Section */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
-            {/* Title & Subtitle */}
-            <div className="space-y-1">
-              <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
-                Plans
-              </h1>
-              <p className="text-xs sm:text-sm md:text-base font-medium text-slate-500 dark:text-zinc-400">
-                Things you&apos;re doing together.
-              </p>
+        <div className="w-full space-y-5">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Plans</h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400">Things you&apos;re doing together.</p>
             </div>
+            <button
+              type="button"
+              onClick={handleOpenGeneralCreate}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-xs font-bold transition cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>New plan</span>
+            </button>
+          </div>
 
-            {/* Center Ambient Script: "Plan. Watch. Play. Together. ♡" */}
-            <div className="hidden xl:block absolute left-1/2 -translate-x-1/2 top-0 pointer-events-none select-none text-rose-400/80 dark:text-rose-400/60 font-serif italic text-base leading-snug">
-              <div className="transform -rotate-6 space-y-0.5 text-center">
-                <div className="text-sm tracking-wide">Plan.</div>
-                <div className="text-base font-semibold tracking-wider">Watch.</div>
-                <div className="text-lg font-bold">Play.</div>
-                <div className="text-xl font-bold flex items-center justify-center gap-1">
-                  <span>Together.</span>
-                  <span className="text-sm">♡</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Header Actions */}
-            <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-              {/* Profile Pill */}
-              <div className="hidden sm:flex items-center gap-2 p-1.5 pr-3 rounded-full bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/10 shadow-xs">
-                <img
-                  src={currentUserAvatar}
-                  alt={currentUserName}
-                  className="w-6 h-6 rounded-full object-cover"
-                />
-                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 truncate max-w-[100px]">
-                  {currentUserName}
-                </span>
-              </div>
-
-              {/* + Create Plan Button */}
+          {/* Tabs */}
+          <div className="flex items-center gap-6 border-b border-slate-200 dark:border-white/10">
+            {(
+              [
+                ['UPCOMING', 'Upcoming', upcomingPlans.length],
+                ['PAST', 'Past', pastPlans.length]
+              ] as const
+            ).map(([key, label, count]) => (
               <button
+                key={key}
                 type="button"
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-[#ff3b68] to-[#ff577d] text-white text-xs font-black shadow-lg shadow-[#ff3b68]/30 hover:shadow-xl hover:shadow-[#ff3b68]/40 hover:brightness-105 active:scale-98 transition-all cursor-pointer shrink-0"
+                onClick={() => setActiveTab(key)}
+                className={`pb-2.5 -mb-px text-sm font-bold border-b-2 transition cursor-pointer ${
+                  activeTab === key ? 'border-[#ee1d49] text-slate-900 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200'
+                }`}
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Create Plan</span>
+                {label} {count > 0 && <span className="ml-1 text-xs font-semibold text-slate-400">{count}</span>}
+              </button>
+            ))}
+          </div>
+
+          {loadError && (
+            <div role="alert" className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs">
+              <span className="font-semibold text-rose-700 dark:text-rose-300">Could not load your plans: {loadError}</span>
+              <button type="button" onClick={() => void refreshPlans()} className="inline-flex items-center gap-1 font-bold text-rose-600 dark:text-rose-300 underline cursor-pointer">
+                <RefreshCw className="w-3.5 h-3.5" /> Try again
               </button>
             </div>
-          </div>
+          )}
 
-          {/* Segmented Tabs: Upcoming | Calendar | Past */}
-          <div className="flex items-center gap-1 p-1 sm:p-1.5 rounded-full bg-slate-200/60 dark:bg-white/[0.06] backdrop-blur-xs w-fit max-w-full overflow-x-auto scrollbar-none">
-            <button
-              type="button"
-              onClick={() => setActiveTab('UPCOMING')}
-              className={`inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                activeTab === 'UPCOMING'
-                  ? 'bg-white dark:bg-[#1f1930] text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
-              }`}
-            >
-              <span>Upcoming</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black leading-none">
-                {upcomingPlans.length}
-              </span>
-            </button>
+          <div className="flex flex-col lg:flex-row items-start gap-6">
+            <div className="flex-1 min-w-0 w-full space-y-3">
+              {/* Filter chips + active date */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {chips.map(([key, label, count]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveFilter(key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                      activeFilter === key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-white/[0.07] text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {label} <span className="opacity-60">{count}</span>
+                  </button>
+                ))}
+                {selectedDate && (
+                  <button type="button" onClick={() => setSelectedDate(null)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-500/10 text-[#ee1d49] cursor-pointer">
+                    {formatPlanDate(selectedDate)} <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('CALENDAR')}
-              className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                activeTab === 'CALENDAR'
-                  ? 'bg-white dark:bg-[#1f1930] text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
-              }`}
-            >
-              Calendar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('PAST')}
-              className={`inline-flex items-center gap-1.5 sm:gap-2 px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs font-bold transition-all cursor-pointer shrink-0 ${
-                activeTab === 'PAST'
-                  ? 'bg-white dark:bg-[#1f1930] text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
-              }`}
-            >
-              <span>Past</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-slate-300 dark:bg-white/20 text-slate-700 dark:text-zinc-200 text-[10px] font-bold leading-none">
-                {pastPlans.length || 1}
-              </span>
-            </button>
-          </div>
-
-          {/* Main 2-Column Section (100% Full Width) */}
-          <div className="flex flex-col lg:flex-row items-start gap-8 w-full">
-            {/* Left Column: Stack of Plan Cards */}
-            <div className="flex-1 min-w-0 w-full space-y-6">
-              {activeTab === 'UPCOMING' && (
-                <>
-                  {selectedDate && (
-                    <div className="flex items-center justify-between p-3.5 px-5 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200/80 dark:border-rose-500/20 text-xs">
-                      <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-bold">
-                        <Calendar className="w-4 h-4 text-rose-500" />
-                        <span>Showing plans scheduled on {selectedDate}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDate(null)}
-                        className="text-xs font-bold text-rose-600 hover:text-rose-800 dark:hover:text-rose-200 underline cursor-pointer"
-                      >
-                        Clear Date Filter
-                      </button>
-                    </div>
-                  )}
-
-                  {upcomingPlans.length === 0 ? (
-                    <RealDataPlanningHub
-                      onSelectMovie={handleSelectMovieToPlan}
-                      onSelectGame={handleSelectGameToPlan}
-                      onSelectFriend={handleSelectFriendToPlan}
-                      onOpenGeneralCreate={handleOpenGeneralCreate}
-                      friends={friends}
-                      userFriendCode={session?.user?.partnerCode}
-                    />
-                  ) : filteredPlans.length === 0 ? (
-                    <div className="p-12 text-center rounded-[28px] bg-white dark:bg-[#151022] border border-dashed border-slate-200 dark:border-white/10 space-y-3">
-                      <p className="text-sm font-bold text-slate-700 dark:text-zinc-300">
-                        No {activeFilter !== 'ALL' ? activeFilter.toLowerCase() : ''} plans found {selectedDate ? `for ${selectedDate}` : 'matching this filter'}.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveFilter('ALL');
-                          setSelectedDate(null);
-                        }}
-                        className="text-xs font-bold text-[#ff3b68] underline cursor-pointer"
-                      >
-                        Show All {upcomingPlans.length} Plans
-                      </button>
-                    </div>
-                  ) : (
-                    filteredPlans.map((plan, index) => (
-                      <PlanCard
-                        key={plan.id}
-                        plan={plan}
-                        isPrimary={index === 0}
-                        onDeletePlan={handleDeletePlan}
-                      />
-                    ))
-                  )}
-                </>
-              )}
-
-              {activeTab === 'CALENDAR' && (
-                <div className="p-8 rounded-[28px] bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] shadow-sm">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white mb-4">
-                    Full Monthly Calendar
-                  </h3>
-                  <p className="text-xs text-slate-500 mb-6">
-                    See upcoming movie streams, game tournaments, and birthdays across the month.
-                  </p>
-                  <PlansSidebarWidgets
-                    activeFilter={activeFilter}
-                    onSelectFilter={setActiveFilter}
-                    counts={counts}
-                    plans={plans}
-                    selectedDate={selectedDate}
-                    onSelectDate={setSelectedDate}
-                  />
+              {loading ? (
+                <div className="p-12 flex justify-center">
+                  <div className="w-7 h-7 rounded-full border-2 border-[#ee1d49] border-t-transparent animate-spin" />
                 </div>
-              )}
-
-              {activeTab === 'PAST' && (
-                <div className="space-y-6">
-                  {pastPlans.length === 0 ? (
-                    <div className="p-12 text-center rounded-[28px] bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] shadow-sm space-y-2">
-                      <div className="text-2xl">⏳</div>
-                      <h4 className="text-base font-bold text-slate-800 dark:text-white">
-                        Past Plans Recorded
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Memories and session highlights from previous watch parties appear here.
-                      </p>
-                    </div>
-                  ) : (
-                    pastPlans.map((plan) => (
-                      <PlanCard
-                        key={plan.id}
-                        plan={plan}
-                        onDeletePlan={handleDeletePlan}
-                      />
-                    ))
-                  )}
+              ) : activeTab === 'UPCOMING' && upcomingPlans.length === 0 ? (
+                <RealDataPlanningHub
+                  onSelectMovie={handleSelectMovieToPlan}
+                  onSelectGame={handleSelectGameToPlan}
+                  onSelectFriend={handleSelectFriendToPlan}
+                  onOpenGeneralCreate={handleOpenGeneralCreate}
+                  friends={friends}
+                  userFriendCode={session?.user?.partnerCode}
+                />
+              ) : activeTab === 'PAST' && pastPlans.length === 0 ? (
+                <div className="p-10 text-center rounded-2xl border border-dashed border-slate-200 dark:border-white/10 text-sm text-slate-500">
+                  Plans appear here once their date and time have passed.
                 </div>
+              ) : activeList.length === 0 && totalInTab > 0 ? (
+                <div className="p-10 text-center rounded-2xl border border-dashed border-slate-200 dark:border-white/10 space-y-2">
+                  <p className="text-sm font-semibold text-slate-600 dark:text-zinc-300">Nothing matches {selectedDate ? `${formatPlanDate(selectedDate)}` : 'this filter'}.</p>
+                  <button type="button" onClick={clearFilters} className="text-xs font-bold text-[#ee1d49] underline cursor-pointer">
+                    Clear filters
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2.5">{renderCards(activeList)}</div>
               )}
             </div>
 
-            {/* Right Column: 3 Widgets (Calendar + Quick Filters + Cinema Card) - Fixed / Sticky */}
-            <aside className="w-full lg:w-[320px] xl:w-[350px] shrink-0 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto no-scrollbar space-y-6">
-              <PlansSidebarWidgets
-                activeFilter={activeFilter}
-                onSelectFilter={setActiveFilter}
-                counts={counts}
-                plans={plans}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-              />
+            <aside className="w-full lg:w-[320px] shrink-0 lg:sticky lg:top-4">
+              <PlansCalendar plans={plans} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
             </aside>
           </div>
         </div>
       </main>
 
-      {/* Create Plan Modal */}
       <CreatePlanModal
         isOpen={showCreateModal}
         onClose={() => {
           setShowCreateModal(false);
           setModalInitialData(null);
-          refreshPlans();
+          void refreshPlans();
         }}
-        currentUserId={session?.user?.id || 'u1'}
-        currentUserName={currentUserName}
         initialData={modalInitialData}
       />
     </div>

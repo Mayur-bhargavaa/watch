@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Gamepad2, Users, Play, Crown } from 'lucide-react';
+import { Users, Play, Crown } from 'lucide-react';
 import { ChatGamePayload } from '@/types/chat';
 import { getGameRoute, getGameTitle } from '@/lib/api';
 
@@ -21,7 +21,7 @@ const GAME_INFO: Record<string, { label: string; iconEmoji: string; gradient: st
   'tic-tac-toe': { label: 'Tic-Tac-Toe', iconEmoji: '⭕', gradient: 'from-violet-500/15 to-fuchsia-500/15 text-violet-500' },
   connect4: { label: 'Four in a Row', iconEmoji: '🔴', gradient: 'from-blue-500/15 to-cyan-500/15 text-blue-500' },
   'four-in-a-row': { label: 'Four in a Row', iconEmoji: '🔴', gradient: 'from-blue-500/15 to-cyan-500/15 text-blue-500' },
-  tambola: { label: 'Tambola Party', iconEmoji: '🎟️', gradient: 'from-teal-500/15 to-emerald-500/15 text-teal-500' },
+  tambola: { label: 'Tambola Party', iconEmoji: '🎟️', gradient: 'from-teal-500/15 to-emerald-500/15 text-teal-500' }
 };
 
 export const GameInviteMessage: React.FC<GameInviteMessageProps> = ({ game, isSender }) => {
@@ -29,7 +29,7 @@ export const GameInviteMessage: React.FC<GameInviteMessageProps> = ({ game, isSe
   const meta = GAME_INFO[gameKey] || {
     label: getGameTitle(gameKey),
     iconEmoji: '🎮',
-    gradient: 'from-rose-500/15 to-pink-500/15 text-[#ee1d49]',
+    gradient: 'from-rose-500/15 to-pink-500/15 text-[#ee1d49]'
   };
 
   const roomCode = game.roomCode || game.roomId;

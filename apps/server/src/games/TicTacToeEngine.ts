@@ -1,4 +1,5 @@
 import { TicTacToeGameState, TicTacToeMark } from '@synccinema/common';
+import { GameRuleError } from './GameRuleError.js';
 
 export const WINNING_LINES: [number, number, number][] = [
   // Rows
@@ -27,8 +28,10 @@ export class TicTacToeEngine {
     const firstPlayer = players.find(p => p.seat === startingSeat) || players[0];
     const initialMark: 'X' | 'O' = startingSeat === 0 ? 'X' : 'O';
 
+    // startingSeat is not in the shared type; it is kept so a rematch can alternate the starter
     return {
       board,
+      startingSeat,
       currentTurnSeat: startingSeat,
       currentTurnMark: initialMark,
       winner: null,
@@ -37,7 +40,7 @@ export class TicTacToeEngine {
       isDraw: false,
       statusMessage: `${firstPlayer?.displayName || 'Player 1'}'s turn (${initialMark}) — Tap an empty square!`,
       moveCount: 0
-    };
+    } as TicTacToeGameState;
   }
 
   /**
@@ -73,19 +76,19 @@ export class TicTacToeEngine {
     isDraw: boolean;
   } {
     if (state.winner || state.isDraw) {
-      throw new Error('Game is already finished');
+      throw new GameRuleError('GAME_OVER', 'Game is already finished');
     }
 
     if (seat !== state.currentTurnSeat) {
-      throw new Error(`It is not your turn (Current seat: ${state.currentTurnSeat})`);
+      throw new GameRuleError('NOT_YOUR_TURN', `It is not your turn (Current seat: ${state.currentTurnSeat})`);
     }
 
-    if (cellIndex < 0 || cellIndex >= 9) {
-      throw new Error(`Invalid cell index: ${cellIndex}`);
+    if (typeof cellIndex !== 'number' || !Number.isInteger(cellIndex) || cellIndex < 0 || cellIndex >= 9) {
+      throw new GameRuleError('INVALID_INPUT', `Invalid cell index: ${String(cellIndex)}`);
     }
 
     if (state.board[cellIndex] !== null) {
-      throw new Error(`Square ${cellIndex} is already occupied!`);
+      throw new GameRuleError('CELL_OCCUPIED', `Square ${cellIndex} is already occupied!`);
     }
 
     const mark: 'X' | 'O' = seat === 0 ? 'X' : 'O';
@@ -104,7 +107,7 @@ export class TicTacToeEngine {
       nextState.winner = winResult.winner;
       nextState.winnerUserId = player.userId;
       nextState.winningLine = winResult.winningLine;
-      nextState.statusMessage = `🎉 ${player.displayName} wins with 3 in a row!`;
+      nextState.statusMessage = `${player.displayName} wins with 3 in a row!`;
 
       return {
         state: nextState,
@@ -119,7 +122,7 @@ export class TicTacToeEngine {
     const isFull = nextBoard.every(cell => cell !== null);
     if (isFull) {
       nextState.isDraw = true;
-      nextState.statusMessage = `🤝 Game Draw! Well played by both!`;
+      nextState.statusMessage = `Game Draw! Well played by both!`;
 
       return {
         state: nextState,

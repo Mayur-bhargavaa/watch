@@ -65,6 +65,10 @@ export interface BingoGameState {
   statusMessage: string;
   callingPaused: boolean;
   penaltyUntil?: Record<string, number>; // userId -> timestamp
+  playerNames?: Record<string, string>; // userId -> display name
+  // Present only in the per-viewer public projection (publicStateFor): callQueue is sent empty
+  remainingCount?: number; // numbers still to be drawn
+  markedCounts?: Record<string, number>; // userId -> how many numbers they marked (other players' marks are hidden)
   gameSummary?: {
     winnerUserId: string | null;
     winnerDisplayName: string | null;

@@ -1,4 +1,5 @@
 import { FourInARowGameState, FourInARowDisc } from '@synccinema/common';
+import { GameRuleError } from './GameRuleError.js';
 
 export const FOUR_IN_A_ROW_ROWS = 6;
 export const FOUR_IN_A_ROW_COLS = 7;
@@ -18,8 +19,10 @@ export class FourInARowEngine {
     const firstPlayer = players.find(p => p.seat === startingSeat) || players[0];
     const initialColor: 'red' | 'yellow' = startingSeat === 0 ? 'red' : 'yellow';
 
+    // startingSeat is not in the shared type; it is kept so a rematch can alternate the starter
     return {
       board,
+      startingSeat,
       currentTurnSeat: startingSeat,
       currentTurnColor: initialColor,
       winner: null,
@@ -29,14 +32,14 @@ export class FourInARowEngine {
       isDraw: false,
       statusMessage: `${firstPlayer?.displayName || 'Player 1'}'s turn (${initialColor.toUpperCase()}) — Drop a disc!`,
       moveCount: 0
-    };
+    } as FourInARowGameState;
   }
 
   /**
    * Finds the lowest available row index in a given column (5 is bottom, 0 is top)
    */
   public static getLowestEmptyRow(board: FourInARowDisc[][], col: number): number {
-    if (col < 0 || col >= FOUR_IN_A_ROW_COLS) return -1;
+    if (!Number.isInteger(col) || col < 0 || col >= FOUR_IN_A_ROW_COLS) return -1;
     for (let r = FOUR_IN_A_ROW_ROWS - 1; r >= 0; r--) {
       if (!board[r][col]) return r;
     }
@@ -162,20 +165,20 @@ export class FourInARowEngine {
     isDraw: boolean;
   } {
     if (state.winner || state.isDraw) {
-      throw new Error('Game is already finished');
+      throw new GameRuleError('GAME_OVER', 'Game is already finished');
     }
 
     if (seat !== state.currentTurnSeat) {
-      throw new Error(`It is not your turn (Current seat: ${state.currentTurnSeat})`);
+      throw new GameRuleError('NOT_YOUR_TURN', `It is not your turn (Current seat: ${state.currentTurnSeat})`);
     }
 
-    if (col < 0 || col >= FOUR_IN_A_ROW_COLS) {
-      throw new Error(`Invalid column: ${col}`);
+    if (typeof col !== 'number' || !Number.isInteger(col) || col < 0 || col >= FOUR_IN_A_ROW_COLS) {
+      throw new GameRuleError('INVALID_INPUT', `Invalid column: ${String(col)}`);
     }
 
     const row = this.getLowestEmptyRow(state.board, col);
     if (row === -1) {
-      throw new Error(`Column ${col} is already full`);
+      throw new GameRuleError('COLUMN_FULL', `Column ${col} is already full`);
     }
 
     const disc: 'R' | 'Y' = seat === 0 ? 'R' : 'Y';
@@ -198,7 +201,7 @@ export class FourInARowEngine {
       nextState.winnerColor = discColor;
       nextState.winnerUserId = player.userId;
       nextState.winningLine = winResult.winningLine;
-      nextState.statusMessage = `🎉 ${player.displayName} wins with 4 in a row!`;
+      nextState.statusMessage = `${player.displayName} wins with 4 in a row!`;
 
       return {
         state: nextState,
@@ -214,7 +217,7 @@ export class FourInARowEngine {
     const isFull = nextBoard.every(r => r.every(cell => cell !== null));
     if (isFull) {
       nextState.isDraw = true;
-      nextState.statusMessage = `🤝 Game Draw! All slots filled!`;
+      nextState.statusMessage = `Game Draw! All slots filled!`;
 
       return {
         state: nextState,

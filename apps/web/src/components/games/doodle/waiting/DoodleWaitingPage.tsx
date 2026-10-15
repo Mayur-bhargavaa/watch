@@ -79,9 +79,10 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
   const isHost = room.hostUserId === myUserId;
   const hasOpponent = Boolean(opponentPlayer);
 
-  const config = (room as any).doodleConfig || gameState?.config || {
+  const config: any = gameState?.config || (room as any).doodleConfig || {
     rounds: 6,
-    drawTimeSeconds: 60,
+    drawTime: 60,
+    guessTime: 60,
     difficulty: 'mixed',
     humanOnly: true
   };
@@ -90,7 +91,8 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
     if (isStarting) return;
     setIsStarting(true);
     onStartGame(config);
-    router.push(`/games/doodle-duel/play?room=${encodeURIComponent(room.roomCode)}`);
+    // The page redirects to /play as soon as the server reports PLAYING; if the start is rejected, allow a retry.
+    setTimeout(() => setIsStarting(false), 4000);
   };
 
   const handleInviteFriend = () => {
@@ -104,7 +106,7 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
       }).catch(() => {});
       return;
     }
-    navigator.clipboard.writeText(url);
+    void navigator.clipboard.writeText(url);
     alert('Room invite link copied to clipboard!');
   };
 
@@ -212,9 +214,9 @@ export const DoodleWaitingPage: React.FC<DoodleWaitingPageProps> = ({
 
         {/* Hand-drawn watermark bottom-left */}
         <div className="pointer-events-none select-none py-1 hidden sm:flex items-center justify-between text-xs text-pink-400/80 font-serif italic">
-          <span>..Same Game Different Hearts ♡</span>
+          <span>..Same Game Different Hearts</span>
           <span className="not-italic text-[10px] text-slate-400 font-sans">
-            Click ⚙️ Settings in header to customize rounds & draw time.
+            Click Settings in header to customize rounds & draw time.
           </span>
         </div>
       </div>

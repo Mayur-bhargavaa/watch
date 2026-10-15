@@ -13,7 +13,6 @@ export class MongoLoggerService {
   private collection: Collection<ActivityLogEntry> | null = null;
   private isConnected: boolean = false;
   private logBuffer: ActivityLogEntry[] = [];
-  private readonly defaultUri: string = 'mongodb+srv://DBmayur:Mayur%402608@cluster0.ytcpzbb.mongodb.net/';
 
   constructor() {
     this.init();
@@ -26,7 +25,11 @@ export class MongoLoggerService {
       }
     } catch {}
 
-    const uri = process.env.MONGODB_URI || this.defaultUri;
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      console.log('🍃 [MongoLogger] MONGODB_URI not set: activity logs are kept in a bounded in-memory buffer only.');
+      return;
+    }
     try {
       this.client = new MongoClient(uri, {
         serverSelectionTimeoutMS: 3000,
@@ -37,7 +40,7 @@ export class MongoLoggerService {
       this.db = this.client.db('stitchbyte_watch_party');
       this.collection = this.db.collection<ActivityLogEntry>('party_activity_logs');
       this.isConnected = true;
-      console.log('🍃 MongoDB Activity Logger connected successfully to cluster0.ytcpzbb.mongodb.net');
+      console.log('🍃 MongoDB Activity Logger connected');
 
       // Flush buffered logs if any were queued before connection established
       if (this.logBuffer.length > 0) {
@@ -47,6 +50,16 @@ export class MongoLoggerService {
     } catch (err: any) {
       this.isConnected = false;
       console.log(`🍃 [MongoLogger] Notice: Remote MongoDB offline or unauthenticated (${err.message || err}). Activity logs buffered locally.`);
+    }
+  }
+
+  /** GDPR: erase every activity-log entry that references this user. */
+  async deleteUserLogs(userId: string): Promise<void> {
+    this.logBuffer = this.logBuffer.filter((e) => e.data?.userId !== userId && e.data?.hostId !== userId);
+    if (this.isConnected && this.collection) {
+      try {
+        await this.collection.deleteMany({ $or: [{ 'data.userId': userId }, { 'data.hostId': userId }] });
+      } catch {}
     }
   }
 

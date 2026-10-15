@@ -21,16 +21,18 @@ import {
   getStoredSession,
   getUserPartner,
   connectUserPartner,
+  partnerRequestNotice,
   pingPartner,
   createGameRoomWithPartner,
   joinGameRoomByCode
 } from '../../lib/api';
+import { gameRoutePath } from '../../lib/gameRoutes';
 import { useTheme } from '../../context/ThemeContext';
 import { AppSidebar } from '../layout/AppSidebar';
 import { GameFriendSelectorDrawer } from './GameFriendSelectorDrawer';
 
 export interface GameJoinLobbyProps {
-  gameType: 'bingo' | 'doodle-duel' | 'four-in-a-row' | 'tic-tac-toe' | 'ludo' | 'tambola';
+  gameType: 'bingo' | 'doodle-duel' | 'four-in-a-row' | 'tic-tac-toe' | 'ludo' | 'tambola' | 'chess';
   eyebrow: string;
   titlePrimary: string;
   titleSecondary: string;
@@ -72,6 +74,7 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
   const [partnerPingStatus, setPartnerPingStatus] = useState<string | null>(null);
   const [isPingingPartner, setIsPingingPartner] = useState(false);
   const [showPartnerConnectInput, setShowPartnerConnectInput] = useState(false);
+  const lastPingAtRef = React.useRef(0);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -108,7 +111,7 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
 
   const handleCopyPartnerCode = () => {
     if (!myPartnerCode) return;
-    navigator.clipboard.writeText(myPartnerCode);
+    void navigator.clipboard.writeText(myPartnerCode);
     setCopiedPartnerCode(true);
     setTimeout(() => setCopiedPartnerCode(false), 2000);
   };
@@ -129,6 +132,9 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
           online: Boolean((res.partner as any).online ?? (res.partner as any).isOnline)
         });
         setShowPartnerConnectInput(false);
+      } else if (partnerRequestNotice(res)) {
+        setPartnerConnectError(partnerRequestNotice(res));
+        setPartnerInputCode('');
       }
     } catch (err: any) {
       setPartnerConnectError(err?.message || 'Failed to link partner');
@@ -139,19 +145,25 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
 
   const handlePingPartner = async () => {
     if (!session?.token || !partner?.partnerCode || isPingingPartner) return;
+    // client-side throttle (the server also rate limits): one ping every 8 seconds
+    const nowTs = Date.now();
+    if (nowTs - lastPingAtRef.current < 8000) {
+      setPartnerPingStatus('Please wait a few seconds before pinging again.');
+      setTimeout(() => setPartnerPingStatus(null), 2500);
+      return;
+    }
+    lastPingAtRef.current = nowTs;
     setIsPingingPartner(true);
     setPartnerPingStatus(null);
     try {
       const res = await pingPartner({
         targetCode: partner.partnerCode,
-        fromCode: myPartnerCode,
-        fromName: session.user.displayName,
         gameType
       });
       if (res?.deliveredLive) {
-        setPartnerPingStatus(`🔔 Live alert delivered to ${partner.displayName}!`);
+        setPartnerPingStatus(`Live alert delivered to ${partner.displayName}!`);
       } else {
-        setPartnerPingStatus(`🔔 Ping notification queued for ${partner.displayName}!`);
+        setPartnerPingStatus(`Ping notification queued for ${partner.displayName}!`);
       }
       setTimeout(() => setPartnerPingStatus(null), 3500);
     } catch (e: any) {
@@ -172,8 +184,7 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
     try {
       const res = await createGameRoomWithPartner(gameType, partner?.id);
       if (res?.room?.roomCode) {
-        const path = gameType === 'bingo' ? '/games/bingo' : gameType === 'doodle-duel' ? '/games/doodle-duel' : `/games/${gameType}`;
-        router.push(`${path}?room=${res.room.roomCode}`);
+        router.push(gameRoutePath(gameType, res.room.roomCode));
       }
     } catch (err: any) {
       setLobbyError(err?.message || 'Failed to start duel with partner');
@@ -195,8 +206,7 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
     try {
       const res = await createGameRoomWithPartner(gameType);
       if (res?.room?.roomCode) {
-        const path = gameType === 'bingo' ? '/games/bingo' : gameType === 'doodle-duel' ? '/games/doodle-duel' : `/games/${gameType}`;
-        router.push(`${path}?room=${res.room.roomCode}`);
+        router.push(gameRoutePath(gameType, res.room.roomCode));
       }
     } catch (err: any) {
       setLobbyError(err?.message || 'Failed to create room');
@@ -213,8 +223,7 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
       const code = roomCodeInput.trim().toUpperCase();
       const res = await joinGameRoomByCode(code);
       if (res?.room?.roomCode) {
-        const path = gameType === 'bingo' ? '/games/bingo' : gameType === 'doodle-duel' ? '/games/doodle-duel' : `/games/${gameType}`;
-        router.push(`${path}?room=${res.room.roomCode}`);
+        router.push(gameRoutePath(gameType, res.room.roomCode));
       }
     } catch (err: any) {
       setLobbyError(err?.message || 'Room not found or expired');
@@ -723,7 +732,7 @@ export const GameJoinLobby: React.FC<GameJoinLobbyProps> = ({
                 disabled={isCreating}
                 className="w-full py-4 bg-[#ed1c46] hover:bg-[#d6143c] text-white font-semibold text-sm rounded-2xl shadow-[0_4px_16px_rgba(237,28,70,0.25)] transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
-                <span>{isCreating ? 'Setting up Room...' : 'Create Private Duel 🚀'}</span>
+                <span>{isCreating ? 'Setting up Room...' : 'Create Private Duel'}</span>
               </button>
             </div>
           </div>

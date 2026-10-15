@@ -1,5 +1,6 @@
 'use client';
 
+import { ReactionGlyph } from '../ui/ReactionGlyph';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   Trophy,
@@ -12,7 +13,8 @@ import {
   Check,
   Heart,
   MoreHorizontal,
-  Bell
+  Bell,
+  Clock
 } from 'lucide-react';
 import {
   GameRoom,
@@ -22,6 +24,7 @@ import {
   LudoToken
 } from '@synccinema/common';
 import { FloatingReaction, TokenMovedEvent } from '../../hooks/useGameRoom';
+import { turnSecondsLeft, capturedList } from '../../lib/ludoTurn';
 import { VideoGridParticipant } from '../../hooks/useWebRTC';
 import { HomeCelebrationModal } from './HomeCelebrationModal';
 
@@ -110,6 +113,8 @@ export interface LudoGameProps {
   isMicMuted?: boolean;
   isCompact?: boolean;
   onNudgePlayer?: (userId?: string, displayName?: string) => void;
+  /** Read-only spectator view: no dice, no moves, no nudges. */
+  isSpectator?: boolean;
   lastDiceRoll?: {
     rollId?: string;
     timestamp?: number;
@@ -121,6 +126,14 @@ export interface LudoGameProps {
     earnedBonusRoll?: boolean;
   } | null;
   lastTokenMove?: TokenMovedEvent | null;
+  /** Honour the page's "sound effects" setting (LU-8). */
+  soundEnabled?: boolean;
+  /** Server turn deadline (epoch ms) from game:turn_timer, and the seat it applies to (LU-4). */
+  turnDeadlineAt?: number | null;
+  turnTimerSeat?: number | null;
+  /** Latest rejected-action message from the server (game:error); clears the optimistic dice spinner (LU-14). */
+  actionError?: { message: string; ts: number } | null;
+  onActionErrorShown?: () => void;
 }
 
 // Color starting tile indices on the common 52-tile ring
@@ -395,6 +408,25 @@ export function getPawnPixelPosition(color: LudoColor, step: number, tokenId: nu
 }
 
 
+// One lazily created AudioContext shared by every sound (browsers cap live contexts).
+let sharedAudioCtx: AudioContext | null = null;
+function getSharedAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return null;
+      sharedAudioCtx = new AudioCtx();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      void sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
+
 export const LudoGame: React.FC<LudoGameProps> = ({
   room,
   gameState,
@@ -415,15 +447,23 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   isMicMuted = true,
   isCompact = false,
   onNudgePlayer,
+  isSpectator = false,
   lastDiceRoll = null,
-  lastTokenMove = null
+  lastTokenMove = null,
+  soundEnabled = true,
+  turnDeadlineAt = null,
+  turnTimerSeat = null,
+  actionError = null,
+  onActionErrorShown
 }) => {
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
   // Web Audio sound synthesizer for realistic board feel
   const playSound = (type: 'roll' | 'step' | 'move' | 'capture' | 'win' | 'nudge') => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      if (!soundEnabledRef.current) return;
+      const ctx = getSharedAudioContext();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -513,6 +553,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     step: number;
     isReverseRunning?: boolean;
   } | null>(null);
+  // Additional stacked victims (LU-10) kept on their tile until the capturing pawn lands
+  const [heldExtraVictims, setHeldExtraVictims] = useState<Array<{ color: LudoColor; tokenId: number; step: number }>>([]);
+  const handledMoveIdRef = useRef<string | null>(null);
   const pendingCaptureRef = useRef<{
     color: LudoColor;
     tokenId: number;
@@ -535,6 +578,48 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   const [isRollingDice, setIsRollingDice] = useState(false);
   const [bottomDiceDisplay, setBottomDiceDisplay] = useState<number>(sharedLastDrawnDice);
   const bottomDiceCycleRef = useRef<NodeJS.Timeout | null>(null);
+  const rollSafetyTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const latestDiceValueRef = useRef<number | null>(gameState.diceValue);
+  latestDiceValueRef.current = gameState.diceValue;
+
+  // Server turn timer countdown (game:turn_timer)
+  const [turnSecsLeft, setTurnSecondsLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (!turnDeadlineAt || (turnTimerSeat !== null && turnTimerSeat !== gameState.currentTurnSeat)) {
+      setTurnSecondsLeft(null);
+      return;
+    }
+    const tick = () => setTurnSecondsLeft(turnSecondsLeft(turnDeadlineAt, Date.now()));
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [turnDeadlineAt, turnTimerSeat, gameState.currentTurnSeat]);
+
+  // Rejected action (game:error): stop the optimistic dice spinner and show the message briefly
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!actionError) return;
+    if (rollSafetyTimerRef.current) {
+      clearTimeout(rollSafetyTimerRef.current);
+      rollSafetyTimerRef.current = null;
+    }
+    if (bottomDiceCycleRef.current) {
+      clearInterval(bottomDiceCycleRef.current);
+      bottomDiceCycleRef.current = null;
+    }
+    setIsRollingDice(false);
+    setActionNotice(actionError.message);
+    const id = setTimeout(() => {
+      setActionNotice(null);
+      onActionErrorShown?.();
+    }, 4000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionError?.ts]);
+  useEffect(() => () => {
+    if (rollSafetyTimerRef.current) clearTimeout(rollSafetyTimerRef.current);
+    if (bottomDiceCycleRef.current) clearInterval(bottomDiceCycleRef.current);
+  }, []);
   const prevHandledRollKeyRef = useRef<string | null>(null);
 
   // Map players by color
@@ -825,6 +910,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
   useEffect(() => {
     if (!prevTokensRef.current) {
       prevTokensRef.current = gameState.tokens;
+      if (lastTokenMove?.moveId) handledMoveIdRef.current = lastTokenMove.moveId;
       return;
     }
 
@@ -834,9 +920,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     const colors: LudoColor[] = ['red', 'green', 'yellow', 'blue'];
     let moverInfo: { color: LudoColor; tokenId: number; fromStep: number; toStep: number } | null = null;
     let victimInfo: { color: LudoColor; tokenId: number; step: number } | null = null;
+    const extraVictims: Array<{ color: LudoColor; tokenId: number; step: number }> = [];
 
-    // Check lastTokenMove first if available
-    if (lastTokenMove) {
+    // LU-15: a lastTokenMove event is used for exactly one token update. After a sync/reconnect the
+    // tokens change without a new event, so a stale event must never pick the animated pawn.
+    const moveIsFresh = Boolean(lastTokenMove && lastTokenMove.moveId !== handledMoveIdRef.current);
+    if (lastTokenMove?.moveId) handledMoveIdRef.current = lastTokenMove.moveId;
+
+    if (lastTokenMove && moveIsFresh) {
       const pList = prevTokens[lastTokenMove.color] || [];
       const prevMover = pList.find(p => p.id === lastTokenMove.tokenId);
       const cList = gameState.tokens[lastTokenMove.color] || [];
@@ -849,57 +940,38 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           toStep: curMover.step
         };
       }
-      if (lastTokenMove.capturedToken) {
-        const vList = prevTokens[lastTokenMove.capturedToken.color] || [];
-        const prevVictim = vList.find(p => p.id === lastTokenMove.capturedToken!.tokenId);
+      // LU-10: the server lists every captured token (stacked opponents) in capturedTokens
+      const captured = capturedList(lastTokenMove);
+      for (const cap of captured) {
+        const vList = prevTokens[cap.color] || [];
+        const prevVictim = vList.find(p => p.id === cap.tokenId);
         if (prevVictim && prevVictim.step >= 0) {
-          victimInfo = {
-            color: lastTokenMove.capturedToken.color,
-            tokenId: lastTokenMove.capturedToken.tokenId,
-            step: prevVictim.step
-          };
+          const info = { color: cap.color, tokenId: cap.tokenId, step: prevVictim.step };
+          if (!victimInfo) victimInfo = info;
+          else extraVictims.push(info);
         }
       }
-    }
-
-    // Fallback mover detection if lastTokenMove wasn't supplied or moverInfo not found
-    if (!moverInfo) {
+    } else {
+      // Sync / reconnect without a fresh event: animate only when exactly one token advanced.
+      const advanced: Array<{ color: LudoColor; tokenId: number; fromStep: number; toStep: number }> = [];
+      const sent: Array<{ color: LudoColor; tokenId: number; step: number }> = [];
       for (const col of colors) {
         const prevList = prevTokens[col] || [];
         const curList = gameState.tokens[col] || [];
         for (const cur of curList) {
           const prev = prevList.find(p => p.id === cur.id);
-          if (prev && (cur.step > prev.step || (prev.step === -1 && cur.step === 0))) {
-            moverInfo = {
-              color: col,
-              tokenId: cur.id,
-              fromStep: prev.step,
-              toStep: cur.step
-            };
-            break;
+          if (!prev) continue;
+          if (cur.step > prev.step || (prev.step === -1 && cur.step === 0)) {
+            advanced.push({ color: col, tokenId: cur.id, fromStep: prev.step, toStep: cur.step });
+          } else if (prev.step >= 0 && cur.step === -1) {
+            sent.push({ color: col, tokenId: cur.id, step: prev.step });
           }
         }
-        if (moverInfo) break;
       }
-    }
-
-    // Fallback victim detection if captured token was not explicitly listed in lastTokenMove
-    if (!victimInfo) {
-      for (const col of colors) {
-        const prevList = prevTokens[col] || [];
-        const curList = gameState.tokens[col] || [];
-        for (const cur of curList) {
-          const prev = prevList.find(p => p.id === cur.id);
-          if (prev && prev.step >= 0 && cur.step === -1) {
-            victimInfo = {
-              color: col,
-              tokenId: cur.id,
-              step: prev.step
-            };
-            break;
-          }
-        }
-        if (victimInfo) break;
+      if (advanced.length === 1) {
+        moverInfo = advanced[0];
+        if (sent.length >= 1) victimInfo = sent[0];
+        for (const v of sent.slice(1)) extraVictims.push(v);
       }
     }
 
@@ -916,6 +988,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
       pendingCaptureRef.current = null;
       setHeldVictimPawn(null);
     }
+    setHeldExtraVictims(extraVictims);
 
     // Case 1: Spawning from yard to start
     if (fromStep === -1 && toStep === 0) {
@@ -977,6 +1050,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             if (pendingCaptureRef.current) {
               const victim = pendingCaptureRef.current;
               playSound('capture');
+              setHeldExtraVictims([]);
               const [cx, cy] = getStepCoordinates(color, nextStep, tokenId);
               setCaptureEffect({ x: cx, y: cy, color });
               const effectTimeout = setTimeout(() => {
@@ -1105,6 +1179,8 @@ export const LudoGame: React.FC<LudoGameProps> = ({
         if (isVictimHeld && heldVictimPawn) {
           activeStep = heldVictimPawn.step;
         }
+        const extraHeld = heldExtraVictims.find(v => v.color === color && v.tokenId === token.id);
+        if (extraHeld) activeStep = extraHeld.step;
 
         rawList.push({
           token,
@@ -1239,7 +1315,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
     });
 
     return pawns;
-  }, [gameState.tokens, gameState.seats, myPlayer, isMyTurn, legalMoves, animatingPawn, heldVictimPawn, boardRotation]);
+  }, [gameState.tokens, gameState.seats, myPlayer, isMyTurn, legalMoves, animatingPawn, heldVictimPawn, heldExtraVictims, boardRotation]);
 
   // Render Crisp 3D Dice Face with Perfectly Spaced Pips (Zero Overlap)
   const renderDiceFace = (value: number | null, size: 'sm' | 'lg' = 'sm') => {
@@ -1429,7 +1505,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
           }}
         >
           {/* Nudge / menu button at top-right corner of card */}
-          {!isMe && (
+          {!isMe && !isSpectator && (
             <button
               type="button"
               className="hidden sm:block absolute top-1.5 right-1.5 text-white/30 hover:text-white transition p-0.5 cursor-pointer z-30 opacity-0 group-hover:opacity-100"
@@ -1493,10 +1569,14 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             <span className="font-bold text-white text-[10px] xs:text-[11px] sm:text-xs md:text-[13px] tracking-wide truncate max-w-[50px] xs:max-w-[62px] sm:max-w-[70px] md:max-w-[80px] drop-shadow-sm">
               {p.displayName}
             </span>
-            {isDisconnected ? (
+            {(p.status as string) === 'LEFT' || (Array.isArray((gameState as any).eliminatedSeats) && (gameState as any).eliminatedSeats.includes(p.seat)) ? (
+              <span className="text-[7px] xs:text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-white/50 leading-none mt-0.5">
+                Left
+              </span>
+            ) : isDisconnected ? (
               <span className="text-[7px] xs:text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-rose-400/90 leading-none mt-0.5 flex items-center gap-0.5 sm:gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
-                Offline
+                Reconnecting
               </span>
             ) : isCurrentTurn ? (
               <span className="text-[7px] xs:text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-300 leading-none mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
@@ -1563,7 +1643,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             key={r.id}
             className="absolute bottom-20 left-1/2 -translate-x-1/2 animate-float-up flex flex-col items-center"
           >
-            <span className="text-4xl filter drop-shadow-lg">{r.emoji}</span>
+            <span className="text-4xl filter drop-shadow-lg"><ReactionGlyph value={r.emoji} /></span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/70 text-white font-bold backdrop-blur-sm mt-0.5">
               {r.userName}
             </span>
@@ -2536,7 +2616,7 @@ export const LudoGame: React.FC<LudoGameProps> = ({
               {renderedPawns.map(({ token, x, y, groundY, isLegal, isMyColor, color, isHopping, isReverseRunning, scale, isInGame }) => {
                 const cfg = COLOR_CONFIG[color];
 
-                const handlePawnClick = (e: React.MouseEvent | React.TouchEvent) => {
+                const handlePawnClick = (e: React.SyntheticEvent) => {
                   e.stopPropagation();
                   if (isLegal) {
                     if (autoMoveTimerRef.current) {
@@ -2558,8 +2638,17 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                       transition: 'opacity 0.4s ease, filter 0.4s ease',
                       pointerEvents: isLegal ? 'all' : undefined
                     }}
+                    role="button"
+                    aria-label={`${color} pawn ${token.id + 1}${isLegal ? ', can move, press Enter to move' : ', cannot move now'}`}
+                    aria-disabled={!isLegal}
+                    tabIndex={isLegal ? 0 : -1}
                     onClick={handlePawnClick}
-                    onTouchEnd={handlePawnClick}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handlePawnClick(e);
+                      }
+                    }}
                   >
                     {/* A. Ground Contact Shadow */}
                     <g
@@ -2740,8 +2829,10 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 <Trophy className="w-4 h-4 text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]" />
                 <span>{gameState.winnerColor.toUpperCase()} Won the Match!</span>
               </span>
+            ) : turnPlayer && (turnPlayer.status as string) === 'LEFT' ? (
+              `${turnPlayer.displayName} left the game`
             ) : turnPlayer && !turnPlayer.isConnected ? (
-              `${turnPlayer.displayName} has left • tap to nudge`
+              `${turnPlayer.displayName} lost connection • tap to nudge`
             ) : isMyTurn ? (
               "it's your turn"
             ) : (
@@ -2749,11 +2840,42 @@ export const LudoGame: React.FC<LudoGameProps> = ({
             )}
           </div>
 
+          {/* Server turn countdown (LU-4) + screen-reader status (LU-18) + rejected-action notice (LU-14) */}
+          <div className="sr-only" role="status" aria-live="polite">
+            {gameState.winnerColor
+              ? `${gameState.winnerColor} won the match`
+              : canRoll
+              ? 'Your turn: roll the dice'
+              : canMove
+              ? `Choose a pawn to move. ${legalMoves.length} pawns can move`
+              : isMyTurn
+              ? 'Your turn'
+              : `Waiting for ${turnPlayer?.displayName || 'another player'}`}
+          </div>
+          {!gameState.winnerColor && turnSecsLeft !== null && (
+            <div
+              className={`mb-1 inline-flex items-center gap-1 text-[10px] sm:text-xs font-bold tabular-nums ${
+                turnSecsLeft <= 10 ? 'text-rose-300' : 'text-amber-200/80'
+              }`}
+              aria-label={`${turnSecsLeft} seconds left in this turn`}
+            >
+              <Clock className="w-3 h-3" />
+              <span>{turnSecsLeft}s</span>
+            </div>
+          )}
+          {actionNotice && (
+            <div role="alert" className="mb-1 max-w-full text-center text-[11px] sm:text-xs font-semibold text-rose-200 bg-rose-900/50 border border-rose-400/30 rounded-lg px-2 py-1">
+              {actionNotice}
+            </div>
+          )}
+
           {/* Central 3D Crimson Dice Control Button */}
           <div className="flex flex-col items-center gap-1 sm:gap-1.5">
             <button
               type="button"
+              disabled={isSpectator}
               onClick={() => {
+                if (isSpectator) return;
                 if (gameState.winnerColor && onRematch) {
                   onRematch();
                 } else if (canRoll && !isRollingDice) {
@@ -2767,14 +2889,16 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                   }, 55);
 
                   // Safety timeout so dice never gets stuck rolling if network stalls
-                  setTimeout(() => {
+                  if (rollSafetyTimerRef.current) clearTimeout(rollSafetyTimerRef.current);
+                  rollSafetyTimerRef.current = setTimeout(() => {
+                    rollSafetyTimerRef.current = null;
                     if (bottomDiceCycleRef.current) {
                       clearInterval(bottomDiceCycleRef.current);
                       bottomDiceCycleRef.current = null;
                     }
                     setIsRollingDice(false);
-                    if (gameState.diceValue !== null) {
-                      setBottomDiceDisplay(gameState.diceValue);
+                    if (latestDiceValueRef.current !== null) {
+                      setBottomDiceDisplay(latestDiceValueRef.current);
                     }
                   }, 1200);
 
@@ -2824,7 +2948,9 @@ export const LudoGame: React.FC<LudoGameProps> = ({
                 ? 'text-emerald-300 animate-pulse'
                 : 'text-white/80'
             }`}>
-              {gameState.winnerColor
+              {isSpectator
+                ? (gameState.winnerColor ? 'FINISHED' : 'WATCHING')
+                : gameState.winnerColor
                 ? 'REMATCH'
                 : isRollingDice
                 ? 'ROLLING...'

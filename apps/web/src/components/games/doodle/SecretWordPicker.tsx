@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, Brain, Clock, Palette, Lightbulb } from 'lucide-react';
+import { Brain, Clock, Palette, Lightbulb } from 'lucide-react';
 import { DoodleWordChoice } from '@synccinema/common';
 import { useTheme } from '../../../context/ThemeContext';
+import { AppIcon } from '../../ui/AppIcon';
 
 interface SecretWordPickerProps {
   isDrawer: boolean;
@@ -12,6 +13,7 @@ interface SecretWordPickerProps {
   guesserDisplayName: string;
   timeLeft: number;
   totalTime?: number;
+  guessTime?: number;
   onChooseWord: (word: string) => void;
 }
 
@@ -21,32 +23,26 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
   drawerDisplayName,
   guesserDisplayName,
   timeLeft,
-  totalTime = 15,
+  totalTime = 30,
+  guessTime = 60,
   onChooseWord
 }) => {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
-  const [customWord, setCustomWord] = React.useState('');
 
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / totalTime) * 100));
 
   const normalizedChoices = (wordChoices || []).map((choice: any) => {
     if (typeof choice === 'string') {
-      const raw = choice.replace(/^[^\w\s]+\s*/, '').trim();
-      return {
-        word: choice,
-        rawWord: raw || choice,
-        category: 'General',
-        difficulty: 'easy' as const
-      };
+      return { word: choice, icon: 'sparkles', category: 'General', difficulty: 'easy' as const };
     }
     return {
-      word: choice.word || '',
-      rawWord: (choice.word || '').replace(/^[^\w\s]+\s*/, '').trim(),
-      category: choice.category || 'General',
-      difficulty: choice.difficulty || 'easy'
+      word: String(choice?.word || ''),
+      icon: String(choice?.icon || 'sparkles'),
+      category: choice?.category || 'General',
+      difficulty: choice?.difficulty || 'easy'
     };
-  });
+  }).filter(c => c.word);
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 backdrop-blur-xl animate-in fade-in duration-200 select-none overflow-y-auto ${
@@ -93,7 +89,7 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
             </div>
 
             <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-[#ff2b5e] mb-0.5 shrink-0">
-              Your Turn to Draw 🎨
+              Your Turn to Draw
             </span>
 
             <h2 className={`text-lg sm:text-2xl font-black tracking-tight mb-0.5 sm:mb-1 shrink-0 ${
@@ -104,7 +100,7 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
             <p className={`text-[10px] sm:text-xs max-w-sm mb-2.5 sm:mb-4 leading-snug shrink-0 ${
               isDark ? 'text-zinc-400' : 'text-slate-500'
             }`}>
-              Pick a secret word. <span className="font-bold text-[#ff2b5e]">{guesserDisplayName}</span> will have 60 seconds to guess your sketch!
+              Pick a secret word. <span className="font-bold text-[#ff2b5e]">{guesserDisplayName}</span> will have {guessTime} seconds to guess your sketch!
             </p>
 
             {/* Word Choices Grid */}
@@ -121,13 +117,14 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
                   <button
                     key={`${choice.word}_${idx}`}
                     type="button"
-                    onClick={() => onChooseWord(choice.rawWord || choice.word)}
+                    onClick={() => onChooseWord(choice.word)}
                     className={`group relative w-full flex items-center justify-between p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border transition-all transform hover:-translate-y-0.5 active:scale-[0.98] text-left shadow-sm cursor-pointer gap-2 ${
                       isDark
                         ? 'bg-white/[0.03] hover:bg-white/[0.08] border-white/10 hover:border-[#ff2b5e]/50'
                         : 'bg-slate-50/80 hover:bg-rose-50/40 border-slate-200 hover:border-[#ff2b5e]/40'
                     }`}
                   >
+                    <AppIcon name={choice.icon} className="w-5 h-5 shrink-0 text-[#ff2b5e]" />
                     <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                       <span className={`text-sm sm:text-base font-black transition-colors truncate block ${
                         isDark ? 'text-white group-hover:text-[#ff2b5e]' : 'text-slate-900 group-hover:text-[#ff2b5e]'
@@ -160,45 +157,6 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
               })}
             </div>
 
-            {/* Divider or custom input */}
-            <div className="w-full flex items-center gap-2 my-2 sm:my-2.5 shrink-0">
-              <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
-              <span className={`text-[9px] sm:text-[11px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>
-                Or draw anything you want
-              </span>
-              <div className={`h-px flex-1 ${isDark ? 'bg-white/10' : 'bg-slate-200'}`} />
-            </div>
-
-            {/* Custom word/phrase input form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (customWord.trim()) {
-                  onChooseWord(customWord.trim());
-                }
-              }}
-              className="w-full flex items-center gap-1.5 sm:gap-2 shrink-0"
-            >
-              <input
-                type="text"
-                value={customWord}
-                onChange={(e) => setCustomWord(e.target.value)}
-                placeholder="Enter drawing idea (e.g. Castle...)"
-                maxLength={40}
-                className={`flex-1 min-w-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl border text-xs sm:text-sm font-medium outline-none transition-all ${
-                  isDark
-                    ? 'bg-white/5 border-white/10 text-white placeholder-zinc-500 focus:border-[#ff3864]'
-                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#ff3864]'
-                }`}
-              />
-              <button
-                type="submit"
-                disabled={!customWord.trim()}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#ff3864] to-[#f43f5e] text-white text-xs font-bold hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
-              >
-                Draw 🎨
-              </button>
-            </form>
           </>
         ) : (
           <>
@@ -214,7 +172,7 @@ export const SecretWordPicker: React.FC<SecretWordPickerProps> = ({
             </div>
 
             <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-violet-400 mb-0.5 shrink-0">
-              Guesser Waiting Room 🧠
+              Guesser Waiting Room
             </span>
 
             <h2 className={`text-lg sm:text-2xl font-black tracking-tight mb-1 sm:mb-1.5 shrink-0 ${

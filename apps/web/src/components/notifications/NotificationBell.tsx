@@ -7,12 +7,9 @@ import {
   CheckCheck,
   Trash2,
   ExternalLink,
-  Sparkles,
-  Flame,
-  Gamepad2,
-  Film,
-  MessageSquare
+  Sparkles
 } from 'lucide-react';
+import { AppIcon, IconName } from '../ui/AppIcon';
 import { useNotifications, AppNotification } from '../../context/NotificationContext';
 
 function formatTimeAgo(timestamp: number): string {
@@ -26,19 +23,23 @@ function formatTimeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
-function getCategoryIcon(category: string) {
+function categoryIconName(category: string): IconName {
   switch (category) {
     case 'game':
-      return <Gamepad2 className="w-3.5 h-3.5 text-purple-400" />;
+      return 'game';
     case 'watch':
-      return <Film className="w-3.5 h-3.5 text-blue-400" />;
+      return 'movie';
     case 'streak':
-      return <Flame className="w-3.5 h-3.5 text-amber-500" />;
+      return 'fire';
+    case 'system':
+      return 'bell';
     case 'nudge':
     default:
-      return <MessageSquare className="w-3.5 h-3.5 text-rose-500" />;
+      return 'message';
   }
 }
+
+const SHOW_TEST_TOOLS = process.env.NODE_ENV !== 'production';
 
 export const NotificationBell: React.FC<{ className?: string }> = ({ className = '' }) => {
   const router = useRouter();
@@ -85,7 +86,7 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
 
   const handleTestRoast = () => {
     triggerLocalNotification({
-      title: 'Zomato Roast 🛵💨',
+      title: 'Zomato Roast',
       body: 'Khana thanda ho jayega par aapka reply nahi aayega... Jaldi aao!',
       category: 'nudge',
       link: '/games'
@@ -168,14 +169,14 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
                 <>
                   <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-[11px] font-medium">
-                    Alerts route to <strong>📱 Mobile</strong>
+                    Alerts route to <strong><AppIcon name="phone" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Mobile</strong>
                   </span>
                 </>
               ) : (
                 <>
                   <span className="flex h-2 w-2 rounded-full bg-blue-500" />
                   <span className="text-[11px] font-medium">
-                    Alerts route to <strong>💻 Desktop</strong>
+                    Alerts route to <strong><AppIcon name="laptop" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Desktop</strong>
                   </span>
                 </>
               )}
@@ -196,7 +197,7 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
             {notifications.length === 0 ? (
               <div className="p-8 text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-[#ee1d49]/10 text-[#ee1d49] mx-auto flex items-center justify-center text-2xl">
-                  🍿
+                  <AppIcon name="popcorn" className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-slate-800 dark:text-zinc-200">
@@ -206,14 +207,16 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
                     When your partner pings you, sends a roast, or invites you to a game, it will appear here.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleTestRoast}
-                  className="mt-2 inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-[#ee1d49]/10 text-slate-600 dark:text-zinc-300 hover:text-[#ee1d49] text-[11px] font-semibold transition cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#ee1d49]" />
-                  <span>Send Test Roast 🛵</span>
-                </button>
+                {SHOW_TEST_TOOLS && (
+                  <button
+                    type="button"
+                    onClick={handleTestRoast}
+                    className="mt-2 inline-flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-[#ee1d49]/10 text-slate-600 dark:text-zinc-300 hover:text-[#ee1d49] text-[11px] font-semibold transition cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#ee1d49]" />
+                    <span>Send Test Roast</span>
+                  </button>
+                )}
               </div>
             ) : (
               notifications.map((n) => (
@@ -228,8 +231,8 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
                 >
                   {/* Category icon / avatar */}
                   <div className="relative shrink-0">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/[0.08] flex items-center justify-center text-lg shadow-2xs">
-                      {n.emoji || getCategoryIcon(n.category)}
+                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/[0.08] flex items-center justify-center shadow-2xs">
+                      <AppIcon name={n.icon || categoryIconName(n.category)} className="w-4 h-4" />
                     </div>
                     {!n.read && (
                       <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#ee1d49] ring-2 ring-white dark:ring-[#15101f]" />
@@ -265,17 +268,32 @@ export const NotificationBell: React.FC<{ className?: string }> = ({ className =
 
           {/* Footer Quick Action */}
           <div className="p-3 bg-slate-50/70 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/[0.04] flex items-center justify-between gap-2">
-            <button
-              type="button"
-              onClick={handleTestRoast}
-              className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 hover:text-[#ee1d49] transition flex items-center space-x-1 cursor-pointer shrink-0 truncate"
-              title="Test roast notification & desktop popup"
-            >
-              <Sparkles className="w-3 h-3 text-[#ee1d49] shrink-0" />
-              <span className="truncate">Test Notification 🚀</span>
-            </button>
+            {SHOW_TEST_TOOLS ? (
+              <button
+                type="button"
+                onClick={handleTestRoast}
+                className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 hover:text-[#ee1d49] transition flex items-center space-x-1 cursor-pointer shrink-0 truncate"
+                title="Test roast notification & desktop popup"
+              >
+                <Sparkles className="w-3 h-3 text-[#ee1d49] shrink-0" />
+                <span className="truncate">Test Notification</span>
+              </button>
+            ) : (
+              <span />
+            )}
 
-            {permission !== 'granted' ? (
+            {permission === 'denied' ? (
+              <span
+                className="text-[10px] font-semibold text-rose-500 text-right leading-tight"
+                title="Your browser blocked notifications for this site"
+              >
+                Blocked: click the lock icon in the address bar and allow Notifications
+              </span>
+            ) : permission === 'unsupported' ? (
+              <span className="text-[10px] font-semibold text-slate-400 text-right leading-tight">
+                Alerts show in the app only (this browser has no notifications)
+              </span>
+            ) : permission !== 'granted' ? (
               <button
                 type="button"
                 onClick={() => requestPermission()}

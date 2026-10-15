@@ -117,8 +117,8 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      loadRequests();
-      loadDiscoverUsers(discoverSearch);
+      void loadRequests();
+      void loadDiscoverUsers(discoverSearch);
       if (initialRequests && initialRequests.incoming.length > 0) {
         setActiveTab('requests');
       }
@@ -129,7 +129,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       const timer = setTimeout(() => {
-        loadDiscoverUsers(discoverSearch);
+        void loadDiscoverUsers(discoverSearch);
       }, 250);
       return () => clearTimeout(timer);
     }
@@ -178,7 +178,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
       const res = await addFriendByCode(token, code);
       if (res.success) {
         if (res.status === 'ACCEPTED' && res.friend) {
-          setSuccessMessage(`You and ${res.friend.friendUser.displayName} are now friends! 🔥`);
+          setSuccessMessage(`You and ${res.friend.friendUser.displayName} are now friends!`);
           onFriendAdded(res.friend);
         } else {
           setSuccessMessage(res.message || `Friend request sent to ${code}!`);
@@ -208,7 +208,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
         onRequestsUpdated?.(newRequests);
 
         onFriendAdded(res.friend);
-        setSuccessMessage(`Accepted ${displayName}'s friend request! 🔥`);
+        setSuccessMessage(`Accepted ${displayName}'s friend request!`);
         setTimeout(() => setSuccessMessage(null), 3000);
       }
     } catch (err: any) {
@@ -264,7 +264,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
       const res = await addFriendByCode(token, targetUser.partnerCode);
       if (res.success) {
         if (res.status === 'ACCEPTED' && res.friend) {
-          setSuccessMessage(`You and ${targetUser.displayName} are now friends! 🔥`);
+          setSuccessMessage(`You and ${targetUser.displayName} are now friends!`);
           onFriendAdded(res.friend);
           setDiscoverUsers((prev) => prev.filter((u) => u.id !== targetUser.id));
         } else {
@@ -305,7 +305,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
                 Friends & Requests
               </h3>
               <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Connect and keep your 🔥 streaks alive
+                Connect and keep your streaks alive
               </p>
             </div>
           </div>
@@ -347,7 +347,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({
               setActiveTab('requests');
               setError(null);
               setSuccessMessage(null);
-              loadRequests();
+              void loadRequests();
             }}
             className={`relative py-3 px-4 text-xs sm:text-sm font-bold transition flex items-center gap-2 ${
               activeTab === 'requests'

@@ -12,7 +12,7 @@ export const HowToPlay: React.FC<HowToPlayProps> = ({ isDark = false }) => {
     'One player gets a word and draws it.',
     'The other player guesses in real-time.',
     'Then roles switch!',
-    'Most correct guesses win! 🎉'
+    'Most correct guesses win!'
   ];
 
   return (

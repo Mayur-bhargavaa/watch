@@ -1,5 +1,6 @@
 'use client';
 
+import { bingoErrorText } from '../lib/bingoDuelView';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   GameRoom,
@@ -13,7 +14,23 @@ import {
   DoodleConfig,
   DoodleRole
 } from '@synccinema/common';
-import { WS_BASE, getStoredSession, ensureSession, recordFriendStreak } from '../lib/api';
+import { WS_BASE, getStoredSession, ensureSession, recordFriendStreak, getWsTicket } from '../lib/api';
+import {
+  reconnectDelayMs,
+  decideOnClose,
+  isTerminalErrorCode,
+  mapGameError,
+  isValidReactionEmoji,
+  sanitizeReactionEmoji,
+  forfeitWinForMe,
+  type GameErrorInfo
+} from '../lib/gameConnection';
+import {
+  applySpectateParam,
+  isSpectatorAllowedMessage,
+  spectatorInfoFromSync,
+  spectatorsFromEvent
+} from '../lib/spectator';
 
 export interface GameChatMessage {
   id: string;
@@ -23,6 +40,8 @@ export interface GameChatMessage {
   content: string;
   timestamp: number;
   replyTo?: ChatReplyTo | null;
+  /** Mafia Night only: which channel the server delivered the message on */
+  channel?: 'town' | 'mafia' | 'dead';
 }
 
 export interface FloatingReaction {
@@ -42,6 +61,7 @@ export interface DiceRollEvent {
   diceValue: number;
   hasLegalMoves: boolean;
   earnedBonusRoll: boolean;
+  auto?: boolean;
 }
 
 export interface TokenMovedEvent {
@@ -52,6 +72,8 @@ export interface TokenMovedEvent {
   displayName: string;
   tokenId: number;
   capturedToken?: { color: LudoColor; tokenId: number };
+  capturedTokens?: { color: LudoColor; tokenId: number }[];
+  auto?: boolean;
   reachedHome?: boolean;
   earnedBonusRoll: boolean;
   isWinner: boolean;
@@ -129,6 +151,12 @@ function deduceGameTypeFromContext(roomCode?: string | null): string | undefined
     if (path.includes('/games/four-in-a-row') || path.includes('/games/connect4')) return 'four-in-a-row';
     if (path.includes('/games/tambola')) return 'tambola';
     if (path.includes('/games/ludo')) return 'ludo';
+    if (path.includes('/games/imposter')) return 'imposter';
+    if (path.includes('/games/emoji-charades')) return 'emoji-charades';
+    if (path.includes('/games/mafia')) return 'mafia-night';
+    if (path.includes('/games/quiz-show')) return 'quiz-show';
+    if (path.includes('/games/murder-mystery')) return 'murder-mystery';
+    if (path.includes('/games/tournament')) return 'tournament';
   }
   const code = (roomCode || '').toUpperCase();
   if (code.startsWith('BINGO-')) return 'bingo';
@@ -138,10 +166,16 @@ function deduceGameTypeFromContext(roomCode?: string | null): string | undefined
   if (code.startsWith('FOUR-')) return 'four-in-a-row';
   if (code.startsWith('TAMBOLA-')) return 'tambola';
   if (code.startsWith('LUDO-')) return 'ludo';
+  if (code.startsWith('IMPOSTER-')) return 'imposter';
+  if (code.startsWith('EMOJI-')) return 'emoji-charades';
+  if (code.startsWith('MAFIA-')) return 'mafia-night';
+  if (code.startsWith('QUIZ-')) return 'quiz-show';
+  if (code.startsWith('MURDER-')) return 'murder-mystery';
+  if (code.startsWith('ARENA-')) return 'tournament';
   return undefined;
 }
 
-export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
+export function useGameRoom(roomCode: string | null, gameTypeHint?: string, options?: { create?: boolean; spectate?: boolean }) {
   const [room, setRoom] = useState<GameRoom | null>(null);
   const [roomTheme, setRoomTheme] = useState<string>('romantic');
   const [gameState, setGameState] = useState<any>(null);
@@ -170,18 +204,39 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   const [lastDoodleStroke, setLastDoodleStroke] = useState<DoodleStroke | null>(null);
   const [liveDoodleStroke, setLiveDoodleStroke] = useState<any | null>(null);
   const [lastDoodleGuess, setLastDoodleGuess] = useState<DoodleGuess | null>(null);
+  const [doodleError, setDoodleError] = useState<{ code: string; message: string; ts: number } | null>(null);
   const [lastChessMove, setLastChessMove] = useState<any | null>(null);
   const [chessMoveError, setChessMoveError] = useState<string | null>(null);
   const [chessDrawOffer, setChessDrawOffer] = useState<{ fromUserId: string; fromDisplayName: string } | null>(null);
   const [chessTakebackRequest, setChessTakebackRequest] = useState<{ fromUserId: string; fromDisplayName: string } | null>(null);
   const [chessClockTick, setChessClockTick] = useState<{ whiteTimeMs: number; blackTimeMs: number; turn: 'w' | 'b' } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gameActionError, setGameActionError] = useState<{ code: string; message: string; action?: string; ts: number } | null>(null);
+  const [gameError, setGameError] = useState<{ code: string; message: string; action?: string; ts: number } | null>(null);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<{
     userId: string;
     displayName: string;
     isLeft: boolean;
     timestamp: number;
+    graceSeconds?: number;
   } | null>(null);
+  // Generic server rule/authorization error (game:error). Auto-clears after a few seconds.
+  // Server refused this user (NOT_A_PLAYER): terminal, no auto-reconnect.
+  const [notAPlayer, setNotAPlayer] = useState(false);
+  // Read-only spectator mode (server role 'spectator'); never treated as a player.
+  const [isSpectator, setIsSpectator] = useState(false);
+  const [spectatorCount, setSpectatorCount] = useState(0);
+  const [spectators, setSpectators] = useState<string[]>([]);
+  // Spectator seats are full (SPECTATOR_LIMIT): terminal.
+  const [spectatorLimit, setSpectatorLimit] = useState(false);
+  const isSpectatorRef = useRef(false);
+  // Server refused a rematch (someone left): sticky until a new game starts.
+  const [rematchUnavailable, setRematchUnavailable] = useState(false);
+  // This tab was replaced by another tab of the same user (or the room is gone): no auto-reconnect.
+  const [connectionStopped, setConnectionStopped] = useState<
+    null | 'KICKED' | 'ROOM_GONE' | 'GAVE_UP' | 'AUTH_REQUIRED' | 'NOT_A_PLAYER' | 'SPECTATOR_LIMIT' | 'UPGRADE_REQUIRED'
+  >(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [nudgeAlert, setNudgeAlert] = useState<{
     fromDisplayName: string;
     message?: string;
@@ -201,6 +256,19 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     reason?: string;
     message: string;
   } | null>(null);
+  // Tournament Arena: "your match is ready" and "the organiser removed you" notices (set by tournament:* messages)
+  const [tournamentMatchReady, setTournamentMatchReady] = useState<{
+    matchId: string;
+    roundName: string;
+    game: string;
+    gameNo: number;
+    roomCode: string;
+    joinDeadline: number | null;
+    opponent: { userId: string; displayName: string; avatarUrl?: string | null } | null;
+    ts: number;
+  } | null>(null);
+  const [tournamentKicked, setTournamentKicked] = useState<string | null>(null);
+  const [ludoTurnTimer, setLudoTurnTimer] = useState<{ seat: number; userId?: string; timeoutMs: number; deadlineAt: number } | null>(null);
   const [opponentLeftWin, setOpponentLeftWin] = useState<{
     opponentDisplayName: string;
     winnerDisplayName: string;
@@ -212,21 +280,34 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
   const hasTerminalErrorRef = useRef(false);
+  const terminalCodeRef = useRef<string | null>(null);
+  const connIdRef = useRef(0); // per-connection token: events from superseded sockets are ignored
+  const attemptRef = useRef(0);
+  const roomCodeRef = useRef<string | null>(roomCode);
+  const gameTypeHintRef = useRef<string | undefined>(gameTypeHint);
+  const optionsRef = useRef<{ create?: boolean; spectate?: boolean } | undefined>(options);
+  const gameErrorTimerRef = useRef<any>(null);
+  const reactionTimersRef = useRef<Set<any>>(new Set());
   const isUnmountedRef = useRef(false);
   const lastChatSendRef = useRef<number>(0);
   const myUserIdRef = useRef<string>('');
   const roomRef = useRef<GameRoom | null>(null);
   const gameStateRef = useRef<any>(null);
   const handleMessageRef = useRef<((msg: any) => void) | null>(null);
+  roomCodeRef.current = roomCode;
+  gameTypeHintRef.current = gameTypeHint;
+  optionsRef.current = options;
 
   // WebRTC & Audio/Video Call Listeners
   const signalListenersRef = useRef<Set<(fromUserId: string, signal: any) => void>>(new Set());
   const cameraListenersRef = useRef<Set<(userId: string, isCameraOn: boolean) => void>>(new Set());
   const voiceListenersRef = useRef<Set<(userId: string, isMuted: boolean) => void>>(new Set());
 
+  roomRef.current = room;
   // Derive my player
-  const myPlayer: GameRoomPlayer | null =
-    room?.players.find(p => p.userId === myUserId) || null;
+  const myPlayer: GameRoomPlayer | null = isSpectator
+    ? null
+    : room?.players.find(p => p.userId === myUserId) || null;
 
   // Derive turns and capabilities
   const isPlaying = room?.status === 'PLAYING';
@@ -240,6 +321,10 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   const legalMoves = isMyTurn ? (gameState?.legalMoves || []) : [];
   const canMove = Boolean(isMyTurn && !gameState?.canRoll && legalMoves.length > 0);
 
+  useEffect(() => {
+    if (room?.status === 'PLAYING') setRematchUnavailable(false);
+  }, [room?.status]);
+
   // Universal Friend Streak Celebration State
   const [streakCelebration, setStreakCelebration] = useState<{
     friendName: string;
@@ -251,7 +336,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   // Automatic streak tracking for ALL games
   useEffect(() => {
     const session = getStoredSession();
-    if (room?.status === 'PLAYING' && room?.players && session?.token && myUserId) {
+    // Tournament Arena: 32 opponents would be 32 requests per player; the 2-player match rooms record the streaks of the people who really play
+    if (!isSpectator && room?.status === 'PLAYING' && room?.gameType !== 'tournament' && room?.players && session?.token && myUserId) {
       const today = new Date().toISOString().split('T')[0];
       const opponents = room.players.filter(
         p => p.userId && p.userId !== myUserId && !p.userId.startsWith('bot_') && !p.userId.startsWith('guest_')
@@ -277,15 +363,31 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         }
       }
     }
-  }, [room?.status, room?.players, myUserId]);
+  }, [room?.status, room?.players, myUserId, isSpectator]);
+
+  const detachSocket = useCallback(() => {
+    const old = socketRef.current;
+    socketRef.current = null;
+    if (old) {
+      old.onopen = null;
+      old.onmessage = null;
+      old.onerror = null;
+      old.onclose = null;
+      try { old.close(); } catch {}
+    }
+  }, []);
 
   const connect = useCallback(async () => {
-    if (!roomCode || isUnmountedRef.current) return;
+    const code = roomCodeRef.current;
+    if (!code || isUnmountedRef.current) return;
+    const connId = ++connIdRef.current;
+    const isStale = () => isUnmountedRef.current || connId !== connIdRef.current;
 
     try {
       hasTerminalErrorRef.current = false;
-      setConnectionStatus('CONNECTING');
-      let session = getStoredSession();
+      terminalCodeRef.current = null;
+      setConnectionStatus(attemptRef.current > 0 ? 'RECONNECTING' : 'CONNECTING');
+      const session = getStoredSession();
       if (!session?.token || session.user?.isAnonymous) {
         if (typeof window !== 'undefined') {
           const currentPath = window.location.pathname + window.location.search;
@@ -300,29 +402,46 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       myUserIdRef.current = session.user.id;
 
       // Build websocket URL
-      let wsUrl = `${WS_BASE}/ws/games/${encodeURIComponent(roomCode.toUpperCase())}`;
-      const effectiveGame = gameTypeHint || deduceGameTypeFromContext(roomCode);
+      let wsUrl = `${WS_BASE}/ws/games/${encodeURIComponent(code.toUpperCase())}`;
+      const effectiveGame = gameTypeHintRef.current || deduceGameTypeFromContext(code);
       const params = new URLSearchParams();
       if (effectiveGame) {
         params.set('gameType', effectiveGame);
       }
-      params.set('token', session.token);
+      params.set('ticket', await getWsTicket());
+      if (isStale()) return;
+      if (optionsRef.current?.create !== false) params.set('create', '1'); // explicit opt-in (Ludo passes create:false)
+      applySpectateParam(params, optionsRef.current?.spectate === true);
       const qs = params.toString();
       if (qs) {
         wsUrl += `?${qs}`;
       }
 
+      detachSocket();
       const socket = new WebSocket(wsUrl);
       socketRef.current = socket;
+      if (optionsRef.current?.spectate === true) {
+        // Hard guard: a spectator socket can only ever send the read-only allow list.
+        const rawSend = socket.send.bind(socket);
+        socket.send = (data: any) => {
+          try {
+            const t = typeof data === 'string' ? JSON.parse(data)?.type : undefined;
+            if (!isSpectatorAllowedMessage(t)) return;
+          } catch { return; }
+          rawSend(data);
+        };
+      }
 
       socket.onopen = () => {
-        if (isUnmountedRef.current) return;
+        if (isStale()) return;
+        attemptRef.current = 0;
+        setReconnectAttempt(0);
         setConnectionStatus('CONNECTED');
         setError(null);
       };
 
       socket.onmessage = (event) => {
-        if (isUnmountedRef.current) return;
+        if (isStale()) return;
         try {
           const msg = JSON.parse(event.data);
           const handler = handleMessageRef.current || handleMessage;
@@ -337,46 +456,93 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       };
 
       socket.onclose = (event: CloseEvent) => {
-        if (isUnmountedRef.current) return;
-        setConnectionStatus('DISCONNECTED');
-        if (event.code === 4001 || event.reason === 'AUTH_REQUIRED') {
+        if (isStale()) return;
+        if (socketRef.current === socket) socketRef.current = null;
+        const decision = decideOnClose(event, terminalCodeRef.current, attemptRef.current);
+        if (decision.action === 'stop') {
           hasTerminalErrorRef.current = true;
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-          }
-          if (typeof window !== 'undefined') {
+          setConnectionStatus('DISCONNECTED');
+          setConnectionStopped(decision.reason);
+          if (decision.reason === 'NOT_A_PLAYER') setNotAPlayer(true);
+          if (decision.reason === 'SPECTATOR_LIMIT') setSpectatorLimit(true);
+          if (decision.reason === 'AUTH_REQUIRED' && typeof window !== 'undefined') {
             const currentPath = window.location.pathname + window.location.search;
             window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
           }
           return;
         }
-        if (!hasTerminalErrorRef.current) {
-          // Auto-reconnect after 2 seconds
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (!isUnmountedRef.current && roomCode && !hasTerminalErrorRef.current) {
-              connect();
-            }
-          }, 2000);
-        }
+        setConnectionStatus('RECONNECTING');
+        const delay = reconnectDelayMs(attemptRef.current);
+        attemptRef.current += 1;
+        setReconnectAttempt(attemptRef.current);
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (!isStale() && !hasTerminalErrorRef.current) {
+            void connect();
+          }
+        }, delay);
       };
     } catch (err: any) {
-      if (!isUnmountedRef.current) {
-        setError(err?.message || 'Failed to connect to game');
-        setConnectionStatus('DISCONNECTED');
+      if (!isStale()) {
+        // Ticket fetch / socket creation failed: retry with backoff instead of giving up forever.
+        const decision = decideOnClose({}, null, attemptRef.current);
+        if (decision.action === 'stop') {
+          setError(err?.message || 'Failed to connect to game');
+          setConnectionStatus('DISCONNECTED');
+          setConnectionStopped('GAVE_UP');
+          return;
+        }
+        setConnectionStatus('RECONNECTING');
+        const delay = reconnectDelayMs(attemptRef.current);
+        attemptRef.current += 1;
+        setReconnectAttempt(attemptRef.current);
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (!isStale() && !hasTerminalErrorRef.current) void connect();
+        }, delay);
       }
     }
-  }, [roomCode]);
+  }, [detachSocket]);
+
+  const showGameError = useCallback((payload: any) => {
+    const info = mapGameError(payload);
+    setGameError({ ...info, ts: Date.now() });
+    setGameActionError({ ...info, ts: Date.now() });
+    if (gameErrorTimerRef.current) clearTimeout(gameErrorTimerRef.current);
+    gameErrorTimerRef.current = setTimeout(() => { setGameError(null); setGameActionError(null); }, 5000);
+  }, []);
+
+  const clearGameError = useCallback(() => {
+    if (gameErrorTimerRef.current) clearTimeout(gameErrorTimerRef.current);
+    setGameError(null);
+    setGameActionError(null);
+  }, []);
+
+  const addFloatingReaction = useCallback((reaction: FloatingReaction) => {
+    setFloatingReactions(prev => [...prev.slice(-30), reaction]);
+    const t = setTimeout(() => {
+      reactionTimersRef.current.delete(t);
+      setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
+    }, 3500);
+    reactionTimersRef.current.add(t);
+  }, []);
 
   const handleMessage = (msg: any) => {
     switch (msg.type) {
       case 'game:sync': {
         const payload = msg.payload;
         if (payload.room) {
+          // game:sync is the per-player projected source of truth: replace, never merge.
           setRoom(payload.room);
-          if (payload.room.gameState) {
-            setGameState(payload.room.gameState);
-          }
+          setGameState(payload.room.gameState ?? null);
+          setRematchStatus(null);
+        }
+        {
+          const info = spectatorInfoFromSync(payload);
+          isSpectatorRef.current = info.isSpectator;
+          setIsSpectator(info.isSpectator);
+          setSpectatorCount(info.spectatorCount);
+          setSpectators(info.spectators);
         }
         if (payload.theme || payload.room?.theme) {
           setRoomTheme(payload.theme || payload.room.theme);
@@ -409,7 +575,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         const { player, room: updatedRoom } = msg.payload;
         if (updatedRoom) {
           setRoom(updatedRoom);
-          if (updatedRoom.gameState) {
+          if (updatedRoom.gameState !== undefined) {
             setGameState(updatedRoom.gameState);
           }
         } else {
@@ -432,6 +598,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
           winnerDisplayName,
           winnerColor,
           forfeitMessage,
+          hostUserId,
+          roomClosed,
           gameState: updatedState
         } = msg.payload;
 
@@ -439,7 +607,9 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
           if (!prev) return prev;
           return {
             ...prev,
-            status: isWinner ? 'FINISHED' : prev.status,
+            // Quiz Show Studio: the quiz master left the lobby, the room is closed
+            status: roomClosed ? 'CANCELLED' : isWinner ? 'FINISHED' : prev.status,
+            hostUserId: hostUserId || prev.hostUserId,
             players: prev.players.map(p =>
               p.userId === userId ? { ...p, isConnected: false, status: 'LEFT' as any } : p
             )
@@ -447,8 +617,6 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         });
 
         const currentUserId = myUserIdRef.current || myUserId;
-        const currentRoom = roomRef.current || room;
-        const remainingHuman = currentRoom?.players.find(p => p.userId !== userId);
         const isMeLeaving = userId === currentUserId;
 
         if (updatedState) {
@@ -460,37 +628,22 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
               ...prev,
               winnerUserId,
               winnerColor: winnerColor || prev.winnerColor,
-              winner: prev.winner || (winnerColor === 'red' ? 'R' : 'Y'),
-              statusMessage: forfeitMessage || `${displayName || 'Opponent'} left the game. You are the winner! 🏆`
+              statusMessage: forfeitMessage || prev.statusMessage
             };
           });
         }
 
-        if (!isMeLeaving) {
-          const winnerName = winnerDisplayName || remainingHuman?.displayName || 'You';
-          const winnerId = winnerUserId || remainingHuman?.userId || currentUserId;
-          const winnerCol = winnerColor || remainingHuman?.color;
-
+        // The "you win" banner only when the server says so AND the winner is me.
+        if (!isSpectatorRef.current && !isMeLeaving && forfeitWinForMe(msg.payload, currentUserId)) {
           setOpponentLeftWin({
             opponentDisplayName: displayName || 'Opponent',
-            winnerDisplayName: winnerName,
-            winnerUserId: winnerId,
-            winnerColor: winnerCol,
-            message: forfeitMessage || `${displayName || 'Opponent'} has left the game. You are the winner! 🏆`
-          });
-
-          // Ensure local gameState displays this win immediately
-          setGameState((prev: any) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              winnerUserId: winnerId,
-              winnerColor: winnerCol || prev.winnerColor,
-              winner: prev.winner || (winnerCol === 'red' ? 'R' : 'Y'),
-              statusMessage: forfeitMessage || `${displayName || 'Opponent'} left the game. You are the winner! 🏆`
-            };
+            winnerDisplayName: winnerDisplayName || 'You',
+            winnerUserId,
+            winnerColor,
+            message: forfeitMessage || `${displayName || 'Opponent'} has left the game. You are the winner!`
           });
         }
+        setRematchStatus(null);
 
         setDisconnectedPlayer({
           userId,
@@ -502,7 +655,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       }
 
       case 'game:player_disconnected': {
-        const { userId, displayName } = msg.payload;
+        const { userId, displayName, graceSeconds } = msg.payload;
         setRoom(prev => {
           if (!prev) return prev;
           return {
@@ -516,7 +669,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
           userId,
           displayName: displayName || 'Player',
           isLeft: false,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          graceSeconds: typeof graceSeconds === 'number' ? graceSeconds : undefined
         });
         break;
       }
@@ -525,7 +679,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         const { userId, room: updatedRoom } = msg.payload;
         if (updatedRoom) {
           setRoom(updatedRoom);
-          if (updatedRoom.gameState) {
+          if (updatedRoom.gameState !== undefined) {
             setGameState(updatedRoom.gameState);
           }
         } else {
@@ -550,7 +704,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         const isFromMe = Boolean(currentUserId && fromUserId === currentUserId);
         const isTargetedToMe = !targetUserId || (Boolean(currentUserId) && targetUserId === currentUserId);
 
-        if (!isFromMe && isTargetedToMe) {
+        if (!isSpectatorRef.current && !isFromMe && isTargetedToMe) {
           playNudgeChime();
           setNudgeAlert({
             fromDisplayName: fromDisplayName || 'Partner',
@@ -567,18 +721,16 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
             id: `react_${Date.now()}_${Math.random()}`,
             userId: fromUserId,
             userName: fromDisplayName || 'Partner',
-            emoji: '🔔',
+            emoji: 'bell', // icon name (see isIconName): rendered by the game pages as an icon, not text
             timestamp: Date.now()
           };
-          setFloatingReactions(prev => [...prev, reaction]);
-          setTimeout(() => {
-            setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
-          }, 3500);
+          addFloatingReaction(reaction);
         }
         break;
       }
 
       case 'game:rematch_status': {
+        if (isSpectatorRef.current) break;
         setRematchStatus(msg.payload);
         setRematchDeclined(null);
         // Do not wipe room status to WAITING or reset gameState - keep players on match screen
@@ -586,17 +738,41 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       }
 
       case 'game:rematch_agreed': {
+        if (isSpectatorRef.current) break;
+        const p = msg.payload || {};
+        const total = typeof p.totalNeeded === 'number' ? p.totalNeeded : (roomRef.current?.players.filter(x => (x as any).status !== 'LEFT').length || 2);
         setRematchStatus({
-          votedUserIds: [],
-          votedCount: 2,
-          totalNeeded: 2,
+          votedUserIds: Array.isArray(p.votedUserIds) ? p.votedUserIds : [],
+          votedCount: typeof p.votedCount === 'number' ? p.votedCount : total,
+          totalNeeded: total,
           allVoted: true
         });
         setRematchDeclined(null);
         break;
       }
 
+      case 'game:error': {
+        const gp = msg.payload || msg;
+        if (gp?.code === 'SPECTATOR') {
+          // Should never happen from the UI (controls are hidden): show a gentle note only.
+          showGameError({ code: 'SPECTATOR', message: 'You are watching, so only players can do that.' });
+          break;
+        }
+        if (gp?.code === 'REMATCH_UNAVAILABLE') setRematchUnavailable(true);
+        showGameError(gp);
+        break;
+      }
+
+      case 'game:spectators': {
+        const info = spectatorsFromEvent(msg.payload);
+        setSpectatorCount(info.count);
+        setSpectators(info.names);
+        break;
+      }
+
       case 'game:rematch_declined': {
+        if (isSpectatorRef.current) break;
+        if (msg.payload?.reason === 'opponent_left') setRematchUnavailable(true);
         setRematchStatus(null);
         setRematchDeclined(msg.payload);
         break;
@@ -640,7 +816,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
             number: startState.currentNumber,
             word: startState.currentNumberWord || null,
             calledNumbers: startState.calledNumbers || [startState.currentNumber],
-            remainingCount: startState.callQueue?.length ?? 89,
+            remainingCount: startState.remainingCount ?? startState.callQueue?.length ?? 89,
             timestamp: Date.now()
           });
         }
@@ -648,7 +824,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       }
 
       case 'game:dice_rolled': {
-        const { rollId, timestamp, seat, color, displayName, diceValue, hasLegalMoves, earnedBonusRoll, gameState: nextState } = msg.payload;
+        const { rollId, timestamp, seat, color, displayName, diceValue, hasLegalMoves, earnedBonusRoll, auto: diceAuto, gameState: nextState } = msg.payload;
         setGameState(nextState);
         setLastDiceRoll({
           rollId: rollId || `roll_${Date.now()}_${Math.random()}`,
@@ -658,7 +834,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
           displayName,
           diceValue,
           hasLegalMoves,
-          earnedBonusRoll
+          earnedBonusRoll,
+          auto: Boolean(diceAuto)
         });
         break;
       }
@@ -672,6 +849,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
           displayName,
           tokenId,
           capturedToken,
+          capturedTokens,
+          auto: moveAuto,
           reachedHome,
           earnedBonusRoll,
           isWinner,
@@ -688,12 +867,24 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
           displayName,
           tokenId,
           capturedToken,
+          capturedTokens,
+          auto: Boolean(moveAuto),
           reachedHome,
           earnedBonusRoll,
           isWinner,
           winnerColor,
           winnerUserId
         });
+        break;
+      }
+
+      case 'game:turn_timer': {
+        const p = msg.payload || {};
+        if (typeof p.deadlineAt === 'number') {
+          setLudoTurnTimer({ seat: p.seat, userId: p.userId, timeoutMs: p.timeoutMs, deadlineAt: p.deadlineAt });
+        } else {
+          setLudoTurnTimer(null);
+        }
         break;
       }
 
@@ -829,8 +1020,9 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       }
 
       case 'bingo:error': {
-        const { message } = msg.payload || {};
-        if (message) setError(message);
+        const { code, message } = msg.payload || {};
+        const text = bingoErrorText(code, message);
+        if (text) setError(text);
         break;
       }
 
@@ -839,6 +1031,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         const nextState = msg.payload?.gameState;
         if (nextState) {
           setGameState(nextState);
+          if (nextState.phase !== 'DRAWING') setLiveDoodleStroke(null);
           if (nextState.phase && nextState.phase !== 'LOBBY' && nextState.phase !== 'ROLE_SELECTION') {
             setRoom(prev => (prev ? { ...prev, status: 'PLAYING', gameState: nextState } : prev));
           }
@@ -848,7 +1041,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
 
       case 'doodle:live_draw': {
         const live = msg.payload?.liveStroke;
-        setLiveDoodleStroke(live);
+        setLiveDoodleStroke(live && typeof live === 'object' && Array.isArray(live.points) ? live : null);
         break;
       }
 
@@ -884,7 +1077,14 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         break;
       }
 
+      case 'doodle:error': {
+        const p = msg.payload || {};
+        setDoodleError({ code: String(p.code || 'error'), message: String(p.message || 'Action failed'), ts: Date.now() });
+        break;
+      }
+
       case 'doodle:canvas_cleared': {
+        setLiveDoodleStroke(null);
         setGameState((prev: any) => {
           if (!prev) return prev;
           return {
@@ -929,7 +1129,90 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
 
       case 'doodle:config_updated': {
         const { config } = msg.payload || {};
-        setGameState((prev: any) => prev ? { ...prev, config } : prev);
+        if (config) setGameState((prev: any) => prev ? { ...prev, config } : prev);
+        break;
+      }
+
+      case 'imposter:state': {
+        // Every Imposter message carries THIS player's redacted view (the server never sends the secret state to anyone)
+        const { gameState: nextState, roomStatus } = msg.payload || {};
+        if (nextState) {
+          setGameState(nextState);
+          setRoom(prev => (prev ? { ...prev, status: roomStatus || prev.status, gameState: nextState } : prev));
+          if (nextState.phase === 'REVEAL' && nextState.round > 1) setRematchStatus(null);
+        }
+        break;
+      }
+
+      case 'mafia:state': {
+        // Every Mafia Night message carries THIS player's redacted view (the server never sends the secret state to anyone)
+        const { gameState: nextState, roomStatus } = msg.payload || {};
+        if (nextState) {
+          setGameState(nextState);
+          setRoom(prev => (prev ? { ...prev, status: roomStatus || prev.status, gameState: nextState } : prev));
+          if (nextState.phase === 'ROLE_REVEAL') setRematchStatus(null);
+        }
+        break;
+      }
+
+      case 'quiz-show:state': {
+        // Every Quiz Show message carries THIS recipient's redacted view (the server never sends the correct answers early)
+        const { gameState: nextState, roomStatus } = msg.payload || {};
+        if (nextState) {
+          setGameState(nextState);
+          setRoom(prev => (prev ? { ...prev, status: roomStatus || prev.status, gameState: nextState } : prev));
+          if (nextState.phase === 'INTRO' && nextState.questionIndex === 0) setRematchStatus(null);
+        }
+        break;
+      }
+
+      case 'tournament:state': {
+        // Every Tournament Arena message carries THIS recipient's view (nothing here is secret, the server only drops its bookkeeping)
+        const { gameState: nextState, roomStatus } = msg.payload || {};
+        if (nextState) {
+          setGameState(nextState);
+          setRoom(prev => (prev ? { ...prev, status: roomStatus || prev.status, gameState: nextState } : prev));
+        }
+        break;
+      }
+
+      case 'tournament:match_ready': {
+        const p = msg.payload || {};
+        if (p.roomCode && p.matchId) setTournamentMatchReady({ ...p, ts: Date.now() });
+        break;
+      }
+
+      case 'tournament:match_closed': {
+        // A match room the tournament ended from outside its game (no-show, a leaver, the organiser): the game page shows the notice
+        const p = msg.payload || {};
+        setRoom(prev => (prev ? ({ ...prev, status: p.status === 'CANCELLED' ? 'CANCELLED' : 'FINISHED', tournamentNotice: String(p.message || '') } as any) : prev));
+        break;
+      }
+
+      case 'tournament:kicked': {
+        setTournamentKicked(String(msg.payload?.message || 'The organiser removed you from this tournament.'));
+        break;
+      }
+
+      case 'murder-mystery:state': {
+        // Every Murder Mystery message carries THIS recipient's redacted view (the server never sends other cards, clues or accusations early)
+        const { gameState: nextState, roomStatus } = msg.payload || {};
+        if (nextState) {
+          setGameState(nextState);
+          setRoom(prev => (prev ? { ...prev, status: roomStatus || prev.status, gameState: nextState } : prev));
+          if (nextState.phase === 'CHARACTER_REVEAL') setRematchStatus(null);
+        }
+        break;
+      }
+
+      case 'emoji-charades:state': {
+        // Every Emoji Charades message carries THIS player's redacted view (the server never sends the secret state to anyone)
+        const { gameState: nextState, roomStatus } = msg.payload || {};
+        if (nextState) {
+          setGameState(nextState);
+          setRoom(prev => (prev ? { ...prev, status: roomStatus || prev.status, gameState: nextState } : prev));
+          if (nextState.phase === 'COUNTDOWN' && nextState.round > 1) setRematchStatus(null);
+        }
         break;
       }
 
@@ -937,6 +1220,9 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         const { room: updatedRoom, gameState: nextState } = msg.payload || {};
         if (updatedRoom) setRoom(updatedRoom);
         if (nextState) setGameState(nextState);
+        setChessDrawOffer(null);
+        setChessTakebackRequest(null);
+        setLastChessMove(null);
         break;
       }
 
@@ -945,6 +1231,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         if (move) setLastChessMove(move);
         if (nextState) setGameState(nextState);
         setChessMoveError(null);
+        setChessDrawOffer(null);
+        setChessTakebackRequest(null);
         break;
       }
 
@@ -957,6 +1245,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
         const { gameState: nextState } = msg.payload || {};
         if (nextState) setGameState(nextState);
         setRoom(prev => prev ? { ...prev, status: 'FINISHED', gameState: nextState } : prev);
+        setChessDrawOffer(null);
+        setChessTakebackRequest(null);
         break;
       }
 
@@ -976,22 +1266,33 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
 
       case 'chess:draw_offered': {
         setChessDrawOffer(msg.payload);
+        if (msg.payload?.fromUserId) {
+          setGameState((prev: any) => prev ? { ...prev, drawOfferFrom: msg.payload.fromUserId } : prev);
+        }
         break;
       }
 
       case 'chess:draw_declined': {
         setChessDrawOffer(null);
+        setGameState((prev: any) => prev ? { ...prev, drawOfferFrom: null } : prev);
         break;
       }
 
       case 'chess:takeback_requested': {
         setChessTakebackRequest(msg.payload);
+        if (msg.payload?.fromUserId) {
+          setGameState((prev: any) => prev ? { ...prev, takebackRequestFrom: msg.payload.fromUserId } : prev);
+        }
         break;
       }
 
       case 'chess:takeback_responded': {
         setChessTakebackRequest(null);
-        if (msg.payload?.gameState) setGameState(msg.payload.gameState);
+        if (msg.payload?.gameState) {
+          setGameState(msg.payload.gameState);
+        } else {
+          setGameState((prev: any) => prev ? { ...prev, takebackRequestFrom: null } : prev);
+        }
         break;
       }
 
@@ -1033,29 +1334,37 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
       }
 
       case 'game:reaction_broadcast': {
-        const reaction: FloatingReaction = {
+        const emoji = sanitizeReactionEmoji(msg.payload?.emoji);
+        if (!emoji) break;
+        addFloatingReaction({
           id: `react_${Date.now()}_${Math.random()}`,
-          userId: msg.payload.userId,
-          userName: msg.payload.userName,
-          emoji: msg.payload.emoji,
-          timestamp: msg.payload.timestamp
-        };
-        setFloatingReactions(prev => [...prev, reaction]);
-        setTimeout(() => {
-          setFloatingReactions(prev => prev.filter(r => r.id !== reaction.id));
-        }, 3500);
+          userId: String(msg.payload.userId ?? ''),
+          userName: String(msg.payload.userName ?? ''),
+          emoji,
+          timestamp: Number(msg.payload.timestamp) || Date.now()
+        });
         break;
       }
 
       case 'error:notification': {
-        hasTerminalErrorRef.current = true;
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
-          reconnectTimeoutRef.current = null;
-        }
+        const errCode: string | undefined = msg.payload?.code;
         setError(msg.payload?.message || 'Game room error');
-        setConnectionStatus('DISCONNECTED');
-        if (msg.payload?.code === 'AUTH_REQUIRED' && typeof window !== 'undefined') {
+        if (isTerminalErrorCode(errCode)) {
+          // Terminal: the server closes the socket right after; do not auto-reconnect.
+          hasTerminalErrorRef.current = true;
+          terminalCodeRef.current = errCode || null;
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+          }
+          if (errCode === 'NOT_A_PLAYER') setNotAPlayer(true);
+          if (errCode === 'SPECTATOR_LIMIT') setSpectatorLimit(true);
+          setConnectionStatus('DISCONNECTED');
+        } else {
+          // RATE_LIMITED / JOIN_FAILED etc.: the socket stays open, surface as a transient game error.
+          showGameError({ code: errCode || 'ACTION_FAILED', message: msg.payload?.message });
+        }
+        if (errCode === 'AUTH_REQUIRED' && typeof window !== 'undefined') {
           const currentPath = window.location.pathname + window.location.search;
           window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
         }
@@ -1110,18 +1419,70 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
 
   useEffect(() => {
     isUnmountedRef.current = false;
-    connect();
+    // New room (or first mount): drop everything that belonged to the previous room.
+    attemptRef.current = 0;
+    hasTerminalErrorRef.current = false;
+    terminalCodeRef.current = null;
+    setReconnectAttempt(0);
+    setNotAPlayer(false);
+    setSpectatorLimit(false);
+    setRematchUnavailable(false);
+    setIsSpectator(false);
+    isSpectatorRef.current = false;
+    setSpectatorCount(0);
+    setSpectators([]);
+    setConnectionStopped(null);
+    setRoom(null);
+    setGameState(null);
+    setError(null);
+    setGameError(null);
+    setGameActionError(null);
+    setDisconnectedPlayer(null);
+    setRematchStatus(null);
+    setRematchDeclined(null);
+    setOpponentLeftWin(null);
+    setNudgeAlert(null);
+    setTypingUsers({});
+    setFloatingReactions([]);
+    setLastDiceRoll(null);
+    setLastTokenMove(null);
+    setLastDiscDrop(null);
+    setLastTicTacToeMove(null);
+    setLastBingoCall(null);
+    setLastBingoClaimResult(null);
+    setLastBingoConditionWon(null);
+    setLastDoodleStroke(null);
+    setLiveDoodleStroke(null);
+    setLastDoodleGuess(null);
+    setLastChessMove(null);
+    setChessMoveError(null);
+    setChessDrawOffer(null);
+    setChessTakebackRequest(null);
+    setChessClockTick(null);
+    setChatMessages(() => {
+      if (typeof window !== 'undefined' && roomCode) {
+        try {
+          const cached = localStorage.getItem(`synccinema_gchat_${roomCode.toUpperCase()}`);
+          if (cached) return JSON.parse(cached);
+        } catch (e) {}
+      }
+      return [];
+    });
+    void connect();
 
     return () => {
       isUnmountedRef.current = true;
+      connIdRef.current += 1; // invalidate every handler of the old socket
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
+      if (gameErrorTimerRef.current) clearTimeout(gameErrorTimerRef.current);
+      reactionTimersRef.current.forEach(t => clearTimeout(t));
+      reactionTimersRef.current.clear();
+      detachSocket();
     };
-  }, [connect]);
+  }, [roomCode, connect, detachSocket]);
 
   // Client actions
   const rollDice = useCallback(() => {
@@ -1154,6 +1515,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
   }, []);
 
   const sendReaction = useCallback((emoji: string) => {
+    if (!isValidReactionEmoji(emoji)) return;
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
       JSON.stringify({
@@ -1262,14 +1624,15 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     );
   }, []);
 
-  const makeTicTacToeMove = useCallback((cellIndex: number) => {
-    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+  const makeTicTacToeMove = useCallback((cellIndex: number): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
     socketRef.current.send(
       JSON.stringify({
         type: 'game:tictactoe_move',
         payload: { cellIndex }
       })
     );
+    return true;
   }, []);
 
   const sendChangeTheme = useCallback((theme: string) => {
@@ -1523,6 +1886,49 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     );
   }, []);
 
+  const sendImposter = useCallback((type: string, payload?: Record<string, unknown>) => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
+    socketRef.current.send(JSON.stringify({ type, payload: payload ?? {} }));
+  }, []);
+
+  const startImposterGame = useCallback((rounds: number) => sendImposter('imposter:start', { rounds }), [sendImposter]);
+  const sendImposterClue = useCallback((word: string) => sendImposter('imposter:clue', { word }), [sendImposter]);
+  const sendImposterReady = useCallback(() => sendImposter('imposter:ready'), [sendImposter]);
+  const sendImposterVote = useCallback((targetUserId: string) => sendImposter('imposter:vote', { targetUserId }), [sendImposter]);
+  const sendImposterGuess = useCallback((guess: string) => sendImposter('imposter:guess', { guess }), [sendImposter]);
+
+  const startMafiaGame = useCallback(() => sendImposter('mafia:start'), [sendImposter]);
+  const sendMafiaNightAction = useCallback((action: 'kill' | 'save' | 'investigate', targetUserId: string) => sendImposter('mafia:night_action', { action, targetUserId }), [sendImposter]);
+  const sendMafiaReady = useCallback(() => sendImposter('mafia:ready'), [sendImposter]);
+  const sendMafiaVote = useCallback((targetUserId: string) => sendImposter('mafia:vote', { targetUserId }), [sendImposter]);
+
+  const startMurderGame = useCallback(() => sendImposter('murder-mystery:start'), [sendImposter]);
+  const sendMurderPickCase = useCallback((caseId: string) => sendImposter('murder-mystery:pick_case', { caseId }), [sendImposter]);
+  const sendMurderNext = useCallback(() => sendImposter('murder-mystery:next'), [sendImposter]);
+  const sendMurderReady = useCallback(() => sendImposter('murder-mystery:ready'), [sendImposter]);
+  const sendMurderWhisper = useCallback((toUserId: string, text: string) => sendImposter('murder-mystery:whisper', { toUserId, text }), [sendImposter]);
+  const sendMurderShareClue = useCallback((clueId: string) => sendImposter('murder-mystery:share_clue', { clueId }), [sendImposter]);
+  const sendMurderAccuse = useCallback((characterId: string, motive: string) => sendImposter('murder-mystery:accuse', { characterId, motive }), [sendImposter]);
+  const startQuizGame = useCallback(() => sendImposter('quiz-show:start'), [sendImposter]);
+  const sendQuizEdit = useCallback((payload: Record<string, unknown>) => sendImposter('quiz-show:edit', payload), [sendImposter]);
+  const sendQuizAnswer = useCallback((questionId: string, optionIndex: number) => sendImposter('quiz-show:answer', { questionId, optionIndex }), [sendImposter]);
+  const sendQuizBuzz = useCallback((questionId: string) => sendImposter('quiz-show:buzz', { questionId }), [sendImposter]);
+  const sendQuizBuzzAnswer = useCallback((questionId: string, text: string) => sendImposter('quiz-show:buzz_answer', { questionId, text }), [sendImposter]);
+  const sendQuizJudge = useCallback((questionId: string, correct: boolean) => sendImposter('quiz-show:judge', { questionId, correct }), [sendImposter]);
+  const sendQuizControl = useCallback((action: 'skip' | 'reveal' | 'next' | 'end') => sendImposter('quiz-show:control', { action }), [sendImposter]);
+  const quizRematch = useCallback(() => sendImposter('quiz-show:rematch'), [sendImposter]);
+  const quizEditAgain = useCallback(() => sendImposter('quiz-show:edit_again'), [sendImposter]);
+
+  const sendTournamentConfig = useCallback((payload: { game?: string; thirdPlace?: boolean; finalBestOf?: 1 | 3 }) => sendImposter('tournament:config', payload), [sendImposter]);
+  const shuffleTournamentSeeds = useCallback(() => sendImposter('tournament:shuffle'), [sendImposter]);
+  const kickTournamentPlayer = useCallback((userId: string) => sendImposter('tournament:kick', { userId }), [sendImposter]);
+  const startTournament = useCallback(() => sendImposter('tournament:start'), [sendImposter]);
+  const advanceTournamentPlayer = useCallback((matchId: string, userId: string) => sendImposter('tournament:advance', { matchId, userId }), [sendImposter]);
+  const endTournament = useCallback(() => sendImposter('tournament:end'), [sendImposter]);
+
+  const startEmojiCharadesGame = useCallback((rounds: number, mode: string = 'race') => sendImposter('emoji-charades:start', { rounds, mode }), [sendImposter]);
+  const sendEmojiCharadesGuess = useCallback((guess: string) => sendImposter('emoji-charades:guess', { guess }), [sendImposter]);
+
   const startChessGame = useCallback((config?: any) => {
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return;
     socketRef.current.send(
@@ -1645,14 +2051,28 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     lastDoodleStroke,
     liveDoodleStroke,
     lastDoodleGuess,
+    doodleError,
     chatMessages,
     typingUsers,
     floatingReactions,
     connectionStatus,
     error,
+    gameError,
+    lastError: gameError,
+    clearGameError,
+    notAPlayer,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    spectatorLimit,
+    rematchUnavailable,
+    connectionStopped,
+    reconnectAttempt,
+    isReconnecting: connectionStatus === 'RECONNECTING',
     disconnectedPlayer,
     nudgeAlert,
     clearNudgeAlert: () => setNudgeAlert(null),
+    ludoTurnTimer,
     opponentLeftWin,
     clearOpponentLeftWin: () => setOpponentLeftWin(null),
     rollDice,
@@ -1679,6 +2099,42 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     sendDoodleGuess,
     requestDoodleHint,
     updateDoodleConfig,
+    startImposterGame,
+    sendImposterClue,
+    sendImposterReady,
+    sendImposterVote,
+    sendImposterGuess,
+    startMafiaGame,
+    sendMafiaNightAction,
+    sendMafiaReady,
+    sendMafiaVote,
+    startMurderGame,
+    sendMurderPickCase,
+    sendMurderNext,
+    sendMurderReady,
+    sendMurderWhisper,
+    sendMurderShareClue,
+    sendMurderAccuse,
+    startQuizGame,
+    sendQuizEdit,
+    sendQuizAnswer,
+    sendQuizBuzz,
+    sendQuizBuzzAnswer,
+    sendQuizJudge,
+    sendQuizControl,
+    quizRematch,
+    quizEditAgain,
+    sendTournamentConfig,
+    shuffleTournamentSeeds,
+    kickTournamentPlayer,
+    startTournament,
+    advanceTournamentPlayer,
+    endTournament,
+    tournamentMatchReady,
+    clearTournamentMatchReady: () => setTournamentMatchReady(null),
+    tournamentKicked,
+    startEmojiCharadesGame,
+    sendEmojiCharadesGuess,
     lastChessMove,
     chessMoveError,
     clearChessMoveError: () => setChessMoveError(null),
@@ -1703,6 +2159,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string) {
     rematchStatus,
     declineRematch,
     rematchDeclined,
+    gameActionError,
+    clearGameActionError: () => setGameActionError(null),
     clearRematchDeclined,
     sendWebRTCSignal,
     sendCameraState,

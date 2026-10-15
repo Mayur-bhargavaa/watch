@@ -1,5 +1,6 @@
 'use client';
 
+import { CHESS_CHAT_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   X as CloseIcon,
@@ -24,9 +25,11 @@ interface ChessChatDrawerProps {
   myUserId: string;
   onSendMessage: (content: string) => void;
   onSendReaction: (emoji: string) => void;
+  /** Spectators can read and react but not send messages. */
+  readOnly?: boolean;
 }
 
-const QUICK_REACTIONS = ['❤️', '😂', '🔥', '👏', '🎉', '👑'];
+const QUICK_REACTIONS = CHESS_CHAT_REACTIONS;
 
 function UserAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
   if (avatarUrl && !avatarUrl.includes('api.dicebear.com/7.x/bottts')) {
@@ -53,7 +56,8 @@ export const ChessChatDrawer: React.FC<ChessChatDrawerProps> = ({
   messages = [],
   myUserId,
   onSendMessage,
-  onSendReaction
+  onSendReaction,
+  readOnly = false
 }) => {
   const [inputText, setInputText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -177,7 +181,8 @@ export const ChessChatDrawer: React.FC<ChessChatDrawerProps> = ({
             </div>
           </div>
 
-          {/* Chat Input */}
+          {!readOnly && (<>
+{/* Chat Input */}
           <form onSubmit={handleSend} className="p-3 border-t border-black/[0.06] dark:border-white/10 flex items-center gap-2">
             <input
               type="text"
@@ -195,6 +200,8 @@ export const ChessChatDrawer: React.FC<ChessChatDrawerProps> = ({
               <Send className="w-4 h-4" />
             </button>
           </form>
+</>)}
+
 
         </div>
       </div>

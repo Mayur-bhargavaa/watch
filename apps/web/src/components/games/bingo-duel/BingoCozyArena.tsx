@@ -1,5 +1,7 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
+import { DoorOpen } from 'lucide-react';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   RotateCcw,
@@ -30,6 +32,8 @@ export interface BingoCozyArenaProps {
   winningIndices?: [number, number][];
   isMyTurn?: boolean;
   currentTurnDisplayName?: string;
+  turnSecondsLeft?: number | null; // server idle-turn countdown (45 s)
+  opponentMarkedCount?: number; // opponent marks are hidden: server sends only a count
   player1: {
     displayName: string;
     avatarUrl?: string | null;
@@ -55,6 +59,8 @@ export interface BingoCozyArenaProps {
   toast?: { message: string; valid?: boolean } | null;
   isOpponentLeft?: boolean;
   onStartNewMatch?: () => void;
+  /** Replaces the "Start New Match" banner button (e.g. NewGameWithOpponent). */
+  newGameSlot?: React.ReactNode;
   onNudge?: () => void;
   nudgeCooldown?: number;
   nudgeFeedback?: string | null;
@@ -86,6 +92,8 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
   winningIndices,
   isMyTurn = false,
   currentTurnDisplayName = 'You',
+  turnSecondsLeft = null,
+  opponentMarkedCount,
   player1,
   player2,
   onCellClick,
@@ -103,6 +111,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
   toast,
   isOpponentLeft = false,
   onStartNewMatch,
+  newGameSlot,
   onNudge,
   nudgeCooldown = 0,
   nudgeFeedback,
@@ -188,7 +197,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
             >
               Play Laugh
               <br />
-              Stay Together ♡
+              Stay Together
             </div>
           </div>
         </div>
@@ -209,7 +218,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
           <p className="hidden sm:block text-[9px] sm:text-xs font-bold tracking-wider sm:tracking-[0.22em] text-[#9333ea] mt-0.5 uppercase whitespace-nowrap">
             {completedLines && completedLines.length > 0
               ? `${completedLines.length} OF 5 LINES CUT!`
-              : 'SAME GAME ♡ DIFFERENT HEARTS'}
+              : 'SAME GAME DIFFERENT HEARTS'}
           </p>
         </div>
 
@@ -288,14 +297,14 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
             </button>
           </div>
 
-          {/* Calligraphy Text: "Good Games Better Company ♡" */}
+          {/* Calligraphy Text: "Good Games Better Company" */}
           <div
             className="hidden md:block text-base lg:text-xl text-[#9333ea] tracking-wide font-bold drop-shadow-sm rotate-[2deg] select-none text-right leading-tight mt-0.5"
             style={{ fontFamily: "'Caveat', cursive" }}
           >
             Good Games
             <br />
-            Better Company ♡
+            Better Company
           </div>
         </div>
       </div>
@@ -304,14 +313,14 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
       {nudgeAlert && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92vw] bg-white/95 border-2 border-purple-400/90 rounded-3xl p-3.5 sm:p-4 shadow-[0_20px_60px_rgba(124,58,237,0.28)] backdrop-blur-xl flex items-center gap-3.5 animate-in slide-in-from-top-4 duration-300">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-400 via-rose-400 to-purple-600 flex items-center justify-center text-white text-xl shadow-md shadow-rose-500/30 animate-bounce shrink-0">
-            🔔
+            <AppIcon name="bell" className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0 text-left">
             <div className="text-[11px] uppercase font-black text-purple-700 tracking-wider">
               {nudgeAlert.fromDisplayName || 'Opponent'} Nudged You!
             </div>
             <div className="text-xs sm:text-sm font-bold text-slate-800 leading-snug">
-              {nudgeAlert.message || "It's your turn to pick a number! ⚡"}
+              {nudgeAlert.message || "It's your turn to pick a number!"}
             </div>
           </div>
           {onClearNudgeAlert && (
@@ -330,7 +339,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
       {/* Nudge Feedback Toast for Sender */}
       {nudgeFeedback && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 flex items-center gap-2 border border-white/10">
-          <span className="text-sm">🔔</span>
+          <AppIcon name="bell" className="w-4 h-4" />
           <span>{nudgeFeedback}</span>
         </div>
       )}
@@ -340,7 +349,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
         <div className="w-full max-w-4xl mx-auto mb-3 px-5 py-3.5 rounded-2xl bg-white/95 border border-purple-200/90 shadow-[0_4px_20px_rgba(124,58,237,0.12)] flex items-center justify-between gap-3 z-20 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center text-lg text-purple-700 shrink-0 font-bold">
-              🚪
+              <DoorOpen className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xs sm:text-sm font-black text-slate-900">
@@ -351,6 +360,9 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
               </div>
             </div>
           </div>
+          {newGameSlot ? (
+            <div className="shrink-0">{newGameSlot}</div>
+          ) : (
           <button
             type="button"
             onClick={onStartNewMatch || onLeave}
@@ -359,6 +371,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-amber-300" />
             <span>Start New Match</span>
           </button>
+          )}
         </div>
       )}
 
@@ -402,7 +415,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                   {player2.displayName || 'Opponent'}
                 </h3>
                 <p className="text-[10px] sm:text-[11px] font-semibold text-rose-500 mt-0.5">
-                  {opponentMarks.length} marked
+                  {opponentMarkedCount ?? opponentMarks.length} marked
                 </p>
               </div>
               <div className="w-9 h-9 rounded-full p-0.5 bg-gradient-to-tr from-[#f43f5e] to-[#fb7185] shadow-xs flex items-center justify-center shrink-0">
@@ -480,7 +493,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                       {player2.displayName || 'Player 2'}
                     </h3>
                     <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                      {opponentMarks.length} numbers
+                      {opponentMarkedCount ?? opponentMarks.length} numbers
                     </p>
                   </div>
                 </div>
@@ -777,7 +790,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white border border-purple-100 min-w-0">
               <span className={`w-2 h-2 rounded-full shrink-0 ${isMyTurn ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
               <span className="text-[11px] font-bold text-purple-700 truncate">
-                {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}
+                {isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}{turnSecondsLeft !== null ? ` (${turnSecondsLeft}s)` : ''}
               </span>
             </div>
           </div>
@@ -825,7 +838,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                   {effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId)
                     ? 'Rematch (1/2)'
                     : rematchStatus
-                      ? '⚡ Accept Rematch'
+                      ? 'Accept Rematch'
                       : 'Reset'}
                 </span>
               </button>
@@ -839,7 +852,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                 className="flex-1 py-2 sm:py-2.5 px-3 sm:px-5 rounded-full bg-gradient-to-r from-[#ec4899] to-[#f43f5e] hover:from-[#db2777] hover:to-[#e11d48] text-white font-black text-xs sm:text-sm shadow-[0_4px_16px_rgba(236,72,153,0.4)] animate-bounce active:scale-98 transition flex items-center justify-center gap-1.5 sm:gap-2 cursor-pointer ml-auto"
               >
                 <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-200" />
-                <span>🎉 CLAIM BINGO!</span>
+                <span>CLAIM BINGO!</span>
               </button>
             ) : isOpponentLeft ? (
               <button
@@ -856,7 +869,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                 <div className="hidden lg:flex py-2 px-3 rounded-full bg-purple-50/80 border border-purple-100 text-center min-w-0">
                   <span className="text-xs font-bold text-purple-700 flex items-center justify-center gap-1.5 truncate">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${isMyTurn ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
-                    <span className="truncate">{isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}</span>
+                    <span className="truncate">{isMyTurn ? 'Your Turn to Pick' : `${currentTurnDisplayName}'s Turn`}{turnSecondsLeft !== null ? ` (${turnSecondsLeft}s)` : ''}</span>
                   </span>
                 </div>
 
@@ -884,7 +897,7 @@ export const BingoCozyArena: React.FC<BingoCozyArenaProps> = ({
                       {nudgeCooldown && nudgeCooldown > 0
                         ? `${nudgeCooldown}s`
                         : !isMyTurn
-                          ? 'Nudge 🔔'
+                          ? 'Nudge'
                           : 'Nudge'}
                     </span>
                   </button>

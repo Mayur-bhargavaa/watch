@@ -1,8 +1,12 @@
 'use client';
 
+import { NotifyMeButton, useGameInterest } from './NotifyMeButton';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Gamepad2, Sparkles, Clock, X } from 'lucide-react';
+import { AppIcon, isIconName } from '../ui/AppIcon';
+import { Gamepad2, Sparkles, Clock, X, Lock } from 'lucide-react';
+import { UPCOMING_GAMES, TIER_INFO, tierAtLeast } from '@synccinema/common';
+import { useMyMembership } from '../membership/useMyMembership';
 
 export interface GameItem {
   id: string;
@@ -15,6 +19,8 @@ export interface GameItem {
   icon: string;
   artwork: string;
   description: string;
+  /** pass needed to unlock a coming-soon game, or to HOST a live VIP game (anyone can join) */
+  tier?: 'plus' | 'creator';
 }
 
 export const GAMES_CATALOG: GameItem[] = [
@@ -22,11 +28,11 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'ludo',
     title: 'LUDO PARTY',
     subtext: 'Classic 4-Player Board',
-    badge: '🔥 Live Multiplayer',
+    badge: 'Live Multiplayer',
     badgeColor: 'bg-rose-600 text-white shadow-rose-600/30',
     category: 'Board Game',
     players: '2-4 Players',
-    icon: '🎲',
+    icon: 'dice',
     artwork: 'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=600&h=400&fit=crop&q=80',
     description: 'Roll the dice, race your 4 tokens across the board, land on safe stars, and send opponent tokens back to base.'
   },
@@ -34,11 +40,11 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'connect4',
     title: 'FOUR IN A ROW',
     subtext: 'Vertical Disc Duel',
-    badge: '🔥 Live 2-Player',
+    badge: 'Live 2-Player',
     badgeColor: 'bg-[#6355ff] text-white shadow-indigo-600/30',
     category: 'Strategy Arcade',
     players: '2 Players',
-    icon: '🔴',
+    icon: 'dot',
     artwork: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&h=400&fit=crop&q=80',
     description: 'Drop red and yellow discs into the 7x6 arcade grid. Connect 4 horizontally, vertically, or diagonally before your rival.'
   },
@@ -46,11 +52,11 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'tic-tac-toe',
     title: 'TIC TAC TOE',
     subtext: 'Neon 3-in-a-Row Duel',
-    badge: '🔥 Live 2-Player',
+    badge: 'Live 2-Player',
     badgeColor: 'bg-rose-600 text-white shadow-rose-600/30',
     category: 'Strategy Arcade',
     players: '2 Players',
-    icon: '❌',
+    icon: 'close',
     artwork: 'https://images.unsplash.com/photo-1668901382969-8c73e450a1f5?w=600&h=400&fit=crop&q=80',
     description: 'Fast-paced 3x3 tactical duel. Place Xs and Os, block opponent lines, and claim victory with live audio/video reactions.'
   },
@@ -58,11 +64,11 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'bingo',
     title: 'BINGO DUEL',
     subtext: '1–25 Rapid Number Duel',
-    badge: '🔥 Live 2-Player',
+    badge: 'Live 2-Player',
     badgeColor: 'bg-indigo-600 text-white shadow-indigo-600/30',
     category: 'Pattern Duel',
     players: '2 Players',
-    icon: '🎯',
+    icon: 'target',
     artwork: '/images/card-bingo-duel.png',
     description: 'Fast-paced 5x5 board using numbers 1 to 25. Complete your chosen pattern and shout Bingo before your opponent!'
   },
@@ -70,135 +76,133 @@ export const GAMES_CATALOG: GameItem[] = [
     id: 'tambola',
     title: 'TAMBOLA',
     subtext: 'Classic 90-Ball Housie',
-    badge: '🔥 Live Party',
+    badge: 'Live Party',
     badgeColor: 'bg-cyan-600 text-white shadow-cyan-600/30',
     category: 'Social Party',
     players: '2–20 Players',
-    icon: '🎟️',
+    icon: 'ticket',
     artwork: '/images/card-bingo-duel.png',
     description: 'Traditional 90-ball Housie with real-time automatic calling, synchronized 3x9 tickets, and multi-condition claims.'
   },
   {
-    id: 'moduko',
-    title: 'MODUKO',
-    subtext: 'Logic & Sudoku Puzzles',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Logic Puzzle',
-    players: 'Solo & Co-op',
-    icon: '🧩',
-    artwork: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?w=600&h=400&fit=crop&q=80',
-    description: 'Number placement and block puzzle. Challenge your mind with candidate notes, mistake counters, and difficulty presets.'
-  },
-  {
-    id: 'trivia',
-    title: 'CINEMA TRIVIA',
-    subtext: '15s Rapid Movie Quiz',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Movie Quiz',
-    players: '2-6 Players',
-    icon: '🎬',
-    artwork: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&h=400&fit=crop&q=80',
-    description: '15-second movie trivia covering Hollywood blockbusters, Marvel MCU, Oscar winners, and iconic cinema quotes.'
-  },
-  {
-    id: 'emoji',
-    title: 'EMOJI GUESS',
-    subtext: 'Decipher The Film',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Word Puzzle',
-    players: '2-6 Players',
-    icon: '🍿',
-    artwork: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&h=400&fit=crop&q=80',
-    description: 'Guess the movie from emoji combinations with letter hints, instant validation, and streak multipliers.'
-  },
-  {
-    id: 'pictionary',
-    title: 'CO-OP PICTIONARY',
-    subtext: 'Live Sketch & Guess',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
+    id: 'doodle-duel',
+    title: 'DOODLE DUEL',
+    subtext: 'Draw it. Guess it. Switch.',
+    badge: 'Live 2-Player',
+    badgeColor: 'bg-[#8755f8] text-white shadow-violet-600/30',
     category: 'Live Sketch',
-    players: '2-6 Players',
-    icon: '🎨',
+    players: '2 Players',
+    icon: 'palette',
     artwork: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&h=400&fit=crop&q=80',
-    description: 'Synchronized live drawing canvas where one player sketches secret movie words and others guess in real time.'
-  },
-  {
-    id: 'reflex',
-    title: 'REFLEX DUEL',
-    subtext: 'Millisecond Reaction',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Speed Duel',
-    players: 'Up to 6',
-    icon: '⚡',
-    artwork: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&h=400&fit=crop&q=80',
-    description: 'High-stakes reaction duel. Wait for the green flash, tap instantly, and top the fastest tappers leaderboard.'
+    description: 'One player sketches a secret word while the other guesses in real time, then you switch sides.'
   },
   {
     id: 'chess',
     title: 'CHESS CINEMA',
     subtext: 'Grandmaster Board',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
+    badge: 'Live 2-Player',
+    badgeColor: 'bg-amber-700 text-white shadow-amber-700/30',
     category: 'Classic Strategy',
     players: '2 Players',
-    icon: '♟️',
+    icon: 'crown',
     artwork: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=600&h=400&fit=crop&q=80',
     description: 'Classic chess with live move highlighting, turn clocks, checkmate validation, and party spectating.'
   },
   {
-    id: 'uno',
-    title: 'CARD LOUNGE',
-    subtext: 'Uno & Party Cards',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Card Game',
-    players: '2-6 Players',
-    icon: '🃏',
-    artwork: 'https://images.unsplash.com/photo-1511193311914-0346f16efe90?w=600&h=400&fit=crop&q=80',
-    description: 'Color and number matching party game. Drop Draw Fours, Skips, and Reverses to leave your friends with zero cards.'
+    id: 'imposter',
+    title: 'IMPOSTER',
+    subtext: 'Clue, bluff and vote',
+    badge: 'Live Party',
+    badgeColor: 'bg-violet-600 text-white shadow-violet-600/30',
+    category: 'Social Deduction',
+    players: '4-8 Players',
+    icon: 'ghost',
+    artwork: '/images/card-cinema-trivia.png',
+    description: 'Everyone gets the secret word except one player. Give one-word clues, discuss and vote out the imposter. VIP hosts the room; anyone can join.',
+    tier: 'plus'
   },
   {
-    id: 'battleship',
-    title: 'BATTLESHIP',
-    subtext: 'Naval Combat Fleet',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Naval Strategy',
-    players: '2 Players',
-    icon: '🚢',
-    artwork: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?w=600&h=400&fit=crop&q=80',
-    description: 'Command your fleet on a hidden ocean grid. Call out target coordinates to strike and sink enemy warships.'
+    id: 'emoji-charades',
+    title: 'EMOJI CHARADES',
+    subtext: 'Guess the movie from emoji',
+    badge: 'Live Party',
+    badgeColor: 'bg-violet-600 text-white shadow-violet-600/30',
+    category: 'Movie Puzzle',
+    players: '2-8 Players',
+    icon: 'popcorn',
+    artwork: '/images/card-cinema-trivia.png',
+    description: 'Race your friends to guess a movie or show from a string of emoji. Hints appear as the clock runs. VIP hosts the room; anyone can join.',
+    tier: 'plus'
   },
   {
-    id: 'wordguess',
-    title: 'WORD GUESS',
-    subtext: 'Secret Word Wordle',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Word Game',
-    players: 'Solo & Party',
-    icon: '🔤',
-    artwork: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&h=400&fit=crop&q=80',
-    description: '6 tries to guess the secret 5-letter movie-themed word with green and yellow tile color hints.'
+    id: 'mafia',
+    title: 'MAFIA NIGHT',
+    subtext: 'Secret roles, night and day',
+    badge: 'Live Party',
+    badgeColor: 'bg-violet-600 text-white shadow-violet-600/30',
+    category: 'Social Deduction',
+    players: '5-10 Players',
+    icon: 'skull',
+    artwork: '/images/card-chess-arena.png',
+    description: 'Mafia, Doctor, Detective and Villagers. The mafia strike at night, the town votes by day. VIP hosts the room; anyone can join.',
+    tier: 'plus'
   },
   {
-    id: 'popcorn',
-    title: 'POPCORN FRENZY',
-    subtext: 'Speed Reflex Clicker',
-    badge: 'Coming Soon',
-    badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
-    category: 'Arcade',
-    players: 'Party Leaderboard',
-    icon: '🍿',
-    artwork: 'https://images.unsplash.com/photo-1585647347384-2593bc35786b?w=600&h=400&fit=crop&q=80',
-    description: 'Fast-paced party reflex clicker. Catch popping corn before they burn to rack up combos and high scores.'
+    id: 'quiz-show',
+    title: 'QUIZ SHOW STUDIO',
+    subtext: 'Host a live quiz for your community',
+    badge: 'Live Party',
+    badgeColor: 'bg-violet-600 text-white shadow-violet-600/30',
+    category: 'Live Quiz',
+    players: 'Up to 30 Players',
+    icon: 'trophy',
+    artwork: '/images/card-cinema-trivia.png',
+    description: 'Write your own questions, run them live with buzzers and a leaderboard. The Creator Pass hosts the quiz; anyone can join.',
+    tier: 'creator'
+  },
+  {
+    id: 'murder-mystery',
+    title: 'MURDER MYSTERY NIGHT',
+    subtext: 'A whodunit for the whole group',
+    badge: 'Live Party',
+    badgeColor: 'bg-violet-600 text-white shadow-violet-600/30',
+    category: 'Mystery Party',
+    players: '6-12 Players',
+    icon: 'search',
+    artwork: '/images/card-chess-arena.png',
+    description: 'Everyone is a suspect. Trade clues, whisper and bluff, then accuse the murderer. The Creator Pass hosts the room; anyone can join.',
+    tier: 'creator'
+  },
+  {
+    id: 'tournament',
+    title: 'TOURNAMENT ARENA',
+    subtext: 'Knockout brackets for your community',
+    badge: 'Live Party',
+    badgeColor: 'bg-violet-600 text-white shadow-violet-600/30',
+    category: 'Community Event',
+    players: '4-32 Players',
+    icon: 'trophy',
+    artwork: '/images/card-chess-arena.png',
+    description: 'Run a bracket of 1v1 matches with seeding, byes and a champion screen. The Creator Pass organises the tournament; anyone can join and play.',
+    tier: 'creator'
   }
 ];
+
+const UPCOMING_ART = ['/images/card-cinema-trivia.png', '/images/card-doodle-duel.png', '/images/card-tictactoe.png', '/images/card-bingo-duel.png', '/images/card-chess-arena.png', '/images/card-four-in-row.png'];
+const UPCOMING_CATALOG: GameItem[] = UPCOMING_GAMES.map((g, i) => ({
+  id: g.id,
+  title: g.title.toUpperCase(),
+  subtext: g.category,
+  badge: 'Coming Soon',
+  badgeColor: 'bg-white/10 text-zinc-300 border border-white/15',
+  category: g.category,
+  players: g.players,
+  icon: g.icon,
+  artwork: UPCOMING_ART[i % UPCOMING_ART.length],
+  description: g.blurb,
+  tier: g.tier
+}));
+GAMES_CATALOG.push(...UPCOMING_CATALOG);
 
 export interface GameLoungeProps {
   roomId?: string;
@@ -222,6 +226,8 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
   hideHeader = true
 }) => {
   const router = useRouter();
+  const interest = useGameInterest();
+  const myTier = useMyMembership()?.tier ?? 'free';
   const [toast, setToast] = useState<{ game: GameItem; id: number } | null>(null);
   const toastTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -261,6 +267,38 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
     }
     if (game.id === 'tambola') {
       router.push('/games/tambola');
+      return;
+    }
+    if (game.id === 'chess') {
+      router.push('/games/chess');
+      return;
+    }
+    if (game.id === 'doodle-duel') {
+      router.push('/games/doodle-duel');
+      return;
+    }
+    if (game.id === 'imposter') {
+      router.push('/games/imposter');
+      return;
+    }
+    if (game.id === 'emoji-charades') {
+      router.push('/games/emoji-charades');
+      return;
+    }
+    if (game.id === 'mafia') {
+      router.push('/games/mafia');
+      return;
+    }
+    if (game.id === 'quiz-show') {
+      router.push('/games/quiz-show');
+      return;
+    }
+    if (game.id === 'murder-mystery') {
+      router.push('/games/murder-mystery');
+      return;
+    }
+    if (game.id === 'tournament') {
+      router.push('/games/tournament');
       return;
     }
 
@@ -350,6 +388,17 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
                     <span>{game.badge}</span>
                   </span>
                 )}
+                {game.tier && (
+                  <span
+                    className={`ml-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border ${
+                      game.tier === 'creator' ? 'bg-violet-500/20 text-violet-200 border-violet-400/30' : 'bg-amber-500/20 text-amber-200 border-amber-400/30'
+                    }`}
+                    title={tierAtLeast(myTier, game.tier) ? 'Included in your pass' : game.badge === 'Coming Soon' ? `Unlocks with ${TIER_INFO[game.tier].badgeLabel}` : `${TIER_INFO[game.tier].badgeLabel} to host. You can still join a friend's game.`}
+                  >
+                    {!tierAtLeast(myTier, game.tier) && <Lock className="w-3 h-3" aria-label="Locked" />}
+                    {game.tier === 'creator' ? 'Creator' : 'VIP'}
+                  </span>
+                )}
               </div>
 
               {/* Bottom Left Bold Logo Typography */}
@@ -360,6 +409,7 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
                 <div className="text-[11px] text-zinc-400 font-medium tracking-wide truncate">
                   {game.subtext}
                 </div>
+                {game.badge === 'Coming Soon' && <NotifyMeButton gameId={game.id} state={interest} className="pt-1.5" />}
               </div>
             </div>
           ))}
@@ -376,7 +426,7 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
         >
           <div className="flex items-start gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600/30 to-indigo-600/30 border border-violet-500/40 flex items-center justify-center text-xl shrink-0 shadow-inner">
-              {toast.game.icon || '🚀'}
+              <AppIcon name={isIconName(toast.game.icon) ? toast.game.icon : 'game'} className="w-5 h-5" />
             </div>
 
             <div className="flex-1 min-w-0 pr-1">
@@ -393,7 +443,9 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
                 {toast.game.title}
               </h4>
               <p className="text-xs text-zinc-300/90 mt-0.5 leading-relaxed">
-                This game is currently under development. Stay tuned for the upcoming release!
+                {toast.game.tier
+                  ? `This game is in development and will unlock with ${TIER_INFO[toast.game.tier].badgeLabel}. Tap Notify me to hear when it launches.`
+                  : 'This game is currently under development. Stay tuned for the upcoming release!'}
               </p>
             </div>
 

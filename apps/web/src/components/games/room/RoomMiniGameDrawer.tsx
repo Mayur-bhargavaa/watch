@@ -390,7 +390,7 @@ export const RoomMiniGameDrawer: React.FC<RoomMiniGameDrawerProps> = ({
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>❌</span>
+          <X className="w-3.5 h-3.5" />
           <span>Tic Tac Toe</span>
         </button>
         <button
@@ -401,7 +401,7 @@ export const RoomMiniGameDrawer: React.FC<RoomMiniGameDrawerProps> = ({
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
         >
-          <span>🔴</span>
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
           <span>Four in a Row</span>
         </button>
       </div>
@@ -458,9 +458,9 @@ export const RoomMiniGameDrawer: React.FC<RoomMiniGameDrawerProps> = ({
             <div className="text-xs font-semibold tracking-wide text-zinc-300 flex items-center gap-2">
               {tttWinner ? (
                 tttWinner.winner === 'TIE' ? (
-                  <span className="text-amber-400">🤝 It's a draw!</span>
+                  <span className="text-amber-400">It's a draw!</span>
                 ) : (
-                  <span className="text-emerald-400 font-bold">🏆 {tttWinner.winner} wins this round!</span>
+                  <span className="text-emerald-400 font-bold">{tttWinner.winner} wins this round!</span>
                 )
               ) : (
                 <span>
@@ -514,7 +514,7 @@ export const RoomMiniGameDrawer: React.FC<RoomMiniGameDrawerProps> = ({
             {/* Scoreboard */}
             <div className="flex items-center justify-between w-full max-w-[280px] bg-white/5 rounded-2xl p-2.5 border border-white/5 text-xs">
               <div className="flex flex-col items-center">
-                <span className="text-red-400 font-bold text-xs flex items-center gap-1">🔴 You</span>
+                <span className="text-red-400 font-bold text-xs flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" /> You</span>
                 <span className="text-white font-mono text-base font-black">{c4Scores.r}</span>
               </div>
               <div className="flex flex-col items-center text-zinc-500">
@@ -523,7 +523,7 @@ export const RoomMiniGameDrawer: React.FC<RoomMiniGameDrawerProps> = ({
               </div>
               <div className="flex flex-col items-center">
                 <span className="text-yellow-400 font-bold text-xs flex items-center gap-1">
-                  🟡 {opponentMode === 'ai' ? 'Bot' : 'Rival'}
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-yellow-400" /> {opponentMode === 'ai' ? 'Bot' : 'Rival'}
                 </span>
                 <span className="text-white font-mono text-base font-black">{c4Scores.y}</span>
               </div>
@@ -533,10 +533,10 @@ export const RoomMiniGameDrawer: React.FC<RoomMiniGameDrawerProps> = ({
             <div className="text-xs font-semibold tracking-wide text-zinc-300">
               {c4Winner ? (
                 c4Winner.winner === 'TIE' ? (
-                  <span className="text-amber-400">🤝 Board Full - Draw!</span>
+                  <span className="text-amber-400">Board Full - Draw!</span>
                 ) : (
                   <span className="text-emerald-400 font-bold">
-                    🏆 {c4Winner.winner === 'R' ? 'Red (You)' : 'Yellow'} Connected 4!
+                    {c4Winner.winner === 'R' ? 'Red (You)' : 'Yellow'} Connected 4!
                   </span>
                 )
               ) : (

@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon, type IconName } from '../../components/ui/AppIcon';
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -71,6 +72,11 @@ import {
   UserSession
 } from '../../lib/api';
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
+import { TIER_INFO, normalizeTier } from '@synccinema/common';
+import { MembershipBadge } from '../../components/membership/MembershipBadge';
+import { MembershipSection } from '../../components/membership/MembershipSection';
+import { WatchStatsSection } from '../../components/membership/WatchStatsSection';
+import { useMyMembership } from '../../components/membership/useMyMembership';
 
 function MarsIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
   return (
@@ -136,7 +142,7 @@ const CINEMA_VIBES = [
   {
     id: 'cinephile',
     name: "Director's Cut",
-    icon: '🎬',
+    icon: 'movie' as IconName,
     tagline: '4K IMAX & Deep Lore',
     badge: 'CINEPHILE',
     gradient: 'from-rose-500/15 via-red-500/5 to-transparent',
@@ -147,7 +153,7 @@ const CINEMA_VIBES = [
   {
     id: 'binger',
     name: 'Popcorn Binger',
-    icon: '🍿',
+    icon: 'popcorn' as IconName,
     tagline: '8-Hour Midnight Marathons',
     badge: 'MARATHON',
     gradient: 'from-amber-500/15 via-yellow-500/5 to-transparent',
@@ -158,7 +164,7 @@ const CINEMA_VIBES = [
   {
     id: 'romcom',
     name: 'Rom-Com Duo',
-    icon: '💖',
+    icon: 'heart' as IconName,
     tagline: 'Couple Sync & Love Rooms',
     badge: 'COUPLE VIP',
     gradient: 'from-pink-500/15 via-rose-500/5 to-transparent',
@@ -169,7 +175,7 @@ const CINEMA_VIBES = [
   {
     id: 'scifi',
     name: 'Sci-Fi Voyager',
-    icon: '🚀',
+    icon: 'rocket' as IconName,
     tagline: 'Cyberpunk, Space & Time',
     badge: 'VOYAGER',
     gradient: 'from-sky-500/15 via-indigo-500/5 to-transparent',
@@ -180,7 +186,7 @@ const CINEMA_VIBES = [
   {
     id: 'arcade',
     name: 'Arcade Champion',
-    icon: '🎮',
+    icon: 'game' as IconName,
     tagline: 'Ludo 3D & Connect 4 King',
     badge: 'DUELIST',
     gradient: 'from-purple-500/15 via-violet-500/5 to-transparent',
@@ -191,18 +197,19 @@ const CINEMA_VIBES = [
 ];
 
 const ACHIEVEMENTS = [
-  { id: 'host', title: 'Cinema Host', desc: 'Launched first room with friends', icon: '🎬', unlocked: true },
-  { id: 'vip', title: 'Cinema VIP', desc: 'StitchByte Titanium VIP status', icon: '👑', unlocked: true },
-  { id: 'couple', title: 'Love Theater', desc: 'Linked partner room & countdown', icon: '💍', unlocked: true },
-  { id: 'arcade', title: 'Arcade Duelist', desc: 'Challenged friends in Ludo 3D', icon: '🎮', unlocked: true },
-  { id: 'owl', title: 'Midnight Streamer', desc: 'Streamed movies past midnight', icon: '🌙', unlocked: true },
-  { id: '4k', title: '4K Ultra-Sync', desc: 'Synchronized low-latency playback', icon: '⚡', unlocked: true }
+  { id: 'host', title: 'Cinema Host', desc: 'Launched first room with friends', icon: 'movie' as IconName, unlocked: true },
+  { id: 'vip', title: 'Cinema VIP', desc: 'StitchByte Titanium VIP status', icon: 'crown' as IconName, unlocked: true },
+  { id: 'couple', title: 'Love Theater', desc: 'Linked partner room & countdown', icon: 'ring' as IconName, unlocked: true },
+  { id: 'arcade', title: 'Arcade Duelist', desc: 'Challenged friends in Ludo 3D', icon: 'game' as IconName, unlocked: true },
+  { id: 'owl', title: 'Midnight Streamer', desc: 'Streamed movies past midnight', icon: 'moon' as IconName, unlocked: true },
+  { id: '4k', title: '4K Ultra-Sync', desc: 'Synchronized low-latency playback', icon: 'zap' as IconName, unlocked: true }
 ];
 
 function ProfileContent() {
   const router = useRouter();
   const { theme, resolvedTheme, toggleTheme, setTheme } = useTheme();
   const [session, setSession] = useState<UserSession | null>(null);
+  const myMembership = useMyMembership();
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'couple' | 'avatar' | 'achievements'>('details');
 
@@ -226,6 +233,7 @@ function ProfileContent() {
   const [settingsName, setSettingsName] = useState<string>('');
   const [settingsMuted, setSettingsMuted] = useState<boolean>(false);
   const [settingsCameraOff, setSettingsCameraOff] = useState<boolean>(false);
+  const [settingsDiscoverable, setSettingsDiscoverable] = useState<boolean>(true);
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
 
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
@@ -302,6 +310,7 @@ function ProfileContent() {
     setPronouns(current.user.pronouns || '');
     setLocation(current.user.location || '');
     setBio(current.user.bio || '');
+    setSettingsDiscoverable(current.user.discoverable ?? true);
     if (current.user.favoriteGenres && current.user.favoriteGenres.length > 0) {
       setFavoriteGenres(current.user.favoriteGenres.map(g => g.replace(/[^\w\s-]/g, '').trim()).filter(Boolean));
     }
@@ -319,7 +328,7 @@ function ProfileContent() {
     setLoading(false);
 
     // Sync fresh profile from DB
-    fetchCurrentUser(current.token).then(fresh => {
+    void fetchCurrentUser(current.token).then(fresh => {
       if (fresh) {
         setSession(fresh);
         setDisplayName(fresh.user.displayName || '');
@@ -349,7 +358,7 @@ function ProfileContent() {
 
   const handleCopyPartnerCode = () => {
     if (!session?.user.partnerCode) return;
-    navigator.clipboard.writeText(session.user.partnerCode);
+    void navigator.clipboard.writeText(session.user.partnerCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
@@ -424,6 +433,9 @@ function ProfileContent() {
       if (settingsName.trim() && settingsName !== session.user.displayName) {
         await updateUserProfile({ displayName: settingsName.trim() });
         setDisplayName(settingsName.trim());
+      }
+      if ((session.user.discoverable ?? true) !== settingsDiscoverable) {
+        await updateUserProfile({ discoverable: settingsDiscoverable });
       }
       localStorage.setItem('stitchbyte_pref_muted', settingsMuted ? 'true' : 'false');
       localStorage.setItem('stitchbyte_pref_camera_off', settingsCameraOff ? 'true' : 'false');
@@ -589,21 +601,25 @@ function ProfileContent() {
                 </button>
               </div>
 
-              {/* VIP Live Badge */}
+              {/* Online chip (the plan itself is shown by the membership badge and section) */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>CINEMA VIP LIVE</span>
+                <span>ONLINE</span>
               </div>
 
               {/* Name & Email */}
               <div>
-                <h1 className="text-xl font-black text-slate-900 dark:text-white">
-                  {session.user.displayName || 'User'}
+                <h1 className="text-xl font-black text-slate-900 dark:text-white inline-flex items-center justify-center gap-2 flex-wrap">
+                  <span>{session.user.displayName || 'User'}</span>
+                  <MembershipBadge tier={myMembership?.tier ?? session.user.membership?.tier} />
                 </h1>
                 <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
                   {session.user.email || 'cinema@stitchbyte.com'}
                 </p>
               </div>
+
+              <MembershipSection />
+              <WatchStatsSection />
 
               {/* Personal Details Form Fields */}
               <div className="w-full space-y-3.5 text-left pt-2">
@@ -825,10 +841,10 @@ function ProfileContent() {
                         </div>
                         <div className="flex flex-col leading-none">
                           <span className="text-sm font-black tracking-widest uppercase text-white flex items-center gap-1.5">
-                            STITCHBYTE <span className="text-zinc-300 text-xs font-black">TITANIUM</span>
+                            WATCH <span className="text-zinc-300 text-xs font-black">PASS</span>
                           </span>
                           <span className="text-[8.5px] font-extrabold text-zinc-400 tracking-widest uppercase mt-0.5">
-                            All-Access Cinema VIP Pass
+                            {TIER_INFO[normalizeTier(myMembership?.tier ?? session.user.membership?.tier)].badgeLabel}
                           </span>
                         </div>
                       </div>
@@ -836,7 +852,7 @@ function ProfileContent() {
                       <div className="flex items-center gap-2">
                         <Wifi className="w-4 h-4 text-zinc-400 rotate-90" />
                         <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-white/[0.06] border border-white/15 text-zinc-300 font-bold tracking-widest shadow-inner">
-                          TIER 1
+                          {TIER_INFO[normalizeTier(myMembership?.tier ?? session.user.membership?.tier)].badge.toUpperCase()}
                         </span>
                       </div>
                     </div>
@@ -1468,14 +1484,14 @@ function ProfileContent() {
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
                     <span>{displayName || session?.user.displayName || 'Profile & Preferences'}</span>
-                    {(session?.user.isMarried || relationshipStatus === 'married') && <span className="text-xs">💍</span>}
+                    {(session?.user.isMarried || relationshipStatus === 'married') && <AppIcon name="ring" className="w-3.5 h-3.5" />}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">
                     {session?.user.email || 'Manage your profile and room defaults'}
                   </p>
                   {(calculatedAge || session?.user.age) ? (
                     <p className="text-[10.5px] text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
-                      🎂 Age: {calculatedAge || session.user.age} · Watch Cinema Member
+                      <AppIcon name="cake" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Age: {calculatedAge || session.user.age} · Watch Cinema Member
                     </p>
                   ) : null}
                 </div>
@@ -1562,6 +1578,19 @@ function ProfileContent() {
                       type="checkbox"
                       checked={settingsCameraOff}
                       onChange={(e) => setSettingsCameraOff(e.target.checked)}
+                      className="w-4 h-4 accent-rose-600 rounded"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.05] transition">
+                    <div className="flex items-center space-x-2.5">
+                      <Shield className="w-4 h-4 text-slate-400 dark:text-zinc-400" />
+                      <span className="text-xs text-slate-800 dark:text-zinc-200">Show me in friend search (others can still add me by my friend code)</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={settingsDiscoverable}
+                      onChange={(e) => setSettingsDiscoverable(e.target.checked)}
                       className="w-4 h-4 accent-rose-600 rounded"
                     />
                   </label>

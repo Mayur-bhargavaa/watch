@@ -103,7 +103,7 @@ export const DoodleSettingsModal: React.FC<DoodleSettingsModalProps> = ({
 
   const handleCopyLink = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

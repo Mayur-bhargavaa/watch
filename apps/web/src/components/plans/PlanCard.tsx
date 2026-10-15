@@ -3,305 +3,195 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
-  Calendar,
-  Clock,
   ArrowRight,
   MoreVertical,
-  Film,
-  Gamepad2,
-  MessageCircle,
-  Sparkles,
   Trash2,
   Copy,
-  Check
+  Check,
+  LogOut
 } from 'lucide-react';
+import { formatPlanDate } from '@synccinema/common';
 import { Plan } from '../../types/plans';
+import { planInviteLink } from '../../lib/plansApi';
+import { planIconName, participantCounts, planBadgeLabel } from '../../lib/planUi';
+import { AppIcon } from '../ui/AppIcon';
+import { PersonAvatar } from './PersonAvatar';
 
 interface PlanCardProps {
   plan: Plan;
+  currentUserId?: string;
   isPrimary?: boolean;
-  onDeletePlan?: (id: string) => void;
+  /** host only: resolves when the server has deleted the plan */
+  onDeletePlan?: (id: string) => Promise<void> | void;
+  /** members who are not the host */
+  onLeavePlan?: (id: string) => Promise<void> | void;
 }
 
-// Curated avatar faces matching the design in screenshot
-const SAMPLE_AVATARS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80'
-];
 
-export const PlanCard: React.FC<PlanCardProps> = ({ plan, isPrimary = false, onDeletePlan }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ plan, currentUserId, isPrimary = false, onDeletePlan, onLeavePlan }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'idle' | 'ok' | 'failed'>('idle');
+  const [confirming, setConfirming] = useState<'delete' | 'leave' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCopyLink = () => {
-    if (typeof window !== 'undefined') {
-      const url = `${window.location.origin}/plans/${plan.id}`;
-      navigator.clipboard?.writeText(url);
-      setCopied(true);
-      setTimeout(() => {
-        setCopied(false);
-        setShowMenu(false);
-      }, 1500);
-    }
-  };
-  const goingCount = plan.participants?.filter((p) => p.status === 'GOING').length || 5;
-  const maybeCount = plan.participants?.filter((p) => p.status === 'MAYBE').length || 2;
+  const isHost = Boolean(currentUserId) && plan.hostId === currentUserId;
+  const counts = participantCounts(plan);
+  const badge = planBadgeLabel(plan);
 
-  // Tag styling helper
-  const getTagBadge = () => {
-    const label = plan.tagLabel || (plan.type === 'movie' ? 'Movie + Game' : plan.type === 'birthday' ? 'Birthday' : 'Game');
-    if (label.toLowerCase().includes('movie')) {
-      return 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-200/70 dark:border-rose-500/20';
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(planInviteLink(plan));
+      setCopied('ok');
+    } catch {
+      setCopied('failed'); // clipboard blocked (needs HTTPS / permission): do not pretend it worked
     }
-    if (label.toLowerCase().includes('birthday')) {
-      return 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200/70 dark:border-amber-500/20';
-    }
-    return 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-500/20';
+    setTimeout(() => {
+      setCopied('idle');
+      setShowMenu(false);
+    }, 1800);
   };
 
-  // Activity pill styling
-  const getActivityPillColor = (type: string) => {
-    switch (type) {
-      case 'movie':
-        return 'bg-rose-50/90 dark:bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-200/70 dark:border-rose-500/20';
-      case 'game':
-        return 'bg-purple-50/90 dark:bg-purple-500/10 text-purple-600 dark:text-purple-300 border-purple-200/70 dark:border-purple-500/20';
-      case 'hangout':
-      case 'chat':
-      default:
-        return 'bg-emerald-50/90 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-200/70 dark:border-emerald-500/20';
+  const runConfirmed = async () => {
+    const action = confirming === 'delete' ? onDeletePlan : onLeavePlan;
+    if (!action) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await action(plan.id);
+      setConfirming(null);
+      setShowMenu(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'movie':
-        return <Film className="w-3.5 h-3.5 text-rose-500" />;
-      case 'game':
-        return <Gamepad2 className="w-3.5 h-3.5 text-purple-500" />;
-      case 'hangout':
-      case 'chat':
-      default:
-        return <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />;
-    }
-  };
+  const badgeClass = badge.toLowerCase().includes('movie')
+    ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-300'
+    : badge.toLowerCase().includes('birthday')
+    ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-300'
+    : 'bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-300';
 
-  // Poster Image Selection
-  const getPosterContent = () => {
-    if (plan.posterUrl) {
-      return { url: plan.posterUrl, text: plan.posterOverlayText };
-    }
-    if (plan.title.toLowerCase().includes('interstellar') || plan.title.toLowerCase().includes('friday')) {
-      return {
-        url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=600&auto=format&fit=crop&q=80',
-        text: 'INTERSTELLAR'
-      };
-    }
-    if (plan.title.toLowerCase().includes('birthday')) {
-      return {
-        url: 'https://images.unsplash.com/photo-1558636508-e0db3814bd1d?w=600&auto=format&fit=crop&q=80',
-        text: 'Good Friends\nBrighter\nBirthdays\n♡'
-      };
-    }
-    return {
-      url: 'https://images.unsplash.com/photo-1600080972464-8e5f35f63d08?w=600&auto=format&fit=crop&q=80',
-      text: 'Game\nFriends\nAre The\nBest Friends'
-    };
-  };
-
-  const poster = getPosterContent();
+  const shownParticipants = (plan.participants || []).filter((p) => p.status !== 'CANT_GO');
+  const visible = shownParticipants.slice(0, 3);
+  const hidden = shownParticipants.length - visible.length;
+  const activityNames = (plan.activities || []).map((a) => a.title).filter(Boolean);
 
   return (
-    <div className="group rounded-[28px] p-4 sm:p-5 md:p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/20 transition-all duration-300 shadow-sm hover:shadow-lg hover:shadow-black/5 flex flex-col md:flex-row items-stretch gap-4 sm:gap-6">
-      {/* 1. Left Side: Poster with Overlay Text */}
-      <div className="relative w-full h-44 sm:h-52 md:w-48 lg:w-52 md:h-auto md:aspect-square shrink-0 rounded-2xl overflow-hidden shadow-sm bg-slate-900 group">
-        <img
-          src={poster.url}
-          alt={plan.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 brightness-[0.85]"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-
-        {/* Poster Text Overlay */}
-        <div className="absolute inset-0 p-4 flex flex-col justify-end text-white pointer-events-none select-none">
-          {poster.text && poster.text === 'INTERSTELLAR' ? (
-            <div className="text-center font-bold tracking-[0.28em] text-[13px] text-white/90 drop-shadow-md">
-              INTERSTELLAR
-            </div>
-          ) : poster.text ? (
-            <div className="font-serif italic text-xs sm:text-sm text-white/90 drop-shadow-md whitespace-pre-line leading-snug">
-              {poster.text}
-            </div>
-          ) : null}
+    <div className={`rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#151022] hover:border-slate-300 dark:hover:border-white/20 transition ${plan.isPast ? 'opacity-70' : ''}`}>
+      <div className="flex items-center gap-3 p-3 sm:p-3.5">
+        {/* Icon tile (or the plan's own poster) */}
+        <div className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden shrink-0 bg-gradient-to-br from-[#ee1d49] to-[#7c2d92] flex items-center justify-center select-none">
+          {plan.posterUrl ? <img src={plan.posterUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" /> : <AppIcon name={planIconName(plan)} className="w-6 h-6 text-white" />}
         </div>
-      </div>
 
-      {/* 2. Right Side: Card Information & Interactive Timeline */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between space-y-4">
-        {/* Top Header: Title, Tag, Menu */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight truncate">
-              {plan.title} <span className="inline-block">{plan.emoji}</span>
-            </h3>
-            <span
-              className={`text-[11px] font-bold px-3 py-1 rounded-full ${getTagBadge()}`}
-            >
-              {plan.tagLabel || (plan.type === 'movie' ? 'Movie + Game' : plan.type === 'birthday' ? 'Birthday' : 'Game')}
-            </span>
+        {/* Title + when */}
+        <Link href={`/plans/${plan.id}`} className="flex-1 min-w-0 group">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-sm sm:text-[15px] font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ee1d49] transition">{plan.title}</h3>
+            <span className={`hidden sm:inline-block text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>{badge}</span>
+            {plan.recurring && plan.recurring !== 'none' && <span className="text-[10px] text-slate-400 shrink-0" title={`Repeats ${plan.recurring}`}><AppIcon name="repeat" className="inline w-[1em] h-[1em] align-[-0.125em]" label={`Repeats ${plan.recurring}`} /></span>}
           </div>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">
+            {formatPlanDate(plan.date)} · {plan.time}
+            {plan.endTime ? ` – ${plan.endTime}` : ''}
+            {plan.timezone ? ` ${plan.timezone.split(' ')[0]}` : ''}
+          </p>
+          {activityNames.length > 0 && <p className="hidden sm:block text-[11px] text-slate-400 dark:text-zinc-500 truncate mt-0.5">{activityNames.join(' → ')}</p>}
+        </Link>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-2xl bg-white dark:bg-[#1c162b] border border-slate-200 dark:border-white/10 shadow-xl shadow-black/10 py-1.5 z-30">
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-emerald-600 font-bold">Link Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Copy Invite Link</span>
-                    </>
-                  )}
-                </button>
-                {onDeletePlan && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowMenu(false);
-                      onDeletePlan(plan.id);
-                    }}
-                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition border-t border-slate-100 dark:border-white/5 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Delete Plan</span>
-                  </button>
-                )}
-              </div>
+        {/* People */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
+          <div className="flex -space-x-1.5">
+            {visible.map((p) => (
+              <PersonAvatar key={p.userId} name={p.displayName} src={p.avatarUrl} className="w-6 h-6 ring-2 ring-white dark:ring-[#151022]" />
+            ))}
+            {hidden > 0 && (
+              <span className="w-6 h-6 rounded-full ring-2 ring-white dark:ring-[#151022] bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300 flex items-center justify-center text-[10px] font-bold">+{hidden}</span>
             )}
           </div>
-        </div>
-
-        {/* Date & Time */}
-        <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 dark:text-zinc-400 flex-wrap">
-          <span className="flex items-center gap-1.5 text-slate-700 dark:text-zinc-200">
-            <Calendar className="w-3.5 h-3.5 text-rose-500" />
-            <span>{plan.dateFormatted}</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span>
-              {plan.time.includes(plan.timezone || 'IST')
-                ? plan.time
-                : `${plan.time}${plan.endTime ? ` – ${plan.endTime}` : ''}${plan.timezone ? ` (${plan.timezone})` : ''}`}
-            </span>
+          <span className="text-xs text-slate-500 dark:text-zinc-400 whitespace-nowrap">
+            {counts.going} going{counts.invited > 0 ? ` · ${counts.invited} no reply` : ''}
           </span>
         </div>
 
-        {/* Note / Subtitle */}
-        {plan.description && (
-          <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-            {plan.description}
-          </p>
-        )}
+        <Link
+          href={`/plans/${plan.id}`}
+          aria-label={`Open ${plan.title}`}
+          className={`shrink-0 inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs font-bold transition ${
+            isPrimary ? 'bg-[#ee1d49] hover:bg-[#ff2b5e] text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-200 hover:bg-[#ee1d49] hover:text-white'
+          }`}
+        >
+          <span className="hidden sm:inline">Open</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
 
-        {/* Activity Flow Pipeline */}
-        {plan.activities && plan.activities.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap pt-1">
-            {plan.activities.map((act, index) => (
-              <React.Fragment key={act.id}>
-                <div
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium ${getActivityPillColor(
-                    act.type
-                  )}`}
-                >
-                  <div className="p-0.5 rounded-md bg-white/70 dark:bg-black/20 shrink-0">
-                    {getActivityIcon(act.type)}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-900 dark:text-white">{act.time}</span>
-                    <span className="text-slate-600 dark:text-zinc-300 truncate max-w-[130px]">
-                      {act.title}
-                    </span>
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            aria-label="Plan options"
+            onClick={() => {
+              setShowMenu(!showMenu);
+              setConfirming(null);
+              setError(null);
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+
+          {showMenu && (
+            <div className="absolute right-0 top-full mt-1 w-56 rounded-2xl bg-white dark:bg-[#1c162b] border border-slate-200 dark:border-white/10 shadow-xl shadow-black/10 py-1.5 z-30">
+              {confirming ? (
+                <div className="px-3.5 py-2.5 space-y-2.5">
+                  <p className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                    {confirming === 'delete' ? 'Delete this plan for everyone? This cannot be undone.' : 'Leave this plan?'}
+                  </p>
+                  {error && <p className="text-[11px] text-rose-500 font-semibold">{error}</p>}
+                  <div className="flex gap-2">
+                    <button type="button" disabled={busy} onClick={runConfirmed} className="flex-1 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold disabled:opacity-60 cursor-pointer">
+                      {busy ? 'Please wait…' : confirming === 'delete' ? 'Delete' : 'Leave'}
+                    </button>
+                    <button type="button" disabled={busy} onClick={() => setConfirming(null)} className="flex-1 py-1.5 rounded-xl bg-slate-100 dark:bg-white/10 text-xs font-bold text-slate-600 dark:text-zinc-200 cursor-pointer">
+                      Cancel
+                    </button>
                   </div>
                 </div>
-
-                {index < plan.activities.length - 1 && (
-                  <span className="text-slate-400 dark:text-zinc-500 text-xs font-bold">
-                    →
-                  </span>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        )}
-
-        {/* Bottom Bar: Attendees + Open Plan CTA */}
-        <div className="pt-3 flex flex-col xs:flex-row xs:items-center justify-between gap-3 sm:gap-4 border-t border-slate-100 dark:border-white/[0.04]">
-          {/* Avatar Stack + Count */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="flex -space-x-2 overflow-hidden p-0.5 shrink-0">
-              {(plan.participants && plan.participants.some((p) => p.avatarUrl)
-                ? plan.participants
-                    .filter((p) => p.avatarUrl)
-                    .map((p) => p.avatarUrl!)
-                    .slice(0, 4)
-                : SAMPLE_AVATARS
-              ).map((avatar, idx) => (
-                <img
-                  key={idx}
-                  src={avatar}
-                  alt={`Participant ${idx + 1}`}
-                  className="inline-block w-6 h-6 sm:w-7 sm:h-7 rounded-full ring-2 ring-white dark:ring-[#151022] object-cover bg-slate-200"
-                />
-              ))}
-              {goingCount > 4 && (
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full ring-2 ring-white dark:ring-[#151022] bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-zinc-300 flex items-center justify-center text-[10px] font-bold">
-                  +{goingCount - 3}
-                </div>
-              )}
-            </div>
-
-            <div className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-              <span>{goingCount} going</span>
-              {maybeCount > 0 && (
+              ) : (
                 <>
-                  <span className="mx-1.5">·</span>
-                  <span>{maybeCount} maybe</span>
+                  <button type="button" onClick={handleCopyLink} className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-white/10 flex items-center gap-2.5 transition cursor-pointer">
+                    {copied === 'ok' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-emerald-600 font-bold">Link Copied!</span>
+                      </>
+                    ) : copied === 'failed' ? (
+                      <span className="text-rose-500 font-bold">Could not copy. Copy it from the plan page.</span>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Copy Invite Link</span>
+                      </>
+                    )}
+                  </button>
+                  {isHost && onDeletePlan && (
+                    <button type="button" onClick={() => setConfirming('delete')} className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 transition border-t border-slate-100 dark:border-white/5 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Plan</span>
+                    </button>
+                  )}
+                  {!isHost && onLeavePlan && (
+                    <button type="button" onClick={() => setConfirming('leave')} className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/10 flex items-center gap-2.5 transition border-t border-slate-100 dark:border-white/5 cursor-pointer">
+                      <LogOut className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Leave Plan</span>
+                    </button>
+                  )}
                 </>
               )}
             </div>
-          </div>
-
-          {/* Open Plan Button */}
-          <Link
-            href={`/plans/${plan.id}`}
-            className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-all duration-200 shrink-0 ${
-              isPrimary || plan.title.toLowerCase().includes('friday')
-                ? 'bg-[#ff3b68] hover:bg-[#ee1d49] text-white shadow-md shadow-[#ff3b68]/25 hover:shadow-lg hover:shadow-[#ee1d49]/35'
-                : 'bg-rose-50 hover:bg-[#ff3b68] text-[#ff3b68] hover:text-white dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-[#ff3b68] dark:hover:text-white border border-rose-200/60 dark:border-rose-500/20'
-            }`}
-          >
-            <span>Open Plan</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          )}
         </div>
       </div>
     </div>

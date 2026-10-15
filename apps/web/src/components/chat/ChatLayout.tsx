@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Phone, Video } from 'lucide-react';
 import { getStoredSession } from '@/lib/api';
 import {
   ChatConversation,
@@ -11,9 +10,10 @@ import {
   ChatGamePayload,
   ChatMoviePayload,
   ChatMessageRequest,
-  ChatMessageMetadata,
+  ChatMessageMetadata
 } from '@/types/chat';
-import { ChatStore, extractParticipantIdsFromConvId, toCanonicalConvId } from '@/lib/chatStore';
+import { isSameConversation } from '../../lib/chatIds';
+import { ChatStore, extractParticipantIdsFromConvId } from '@/lib/chatStore';
 import { ChatSidebar } from './ChatSidebar';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
@@ -85,15 +85,21 @@ export const ChatLayout: React.FC = () => {
   }, []);
 
   // Sync activeConversationId from URL parameters if provided
+  // Applied ONCE per distinct URL value. It used to re-run whenever the `users` map changed (i.e. after every
+  // store update), which snapped the selection back to the URL's chat right after the user picked another one.
+  const appliedUrlKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const key = urlUserId ? `u:${urlUserId}` : urlConvId ? `c:${urlConvId}` : null;
+    if (!key || appliedUrlKeyRef.current === key) return;
+    appliedUrlKeyRef.current = key;
     if (urlUserId) {
-      const targetUser = users[urlUserId] || { id: urlUserId, displayName: 'Friend', onlineStatus: 'ONLINE' as const, isOnline: true };
+      const targetUser = ChatStore.getUsers()[urlUserId] || { id: urlUserId, displayName: 'Friend', onlineStatus: 'ONLINE' as const, isOnline: true };
       const conv = ChatStore.getOrCreateDirectConversation(targetUser);
       setActiveConversationId(conv.id);
     } else if (urlConvId) {
       setActiveConversationId(urlConvId);
     }
-  }, [urlUserId, urlConvId, users]);
+  }, [urlUserId, urlConvId]);
 
   const realMyId = session?.user?.id || (typeof window !== 'undefined' ? getStoredSession()?.user?.id : '') || currentUserId;
 
@@ -104,16 +110,21 @@ export const ChatLayout: React.FC = () => {
   const targetUserFromId = activeTargetUserId ? users[activeTargetUserId] : null;
 
   // Update messages and ensure active conversation exists in store whenever active conversation changes
+  // Depends on the user's ID (not the object): the users map is rebuilt on every store update, and a changing
+  // object identity here used to re-run this effect in a loop that kept moving the chat around in the list.
+  const targetUserFromIdRef = useRef(targetUserFromId);
+  targetUserFromIdRef.current = targetUserFromId;
+  const targetUserKey = targetUserFromId?.id;
   useEffect(() => {
     if (activeConversationId) {
       setMessages(ChatStore.getMessages(activeConversationId));
-      if (targetUserFromId) {
-        ChatStore.getOrCreateDirectConversation(targetUserFromId);
+      if (targetUserFromIdRef.current) {
+        ChatStore.getOrCreateDirectConversation(targetUserFromIdRef.current);
       }
     } else {
       setMessages([]);
     }
-  }, [activeConversationId, targetUserFromId]);
+  }, [activeConversationId, targetUserKey]);
 
   // Fix poisoned activeConversationId with 'current-user'
   useEffect(() => {
@@ -131,24 +142,18 @@ export const ChatLayout: React.FC = () => {
     }
   }, [conversations, activeConversationId, urlUserId, urlConvId]);
 
+  // Exact id, the same direct peer, or (for 1:1 chats only) a conversation that includes the target user.
+  // Never substring matching: that used to pick the wrong chat (or a group) as the "active" one.
   const activeConversation = conversations.find((c) => {
     if (!activeConversationId) return false;
-    // 1. Direct ID match
-    if (c.id === activeConversationId) return true;
-
-    // 2. Extract partner target ID match
-    if (activeTargetUserId && activeTargetUserId !== realMyId && activeTargetUserId !== 'current-user') {
-      if (c.id.includes(activeTargetUserId) || c.participants?.some((p) => p && p.id === activeTargetUserId)) {
-        return true;
-      }
-    }
-
-    // 3. Substring / alias match
-    if (c.id && activeConversationId && (c.id.includes(activeConversationId) || activeConversationId.includes(c.id))) {
-      return true;
-    }
-
-    return false;
+    if (c.id === activeConversationId || isSameConversation(c.id, activeConversationId, realMyId)) return true;
+    return Boolean(
+      c.type === 'direct' &&
+        activeTargetUserId &&
+        activeTargetUserId !== realMyId &&
+        activeTargetUserId !== 'current-user' &&
+        c.participants?.some((p) => p && p.id === activeTargetUserId)
+    );
   }) || (activeConversationId && targetUserFromId ? {
     id: activeConversationId,
     type: 'direct' as const,
@@ -171,7 +176,7 @@ export const ChatLayout: React.FC = () => {
     displayName: storeUser?.displayName || storeUser?.name || rawOtherUser.displayName || rawOtherUser.name || 'Friend',
     name: storeUser?.displayName || storeUser?.name || rawOtherUser.displayName || rawOtherUser.name || 'Friend',
     avatarUrl: storeUser?.avatarUrl || storeUser?.avatar || rawOtherUser.avatarUrl || rawOtherUser.avatar || null,
-    avatar: storeUser?.avatarUrl || storeUser?.avatar || rawOtherUser.avatarUrl || rawOtherUser.avatar || undefined,
+    avatar: storeUser?.avatarUrl || storeUser?.avatar || rawOtherUser.avatarUrl || rawOtherUser.avatar || undefined
   } : undefined;
 
   // Mark conversation as read and sync remote messages when opened
@@ -181,7 +186,7 @@ export const ChatLayout: React.FC = () => {
         sessionStorage.setItem('watch_active_conv_id', activeConversationId);
       }
       ChatStore.markAsRead(activeConversationId, otherUser?.id);
-      ChatStore.fetchRemoteMessages(activeConversationId);
+      void ChatStore.fetchRemoteMessages(activeConversationId);
     } else {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('watch_active_conv_id');
@@ -195,16 +200,20 @@ export const ChatLayout: React.FC = () => {
     const msgs = ChatStore.getMessages(activeConversationId);
     const firstMsg = msgs.length > 0 ? msgs[0] : null;
     if (firstMsg?.createdAt) {
-      ChatStore.fetchRemoteMessages(activeConversationId, { before: firstMsg.createdAt, limit: 50 });
+      void ChatStore.fetchRemoteMessages(activeConversationId, { before: firstMsg.createdAt, limit: 50 });
     }
   };
 
-  // Periodic sync of remote messages for active conversation (fetch latest 50 messages)
+  // Safety-net poll for the open conversation. New messages normally arrive instantly over the WebSocket, so this
+  // only asks for messages NEWER than the last one we have (cheap) and not while the tab is hidden.
   useEffect(() => {
     if (!activeConversationId) return;
     const interval = setInterval(() => {
-      ChatStore.fetchRemoteMessages(activeConversationId, { limit: 50 });
-    }, 3000);
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const msgs = ChatStore.getMessages(activeConversationId);
+      const last = msgs[msgs.length - 1];
+      void ChatStore.fetchRemoteMessages(activeConversationId, { after: last?.createdAt, limit: 50 });
+    }, 12000);
     return () => clearInterval(interval);
   }, [activeConversationId]);
 
@@ -215,7 +224,7 @@ export const ChatLayout: React.FC = () => {
     const friendId = targetOther?.id || otherUserId;
     setActiveConversationId(conv.id);
     ChatStore.markAsRead(conv.id, friendId);
-    ChatStore.fetchRemoteMessages(conv.id);
+    void ChatStore.fetchRemoteMessages(conv.id);
   };
 
   const myName = session?.user?.displayName || 'You';
@@ -242,9 +251,9 @@ export const ChatLayout: React.FC = () => {
         ? {
             id: replyingTo.id,
             senderName: replyingTo.senderName,
-            content: replyingTo.content,
+            content: replyingTo.content
           }
-        : undefined,
+        : undefined
     });
 
     setMessages(ChatStore.getMessages(activeConversationId));
@@ -265,9 +274,9 @@ export const ChatLayout: React.FC = () => {
         voice: {
           duration,
           audioUrl,
-          waveform: waveform || [30, 45, 75, 90, 60, 40, 80, 100, 70, 50, 65, 85, 45, 95, 60, 40, 70, 85, 60, 35, 50, 40],
-        },
-      },
+          waveform: waveform || [30, 45, 75, 90, 60, 40, 80, 100, 70, 50, 65, 85, 45, 95, 60, 40, 70, 85, 60, 35, 50, 40]
+        }
+      }
     });
     setMessages(ChatStore.getMessages(activeConversationId));
   };
@@ -281,7 +290,7 @@ export const ChatLayout: React.FC = () => {
       senderAvatar: myAvatar,
       content: `🍿 Created plan: ${plan.title}`,
       type: 'plan',
-      metadata: { plan },
+      metadata: { plan }
     });
     setMessages(ChatStore.getMessages(activeConversationId));
   };
@@ -295,7 +304,7 @@ export const ChatLayout: React.FC = () => {
       senderAvatar: myAvatar,
       content: `🎮 Invited to ${game.title || game.gameType}`,
       type: 'game_invite',
-      metadata: { game },
+      metadata: { game }
     });
     setMessages(ChatStore.getMessages(activeConversationId));
   };
@@ -309,7 +318,7 @@ export const ChatLayout: React.FC = () => {
       senderAvatar: myAvatar,
       content: `🎬 Shared movie: ${movie.title}`,
       type: 'movie_share',
-      metadata: { movie },
+      metadata: { movie }
     });
     setMessages(ChatStore.getMessages(activeConversationId));
   };
@@ -342,16 +351,16 @@ export const ChatLayout: React.FC = () => {
   };
 
   const handleAcceptRequest = (requestId: string) => {
-    ChatStore.acceptRequest(requestId);
+    void ChatStore.acceptRequest(requestId);
   };
 
   const handleDeclineRequest = (requestId: string) => {
-    ChatStore.declineRequest(requestId);
+    void ChatStore.declineRequest(requestId);
   };
 
   const handleStartCall = (type: 'voice' | 'video') => {
     if (otherUser) {
-      startCall(
+      void startCall(
         otherUser.id,
         otherUser.displayName || otherUser.name || 'Friend',
         otherUser.avatarUrl || otherUser.avatar,

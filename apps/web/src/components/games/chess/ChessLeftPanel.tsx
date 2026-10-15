@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
 import React from 'react';
 import {
   Users,
@@ -35,7 +36,7 @@ export const ChessLeftPanel: React.FC<ChessLeftPanelProps> = ({
         <div className="flex items-start justify-between gap-2 min-w-0">
           <div className="flex items-center gap-3 min-w-0 shrink">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-rose-400 p-0.5 shadow-md shadow-amber-500/20 flex items-center justify-center shrink-0">
-              <span className="text-2xl drop-shadow">👑</span>
+              <AppIcon name="crown" className="w-6 h-6 text-white drop-shadow" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -47,7 +48,7 @@ export const ChessLeftPanel: React.FC<ChessLeftPanelProps> = ({
             </div>
           </div>
           <span className="text-[11px] font-bold text-[#ff2b70] italic tracking-tight font-serif shrink-0 text-right">
-            Good Moves<br />Better Friends ♡
+            Good Moves<br />Better Friends
           </span>
         </div>
 

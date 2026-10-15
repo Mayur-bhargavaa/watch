@@ -185,3 +185,54 @@ body {
   transform: rotateY(180deg);
 }
 
+
+
+/* Right-side panel entrance (friends: sent requests) */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slideInRight {
+  animation: slideInRight 0.22s ease-out both;
+}
+
+
+/* Light/dark toggle: the new theme is painted on top and revealed by an expanding circle (see ThemeContext) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* iOS Safari zooms the whole page when a text field under 16px gets focus (the chat box used 14px).
+   Keep fields at 16px on touch screens so typing never zooms; pinch-zoom stays available. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Emoji Charades: puzzle emoji pop in one after another */
+@keyframes emojiPop {
+  0% { opacity: 0; transform: scale(0.4) translateY(8px); }
+  70% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-testid="emoji-row"] > span { animation: none !important; }
+}

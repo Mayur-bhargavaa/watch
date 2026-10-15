@@ -4,7 +4,9 @@ module.exports = {
       name: 'watch-server',
       cwd: '/home/ubuntu/apps/watch/apps/server',
       script: 'dist/index.js',
-      env_file: '.env'
+      env_file: '.env',
+      env: { NODE_ENV: 'production' }, // turns on Secure cookies, CORS/mail guards
+      kill_timeout: 10000
     },
     {
       name: 'watch-web',

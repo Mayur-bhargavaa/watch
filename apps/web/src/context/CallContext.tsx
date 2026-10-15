@@ -5,6 +5,7 @@ import { getStoredSession } from '../lib/api';
 import { ChatStore } from '../lib/chatStore';
 import { CallSignaling } from '../lib/callSignaling';
 import { CallRingtone } from '../lib/callRingtone';
+import { showCallNotification } from '../lib/notifyHelpers';
 
 export interface ActiveCall {
   callId: string;
@@ -97,6 +98,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Handle incoming signaling messages
   useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises -- async subscriber that handles its own errors
     const unsubscribe = CallSignaling.subscribe(async (data: any) => {
       if (!data || !data.type) return;
 
@@ -117,17 +119,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Start incoming ringing audio
         CallRingtone.startIncomingRingtone();
 
-        // Browser push notification if tab is in background
-        if (typeof document !== 'undefined' && document.hidden) {
-          if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification(`📞 Incoming ${data.callType === 'video' ? 'Video' : 'Voice'} Call`, {
-                body: `${data.callerName || 'A friend'} is calling you on Watch Party`,
-                icon: data.callerAvatar || '/icon-192.png',
-              });
-            } catch {}
-          }
-        }
+        // OS banner when the user is not looking at the app
+        showCallNotification({
+          callId: data.callId,
+          title: `Incoming ${data.callType === 'video' ? 'Video' : 'Voice'} Call`,
+          body: `${data.callerName || 'A friend'} is calling you on Watch Party`
+        });
 
         setActiveCall({
           callId: data.callId,
@@ -460,7 +457,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const nextType = prev.type === 'voice' ? 'video' : 'voice';
       return { ...prev, type: nextType };
     });
-    toggleVideo();
+    void toggleVideo();
   };
 
   return (
@@ -474,6 +471,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         declineCall,
         endCall,
         toggleMute,
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- context value types these as void callbacks; they handle their own errors
         toggleVideo,
         toggleMinimize,
         switchCallType,

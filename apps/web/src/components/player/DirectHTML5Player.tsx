@@ -94,8 +94,8 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
         }
 
         const badgeText = targetRate > 1.0
-          ? `⚡ Syncing +${Math.round((targetRate - 1) * 100)}%`
-          : `⚡ Syncing -${Math.round((1 - targetRate) * 100)}%`;
+          ? `Syncing +${Math.round((targetRate - 1) * 100)}%`
+          : `Syncing -${Math.round((1 - targetRate) * 100)}%`;
 
         setSyncBadge({ isCatchingUp: true, text: badgeText });
         if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), targetRate);
@@ -108,7 +108,7 @@ export const DirectHTML5Player = memo(function DirectHTML5Player({
         video.currentTime = authoritativeTime;
         video.playbackRate = 1.0;
         lastHardSeekTimeRef.current = now;
-        setSyncBadge({ isCatchingUp: true, text: '⚡ Re-aligned' });
+        setSyncBadge({ isCatchingUp: true, text: 'Re-aligned' });
         setTimeout(() => setSyncBadge(null), 1500);
         if (onDriftUpdate) onDriftUpdate(Math.round(driftSeconds * 1000), 1.0);
         setTimeout(() => {

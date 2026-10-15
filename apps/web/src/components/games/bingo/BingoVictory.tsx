@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
 import React, { useEffect, useRef } from 'react';
 import { Trophy, Sparkles, RotateCcw, Calendar, Gamepad2, ArrowLeft } from 'lucide-react';
 import { BingoWinCondition } from '@synccinema/common';
@@ -17,6 +18,8 @@ interface BingoVictoryProps {
   winnerUserId: string;
   myUserId: string;
   finalScores?: Record<string, number>;
+  /** userId -> display name, so every row of the final score names its own player */
+  playerNames?: Record<string, string>;
   roundsWon?: { condition: BingoWinCondition; winnerName: string; points: number }[];
   rematchStatus?: {
     votedUserIds: string[];
@@ -25,6 +28,10 @@ interface BingoVictoryProps {
     allVoted: boolean;
   } | null;
   onRematch: () => void;
+  /** Opponent left / server refused a rematch: hide Play Again and show newGameSlot (if any). */
+  rematchUnavailable?: boolean;
+  newGameSlot?: React.ReactNode;
+  isSpectator?: boolean;
   onBackToPlan?: () => void;
   onBackToLobby: () => void;
 }
@@ -36,9 +43,13 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
   winnerUserId,
   myUserId,
   finalScores = {},
+  playerNames = {},
   roundsWon = [],
   rematchStatus,
   onRematch,
+  rematchUnavailable = false,
+  newGameSlot,
+  isSpectator = false,
   onBackToPlan,
   onBackToLobby
 }) => {
@@ -106,7 +117,7 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
         {/* Trophy Icon */}
         <div className="relative flex justify-center">
           <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl sm:rounded-3xl bg-gradient-to-tr from-amber-500/20 via-rose-500/20 to-transparent border border-amber-500/30 flex items-center justify-center text-2xl sm:text-3xl shadow-[0_0_24px_rgba(238,29,73,0.3)] animate-pulse">
-            🏆
+            <AppIcon name="trophy" className="w-8 h-8 text-amber-400" />
           </div>
         </div>
 
@@ -131,7 +142,9 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
               FINAL SCORE
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(finalScores).map(([uid, score], idx) => (
+              {Object.entries(finalScores)
+                .sort((a, b) => Number(b[1]) - Number(a[1]))
+                .map(([uid, score], idx) => (
                 <div
                   key={uid}
                   className={`p-2.5 rounded-xl border flex flex-col items-center ${
@@ -141,7 +154,7 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
                   }`}
                 >
                   <span className="text-xs font-bold truncate max-w-[120px]">
-                    {uid === myUserId ? 'You' : winnerDisplayName}
+                    {uid === myUserId ? 'You' : playerNames[uid] || (uid === winnerUserId ? winnerDisplayName : 'Player')}
                   </span>
                   <span className="text-lg sm:text-xl font-black font-mono mt-0.5 text-white">
                     {score} <span className="text-[10px] text-rose-400 font-sans">pts</span>
@@ -176,7 +189,7 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
           <div className="p-3.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-center space-y-1 animate-pulse">
             <div className="flex items-center justify-center gap-1.5 text-rose-300 font-black text-xs">
               <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-              <span>🔥 Opponent wants to play again!</span>
+              <span>Opponent wants to play again!</span>
             </div>
             <p className="text-[11px] text-zinc-300">
               Click Play Again to accept and return to waiting room!
@@ -186,7 +199,8 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-2 pt-1 sm:pt-2">
-          <button
+          {rematchUnavailable && !isSpectator && newGameSlot}
+          {!rematchUnavailable && !isSpectator && <button
             type="button"
             onClick={onRematch}
             className={`w-full py-3 sm:py-3.5 px-4 sm:px-6 rounded-xl sm:rounded-2xl text-white font-black text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2 cursor-pointer ${
@@ -200,10 +214,10 @@ export const BingoVictory: React.FC<BingoVictoryProps> = ({
               {hasVoted
                 ? 'Returning to Waiting Room...'
                 : partnerVoted
-                ? 'Accept & Play Again 🔄'
+                ? 'Accept & Play Again'
                 : 'Play Again'}
             </span>
-          </button>
+          </button>}
 
           <div className="grid grid-cols-2 gap-2">
             {onBackToPlan && (

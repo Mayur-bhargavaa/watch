@@ -1,5 +1,6 @@
 'use client';
 
+import { BINGO_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState } from 'react';
 import { Mic, MicOff, Video, VideoOff, MessageCircle, Smile, Settings } from 'lucide-react';
 
@@ -14,7 +15,7 @@ interface BingoBottomDockProps {
   onOpenSettings: () => void;
 }
 
-const REACTION_EMOJIS = ['😂', '❤️', '🔥', '😱', '👏', '😭'];
+const REACTION_EMOJIS = BINGO_REACTIONS;
 
 export const BingoBottomDock: React.FC<BingoBottomDockProps> = ({
   isMuted,

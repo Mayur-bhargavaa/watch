@@ -6,7 +6,6 @@ import Link from 'next/link';
 import {
   Search,
   Users,
-  Bell,
   ChevronDown,
   ArrowRight,
   Menu,
@@ -15,8 +14,13 @@ import {
   Sparkles,
   Gamepad2,
   Check,
-  Clock
+  Clock,
+  Heart,
+  Lock
 } from 'lucide-react';
+import { NotifyMeButton, useGameInterest } from '../../components/games/NotifyMeButton';
+import { UPCOMING_GAMES, TIER_INFO, tierAtLeast } from '@synccinema/common';
+import { useMyMembership } from '../../components/membership/useMyMembership';
 import { AppSidebar } from '../../components/layout/AppSidebar';
 import { AppHeader } from '../../components/layout/AppHeader';
 import { useTheme } from '../../context/ThemeContext';
@@ -28,6 +32,7 @@ import {
   ActiveFriendInGame,
   getActiveFriendsInGames
 } from '../../lib/api';
+import { canonicalGameId, gameRoutePath } from '../../lib/gameRoutes';
 import { GameFriendSelectorDrawer } from '../../components/games/GameFriendSelectorDrawer';
 import { AddFriendModal } from '../../components/streaks/AddFriendModal';
 
@@ -42,6 +47,8 @@ interface GameCardData {
   watermark: 'crown' | 'sparkle';
   category: 'party' | 'duel';
   isComingSoon?: boolean;
+  /** pass needed: to unlock a coming-soon game, or to HOST a live VIP game (guests of any pass can still join) */
+  tier?: 'plus' | 'creator';
 }
 
 const GAMES_DATA: GameCardData[] = [
@@ -112,17 +119,6 @@ const GAMES_DATA: GameCardData[] = [
     category: 'duel'
   },
   {
-    id: 'cinema-trivia',
-    title: 'Cinema Trivia',
-    subtext: '15s Rapid Movie & Pop Quiz.',
-    players: '2-6 Players',
-    gradient: 'from-[#f59e0b] via-[#d97706] to-[#78350f]',
-    image: '/images/card-cinema-trivia.png',
-    watermark: 'sparkle',
-    category: 'party',
-    isComingSoon: true
-  },
-  {
     id: 'chess',
     title: 'Chess',
     subtext: 'Classic 2-player strategy. Standard 8×8 rules.',
@@ -134,17 +130,107 @@ const GAMES_DATA: GameCardData[] = [
     category: 'duel'
   },
   {
-    id: 'co-op-sketch',
-    title: 'Co-Op Sketch',
-    subtext: 'Multiplayer Live Sketch & Guess.',
-    players: '2-6 Players',
-    gradient: 'from-[#ec4899] via-[#be185d] to-[#700738]',
-    image: '/images/card-doodle-duel.png',
+    id: 'imposter',
+    title: 'Imposter',
+    subtext: 'Everyone knows the word except one. Clue, bluff, vote.',
+    players: '4-8 Players',
+    gradient: 'from-[#8b5cf6] via-[#6d28d9] to-[#2e1065]',
+    image: '/images/card-cinema-trivia.png',
+    route: '/games/imposter',
     watermark: 'sparkle',
     category: 'party',
-    isComingSoon: true
-  }
+    // VIP to HOST; anyone can still join a friend's game (the page explains this to free users)
+    tier: 'plus'
+  },
+  {
+    id: 'emoji-charades',
+    title: 'Emoji Charades',
+    subtext: 'Guess the movie or show from the emoji. Race your friends.',
+    players: '2-8 Players',
+    gradient: 'from-[#f59e0b] via-[#d97706] to-[#78350f]',
+    image: '/images/card-cinema-trivia.png',
+    route: '/games/emoji-charades',
+    watermark: 'sparkle',
+    category: 'party',
+    // VIP to HOST; anyone can still join a friend's game (the page explains this to free users)
+    tier: 'plus'
+  },
+  {
+    id: 'mafia',
+    title: 'Mafia Night',
+    subtext: 'Night falls. Find the mafia before they find you.',
+    players: '5-10 Players',
+    gradient: 'from-[#ef4444] via-[#991b1b] to-[#1c1917]',
+    image: '/images/card-chess-arena.png',
+    route: '/games/mafia',
+    watermark: 'sparkle',
+    category: 'party',
+    // VIP to HOST; anyone can still join a friend's game (the page explains this to free users)
+    tier: 'plus'
+  },
+  {
+    id: 'quiz-show',
+    title: 'Quiz Show Studio',
+    subtext: 'Host a live quiz with your own questions, buzzers and a leaderboard.',
+    players: 'Up to 30 Players',
+    gradient: 'from-[#ee1d49] via-[#9f1239] to-[#1c1917]',
+    image: '/images/card-cinema-trivia.png',
+    route: '/games/quiz-show',
+    watermark: 'crown',
+    category: 'party',
+    // Creator Pass to HOST; anyone can still join a quiz with its room code (the page explains this to free users)
+    tier: 'creator'
+  },
+  {
+    id: 'murder-mystery',
+    title: 'Murder Mystery Night',
+    subtext: 'A whodunit for the whole group: clues, secrets and a final accusation.',
+    players: '6-12 Players',
+    gradient: 'from-[#ee1d49] via-[#9f1239] to-[#1c1917]',
+    image: '/images/card-chess-arena.png',
+    route: '/games/murder-mystery',
+    watermark: 'sparkle',
+    category: 'party',
+    // Creator Pass to HOST; anyone can still join with a room code (the page explains this to free users)
+    tier: 'creator'
+  },
+  {
+    id: 'tournament',
+    title: 'Tournament Arena',
+    subtext: 'Run a knockout bracket of 1v1 matches with seeding, byes and a champion.',
+    players: '4-32 Players',
+    gradient: 'from-[#ee1d49] via-[#9f1239] to-[#1c1917]',
+    image: '/images/card-chess-arena.png',
+    route: '/games/tournament',
+    watermark: 'crown',
+    category: 'party',
+    // Creator Pass to ORGANISE; anyone can still join with a room code (the page explains this to free users)
+    tier: 'creator'
+  },
 ];
+
+const UPCOMING_STYLE = [
+  { gradient: 'from-[#6366f1] via-[#4338ca] to-[#1e1b4b]', image: '/images/card-tictactoe.png' },
+  { gradient: 'from-[#f59e0b] via-[#d97706] to-[#78350f]', image: '/images/card-cinema-trivia.png' },
+  { gradient: 'from-[#ef4444] via-[#991b1b] to-[#1c1917]', image: '/images/card-chess-arena.png' },
+  { gradient: 'from-[#14b8a6] via-[#0f766e] to-[#042f2e]', image: '/images/card-bingo-duel.png' },
+  { gradient: 'from-[#8b5cf6] via-[#6d28d9] to-[#2e1065]', image: '/images/card-doodle-duel.png' },
+  { gradient: 'from-[#ec4899] via-[#be185d] to-[#500724]', image: '/images/card-four-in-row.png' }
+];
+GAMES_DATA.push(
+  ...UPCOMING_GAMES.map((g, i): GameCardData => ({
+    id: g.id,
+    title: g.title,
+    subtext: g.blurb,
+    players: g.players,
+    gradient: UPCOMING_STYLE[i % UPCOMING_STYLE.length].gradient,
+    image: UPCOMING_STYLE[i % UPCOMING_STYLE.length].image,
+    watermark: 'sparkle',
+    category: 'party',
+    isComingSoon: true,
+    tier: g.tier
+  }))
+);
 
 const SOCIAL_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face',
@@ -155,6 +241,8 @@ const SOCIAL_AVATARS = [
 
 export default function GameLobbyPage() {
   const router = useRouter();
+  const interest = useGameInterest();
+  const myTier = useMyMembership()?.tier ?? 'free';
   const { resolvedTheme, toggleTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -170,7 +258,7 @@ export default function GameLobbyPage() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState<'all' | '2-players' | 'party'>('all');
+  const [filterCategory, setFilterCategory] = useState<'all' | '2-players' | 'party' | 'vip' | 'creator'>('all');
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
 
   // Friend / Room Modals
@@ -179,8 +267,10 @@ export default function GameLobbyPage() {
   const [selectedGameForPartner, setSelectedGameForPartner] = useState<string>('/games/ludo');
   const [notificationToast, setNotificationToast] = useState<string | null>(null);
 
-  // Active friends playing or waiting in games
+  // Active friends waiting in joinable games (PLAYING / full rooms cannot be joined, so they are not shown)
   const [activeFriends, setActiveFriends] = useState<ActiveFriendInGame[]>([]);
+  const joinTarget = (af: ActiveFriendInGame): string =>
+    af.game.joinUrl && af.game.joinUrl.startsWith('/games/') ? af.game.joinUrl : gameRoutePath(af.game.gameType, af.game.roomCode);
 
   useEffect(() => {
     const s = getStoredSession();
@@ -203,15 +293,33 @@ export default function GameLobbyPage() {
       getActiveFriendsInGames(session.token)
         .then((res) => {
           if (res.success && res.activeFriends) {
-            setActiveFriends(res.activeFriends);
+            setActiveFriends(
+              res.activeFriends.filter(
+                (af) =>
+                  ((af.game.status === 'WAITING' &&
+                    (af.game.maxPlayers ? af.game.playerCount < af.game.maxPlayers : true)) ||
+                    (af.game.status === 'PLAYING' && af.game.canSpectate === true)) &&
+                  canonicalGameId(af.game.gameType) !== null
+              )
+            );
           }
         })
         .catch(() => {});
     };
 
     fetchActiveFriends();
-    const interval = setInterval(fetchActiveFriends, 6000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      fetchActiveFriends();
+    }, 10000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchActiveFriends();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [session?.token]);
 
   const handleSelectFriend = (friend: FriendWithStreak) => {
@@ -232,22 +340,15 @@ export default function GameLobbyPage() {
     router.push(selectedGameForPartner);
   };
 
-  const handleStayUpdated = (gameTitle?: string) => {
-    setNotificationToast(
-      gameTitle
-        ? `🔔 Subscribed to updates for ${gameTitle}!`
-        : '🔔 Subscribed! You will be notified when new party games drop.'
-    );
-    setTimeout(() => setNotificationToast(null), 4000);
-  };
-
   const filteredGames = GAMES_DATA.filter((game) => {
     const matchesSearch =
       game.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       game.subtext.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
+    if (filterCategory === 'vip') return game.tier === 'plus';
+    if (filterCategory === 'creator') return game.tier === 'creator';
     if (filterCategory === '2-players') return game.players.includes('2 Players') || game.category === 'duel';
-    if (filterCategory === 'party') return game.category === 'party' || game.players.includes('2-4') || game.players.includes('2–20') || game.players.includes('2-20') || game.players.includes('2-6');
+    if (filterCategory === 'party') return (!game.tier || !game.isComingSoon) && (game.category === 'party' || game.players.includes('2-4') || game.players.includes('2–20') || game.players.includes('2-20') || game.players.includes('2-6'));
     return true;
   });
 
@@ -337,7 +438,7 @@ export default function GameLobbyPage() {
                 </span>
               </h1>
               <p className="text-xs sm:text-sm text-zinc-300 font-normal mt-1 sm:mt-1.5 tracking-normal">
-                Real games. Real people. No bots, ever.
+                Real games. Real people. Better together.
               </p>
             </div>
 
@@ -356,7 +457,7 @@ export default function GameLobbyPage() {
                   ))}
                 </div>
                 <span className="text-[11px] sm:text-xs font-semibold text-zinc-200">
-                  12K+ friends are playing
+                  Play with your friends
                 </span>
               </div>
 
@@ -368,7 +469,7 @@ export default function GameLobbyPage() {
                 >
                   Play<br />
                   Laugh<br />
-                  Repeat <span className="text-[#ff3864]">♡</span>
+                  Repeat <Heart className="inline w-[1em] h-[1em] align-[-0.125em] text-[#ff3864]" aria-hidden="true" />
                 </p>
               </div>
             </div>
@@ -425,10 +526,10 @@ export default function GameLobbyPage() {
 
                     <button
                       type="button"
-                      onClick={() => router.push(af.game.joinUrl)}
+                      onClick={() => router.push(af.game.status === 'PLAYING' && af.game.canSpectate ? (af.game.spectateUrl && af.game.spectateUrl.startsWith('/games/') ? af.game.spectateUrl : `${gameRoutePath(af.game.gameType, af.game.roomCode)}&spectate=1`) : joinTarget(af))}
                       className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[#ff3864] hover:bg-[#e02652] text-white text-xs font-bold shadow-xs active:scale-95 transition shrink-0 cursor-pointer flex items-center gap-1"
                     >
-                      <span>Join</span>
+                      <span>{af.game.status === 'PLAYING' && af.game.canSpectate ? 'Watch' : 'Join'}</span>
                       <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
@@ -460,6 +561,10 @@ export default function GameLobbyPage() {
                     ? 'All Games'
                     : filterCategory === '2-players'
                     ? '2 Players'
+                    : filterCategory === 'vip'
+                    ? 'VIP games'
+                    : filterCategory === 'creator'
+                    ? 'Creator games'
                     : 'Party (2-4+)'}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
@@ -506,6 +611,32 @@ export default function GameLobbyPage() {
                     <span>Party (2-4+)</span>
                     {filterCategory === 'party' && <Check className="w-3.5 h-3.5" />}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterCategory('vip');
+                      setIsFilterDropdownOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-white/5 ${
+                      filterCategory === 'vip' ? 'text-[#ff3864]' : 'text-slate-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span>VIP games</span>
+                    {filterCategory === 'vip' && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterCategory('creator');
+                      setIsFilterDropdownOpen(false);
+                    }}
+                    className={`w-full px-3.5 py-2 text-left text-xs font-semibold flex items-center justify-between hover:bg-slate-100 dark:hover:bg-white/5 ${
+                      filterCategory === 'creator' ? 'text-[#ff3864]' : 'text-slate-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <span>Creator games</span>
+                    {filterCategory === 'creator' && <Check className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
               )}
             </div>
@@ -514,23 +645,22 @@ export default function GameLobbyPage() {
           {/* 3. GAME CARDS GRID: 4 columns on PC/desktop, 3 on tablet, 2 on mobile */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5 lg:gap-6">
             {filteredGames.map((game) => {
-              const friendsInGame = activeFriends.filter(af => af.game.gameType === game.id);
+              const friendsInGame = activeFriends.filter(af => canonicalGameId(af.game.gameType) === game.id);
               const waitingFriend = friendsInGame.find(af => af.game.status === 'WAITING');
-              const activeFriend = waitingFriend || friendsInGame[0];
+              // Card pill only joins WAITING rooms; PLAYING rooms are watched from the friends strip.
+              const activeFriend = waitingFriend;
 
               return (
                 <div
                   key={game.id}
                   onClick={() => {
-                    if (activeFriend) {
-                      router.push(activeFriend.game.joinUrl);
-                    } else if (game.isComingSoon) {
-                      handleStayUpdated(game.title);
-                    } else if (game.route) {
+                    // Only the explicit "Join" pill joins a friend's room; the card always starts your own game.
+                    if (game.isComingSoon) return;
+                    if (game.route) {
                       router.push(game.route);
                     }
                   }}
-                  className={`group relative rounded-[18px] xs:rounded-[22px] sm:rounded-[28px] bg-gradient-to-b ${game.gradient} p-2.5 xs:p-3 sm:p-4 md:p-5 text-white flex flex-col justify-between min-h-[195px] xs:min-h-[210px] sm:min-h-[260px] md:min-h-[290px] lg:min-h-[310px] shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer select-none overflow-hidden`}
+                  className={`group relative rounded-[18px] xs:rounded-[22px] sm:rounded-[28px] bg-gradient-to-b ${game.gradient} p-2.5 xs:p-3 sm:p-4 md:p-5 text-white flex flex-col justify-between min-h-[195px] xs:min-h-[210px] sm:min-h-[260px] md:min-h-[290px] lg:min-h-[310px] shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 ${game.isComingSoon ? 'cursor-default opacity-90' : 'cursor-pointer'} select-none overflow-hidden`}
                 >
                   {/* Top Row: Player count pill & Watermark icon */}
                   <div>
@@ -584,7 +714,7 @@ export default function GameLobbyPage() {
                         <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.push(activeFriend.game.joinUrl);
+                            router.push(joinTarget(activeFriend));
                           }}
                           className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl flex items-center justify-between gap-1 text-[9px] xs:text-[10px] sm:text-xs font-bold border backdrop-blur-md transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer ${
                             activeFriend.game.status === 'WAITING'
@@ -632,20 +762,30 @@ export default function GameLobbyPage() {
                             SOON
                           </span>
                         )}
+                        {game.tier && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8.5px] sm:text-[9.5px] font-bold bg-white/20 text-white border border-white/30 shrink-0"
+                            title={tierAtLeast(myTier, game.tier) ? 'Included in your pass' : game.isComingSoon ? `Unlocks with ${TIER_INFO[game.tier].badgeLabel}` : `${TIER_INFO[game.tier].badgeLabel} to host. You can still join a friend's game.`}
+                          >
+                            {!tierAtLeast(myTier, game.tier) && <Lock className="w-2.5 h-2.5" aria-label="Locked" />}
+                            {game.tier === 'creator' ? 'Creator' : 'VIP'}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[9.5px] xs:text-[10px] sm:text-xs text-white/80 font-normal mt-0.5 leading-tight line-clamp-1 sm:line-clamp-2">
                         {game.subtext}
                       </p>
                     </div>
 
+                    {game.isComingSoon && <NotifyMeButton gameId={game.id} state={interest} />}
                     <div className="flex items-center justify-between pt-0.5">
                       <span className="text-[10px] xs:text-[11px] sm:text-xs md:text-sm font-bold text-white group-hover:underline underline-offset-2 tracking-wide truncate">
-                        {game.isComingSoon ? 'Notify Me' : 'Play Now'}
+                        {game.isComingSoon ? (game.tier ? `Coming soon · ${game.tier === 'creator' ? 'Creator' : 'VIP'}` : 'Coming soon') : 'Play Now'}
                       </span>
 
                       <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-full bg-white/20 group-hover:bg-white/35 backdrop-blur-md border border-white/25 flex items-center justify-center text-white transition-all transform group-hover:translate-x-1 shadow-sm shrink-0">
                         {game.isComingSoon ? (
-                          <Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
+                          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
                         ) : (
                           <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
                         )}
@@ -657,7 +797,8 @@ export default function GameLobbyPage() {
             })}
           </div>
 
-          {/* 4. BOTTOM BANNER: "More games coming soon..." */}
+          {/* 4. BOTTOM BANNER: "More games coming soon..." (only while the roadmap still has a game: nothing is shown when the list is empty) */}
+          {UPCOMING_GAMES.length > 0 && (
           <div className="rounded-[24px] sm:rounded-[28px] bg-[#fff0f4] dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/30 p-4 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-5 relative overflow-hidden shadow-sm">
             {/* Left: Icon and Text */}
             <div className="flex items-center gap-3 sm:gap-4">
@@ -681,20 +822,12 @@ export default function GameLobbyPage() {
                 style={{ fontFamily: "'Caveat', cursive, 'Brush Script MT', sans-serif" }}
               >
                 Same People<br />
-                New Games <span className="text-[#ff3864]">♡</span>
+                New Games <Heart className="inline w-[1em] h-[1em] align-[-0.125em] text-[#ff3864]" aria-hidden="true" />
               </p>
             </div>
 
-            {/* Right: Stay Updated Button */}
-            <button
-              type="button"
-              onClick={() => handleStayUpdated()}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-full bg-white dark:bg-white/10 hover:bg-rose-50 dark:hover:bg-white/15 border border-rose-200 dark:border-white/10 text-slate-800 dark:text-white text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition active:scale-95 cursor-pointer shrink-0"
-            >
-              <Bell className="w-4 h-4 text-[#ff3864]" />
-              <span>Stay Updated</span>
-            </button>
           </div>
+          )}
         </div>
       </main>
 

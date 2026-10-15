@@ -38,8 +38,13 @@ module.exports = {
         'float-up': 'floatUp 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards',
         'pulse-glow': 'pulseGlow 2s infinite ease-in-out',
         'heartbeat': 'heartbeat 1.5s ease-in-out infinite',
+        'imposter-in': 'imposterIn 180ms ease-out both',
       },
       keyframes: {
+        imposterIn: {
+          '0%': { transform: 'translateY(4px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' }
+        },
         floatUp: {
           '0%': { transform: 'translateY(20px) scale(0.6)', opacity: '0' },
           '15%': { transform: 'translateY(0px) scale(1.2)', opacity: '1' },

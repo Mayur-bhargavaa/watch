@@ -19,6 +19,7 @@ import { PARTICIPANT_PALETTE, SmileyFace } from '../voice/VideoGrid';
 import { StickerPicker, StickerMessageView } from './StickerPicker';
 import { parseStickerMessage, formatStickerMessage } from './StickersData';
 import { ChatReplyQuote, ChatReplyingBanner } from './ChatReplyUI';
+import { copyToClipboard } from '../../lib/clipboard';
 
 export interface ContextualChatProps {
   messages: ChatMessage[];
@@ -219,9 +220,9 @@ export function ContextualChat({
     }
   };
 
-  const handleCopyMessage = (msgId: string, text: string) => {
+  const handleCopyMessage = async (msgId: string, text: string) => {
     if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(text);
+      if (!(await copyToClipboard(text))) return;
       setCopiedMsgId(msgId);
       setTimeout(() => setCopiedMsgId(null), 1500);
     }

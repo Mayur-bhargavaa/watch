@@ -14,7 +14,7 @@ import {
   aggregateClockOffset,
   calculateAuthoritativePosition
 } from '@synccinema/common';
-import { API_BASE, WS_BASE, getStoredSession, ensureSession } from '../lib/api';
+import { API_BASE, WS_BASE, getStoredSession, ensureSession, authHeaders, getWsTicket } from '../lib/api';
 
 export interface RoomSocketState {
   connectionStatus: 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'DISCONNECTED';
@@ -242,7 +242,7 @@ export function useRoomSocket(slug: string) {
   }, [slug]);
 
   // Connect WebSocket
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!slug) return;
 
     const session = getStoredSession();
@@ -260,7 +260,14 @@ export function useRoomSocket(slug: string) {
     }
 
     setState(s => ({ ...s, connectionStatus: s.room ? 'RECONNECTING' : 'CONNECTING', myUserId: session.user.id }));
-    const wsUrl = `${WS_BASE}/ws/rooms/${slug}?token=${session.token}`;
+    let ticket: string;
+    try {
+      ticket = await getWsTicket();
+    } catch {
+      setState(s => ({ ...s, connectionStatus: 'DISCONNECTED', error: 'Could not authenticate. Please sign in again.' }));
+      return;
+    }
+    const wsUrl = `${WS_BASE}/ws/rooms/${slug}?ticket=${encodeURIComponent(ticket)}`;
 
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
@@ -604,7 +611,7 @@ export function useRoomSocket(slug: string) {
       if (!isLeavingRef.current && !isUnmountedRef.current) {
         reconnectTimeoutRef.current = setTimeout(() => {
           if (!isLeavingRef.current && !isUnmountedRef.current) {
-            connect();
+            void connect();
           }
         }, 2000);
       }
@@ -618,7 +625,7 @@ export function useRoomSocket(slug: string) {
 
   useEffect(() => {
     // 1. Instant HTTP fetch to guarantee immediate UI render
-    fetch(`${API_BASE}/api/rooms/${slug}`)
+    fetch(`${API_BASE}/api/rooms/${slug}`, { headers: authHeaders() })
       .then(res => {
         if (!res.ok) throw new Error('Room not found');
         return res.json();
@@ -637,7 +644,7 @@ export function useRoomSocket(slug: string) {
       });
 
     // 2. Connect real-time WebSocket
-    connect();
+    void connect();
 
     // Recurring clock ping every 25 seconds
     pingIntervalRef.current = setInterval(() => {

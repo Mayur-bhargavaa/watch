@@ -7,6 +7,7 @@ import {
   BingoConditionProgress,
   BingoConditionClaim
 } from '@synccinema/common';
+import { secureRandom } from '../util/random.js';
 
 const NUMBER_WORDS: Record<number, string> = {
   1: 'ONE', 2: 'TWO', 3: 'THREE', 4: 'FOUR', 5: 'FIVE',
@@ -104,7 +105,7 @@ export class BingoEngine {
     let success = false;
     let attempts = 0;
 
-    while (!success && attempts < 100) {
+    while (!success && attempts < 5000) {
       attempts++;
       grid = [
         new Array(9).fill(null),
@@ -116,7 +117,7 @@ export class BingoEngine {
       const colCounts = new Array(9).fill(1); // 9 numbers assigned
       let remaining = 6;
       while (remaining > 0) {
-        const c = Math.floor(Math.random() * 9);
+        const c = Math.floor(secureRandom() * 9);
         if (colCounts[c] < 3) {
           colCounts[c]++;
           remaining--;
@@ -131,7 +132,7 @@ export class BingoEngine {
         for (let num = min; num <= max; num++) pool.push(num);
         // Shuffle pool
         for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
+          const j = Math.floor(secureRandom() * (i + 1));
           [pool[i], pool[j]] = [pool[j], pool[i]];
         }
         const picked = pool.slice(0, colCounts[c]).sort((a, b) => a - b);
@@ -190,12 +191,123 @@ export class BingoEngine {
         }
       }
 
-      if (rowCounts[0] === 5 && rowCounts[1] === 5 && rowCounts[2] === 5) {
+      if (rowCounts[0] === 5 && rowCounts[1] === 5 && rowCounts[2] === 5 && this.isValidTambolaTicket({ cells: grid })) {
         success = true;
       }
     }
 
+    if (!success) {
+      // Never hand out a malformed ticket
+      throw new Error('Failed to generate a valid Tambola ticket');
+    }
+
     return { cells: grid };
+  }
+
+  /**
+   * A valid 90-ball ticket: 3x9, exactly 5 numbers per row, 15 unique numbers, every column has 1-3 numbers
+   * within its range (1-9, 10-19, ... 80-90) in ascending order from top to bottom.
+   */
+  public static isValidTambolaTicket(ticket: BingoTicket): boolean {
+    const cells = ticket?.cells;
+    if (!Array.isArray(cells) || cells.length !== 3) return false;
+    const seen = new Set<number>();
+    for (const row of cells) {
+      if (!Array.isArray(row) || row.length !== 9) return false;
+      if (row.filter(n => n !== null).length !== 5) return false;
+    }
+    for (let c = 0; c < 9; c++) {
+      const min = c === 0 ? 1 : c * 10;
+      const max = c === 8 ? 90 : c * 10 + 9;
+      const col = [cells[0][c], cells[1][c], cells[2][c]].filter((n): n is number => n !== null);
+      if (col.length < 1 || col.length > 3) return false;
+      for (let i = 0; i < col.length; i++) {
+        const n = col[i];
+        if (!Number.isInteger(n) || n < min || n > max || seen.has(n)) return false;
+        if (i > 0 && n <= col[i - 1]) return false;
+        seen.add(n);
+      }
+    }
+    return seen.size === 15;
+  }
+
+  /** Conditions that exist on a 90-ball ticket (the only mode offered for Tambola) */
+  public static readonly SUPPORTED_CONDITIONS: BingoWinCondition[] = [
+    'early5', 'topLine', 'middleLine', 'bottomLine', 'fourCorners', 'housefull'
+  ];
+
+  /**
+   * Validates an untrusted (partial) host config and merges it onto `base`. Throws Error with a user-facing message.
+   * Mode is always 90-ball; unsupported prizes are forced off.
+   */
+  public static sanitizeConfig(input: unknown, base: BingoRoomConfig = DEFAULT_BINGO_CONFIG): BingoRoomConfig {
+    const out: BingoRoomConfig = {
+      ...base,
+      mode: '90-ball',
+      winConditions: { ...base.winConditions },
+      points: { ...base.points }
+    };
+    delete (out as any).customPattern;
+    if (input === undefined || input === null) return this.finalizeConfig(out);
+    if (typeof input !== 'object' || Array.isArray(input)) throw new Error('Config must be an object.');
+    const src = input as Record<string, any>;
+
+    if (src.mode !== undefined && src.mode !== '90-ball') {
+      throw new Error('Tambola only supports the 90-ball mode.');
+    }
+    if (src.callingSpeed !== undefined) {
+      const v = Number(src.callingSpeed);
+      if (src.callingSpeed === null || src.callingSpeed === '' || !Number.isFinite(v) || v < 800 || v > 30000) {
+        throw new Error('callingSpeed must be between 800 and 30000 ms.');
+      }
+      out.callingSpeed = Math.round(v);
+    }
+    if (src.autoCall !== undefined) {
+      if (typeof src.autoCall !== 'boolean') throw new Error('autoCall must be a boolean.');
+      out.autoCall = src.autoCall;
+    }
+    if (src.falseClaimPenalty !== undefined) {
+      const v = Number(src.falseClaimPenalty);
+      if (src.falseClaimPenalty === null || !Number.isFinite(v) || v < 0 || v > 60) {
+        throw new Error('falseClaimPenalty must be between 0 and 60 seconds.');
+      }
+      out.falseClaimPenalty = Math.round(v);
+    }
+    if (src.winConditions !== undefined) {
+      if (!src.winConditions || typeof src.winConditions !== 'object' || Array.isArray(src.winConditions)) {
+        throw new Error('winConditions must be an object.');
+      }
+      for (const [k, v] of Object.entries(src.winConditions)) {
+        if (!(this.SUPPORTED_CONDITIONS as string[]).includes(k)) {
+          if (v) throw new Error(`Prize "${k}" is not available in Tambola.`);
+          continue;
+        }
+        if (typeof v !== 'boolean') throw new Error(`winConditions.${k} must be a boolean.`);
+        (out.winConditions as any)[k] = v;
+      }
+    }
+    if (src.points !== undefined) {
+      if (!src.points || typeof src.points !== 'object' || Array.isArray(src.points)) {
+        throw new Error('points must be an object.');
+      }
+      for (const [k, v] of Object.entries(src.points)) {
+        if (!(this.SUPPORTED_CONDITIONS as string[]).includes(k)) continue;
+        if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 1000) {
+          throw new Error(`points.${k} must be a number between 0 and 1000.`);
+        }
+        (out.points as any)[k] = Math.round(v);
+      }
+    }
+    return this.finalizeConfig(out);
+  }
+
+  private static finalizeConfig(cfg: BingoRoomConfig): BingoRoomConfig {
+    const all = Object.keys(cfg.winConditions) as BingoWinCondition[];
+    all.forEach(k => {
+      if (!this.SUPPORTED_CONDITIONS.includes(k)) cfg.winConditions[k] = false;
+    });
+    if (!this.SUPPORTED_CONDITIONS.some(k => cfg.winConditions[k])) cfg.winConditions.housefull = true;
+    return cfg;
   }
 
   /**
@@ -222,7 +334,7 @@ export class BingoEngine {
       const pool: number[] = [];
       for (let num = min; num <= max; num++) pool.push(num);
       for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = Math.floor(secureRandom() * (i + 1));
         [pool[i], pool[j]] = [pool[j], pool[i]];
       }
       for (let r = 0; r < 5; r++) {
@@ -247,7 +359,7 @@ export class BingoEngine {
 
     // Fisher-Yates shuffle
     for (let i = queue.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(secureRandom() * (i + 1));
       [queue[i], queue[j]] = [queue[j], queue[i]];
     }
 
@@ -261,15 +373,15 @@ export class BingoEngine {
     players: { userId: string; displayName: string }[],
     config: BingoRoomConfig = DEFAULT_BINGO_CONFIG
   ): BingoGameState {
+    config = this.sanitizeConfig(config);
     const tickets: Record<string, BingoTicket> = {};
     const playerMarked: Record<string, number[]> = {};
     const scores: Record<string, number> = {};
+    const playerNames: Record<string, string> = {};
 
     players.forEach(p => {
-      tickets[p.userId] =
-        config.mode === '75-ball'
-          ? this.generate75BallTicket()
-          : this.generateTambolaTicket();
+      playerNames[p.userId] = p.displayName;
+      tickets[p.userId] = this.generateTambolaTicket();
       playerMarked[p.userId] = [];
       scores[p.userId] = 0;
     });
@@ -294,7 +406,8 @@ export class BingoEngine {
       winnerDisplayName: null,
       statusMessage: 'Game started! Calling numbers...',
       callingPaused: false,
-      gameSummary: null
+      gameSummary: null,
+      playerNames
     };
 
     // Calculate initial condition progress for all players
@@ -318,9 +431,11 @@ export class BingoEngine {
     calledNumber: number | null;
     isFinished: boolean;
   } {
-    if (state.callQueue.length === 0 || state.phase === 'FINISHED') {
-      state.phase = 'FINISHED';
-      state.statusMessage = 'All numbers have been called!';
+    if (state.phase !== 'PLAYING') {
+      return { state, calledNumber: null, isFinished: state.phase === 'FINISHED' };
+    }
+    if (state.callQueue.length === 0) {
+      this.finishGame(state, 'All numbers have been called!');
       return { state, calledNumber: null, isFinished: true };
     }
 
@@ -348,8 +463,9 @@ export class BingoEngine {
   }
 
   /**
-   * Toggles or marks a number on the player's ticket.
-   * If forceMark is true, ensures the number is marked without toggling it off.
+   * Marks (default) or unmarks (forceMark === false) a number on the player's own ticket.
+   * Idempotent. Only integers that are on the caller's ticket and already called are accepted, and only while PLAYING.
+   * Returns the (possibly unchanged) state; check `state.playerMarked` for the effect.
    */
   public static markNumber(
     state: BingoGameState,
@@ -357,19 +473,62 @@ export class BingoEngine {
     numberToMark: number,
     forceMark?: boolean
   ): BingoGameState {
-    if (!state.playerMarked[userId]) {
-      state.playerMarked[userId] = [];
-    }
+    if (state.phase !== 'PLAYING') return state;
+    const ticket = state.tickets[userId];
+    if (!ticket) return state;
+    if (typeof numberToMark !== 'number' || !Number.isInteger(numberToMark)) return state;
+    const onTicket = ticket.cells.some(row => row.some(n => n === numberToMark));
+    if (!onTicket) return state;
+    if (!state.calledNumbers.includes(numberToMark)) return state;
+
+    if (!state.playerMarked[userId]) state.playerMarked[userId] = [];
     const list = state.playerMarked[userId];
     const idx = list.indexOf(numberToMark);
-    if (idx >= 0) {
-      if (!forceMark) {
-        list.splice(idx, 1);
-      }
-    } else {
+    if (forceMark === false) {
+      if (idx >= 0) list.splice(idx, 1);
+    } else if (idx < 0) {
       list.push(numberToMark);
     }
     return state;
+  }
+
+  /**
+   * Ends the game, derives the final winner (highest score; ties go to the Housefull claimer, then the earliest
+   * claim) and fills the summary.
+   */
+  public static finishGame(state: BingoGameState, statusMessage?: string): void {
+    state.phase = 'FINISHED';
+    const names = state.playerNames || {};
+    const claims = Object.values(state.claimedConditions);
+    const entries = Object.entries(state.scores);
+    const topScore = entries.reduce((m, [, sc]) => Math.max(m, sc), 0);
+    let topUser: string | null = null;
+    if (topScore > 0) {
+      const candidates = entries.filter(([, sc]) => sc === topScore).map(([uid]) => uid);
+      const hf = state.claimedConditions.housefull?.claimedByUserId;
+      if (candidates.length === 1) topUser = candidates[0];
+      else if (hf && candidates.includes(hf)) topUser = hf;
+      else {
+        const first = (id: string) => Math.min(...claims.filter(c => c.claimedByUserId === id).map(c => c.claimedAt));
+        topUser = candidates.sort((x, y) => first(x) - first(y))[0];
+      }
+    }
+
+    const nameOf = (uid: string | null): string | null => {
+      if (!uid) return null;
+      return names[uid]
+        || claims.find(c => c.claimedByUserId === uid)?.claimedByDisplayName
+        || null;
+    };
+    state.winnerUserId = topUser;
+    state.winnerDisplayName = nameOf(topUser);
+    state.gameSummary = {
+      winnerUserId: state.winnerUserId,
+      winnerDisplayName: state.winnerDisplayName,
+      finalScores: { ...state.scores },
+      roundsWon: claims.map(c => ({ condition: c.condition, winnerName: c.claimedByDisplayName, points: c.points }))
+    };
+    if (statusMessage) state.statusMessage = statusMessage;
   }
 
   /**
@@ -557,6 +716,13 @@ export class BingoEngine {
     pointsEarned: number;
     penaltySeconds: number;
   } {
+    if (state.phase !== 'PLAYING') {
+      return { valid: false, message: 'The game is not in progress.', pointsEarned: 0, penaltySeconds: 0 };
+    }
+    if (typeof condition !== 'string' || !(this.SUPPORTED_CONDITIONS as string[]).includes(condition)) {
+      return { valid: false, message: 'Unknown winning condition.', pointsEarned: 0, penaltySeconds: 0 };
+    }
+
     // 1. Check if user is currently penalized
     if (state.penaltyUntil && state.penaltyUntil[userId]) {
       const remainingMs = state.penaltyUntil[userId] - Date.now();
@@ -603,6 +769,9 @@ export class BingoEngine {
     }
 
     const targetNumbers = this.getTargetNumbersForCondition(ticket, condition, state.config);
+    if (targetNumbers.length === 0) {
+      return { valid: false, message: 'This prize cannot be claimed on your ticket.', pointsEarned: 0, penaltySeconds: 0 };
+    }
     const calledSet = new Set(state.calledNumbers);
 
     let isMet = false;
@@ -630,14 +799,14 @@ export class BingoEngine {
       const penaltyMsg = penaltySec > 0 ? ` (${penaltySec}s penalty applied)` : '';
       return {
         valid: false,
-        message: `Not yet 😅 ${condName} needs ${needed} more number${needed > 1 ? 's' : ''}.${penaltyMsg}`,
+        message: `Not yet. ${condName} needs ${needed} more number${needed > 1 ? 's' : ''}.${penaltyMsg}`,
         pointsEarned: 0,
         penaltySeconds: penaltySec
       };
     }
 
     // VALID CLAIM!
-    const points = state.config.points[condition] || 10;
+    const points = state.config.points[condition] ?? 10;
     state.scores[userId] = (state.scores[userId] || 0) + points;
 
     state.claimedConditions[condition] = {
@@ -662,52 +831,21 @@ export class BingoEngine {
 
     // Check if Housefull or all enabled conditions are completed -> End game
     const enabledConditions = Object.entries(state.config.winConditions)
-      .filter(([_, enabled]) => enabled)
+      .filter(([cond, enabled]) => enabled && (this.SUPPORTED_CONDITIONS as string[]).includes(cond))
       .map(([cond]) => cond);
 
     const housefullClaimed = Boolean(state.claimedConditions.housefull);
     const allEnabledClaimed = enabledConditions.every(c => Boolean(state.claimedConditions[c]));
 
     if (housefullClaimed || allEnabledClaimed) {
-      state.phase = 'FINISHED';
-
-      // Determine overall game winner by highest score
-      let topUser: string | null = null;
-      let topScore = -1;
-      Object.entries(state.scores).forEach(([uId, sc]) => {
-        if (sc > topScore) {
-          topScore = sc;
-          topUser = uId;
-        }
-      });
-
-      state.winnerUserId = topUser;
-      state.winnerDisplayName =
-        topUser === userId
-          ? displayName
-          : (state.claimedConditions.housefull?.claimedByDisplayName || displayName);
-
-      const roundsWon = Object.values(state.claimedConditions).map(c => ({
-        condition: c.condition,
-        winnerName: c.claimedByDisplayName,
-        points: c.points
-      }));
-
-      state.gameSummary = {
-        winnerUserId: state.winnerUserId,
-        winnerDisplayName: state.winnerDisplayName,
-        finalScores: { ...state.scores },
-        roundsWon
-      };
-
-      state.statusMessage = `🏆 ${displayName} completed ${condName}! Game Finished!`;
+      this.finishGame(state, `${displayName} completed ${condName}! Game Finished!`);
     } else {
-      state.statusMessage = `🎉 ${displayName} won ${condName}! (+${points} pts)`;
+      state.statusMessage = `${displayName} won ${condName}! (+${points} pts)`;
     }
 
     return {
       valid: true,
-      message: `🎉 BINGO! You won ${condName}! (+${points} points)`,
+      message: `BINGO! You won ${condName}! (+${points} points)`,
       pointsEarned: points,
       penaltySeconds: 0
     };
@@ -730,4 +868,30 @@ export class BingoEngine {
     };
     return names[cond] || cond;
   }
+}
+
+/**
+ * Per-viewer projection of the Tambola state. Pure (never mutates `state`).
+ * Removes the future draw order (callQueue -> [] plus remainingCount), every other player's ticket and marks
+ * (replaced by markedCounts).
+ */
+export function publicStateFor(state: BingoGameState, viewerId: string | null | undefined): BingoGameState {
+  if (!state) return state;
+  const viewer = viewerId ?? '';
+  const tickets: Record<string, BingoTicket> = {};
+  if (viewer && state.tickets && state.tickets[viewer]) tickets[viewer] = state.tickets[viewer];
+  const playerMarked: Record<string, number[]> = {};
+  const markedCounts: Record<string, number> = {};
+  Object.entries(state.playerMarked || {}).forEach(([uid, marks]) => {
+    markedCounts[uid] = marks.length;
+    if (uid === viewer) playerMarked[uid] = [...marks];
+  });
+  return {
+    ...state,
+    callQueue: [],
+    remainingCount: state.callQueue?.length ?? 0,
+    tickets,
+    playerMarked,
+    markedCounts
+  };
 }

@@ -8,10 +8,8 @@ import {
   VideoOff,
   Mic,
   MicOff,
-  Minimize2,
-  Maximize2,
-  Volume2,
-} from 'lucide-react';
+  Minimize2
+  } from 'lucide-react';
 import { useCall } from '../../context/CallContext';
 import { ModalPortal } from './ModalPortal';
 
@@ -25,7 +23,7 @@ export const ActiveCallOverlay: React.FC = () => {
     endCall,
     toggleMute,
     toggleVideo,
-    toggleMinimize,
+    toggleMinimize
   } = useCall();
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -301,7 +299,7 @@ export const ActiveCallOverlay: React.FC = () => {
                         className="w-1 rounded-full bg-[#ee1d49] animate-pulse"
                         style={{
                           height: `${activeCall.isMuted ? 8 : h}%`,
-                          animationDelay: `${i * 0.1}s`,
+                          animationDelay: `${i * 0.1}s`
                         }}
                       />
                     ))}

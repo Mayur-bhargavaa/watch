@@ -11,6 +11,11 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Message router between Content Scripts, Popup, and Web App
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Only our own extension contexts (popup / content scripts) may talk to the worker
+  if (sender.id !== chrome.runtime.id || !message || typeof message.type !== 'string') {
+    sendResponse({ status: 'ignored' });
+    return false;
+  }
   (async () => {
     try {
       switch (message.type) {
@@ -21,9 +26,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         case 'SET_SYNC_ACTIVE': {
+          const slug = typeof message.payload?.roomSlug === 'string' && /^[a-z0-9_-]{1,64}$/i.test(message.payload.roomSlug) ? message.payload.roomSlug : null;
           await chrome.storage.local.set({
-            isSyncActive: message.payload.isSyncActive,
-            currentRoomSlug: message.payload.roomSlug || null
+            isSyncActive: Boolean(message.payload?.isSyncActive),
+            currentRoomSlug: slug
           });
           sendResponse({ status: 'ok' });
           break;
@@ -31,7 +37,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case 'OTT_PLAYER_DETECTED': {
           await chrome.storage.local.set({
-            lastDetectedPlatform: message.payload.platform
+            lastDetectedPlatform: String(message.payload?.platform ?? 'Unknown').slice(0, 40)
           });
           sendResponse({ status: 'ok' });
           break;

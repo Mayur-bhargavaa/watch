@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Calendar, Clock, ChevronRight, Users, Film } from 'lucide-react';
+import { Calendar, Clock, ChevronRight, Film } from 'lucide-react';
 import { ChatPlanPayload } from '@/types/chat';
 
 interface PlanMessageProps {

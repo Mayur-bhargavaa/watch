@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { AppIcon } from '../ui/AppIcon';
 import {
   X,
   Flame,
@@ -72,17 +73,19 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
   const completedToday = Boolean(friend?.streak?.completedToday);
   const atRisk = Boolean(friend?.streak?.atRisk);
   const totalMinutes = friend?.streak?.totalMinutesWatched ?? 0;
+  // The calendar keeps showing the last run even after the streak broke (the big counter shows 0 then)
+  const runLength = Math.max(currentStreak, friend?.streak?.lastRunLength ?? 0);
 
   // Compute Active Streak Dates Set (Hook called unconditionally at top level!)
   const activeStreakDates = useMemo(() => {
     const dates = new Set<string>();
-    if (currentStreak > 0 && lastDate) {
+    if (runLength > 0 && lastDate) {
       try {
         const cleanDate = lastDate.includes('T') ? lastDate.split('T')[0] : lastDate;
         const parts = cleanDate.split('-').map(Number);
         if (parts.length === 3 && !parts.some(isNaN)) {
           const [y, m, d] = parts;
-          for (let i = 0; i < currentStreak; i++) {
+          for (let i = 0; i < runLength; i++) {
             const dt = new Date(y, m - 1, d - i);
             if (!isNaN(dt.getTime())) {
               const yStr = dt.getFullYear();
@@ -97,7 +100,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
       }
     }
     return dates;
-  }, [currentStreak, lastDate]);
+  }, [runLength, lastDate]);
 
   // Calendar calculations (Safe with invalid dates)
   const safeDate = useMemo(() => {
@@ -154,7 +157,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
       yd.setDate(yd.getDate() - 1);
       const yesterday = yd.toISOString().split('T')[0];
 
-      if (clean === today) return 'Today 🔥';
+      if (clean === today) return 'Today';
       if (clean === yesterday) return 'Yesterday';
 
       const parts = clean.split('-').map(Number);
@@ -231,7 +234,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
                     {friendUser.displayName || 'Friend'}
                   </h3>
                   <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
-                    🔥 Streak
+                    <AppIcon name="fire" className="inline w-3 h-3 align-[-0.125em]" /> Streak
                   </span>
                 </div>
                 <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400 truncate">
@@ -269,7 +272,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
                     ? 'bg-gradient-to-br from-amber-400 to-rose-500 text-white shadow-lg shadow-rose-500/30'
                     : 'bg-zinc-200 dark:bg-white/10 text-zinc-400'
                 }`}>
-                  <span className="text-3xl filter drop-shadow-sm">🔥</span>
+                  <AppIcon name="fire" className="w-8 h-8 drop-shadow-sm" />
                 </div>
                 {atRisk && (
                   <span className="absolute -top-1 -right-1 flex h-4 w-4">
@@ -404,7 +407,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
                       className={`h-8 w-8 mx-auto rounded-xl flex items-center justify-center text-xs relative transition-all ${dayStyle}`}
                       title={
                         isActiveStreakDay
-                          ? `${dateString}: Streak Active 🔥`
+                          ? `${dateString}: Streak Active`
                           : isToday
                           ? `${dateString}: Today`
                           : dateString
@@ -412,7 +415,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
                     >
                       <span>{dayNum}</span>
                       {isActiveStreakDay && (
-                        <span className="absolute -top-1 -right-1 text-[8px] leading-none">🔥</span>
+                        <AppIcon name="fire" className="absolute -top-1 -right-1 w-2.5 h-2.5" />
                       )}
                     </div>
                   );
@@ -456,7 +459,7 @@ export const StreakDetailsDrawer: React.FC<StreakDetailsDrawerProps> = ({
               </div>
 
               <div className="pt-2 border-t border-zinc-200/60 dark:border-white/5 text-[11px] text-zinc-400 leading-relaxed">
-                💡 <span className="font-semibold text-zinc-600 dark:text-zinc-300">How streaks work:</span> Watch a movie or play Ludo / 4-in-a-Row together once every 24 hours to keep the flame alive!
+                <AppIcon name="idea" className="inline w-[1em] h-[1em] align-[-0.125em]" /> <span className="font-semibold text-zinc-600 dark:text-zinc-300">How streaks work:</span> Watch a movie or play Ludo / 4-in-a-Row together once every 24 hours to keep the flame alive!
               </div>
             </div>
 

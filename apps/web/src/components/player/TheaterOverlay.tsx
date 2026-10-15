@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { AppIcon } from '../ui/AppIcon';
 import { X } from 'lucide-react';
 
 interface TheaterOverlayProps {
@@ -418,7 +419,7 @@ export function TheaterOverlay({ avatarUrl, userName, onClose, children }: Theat
                       className="absolute -top-5 -right-4"
                       style={{ fontSize: 20, animation: 'popcornAppear 0.4s ease 0.1s both' }}
                     >
-                      🍿
+                      <AppIcon name="popcorn" className="w-5 h-5 text-amber-300" />
                     </div>
                   )}
 
@@ -428,7 +429,7 @@ export function TheaterOverlay({ avatarUrl, userName, onClose, children }: Theat
                       className="absolute -top-5 -left-4"
                       style={{ fontSize: 14, animation: 'popcornAppear 0.4s ease 0.3s both' }}
                     >
-                      😍
+                      <AppIcon name="heart" className="w-4 h-4 text-rose-400 fill-current" />
                     </div>
                   )}
                 </div>
@@ -464,7 +465,7 @@ export function TheaterOverlay({ avatarUrl, userName, onClose, children }: Theat
             color: '#E50914',
           }}
         >
-          🎬 3D Theater Experience
+          <AppIcon name="movie" className="inline w-[1em] h-[1em] align-[-0.125em]" /> 3D Theater Experience
         </div>
       </div>
     </div>

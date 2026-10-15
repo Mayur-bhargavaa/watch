@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Search, Forward, Check, MessageSquare } from 'lucide-react';
+import { X, Search, Forward, Check } from 'lucide-react';
 import { ChatMessage, ChatConversation } from '@/types/chat';
 import { ModalPortal } from './ModalPortal';
 import { ChatStore } from '@/lib/chatStore';
@@ -19,7 +19,7 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
   onClose,
   message,
   conversations,
-  onForwardSuccess,
+  onForwardSuccess
 }) => {
   const [search, setSearch] = useState('');
   const [forwardedConvId, setForwardedConvId] = useState<string | null>(null);
@@ -41,8 +41,8 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
       mediaUrl: message.mediaUrl,
       metadata: {
         ...message.metadata,
-        forwarded: true,
-      },
+        forwarded: true
+      }
     });
 
     if (onForwardSuccess) {

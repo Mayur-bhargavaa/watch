@@ -4,10 +4,6 @@ import {
   ChatConversation,
   ChatMessage,
   ChatUser,
-  ChatMessageReaction,
-  ChatPlanPayload,
-  ChatGamePayload,
-  ChatMoviePayload,
   ChatMessageType,
   ChatMessageMetadata,
   ChatMessageRequest
@@ -15,12 +11,22 @@ import {
 import {
   getStoredSession,
   getFriendsWithStreaks,
-  getUserPartner,
   acceptFriendRequest,
   declineFriendRequest,
   addFriendByCode,
   API_BASE
 } from './api';
+import {
+  toCanonicalConvId,
+  extractParticipantIds,
+  conversationAliases,
+  isSameConversation,
+  normalizeConversationId
+} from './chatIds';
+
+export { toCanonicalConvId };
+
+const directPeerIdOf = (convId: string, myId?: string) => extractParticipantIds(convId, myId).otherUserId;
 
 const STORAGE_PREFIX = 'watch_chat_v2_';
 
@@ -28,68 +34,25 @@ const STORAGE_PREFIX = 'watch_chat_v2_';
 let realFriendsMap: Record<string, ChatUser> = {};
 let realRequestsList: ChatMessageRequest[] = [];
 let cachedMyFriendCode: string = '';
+// Conversations whose history was already pulled this session (avoids refetching every friend on every sync tick)
+const hydratedConversations = new Set<string>();
+let syncTimer: ReturnType<typeof setInterval> | null = null;
+let storageListenerInstalled = false;
+
+/** Resolves `currentUserId` (ignoring the legacy 'current-user' placeholder) to the signed-in user's id. */
+function resolveMyId(currentUserId?: string): string | undefined {
+  if (currentUserId && currentUserId !== 'current-user') return currentUserId;
+  return typeof window !== 'undefined' ? getStoredSession()?.user?.id : undefined;
+}
 
 export function extractParticipantIdsFromConvId(
   convId: string,
   currentUserId?: string
 ): { userIds: string[]; otherUserId?: string } {
-  if (!convId) {
-    return { userIds: [] };
-  }
-  const raw = convId.startsWith('conv_') ? convId.slice(5) : convId; // strip 'conv_'
-  const realMyId = (currentUserId && currentUserId !== 'current-user')
-    ? currentUserId
-    : (typeof window !== 'undefined' ? getStoredSession()?.user?.id : undefined);
-
-  // Pattern: usr_AAA_usr_BBB or AAA_usr_BBB
-  if (raw.includes('_usr_')) {
-    const idx = raw.indexOf('_usr_');
-    const u1 = raw.slice(0, idx);
-    const u2 = raw.slice(idx + 1); // includes 'usr_'
-    const userIds = [u1, u2];
-    const otherUserId = realMyId ? (u1 === realMyId ? u2 : (u2 === realMyId ? u1 : u2)) : u2;
-    return { userIds, otherUserId };
-  }
-
-  // Fallback: If realMyId is inside raw
-  if (realMyId && raw.includes(realMyId)) {
-    let remainder = raw.replace(realMyId, '');
-    if (remainder.startsWith('_')) remainder = remainder.slice(1);
-    if (remainder.endsWith('_')) remainder = remainder.slice(0, -1);
-    if (remainder) {
-      return { userIds: [realMyId, remainder], otherUserId: remainder };
-    }
-  }
-
-  if (raw.includes('_')) {
-    const parts = raw.split('_');
-    // Single user ID with prefix usr_ (e.g. usr_qu8M4HFI04)
-    if (parts.length === 2 && parts[0] === 'usr') {
-      const singleUserId = `usr_${parts[1]}`;
-      const otherUserId = (realMyId && singleUserId === realMyId) ? undefined : singleUserId;
-      return { userIds: [singleUserId], otherUserId };
-    }
-    // General two-part ID: AAA_BBB
-    if (parts.length === 2 && parts[0] !== 'usr') {
-      const u1 = parts[0];
-      const u2 = parts[1];
-      const userIds = [u1, u2];
-      const otherUserId = realMyId ? (u1 === realMyId ? u2 : (u2 === realMyId ? u1 : u2)) : u2;
-      return { userIds, otherUserId };
-    }
-  }
-
-  const otherUserId = (realMyId && raw === realMyId) ? undefined : raw;
-  return { userIds: [raw], otherUserId };
-}
-
-export function toCanonicalConvId(userA: string, userB: string): string {
-  return `conv_${[userA, userB].sort().join('_')}`;
+  return extractParticipantIds(convId, resolveMyId(currentUserId));
 }
 
 // All data in Chat is strictly real from MongoDB and WebSocket — no fake mock data
-const DEFAULT_PARTICIPANTS: Record<string, ChatUser> = {};
-const INITIAL_CONVERSATIONS: ChatConversation[] = [];
 const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {};
 
 const MOCK_CONV_IDS = new Set(['conv_rahul', 'conv_group_friday', 'conv_dhruv', 'conv_mansi', 'conv_kunal']);
@@ -115,14 +78,42 @@ export function isMockConversation(c: any): boolean {
   return false;
 }
 
+/** Chat storage/network failures are non-fatal; keep them visible in development instead of swallowing them. */
+function chatWarn(context: string, err?: unknown): void {
+  if (process.env.NODE_ENV !== 'production') {
+    console.debug(`[chat] ${context}`, err ?? '');
+  }
+}
+
+/** Last-activity time of a conversation (last message when known, else its own timestamp). */
+function activityTime(c: ChatConversation): number {
+  return new Date(c.lastMessage?.createdAt || c.updatedAt || 0).getTime() || 0;
+}
+
+/** Pinned first, then newest activity first, then id - a total order, so the list never reshuffles on its own. */
+export function compareConversations(a: ChatConversation, b: ChatConversation): number {
+  if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+  return activityTime(b) - activityTime(a) || a.id.localeCompare(b.id);
+}
+
 type Listener = () => void;
 const listeners = new Set<Listener>();
 
+/**
+ * Bumped on every store change. getConversations() derives the whole list (parses localStorage, merges duplicates,
+ * recomputes last messages) and used to do that on EVERY call - several times per render. The result is now cached
+ * and only rebuilt after something actually changed (a notify()).
+ */
+let conversationsVersion = 0;
+
 function notify() {
+  conversationsVersion += 1;
   listeners.forEach(fn => {
     try {
       fn();
-    } catch {}
+    } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
   });
 }
 
@@ -139,7 +130,9 @@ export class ChatStore {
     if (this.socketSender) {
       try {
         this.socketSender(msg);
-      } catch {}
+      } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
     }
   }
 
@@ -165,13 +158,15 @@ export class ChatStore {
         }
         toDelete.forEach((k) => localStorage.removeItem(k));
         localStorage.setItem(key, value);
-      } catch {}
+      } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
     }
   }
 
   private static serializeConversations(convs: ChatConversation[]): string {
     const stripped = convs.map((c) => {
-      const { messages, ...rest } = c;
+      const { messages: _messages, ...rest } = c;
       return rest;
     });
     return JSON.stringify(stripped);
@@ -195,17 +190,39 @@ export class ChatStore {
             });
             this.safeSetLocalStorage(storageKey, this.serializeConversations(clean));
           }
-        } catch {}
+        } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
       }
       localStorage.removeItem(`${STORAGE_PREFIX}guest_conversations`);
       for (const id of MOCK_CONV_IDS) {
         localStorage.removeItem(`${this.getStorageKey()}_msgs_${id}`);
         localStorage.removeItem(`${STORAGE_PREFIX}guest_msgs_${id}`);
       }
-    } catch {}
+    } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
   }
 
+  private static convCache: { version: number; userId: string; list: ChatConversation[] } | null = null;
+
+  /**
+   * The conversation list (pinned first, newest activity next). Cached between store changes; every call returns
+   * fresh copies of the conversation objects, so callers may edit them (and then saveConversations) safely.
+   */
   static getConversations(): ChatConversation[] {
+    const userId = getStoredSession()?.user?.id || '';
+    let cache = this.convCache;
+    if (!cache || cache.version !== conversationsVersion || cache.userId !== userId) {
+      const list = this.computeConversations();
+      // computeConversations may persist merges (and so notify); record the version AFTER it finished
+      cache = { version: conversationsVersion, userId, list };
+      this.convCache = cache;
+    }
+    return cache.list.map((c) => ({ ...c }));
+  }
+
+  private static computeConversations(): ChatConversation[] {
     let convs: ChatConversation[] = [];
     if (typeof window !== 'undefined') {
       try {
@@ -220,7 +237,9 @@ export class ChatStore {
             }
           }
         }
-      } catch {}
+      } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
     }
 
     // Auto-merge / deduplicate any duplicate direct conversations pointing to the same user
@@ -277,7 +296,9 @@ export class ChatStore {
         if (c.id !== canonicalId) {
           try {
             localStorage.removeItem(`${this.getStorageKey()}_msgs_${c.id}`);
-          } catch {}
+          } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
         }
       } else {
         // Enforce canonical ID for the conversation
@@ -290,7 +311,9 @@ export class ChatStore {
     if (hadDuplicates && typeof window !== 'undefined') {
       try {
         this.safeSetLocalStorage(this.getStorageKey() + '_conversations', this.serializeConversations(deduplicated));
-      } catch {}
+      } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
     }
     convs = deduplicated;
 
@@ -341,11 +364,7 @@ export class ChatStore {
     }
 
     // Sort by newest activity first
-    convs.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
-    });
+    convs.sort(compareConversations);
 
     return convs.map(c => {
       const msgs = this.getMessages(c.id);
@@ -379,7 +398,9 @@ export class ChatStore {
         const arr = JSON.parse(raw);
         if (Array.isArray(arr)) return new Set(arr);
       }
-    } catch {}
+    } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
     return new Set();
   }
 
@@ -391,7 +412,9 @@ export class ChatStore {
         set.add(messageId);
         localStorage.setItem('watchparty_opened_view_once_ids', JSON.stringify(Array.from(set)));
       }
-    } catch {}
+    } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
   }
 
   static isViewOnceOpened(messageId: string): boolean {
@@ -400,24 +423,7 @@ export class ChatStore {
   }
 
   static getConversationAliases(conversationId: string): string[] {
-    const s = getStoredSession();
-    const myId = s?.user?.id;
-    const aliases = new Set<string>([conversationId]);
-
-    const { userIds, otherUserId } = extractParticipantIdsFromConvId(conversationId, myId);
-    const friendId = otherUserId || userIds.find((id) => id !== myId);
-    if (friendId && friendId !== myId) {
-      aliases.add(`conv_${friendId}`);
-      if (myId) {
-        aliases.add(toCanonicalConvId(myId, friendId));
-      }
-    }
-    // CRITICAL: NEVER include conv_${myId} in aliases, because the current user is
-    // part of every chat, which would cause all separate conversations to cross-contaminate!
-    if (myId) {
-      aliases.delete(`conv_${myId}`);
-    }
-    return Array.from(aliases);
+    return conversationAliases(conversationId, getStoredSession()?.user?.id);
   }
 
   static getMessages(conversationId: string): ChatMessage[] {
@@ -426,7 +432,7 @@ export class ChatStore {
     // 1. Check in-memory store first for instant access
     const cached = this.memoryMessages.get(conversationId);
     if (cached && cached.length > 0) {
-      return cached;
+      return cached.slice(); // copy: callers get their own array and never mutate the shared cache
     }
 
     if (typeof window === 'undefined') return INITIAL_MESSAGES[conversationId] || [];
@@ -451,7 +457,9 @@ export class ChatStore {
             });
           }
         }
-      } catch {}
+      } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
     }
 
     let msgs: ChatMessage[] = [];
@@ -485,17 +493,18 @@ export class ChatStore {
       }
     }
 
-    return msgs;
+    return msgs.slice();
   }
 
   static saveMessages(conversationId: string, messages: ChatMessage[]): void {
     if (!conversationId) return;
 
     // 1. Always update memory cache immediately so UI gets instant updates
-    this.memoryMessages.set(conversationId, messages);
+    const snapshot = messages.slice();
+    this.memoryMessages.set(conversationId, snapshot);
     const aliases = this.getConversationAliases(conversationId);
     for (const alias of aliases) {
-      this.memoryMessages.set(alias, messages);
+      this.memoryMessages.set(alias, snapshot);
     }
 
     // 2. Persist recent slice (latest 50 messages) to localStorage
@@ -524,10 +533,10 @@ export class ChatStore {
     if (!s?.token) return;
 
     try {
-      const [res, partnerRes] = await Promise.all([
-        getFriendsWithStreaks(s.token).catch(() => null),
-        getUserPartner(s.token).catch(() => null)
-      ]);
+      const res = await getFriendsWithStreaks(s.token).catch((err) => {
+        chatWarn('friends list unavailable', err);
+        return null;
+      });
 
       if (res) {
         if (res.myFriendCode) {
@@ -536,12 +545,12 @@ export class ChatStore {
 
         const convs = this.getConversations();
         // When real authenticated user has friends, remove the mock seed placeholders
-        let cleanConvs = convs.filter(
+        const cleanConvs = convs.filter(
           (c) => !['conv_rahul', 'conv_dhruv', 'conv_mansi', 'conv_kunal', 'conv_group_friday'].includes(c.id)
         );
-        let changed = cleanConvs.length !== convs.length;
 
-        realFriendsMap = {};
+        // Build the new friends map off to the side and swap it in at the end, so readers never see an empty map
+        const nextFriends: Record<string, ChatUser> = {};
 
         if (res.friends && Array.isArray(res.friends)) {
           for (const item of res.friends) {
@@ -560,11 +569,11 @@ export class ChatStore {
               partnerCode: friend.partnerCode,
               streakDays: item.streak?.currentStreak || 0,
               moviesWatched: Math.floor((item.streak?.totalMinutesWatched || 0) / 100),
-              gamesPlayed: item.streak?.currentStreak || 0,
+              gamesPlayed: 0,
               plansCount: 0,
               sharedStats: {
                 moviesWatched: Math.floor((item.streak?.totalMinutesWatched || 0) / 100),
-                gamesPlayed: item.streak?.currentStreak || 0,
+                gamesPlayed: 0,
                 plansCompleted: 0
               },
               friendsSince: item.createdAt
@@ -573,7 +582,7 @@ export class ChatStore {
               isFriend: true
             };
 
-            realFriendsMap[friend.id] = chatUser;
+            nextFriends[friend.id] = chatUser;
 
             // Check if conversation already exists for this real friend
             const myId = s?.user?.id;
@@ -589,8 +598,11 @@ export class ChatStore {
             } : null;
             const participants = myUser ? [myUser, chatUser] : [chatUser];
 
-            // Fetch latest messages from remote server in background for this friend
-            this.fetchRemoteMessages(canonicalConvId, { limit: 50 }).catch(() => {});
+            // Load history once per friend per session; later updates arrive over the WebSocket / active-chat poll
+            if (!hydratedConversations.has(canonicalConvId)) {
+              hydratedConversations.add(canonicalConvId);
+              void this.fetchRemoteMessages(canonicalConvId, { limit: 50 });
+            }
 
             let existing = cleanConvs.find(
               (c) =>
@@ -619,7 +631,6 @@ export class ChatStore {
                 updatedAt: lastMsg?.createdAt || item.createdAt || new Date().toISOString()
               };
               cleanConvs.push(newConv);
-              changed = true;
             } else {
               existing.id = canonicalConvId;
               existing.name = friend.displayName;
@@ -633,7 +644,6 @@ export class ChatStore {
               if (lastMsg?.createdAt) {
                 existing.updatedAt = lastMsg.createdAt;
               }
-              changed = true;
             }
           }
         }
@@ -652,6 +662,15 @@ export class ChatStore {
           realRequestsList = [];
         }
 
+        // Preserve live presence for friends we already knew, then swap the map in one step
+        for (const [id, f] of Object.entries(nextFriends)) {
+          if (realFriendsMap[id] && realFriendsMap[id].isOnline && !f.isOnline) {
+            // server list is authoritative but may lag the WebSocket by a poll; keep the fresher 'online'
+            f.isOnline = realFriendsMap[id].isOnline;
+            f.onlineStatus = realFriendsMap[id].onlineStatus;
+          }
+        }
+        realFriendsMap = nextFriends;
         this.saveConversations(cleanConvs);
       }
     } catch (err) {
@@ -679,7 +698,9 @@ export class ChatStore {
           console.log(`[ChatStore] Purging bloated key to unblock quota: ${k}`);
           localStorage.removeItem(k);
         });
-      } catch {}
+      } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
 
       const s = getStoredSession();
       const myId = s?.user?.id;
@@ -687,19 +708,46 @@ export class ChatStore {
         try {
           // Remove contaminated self-conversation messages key if it was created
           localStorage.removeItem(`${this.getStorageKey()}_msgs_conv_${myId}`);
-        } catch {}
+        } catch (err) {
+        chatWarn('non-fatal storage/network error', err);
+      }
+      }
+
+      // Another tab changed our chat data: drop in-memory copies and rebuild from storage
+      if (!storageListenerInstalled) {
+        storageListenerInstalled = true;
+        window.addEventListener('storage', (e) => {
+          if (!e.key || !e.key.startsWith(STORAGE_PREFIX)) return;
+          this.memoryMessages.clear();
+          notify();
+        });
       }
 
       this.getConversations();
-      this.syncWithExistingFriends().catch(() => {});
+      void this.syncWithExistingFriends();
 
-      // Keep friends and online status synced every 8 seconds
-      if (!(window as any).__watch_chat_store_interval) {
-        (window as any).__watch_chat_store_interval = setInterval(() => {
-          this.syncWithExistingFriends().catch(() => {});
-        }, 8000);
+      // Keep friends and online status fresh (friend list only; message history comes over the WebSocket)
+      if (!syncTimer) {
+        syncTimer = setInterval(() => {
+          void this.syncWithExistingFriends();
+        }, 15000);
       }
     }
+  }
+
+  /** Stops background syncing (call on sign-out). */
+  static dispose(): void {
+    if (syncTimer) {
+      clearInterval(syncTimer);
+      syncTimer = null;
+    }
+    hydratedConversations.clear();
+    realFriendsMap = {};
+    realRequestsList = [];
+    this.memoryMessages.clear();
+    this.memoryConversations = [];
+    this.convCache = null;
+    conversationsVersion += 1;
   }
 
   static getUsers(): Record<string, ChatUser> {
@@ -747,41 +795,30 @@ export class ChatStore {
     const targetAvatar = targetUser.avatarUrl || targetUser.avatar || null;
 
     if (existing) {
-      existing.id = canonicalId;
-      if (targetDisplayName && targetDisplayName !== 'Friend') {
-        existing.name = targetDisplayName;
-        existing.title = targetDisplayName;
+      // Opening a conversation must never change its timestamp or position in the list
+      // (it used to bump `updatedAt` and move the chat to the top, then the next sync moved it back = list "jumping").
+      const updatedTarget = { ...targetUser, displayName: targetDisplayName, name: targetDisplayName, avatarUrl: targetAvatar, avatar: targetAvatar || undefined };
+      const next: ChatConversation = {
+        ...existing,
+        id: canonicalId,
+        ...(targetDisplayName && targetDisplayName !== 'Friend' ? { name: targetDisplayName, title: targetDisplayName } : {}),
+        ...(targetAvatar ? { avatarUrl: targetAvatar, avatar: targetAvatar } : {}),
+        ...(myId ? { participants: [this.buildMyUser(), updatedTarget] } : {})
+      };
+      // Idempotent: only persist (and notify subscribers) when something visible actually changed,
+      // otherwise opening a chat re-renders the list, which re-opens the chat, which re-renders... forever.
+      const peerOf = (c: ChatConversation) => c.participants?.find((p) => p && p.id === targetUser.id);
+      const unchanged =
+        next.id === existing.id &&
+        next.name === existing.name &&
+        next.avatarUrl === existing.avatarUrl &&
+        peerOf(next)?.displayName === peerOf(existing)?.displayName &&
+        (peerOf(next)?.avatarUrl ?? null) === (peerOf(existing)?.avatarUrl ?? null) &&
+        (next.participants?.length ?? 0) === (existing.participants?.length ?? 0);
+      if (!unchanged) {
+        this.saveConversations(convs.map((c) => (c === existing ? next : c)));
       }
-      if (targetAvatar) {
-        existing.avatarUrl = targetAvatar;
-        existing.avatar = targetAvatar || undefined;
-      }
-      existing.updatedAt = new Date().toISOString();
-
-      if (myId) {
-        const myUser: ChatUser = {
-          id: myId,
-          displayName: s?.user?.displayName || 'You',
-          name: s?.user?.displayName || 'You',
-          avatarUrl: s?.user?.avatarUrl || null,
-          avatar: s?.user?.avatarUrl || undefined,
-          onlineStatus: 'ONLINE',
-          isOnline: true
-        };
-        const updatedTarget = {
-          ...targetUser,
-          displayName: targetDisplayName,
-          name: targetDisplayName,
-          avatarUrl: targetAvatar,
-          avatar: targetAvatar || undefined
-        };
-        existing.participants = [myUser, updatedTarget];
-      }
-
-      const filtered = convs.filter((c) => c.id !== existing!.id);
-      filtered.unshift(existing);
-      this.saveConversations(filtered);
-      return existing;
+      return next;
     }
 
     const msgs = this.getMessages(canonicalId);
@@ -836,7 +873,7 @@ export class ChatStore {
     this.markConversationRead(conversationId, senderId);
   }
 
-  static toggleReaction(conversationId: string, messageId: string, emoji: string, currentUserId?: string): void {
+  static toggleReaction(conversationId: string, messageId: string, emoji: string, _currentUserId?: string): void {
     this.addReaction(conversationId, messageId, emoji);
   }
 
@@ -844,8 +881,8 @@ export class ChatStore {
     this.togglePinMessage(conversationId, messageId);
   }
 
-  static declineRequest(conversationId: string): void {
-    this.ignoreRequest(conversationId);
+  static declineRequest(conversationId: string): Promise<void> {
+    return this.ignoreRequest(conversationId);
   }
 
   static sendMessage(
@@ -913,20 +950,12 @@ export class ChatStore {
       status: 'sent'
     };
 
-    const msgs = this.getMessages(conversationId);
-    msgs.push(newMsg);
+    const msgs = [...this.getMessages(conversationId), newMsg];
     this.saveMessages(conversationId, msgs);
 
     // Update conversation last message & time
-    let convs = this.getConversations();
-    let convIndex = convs.findIndex(
-      (c) =>
-        c.id === conversationId ||
-        (c.type === 'direct' &&
-          c.id &&
-          conversationId &&
-          (c.id.includes(conversationId) || conversationId.includes(c.id)))
-    );
+    const convs = this.getConversations();
+    const convIndex = convs.findIndex((c) => isSameConversation(c.id, conversationId, myId));
 
     // Determine target recipient for live delivery
     let recipientId: string | undefined;
@@ -983,11 +1012,7 @@ export class ChatStore {
     }
 
     // Re-sort with newest active conversation on top (unless pinned)
-    convs.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
-    });
+    convs.sort(compareConversations);
     this.saveConversations(convs);
 
     // 1. Dispatch live via WebSocket
@@ -1006,66 +1031,83 @@ export class ChatStore {
     }
 
     // 2. Dispatch via HTTP for guaranteed persistence
-    if (s?.token) {
-      fetch(`${API_BASE}/api/chat/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${s.token}`
-        },
-        body: JSON.stringify({
-          ...newMsg,
-          recipientId
-        })
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.message?.status) {
-            this.updateMessageStatus(newMsg.id, conversationId, data.message.status);
-          }
-        })
-        .catch(() => {});
-    }
+    void this.deliverOverHttp(newMsg, conversationId, recipientId);
 
     return newMsg;
   }
 
-  static addReaction(conversationId: string, messageId: string, emoji: string): void {
+  /**
+   * POSTs a message to the server. A rejected or unreachable request marks the message `failed`
+   * (shown with a Retry button) instead of leaving it looking "sent" forever.
+   */
+  private static async deliverOverHttp(msg: ChatMessage, conversationId: string, recipientId?: string): Promise<void> {
     const s = getStoredSession();
-    const myId = s?.user?.id || 'current_user';
-
-    const msgs = this.getMessages(conversationId);
-    const msg = msgs.find(m => m.id === messageId);
-    if (!msg) return;
-
-    if (!msg.reactions) msg.reactions = [];
-
-    const existingReaction = msg.reactions.find(r => r.emoji === emoji);
-    if (existingReaction) {
-      if (existingReaction.userIds.includes(myId)) {
-        // Toggle off
-        existingReaction.userIds = existingReaction.userIds.filter(id => id !== myId);
-        existingReaction.count = existingReaction.userIds.length;
-        if (existingReaction.count === 0) {
-          msg.reactions = msg.reactions.filter(r => r.emoji !== emoji);
-        }
-      } else {
-        existingReaction.userIds.push(myId);
-        existingReaction.count = existingReaction.userIds.length;
+    if (!s?.token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/chat/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` },
+        body: JSON.stringify({ ...msg, recipientId })
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        chatWarn(`message ${msg.id} rejected (${res.status})`, data?.error);
+        this.updateMessageStatus(msg.id, conversationId, 'failed');
+        return;
       }
-    } else {
-      msg.reactions.push({ emoji, count: 1, userIds: [myId] });
+      if (data.message?.status) {
+        this.updateMessageStatus(msg.id, conversationId, data.message.status);
+      }
+    } catch (err) {
+      chatWarn(`message ${msg.id} could not be sent`, err);
+      this.updateMessageStatus(msg.id, conversationId, 'failed');
     }
+  }
 
+  /** Retries a message that is marked `failed`. */
+  static resendMessage(conversationId: string, messageId: string): void {
+    const msg = this.patchMessage(conversationId, messageId, (m) => ({ ...m, status: 'sending' }));
+    if (!msg) return;
+    const myId = getStoredSession()?.user?.id;
+    void this.deliverOverHttp(msg, conversationId, msg.recipientId || directPeerIdOf(conversationId, myId));
+  }
+
+  /** Replaces one message with an updated copy (new object => memoised bubbles re-render) and saves the list. */
+  private static patchMessage(
+    conversationId: string,
+    messageId: string,
+    update: (m: ChatMessage) => ChatMessage
+  ): ChatMessage | null {
+    const msgs = this.getMessages(conversationId);
+    const i = msgs.findIndex((m) => m.id === messageId);
+    if (i < 0) return null;
+    const updated = update(msgs[i]);
+    msgs[i] = updated;
     this.saveMessages(conversationId, msgs);
+    return updated;
+  }
+
+  static addReaction(conversationId: string, messageId: string, emoji: string): void {
+    const myId = getStoredSession()?.user?.id || 'current_user';
+
+    this.patchMessage(conversationId, messageId, (msg) => {
+      const reactions = (msg.reactions || []).map((r) => ({ ...r, userIds: [...r.userIds] }));
+      const existing = reactions.find((r) => r.emoji === emoji);
+      if (!existing) {
+        reactions.push({ emoji, count: 1, userIds: [myId] });
+      } else if (existing.userIds.includes(myId)) {
+        existing.userIds = existing.userIds.filter((id) => id !== myId); // toggle off
+        existing.count = existing.userIds.length;
+      } else {
+        existing.userIds.push(myId);
+        existing.count = existing.userIds.length;
+      }
+      return { ...msg, reactions: reactions.filter((r) => r.count > 0) };
+    });
   }
 
   static togglePinMessage(conversationId: string, messageId: string): void {
-    const msgs = this.getMessages(conversationId);
-    const msg = msgs.find(m => m.id === messageId);
-    if (!msg) return;
-    msg.isPinned = !msg.isPinned;
-    this.saveMessages(conversationId, msgs);
+    this.patchMessage(conversationId, messageId, (m) => ({ ...m, isPinned: !m.isPinned }));
   }
 
   static deleteMessage(conversationId: string, messageId: string): void {
@@ -1084,129 +1126,106 @@ export class ChatStore {
   static markViewOnceOpened(conversationId: string, messageId: string, notifyServer = true): void {
     if (!messageId) return;
 
-    // 1. Record permanently in local opened set so it can NEVER revert on this client
+    // 1. Record permanently in the local opened set so it can NEVER revert on this client
     this.recordOpenedViewOnceId(messageId);
 
-    // 2. Update message in target conversation
+    // 2. Update the message (in the given conversation, or search all conversations when no id was given)
+    const openedAt = new Date().toISOString();
+    const markOpened = (m: ChatMessage): ChatMessage => ({
+      ...m,
+      metadata: { ...(m.metadata || {}), viewOnceOpened: true, viewOnceOpenedAt: openedAt }
+    });
+    let updated: ChatMessage | null = null;
+    let ownerConvId = conversationId;
     if (conversationId) {
-      const msgs = this.getMessages(conversationId);
-      const msg = msgs.find(m => m.id === messageId);
-      if (msg) {
-        if (!msg.metadata) msg.metadata = {};
-        msg.metadata.viewOnceOpened = true;
-        msg.metadata.viewOnceOpenedAt = new Date().toISOString();
-        this.saveMessages(conversationId, msgs);
-
-        const convs = this.getConversations();
-        const conv = convs.find(c => c.id === conversationId);
-        if (conv && conv.lastMessage?.id === messageId) {
-          conv.lastMessage = msg;
-          this.saveConversations(convs);
-        }
-      }
+      updated = this.patchMessage(conversationId, messageId, markOpened);
     } else {
-      // Find across all conversations if conversationId was omitted
-      const convs = this.getConversations();
-      for (const c of convs) {
-        const msgs = this.getMessages(c.id);
-        const msg = msgs.find(m => m.id === messageId);
-        if (msg) {
-          if (!msg.metadata) msg.metadata = {};
-          msg.metadata.viewOnceOpened = true;
-          msg.metadata.viewOnceOpenedAt = new Date().toISOString();
-          this.saveMessages(c.id, msgs);
-          if (c.lastMessage?.id === messageId) {
-            c.lastMessage = msg;
-            this.saveConversations(convs);
-          }
+      for (const c of this.getConversations()) {
+        updated = this.patchMessage(c.id, messageId, markOpened);
+        if (updated) {
+          ownerConvId = c.id;
           break;
         }
+      }
+    }
+    if (updated) {
+      const convs = this.getConversations();
+      const conv = convs.find((c) => c.id === ownerConvId);
+      if (conv && conv.lastMessage?.id === messageId) {
+        conv.lastMessage = updated;
+        this.saveConversations(convs);
       }
     }
 
     // 3. Notify all reactive components immediately
     notify();
 
-    // 4. Notify server and partner via WebSocket & REST API
-    if (notifyServer) {
-      if (this.socketSender) {
-        try {
-          this.socketSender({
-            type: 'chat:view_once_opened',
-            conversationId,
-            messageId
-          });
-        } catch {}
-      }
-
-      const s = getStoredSession();
-      if (s?.token) {
-        fetch(`${API_BASE}/api/chat/view-once-opened`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${s.token}`
-          },
-          body: JSON.stringify({ messageId, conversationId })
-        }).catch(() => {});
-      }
+    // 4. Tell the server and the sender (WebSocket + REST)
+    if (!notifyServer) return;
+    try {
+      this.socketSender?.({ type: 'chat:view_once_opened', conversationId, messageId });
+    } catch (err) {
+      chatWarn('view-once socket notify failed', err);
+    }
+    const s = getStoredSession();
+    if (s?.token) {
+      fetch(`${API_BASE}/api/chat/view-once-opened`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` },
+        body: JSON.stringify({ messageId, conversationId })
+      }).catch((err) => chatWarn('view-once REST notify failed', err));
     }
   }
 
   static markConversationRead(conversationId: string, senderId?: string): void {
     const convs = this.getConversations();
-    const conv = convs.find(c => c.id === conversationId);
+    const conv = convs.find((c) => c.id === conversationId);
     const s = getStoredSession();
     const myId = s?.user?.id || 'current_user';
 
-    const msgs = this.getMessages(conversationId);
-    let changed = false;
     const readMessageIds: string[] = [];
-    const targetSenderId = senderId || conv?.participants.find(p => p.id !== myId)?.id;
-
-    for (const m of msgs) {
+    const msgs = this.getMessages(conversationId).map((m) => {
       if (m.senderId !== myId && m.status !== 'read') {
-        m.status = 'read';
         readMessageIds.push(m.id);
-        changed = true;
+        return { ...m, status: 'read' as const };
       }
-    }
+      return m;
+    });
+    const targetSenderId = senderId || conv?.participants.find((p) => p.id !== myId)?.id;
 
     if (conv && conv.unreadCount > 0) {
       conv.unreadCount = 0;
       this.saveConversations(convs);
     }
-
-    if (changed) {
+    if (readMessageIds.length > 0) {
       this.saveMessages(conversationId, msgs);
     }
 
-    if (this.socketSender && targetSenderId) {
-      try {
-        this.socketSender({
-          type: 'chat:read',
-          conversationId,
-          messageIds: readMessageIds,
-          senderId: targetSenderId
-        });
-      } catch {}
+    try {
+      if (this.socketSender && targetSenderId) {
+        this.socketSender({ type: 'chat:read', conversationId, messageIds: readMessageIds, senderId: targetSenderId });
+      }
+    } catch (err) {
+      chatWarn('read receipt socket send failed', err);
     }
 
     if (s?.token) {
       fetch(`${API_BASE}/api/chat/read`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${s.token}`
-        },
-        body: JSON.stringify({
-          conversationId,
-          senderId: targetSenderId
-        })
-      }).catch(() => {});
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` },
+        body: JSON.stringify({ conversationId, senderId: targetSenderId })
+      }).catch((err) => chatWarn('read receipt REST failed', err));
     }
 
     notify();
+  }
+
+  /** True when the user currently has this conversation open (so a new message is read immediately). */
+  private static isViewing(targetConvId: string, canonicalConvId: string, incomingConvId: string, myId?: string): boolean {
+    if (typeof window === 'undefined') return false;
+    const activeId = sessionStorage.getItem('watch_active_conv_id');
+    if (!activeId) return false;
+    return [targetConvId, canonicalConvId, incomingConvId].some((id) => isSameConversation(activeId, id, myId));
   }
 
   static receiveIncomingMessage(incoming: ChatMessage): void {
@@ -1217,33 +1236,29 @@ export class ChatStore {
 
     const convs = this.getConversations();
     const { otherUserId: convOtherId } = extractParticipantIdsFromConvId(conversationId, myId);
-    const otherUserId = incoming.senderId === myId ? (incoming.recipientId || convOtherId) : incoming.senderId;
-    const canonicalConvId = (myId && otherUserId) ? toCanonicalConvId(myId, otherUserId) : (conversationId || `conv_${incoming.senderId}`);
+    const otherUserId = incoming.senderId === myId ? incoming.recipientId || convOtherId : incoming.senderId;
+    const canonicalConvId =
+      myId && otherUserId ? toCanonicalConvId(myId, otherUserId) : conversationId || `conv_${incoming.senderId}`;
 
-    // Ensure sender user is present in realFriendsMap so getUsers() picks them up
-    if (incoming.senderId && incoming.senderId !== myId) {
-      if (!realFriendsMap[incoming.senderId]) {
-        realFriendsMap[incoming.senderId] = {
-          id: incoming.senderId,
-          displayName: incoming.senderName || 'Friend',
-          name: incoming.senderName || 'Friend',
-          avatarUrl: incoming.senderAvatar || null,
-          avatar: incoming.senderAvatar || undefined,
-          onlineStatus: 'ONLINE',
-          isOnline: true
-        };
-      }
+    // Make sure the sender is known so getUsers() can show them
+    if (incoming.senderId && incoming.senderId !== myId && !realFriendsMap[incoming.senderId]) {
+      realFriendsMap[incoming.senderId] = {
+        id: incoming.senderId,
+        displayName: incoming.senderName || 'Friend',
+        name: incoming.senderName || 'Friend',
+        avatarUrl: incoming.senderAvatar || null,
+        avatar: incoming.senderAvatar || undefined,
+        onlineStatus: 'ONLINE',
+        isOnline: true
+      };
     }
 
-    // Find existing conversation: by canonical ID, by received ID, or by matching participant ID
+    // Existing conversation: same canonical/received id, or the same direct peer (never a substring match)
     let conv = convs.find(
       (c) =>
-        c.id === canonicalConvId ||
-        c.id === conversationId ||
-        (c.type === 'direct' &&
-          otherUserId &&
-          (c.participants?.some((p) => p.id === otherUserId) ||
-            c.id === `conv_${otherUserId}`))
+        isSameConversation(c.id, canonicalConvId, myId) ||
+        isSameConversation(c.id, conversationId, myId) ||
+        (c.type === 'direct' && otherUserId && c.participants?.some((p) => p.id === otherUserId))
     );
 
     const targetConvId = conv ? conv.id : canonicalConvId;
@@ -1252,37 +1267,29 @@ export class ChatStore {
     const msgs = this.getMessages(targetConvId);
     const existingIndex = msgs.findIndex((m) => m.id === normalizedMsg.id);
     const isNewMessage = existingIndex < 0;
+    const existingMsg = isNewMessage ? null : msgs[existingIndex];
 
-    const existingMsg = existingIndex >= 0 ? msgs[existingIndex] : null;
     const isOpened = Boolean(
-      existingMsg?.metadata?.viewOnceOpened ||
-      normalizedMsg.metadata?.viewOnceOpened ||
-      this.isViewOnceOpened(normalizedMsg.id)
+      existingMsg?.metadata?.viewOnceOpened || normalizedMsg.metadata?.viewOnceOpened || this.isViewOnceOpened(normalizedMsg.id)
     );
-    const mergedMetadata = {
-      ...(existingMsg?.metadata || {}),
-      ...(normalizedMsg.metadata || {}),
-      ...(isOpened ? { viewOnceOpened: true } : {})
+    const merged: ChatMessage = {
+      ...(existingMsg || {}),
+      ...normalizedMsg,
+      metadata: {
+        ...(existingMsg?.metadata || {}),
+        ...(normalizedMsg.metadata || {}),
+        ...(isOpened ? { viewOnceOpened: true } : {})
+      }
     };
+    if (existingMsg) msgs[existingIndex] = merged;
+    else msgs.push(merged);
 
-    if (existingIndex >= 0 && existingMsg) {
-      // Message already exists — update fields and preserve opened state
-      msgs[existingIndex] = {
-        ...existingMsg,
-        ...normalizedMsg,
-        metadata: mergedMetadata
-      };
-    } else {
-      msgs.push({
-        ...normalizedMsg,
-        metadata: mergedMetadata
-      });
-    }
     this.saveMessages(targetConvId, msgs);
     if (canonicalConvId && targetConvId !== canonicalConvId) {
       this.saveMessages(canonicalConvId, msgs);
     }
 
+    const viewing = this.isViewing(targetConvId, canonicalConvId, incoming.conversationId, myId);
     if (!conv) {
       const senderUser: ChatUser = {
         id: incoming.senderId,
@@ -1293,16 +1300,6 @@ export class ChatStore {
         onlineStatus: 'ONLINE',
         isOnline: true
       };
-      const myUser: ChatUser | null = myId ? {
-        id: myId,
-        displayName: s?.user?.displayName || 'You',
-        name: s?.user?.displayName || 'You',
-        avatarUrl: s?.user?.avatarUrl || null,
-        avatar: s?.user?.avatarUrl || undefined,
-        onlineStatus: 'ONLINE',
-        isOnline: true
-      } : null;
-
       conv = {
         id: targetConvId,
         type: 'direct',
@@ -1310,80 +1307,70 @@ export class ChatStore {
         title: incoming.senderName || 'Friend',
         avatarUrl: incoming.senderAvatar || null,
         avatar: incoming.senderAvatar || undefined,
-        participants: myUser ? [myUser, senderUser] : [senderUser],
+        participants: myId ? [this.buildMyUser(), senderUser] : [senderUser],
         messages: msgs,
-        lastMessage: normalizedMsg,
-        unreadCount: 1,
+        lastMessage: merged,
+        unreadCount: viewing ? 0 : 1,
         updatedAt: incoming.createdAt || new Date().toISOString()
       };
       convs.unshift(conv);
     } else {
-      conv.lastMessage = normalizedMsg;
-      conv.updatedAt = normalizedMsg.createdAt;
+      conv.lastMessage = merged;
+      conv.updatedAt = merged.createdAt;
       conv.messages = msgs;
-
-      // Only increment unread if user is NOT currently looking at this conversation
-      if (isNewMessage && typeof window !== 'undefined') {
-        const activeId = sessionStorage.getItem('watch_active_conv_id');
-        const isViewing =
-          activeId === targetConvId ||
-          activeId === canonicalConvId ||
-          activeId === incoming.conversationId ||
-          (otherUserId && (activeId === `conv_${otherUserId}` || (activeId && activeId.includes(otherUserId))));
-        if (!isViewing) {
-          conv.unreadCount = (conv.unreadCount || 0) + 1;
-        }
+      // Only count as unread when the user is NOT looking at this conversation
+      if (isNewMessage && !viewing) {
+        conv.unreadCount = (conv.unreadCount || 0) + 1;
       }
-      convs.sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      });
+      convs.sort(compareConversations);
     }
     this.saveConversations(convs);
 
-    // If currently viewing this conversation, mark as read immediately
-    if (typeof window !== 'undefined') {
-      const activeId = sessionStorage.getItem('watch_active_conv_id');
-      const isViewing =
-        activeId === targetConvId ||
-        activeId === canonicalConvId ||
-        activeId === incoming.conversationId ||
-        (otherUserId && (activeId === `conv_${otherUserId}` || (activeId && activeId.includes(otherUserId))));
-      if (isViewing) {
-        this.markAsRead(targetConvId, incoming.senderId);
-      }
+    if (viewing) {
+      this.markAsRead(targetConvId, incoming.senderId);
     }
   }
 
+  /** The signed-in user as a ChatUser (used for conversation participant lists). */
+  private static buildMyUser(): ChatUser {
+    const s = getStoredSession();
+    return {
+      id: s?.user?.id || 'current_user',
+      displayName: s?.user?.displayName || 'You',
+      name: s?.user?.displayName || 'You',
+      avatarUrl: s?.user?.avatarUrl || null,
+      avatar: s?.user?.avatarUrl || undefined,
+      onlineStatus: 'ONLINE',
+      isOnline: true
+    };
+  }
+
+  /**
+   * Updates delivery status. Receipts never downgrade a message ('read' is final) and a blanket "read" receipt
+   * (no ids) only applies to the sender's OWN messages in that one conversation.
+   */
   static updateMessageStatus(
     messageId?: string,
     conversationId?: string,
-    status: 'sent' | 'delivered' | 'read' = 'delivered',
+    status: ChatMessage['status'] = 'delivered',
     messageIds?: string[]
   ): void {
-    const convs = this.getConversations();
-    for (const c of convs) {
-      const msgs = this.getMessages(c.id);
+    const myId = getStoredSession()?.user?.id;
+    const wholeConversationRead = !messageId && !messageIds && status === 'read';
+    const idSet = new Set<string>([...(messageIds || []), ...(messageId ? [messageId] : [])]);
+
+    for (const c of this.getConversations()) {
+      if (wholeConversationRead && conversationId && !isSameConversation(c.id, conversationId, myId)) continue;
+
       let changed = false;
-      for (const m of msgs) {
-        const matches =
-          (messageId && m.id === messageId) ||
-          (messageIds && messageIds.includes(m.id)) ||
-          (!messageId && !messageIds && status === 'read' && (
-            !conversationId ||
-            c.id === conversationId ||
-            (conversationId.startsWith('conv_') && c.participants?.some((p) => conversationId.includes(p.id)))
-          ));
-        if (matches && m.status !== status) {
-          if (m.status === 'read' && status !== 'read') continue;
-          m.status = status;
-          changed = true;
-        }
-      }
-      if (changed) {
-        this.saveMessages(c.id, msgs);
-      }
+      const next = this.getMessages(c.id).map((m) => {
+        const matches = idSet.has(m.id) || (wholeConversationRead && m.senderId === myId);
+        if (!matches || m.status === status) return m;
+        if (m.status === 'read' && status !== 'read') return m; // never downgrade
+        changed = true;
+        return { ...m, status };
+      });
+      if (changed) this.saveMessages(c.id, next);
     }
     notify();
   }
@@ -1395,80 +1382,66 @@ export class ChatStore {
     const s = getStoredSession();
     if (!s?.token || !conversationId) return;
 
-    // Resolve canonical conversation ID
-    const myId = s?.user?.id;
-    const { otherUserId } = extractParticipantIdsFromConvId(conversationId, myId);
-    const canonicalId = (myId && otherUserId) ? toCanonicalConvId(myId, otherUserId) : conversationId;
+    const myId = s.user?.id;
+    const canonicalId = normalizeConversationId(conversationId, myId);
 
     try {
-      const params = new URLSearchParams({
-        conversationId: canonicalId,
-        limit: String(options?.limit || 100)
-      });
+      const params = new URLSearchParams({ conversationId: canonicalId, limit: String(options?.limit || 100) });
       if (options?.before) params.set('before', options.before);
       if (options?.after) params.set('after', options.after);
 
       const res = await fetch(`${API_BASE}/api/chat/messages?${params.toString()}`, {
-        headers: {
-          Authorization: `Bearer ${s.token}`
-        }
+        headers: { Authorization: `Bearer ${s.token}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.messages)) {
-          // Read local messages using aliases to ensure all historical messages are merged
-          const localMsgs = this.getMessages(canonicalId);
-          const msgMap = new Map<string, ChatMessage>();
-          localMsgs.forEach((m) => msgMap.set(m.id, m));
-          data.messages.forEach((m: ChatMessage) => {
-            const existing = msgMap.get(m.id);
-            const isOpened = Boolean(
-              existing?.metadata?.viewOnceOpened ||
-              m.metadata?.viewOnceOpened ||
-              this.isViewOnceOpened(m.id)
-            );
-            const mergedMeta = {
-              ...(existing?.metadata || {}),
-              ...(m.metadata || {}),
-              ...(isOpened ? { viewOnceOpened: true } : {})
-            };
-            msgMap.set(m.id, {
-              ...(existing || {}),
-              ...m,
-              conversationId: canonicalId,
-              metadata: mergedMeta
-            });
-          });
-          const merged = Array.from(msgMap.values()).sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          );
-
-          // Save under canonical ID and alias
-          this.saveMessages(canonicalId, merged);
-          if (conversationId !== canonicalId) {
-            this.saveMessages(conversationId, merged);
-          }
-
-          const convs = this.getConversations();
-          const conv = convs.find(
-            (c) =>
-              c.id === canonicalId ||
-              c.id === conversationId ||
-              (c.type === 'direct' && c.participants?.some((p) => canonicalId.includes(p.id)))
-          );
-          if (conv) {
-            conv.id = canonicalId;
-            if (merged.length > 0) {
-              conv.lastMessage = merged[merged.length - 1];
-              conv.updatedAt = merged[merged.length - 1].createdAt;
-            }
-            this.saveConversations(convs);
-          } else {
-            notify();
-          }
-        }
+      if (!res.ok) {
+        chatWarn(`fetching messages failed (${res.status})`);
+        return;
       }
-    } catch {}
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.messages) || data.messages.length === 0) return;
+
+      // Merge with what we already have (all aliases), keeping local view-once state and reactions
+      const msgMap = new Map<string, ChatMessage>();
+      this.getMessages(canonicalId).forEach((m) => msgMap.set(m.id, m));
+      let added = 0;
+      data.messages.forEach((m: ChatMessage) => {
+        const existing = msgMap.get(m.id);
+        if (!existing) added += 1;
+        const isOpened = Boolean(existing?.metadata?.viewOnceOpened || m.metadata?.viewOnceOpened || this.isViewOnceOpened(m.id));
+        msgMap.set(m.id, {
+          ...(existing || {}),
+          ...m,
+          // never let a poll move a message backwards (e.g. 'read' -> 'delivered')
+          status: existing?.status === 'read' ? 'read' : m.status || existing?.status || 'sent',
+          conversationId: canonicalId,
+          metadata: {
+            ...(existing?.metadata || {}),
+            ...(m.metadata || {}),
+            ...(isOpened ? { viewOnceOpened: true } : {})
+          }
+        });
+      });
+      const merged = Array.from(msgMap.values()).sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      this.saveMessages(canonicalId, merged);
+      if (conversationId !== canonicalId) this.saveMessages(conversationId, merged);
+
+      // Update ONLY the matching conversation (exact id / same peer), never whichever chat happens to contain our id
+      const convs = this.getConversations();
+      const conv = convs.find((c) => isSameConversation(c.id, canonicalId, myId));
+      if (conv) {
+        conv.id = canonicalId;
+        conv.lastMessage = merged[merged.length - 1];
+        conv.updatedAt = merged[merged.length - 1].createdAt;
+        this.saveConversations(convs);
+      } else if (added > 0) {
+        notify();
+      }
+    } catch (err) {
+      chatWarn('fetchRemoteMessages failed', err);
+    }
   }
 
   static setUserOnline(userId: string, isOnline: boolean, lastSeen?: string): void {

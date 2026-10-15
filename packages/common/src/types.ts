@@ -35,6 +35,8 @@ export interface User {
   viewingVibe?: string | null;
   age?: number | null;
   activeDevice?: ActiveDeviceSession | null;
+  /** When false the user is hidden from friend discovery (they can still be added by exact friend code). */
+  discoverable?: boolean;
   createdAt: string;
 }
 
@@ -139,6 +141,21 @@ export const REACTION_EMOJIS = [
   { code: 'skull', emoji: '💀', label: 'Dead', key: '7' }
 ] as const;
 
+/** Reaction packs: Classic is free, the others need Watch+ (VIP Pass). Emoji are chat-style content, so they live here. */
+export interface ReactionPack { id: string; name: string; premium: boolean; emojis: readonly string[] }
+export const REACTION_PACKS: readonly ReactionPack[] = [
+  { id: 'classic', name: 'Classic', premium: false, emojis: ['❤️', '😂', '🔥', '👏', '🎉', '🎲', '🥳', '🥺'] },
+  { id: 'party', name: 'Party Night', premium: true, emojis: ['🥂', '🪩', '💃', '🕺', '🍾', '🎊', '🎈', '🎶'] },
+  { id: 'cinema', name: 'Cinephile', premium: true, emojis: ['🍿', '🎬', '🎞️', '🎭', '🌟', '🤯', '😭', '👀'] },
+  { id: 'hype', name: 'Hype', premium: true, emojis: ['👻', '🎃', '⚡', '🚀', '💎', '👑', '🧠', '🫶'] }
+];
+/** True when this emoji only exists in a premium pack. */
+export function isPremiumReaction(emoji: unknown): boolean {
+  if (typeof emoji !== 'string') return false;
+  const inFree = REACTION_PACKS.some((p) => !p.premium && p.emojis.includes(emoji));
+  return !inFree && REACTION_PACKS.some((p) => p.premium && p.emojis.includes(emoji));
+}
+
 export interface GameScoreItem {
   userId: string;
   userName: string;
@@ -226,7 +243,7 @@ export interface LudoGameState {
   consecutiveSixes: number;
 }
 
-export type GameType = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'bingo' | 'doodle-duel' | 'tambola' | 'chess';
+export type GameType = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'bingo' | 'doodle-duel' | 'tambola' | 'chess' | 'imposter' | 'emoji-charades' | 'mafia-night' | 'quiz-show' | 'murder-mystery' | 'tournament';
 
 export type FourInARowDisc = 'R' | 'Y' | null;
 
@@ -273,6 +290,9 @@ export interface GameRoom {
   createdAt: string;
   startedAt?: string | null;
   finishedAt?: string | null;
+  /** set on a match room created by a Tournament Arena: the tournament room's id and code (lets the game page show "Back to tournament") */
+  tournamentId?: string | null;
+  tournamentCode?: string | null;
 }
 
 

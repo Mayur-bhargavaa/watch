@@ -61,7 +61,7 @@ export default function RoomsPage() {
     const s = getStoredSession();
     if (s && s.token) {
       setSession(s);
-      loadRooms(s.token);
+      void loadRooms(s.token);
     } else {
       router.push('/login?redirect=/rooms');
     }
@@ -95,7 +95,7 @@ export default function RoomsPage() {
   const handleCopyLink = (slug: string) => {
     if (typeof window === 'undefined') return;
     const url = `${window.location.origin}/room/${slug}`;
-    navigator.clipboard.writeText(url);
+    void navigator.clipboard.writeText(url);
     setCopiedSlug(slug);
     setTimeout(() => setCopiedSlug(null), 2000);
   };

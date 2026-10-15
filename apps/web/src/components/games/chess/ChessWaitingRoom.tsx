@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
 import React, { useState } from 'react';
 import {
   Clock,
@@ -31,7 +32,6 @@ interface ChessWaitingRoomProps {
   onUpdateConfig: (config: ChessGameConfig) => void;
   onLeave: () => void;
   onInviteFriend?: () => void;
-  onStartPractice?: () => void;
   onRematch?: () => void;
   rematchStatus?: {
     votedUserIds: string[];
@@ -49,7 +49,6 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
   onUpdateConfig,
   onLeave,
   onInviteFriend,
-  onStartPractice,
   onRematch,
   rematchStatus
 }) => {
@@ -61,14 +60,14 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
 
   const handleCopyRoomCode = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(room.roomCode);
+    void navigator.clipboard.writeText(room.roomCode);
     setCopiedRoomCode(true);
     setTimeout(() => setCopiedRoomCode(false), 2000);
   };
 
   const handleCopyRoomLink = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href);
     setCopiedRoomLink(true);
     setTimeout(() => setCopiedRoomLink(false), 2000);
   };
@@ -111,7 +110,7 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
           <span className="text-zinc-400">Game Lobby</span>
           <span className="text-zinc-600">/</span>
           <span className="text-amber-400 font-black flex items-center gap-1.5">
-            <span>♟</span>
+            <AppIcon name="crown" className="w-4 h-4" />
             <span>Chess</span>
           </span>
         </div>
@@ -310,7 +309,7 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
                 <div className="w-full mb-4 p-4 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-center space-y-2.5 animate-pulse">
                   <div className="flex items-center justify-center gap-2 text-amber-300 font-black text-sm">
                     <Zap className="w-4 h-4 text-amber-400" />
-                    <span>⚔️ {requestingPlayer?.displayName || 'Opponent'} wants a rematch!</span>
+                    <span>{requestingPlayer?.displayName || 'Opponent'} wants a rematch!</span>
                   </div>
                   <p className="text-xs text-zinc-300">
                     Your opponent is waiting to play another chess match.
@@ -322,7 +321,7 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
                       className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:brightness-110 active:scale-95 text-black font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-500/30 transition flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <RotateCcw className="w-4 h-4" />
-                      <span>Accept & Start Rematch 🔄</span>
+                      <span>Accept & Start Rematch</span>
                     </button>
                   )}
                 </div>
@@ -349,7 +348,7 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
                   className="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-black text-sm uppercase tracking-wider shadow-[0_4px_20px_rgba(245,158,11,0.4)] transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-black" />
-                  <span>Start Chess Match ♟</span>
+                  <span>Start Chess Match</span>
                 </button>
               ) : (
                 <div className="w-full py-3.5 px-6 rounded-2xl bg-[#161424]/90 border border-white/10 text-center text-xs font-bold text-zinc-300 flex items-center justify-center gap-2">
@@ -368,16 +367,6 @@ export const ChessWaitingRoom: React.FC<ChessWaitingRoomProps> = ({
                   <span>Invite Opponent</span>
                 </button>
 
-                {onStartPractice && (
-                  <button
-                    type="button"
-                    onClick={onStartPractice}
-                    className="w-full py-3 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white font-bold text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
-                  >
-                    <Swords className="w-4 h-4 text-amber-400" />
-                    <span>Solo Practice Mode (Play Both Sides)</span>
-                  </button>
-                )}
               </div>
             )}
           </div>

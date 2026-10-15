@@ -1,5 +1,6 @@
 'use client';
 
+import { Pencil, Target } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Sparkles, Check, Shuffle, RotateCcw, Lock, Unlock, AlertCircle, Award } from 'lucide-react';
 import { BingoDuelCompletedLine } from '@synccinema/common';
@@ -91,7 +92,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
     // Validate range 1..25
     if (num < 1 || num > 25) {
-      triggerError('⚠️ Numbers must be strictly between 1 and 25!');
+      triggerError('Numbers must be strictly between 1 and 25!');
       return;
     }
 
@@ -100,7 +101,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
     // If attempting to place a duplicate number already somewhere else on the board
     if (placedNumbers.has(num) && currentVal !== num) {
-      triggerError(`⚠️ Number ${num} is already placed! Duplicates are not allowed.`);
+      triggerError(`Number ${num} is already placed! Duplicates are not allowed.`);
       return;
     }
 
@@ -155,7 +156,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
   // Save Custom Board
   const handleSaveBoard = () => {
     if (!isSetupGridFull) {
-      triggerError('⚠️ Please fill all 25 numbers before saving your board!');
+      triggerError('Please fill all 25 numbers before saving your board!');
       return;
     }
     if (onSaveBoard) {
@@ -183,7 +184,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
         <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
           <div>
             <h3 className="font-black text-sm sm:text-base text-white tracking-wide flex items-center gap-1.5">
-              <span>🎯 Custom 5×5 Matrix</span>
+              <span className="inline-flex items-center gap-1"><Target className="w-3.5 h-3.5" />Custom 5×5 Matrix</span>
               {setupLocked && (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
                   <Lock className="w-2.5 h-2.5" /> Ready
@@ -247,7 +248,7 @@ export const BingoDuelBoard: React.FC<BingoDuelBoardProps> = ({
 
                     {isFilled && !setupLocked && isSelected && (
                       <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#ff4d79] text-[9px] flex items-center justify-center font-sans shadow text-white">
-                        ✎
+                        <Pencil className="w-2 h-2" />
                       </span>
                     )}
                   </button>

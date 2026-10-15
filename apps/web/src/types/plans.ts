@@ -30,13 +30,14 @@ export interface PlanActivity {
   time: string; // e.g. "9:00 PM"
   title: string; // e.g. "Interstellar"
   subtitle?: string; // e.g. "Duration: 2h 49m" or "Players: 2-4"
-  actionLabel: string; // e.g. "Enter Cinema", "Play Together", "Join Chat"
+  actionLabel?: string; // e.g. "Enter Cinema", "Play Together", "Join Chat"
   actionUrl?: string; // route to cinema room or game
   movieDetails?: MovieDetails;
   gameDetails?: GameDetails;
 }
 
-export type RSVPStatus = 'GOING' | 'MAYBE' | 'CANT_GO';
+/** INVITED = has not answered yet. */
+export type RSVPStatus = 'INVITED' | 'GOING' | 'MAYBE' | 'CANT_GO';
 
 export interface PlanParticipant {
   userId: string;
@@ -44,6 +45,7 @@ export interface PlanParticipant {
   avatarUrl?: string | null;
   status: RSVPStatus;
   isHost?: boolean;
+  membershipTier?: 'free' | 'plus' | 'creator';
 }
 
 export interface VotingOption {
@@ -72,8 +74,7 @@ export interface Plan {
   tagLabel?: string;
   posterUrl?: string;
   posterOverlayText?: string;
-  date: string; // e.g. "2026-09-27"
-  dateFormatted: string; // e.g. "Sat, 27 September"
+  date: string; // YYYY-MM-DD; the readable date is always computed from it (formatPlanDate)
   time: string; // e.g. "9:00 PM – 1:00 AM (IST)"
   endTime?: string;
   timezone: string;
@@ -88,9 +89,29 @@ export interface Plan {
     isClosed?: boolean;
     confirmedTitle?: string;
   };
-  reminder: '30m' | '1h' | '1d' | 'custom' | 'none';
+  reminder: '30m' | '1h' | '1d' | 'none';
   recurring?: 'weekly' | 'monthly' | 'none';
   chatMessages: PlanChatMessage[];
   createdAt: number;
+  /** computed by the server from the date/time (never stored) */
   isPast?: boolean;
+  startsAt?: number | null;
+  /** only present for members: lets them share an invite link */
+  inviteToken?: string;
+}
+
+/** What someone with only an invite link may see. */
+export interface PlanPreview {
+  id: string;
+  title: string;
+  emoji: string;
+  type: PlanType;
+  date: string;
+  time: string;
+  endTime?: string;
+  timezone: string;
+  hostName: string;
+  participantCount: number;
+  isPast: boolean;
+  needsJoin: true;
 }

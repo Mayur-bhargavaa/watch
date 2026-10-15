@@ -7,6 +7,7 @@ import {
   Reaction,
   formatSecondsToTimestamp
 } from '@synccinema/common';
+import { AppIcon, isIconName, type IconName } from '../ui/AppIcon';
 import { YouTubeEmbed } from './YouTubeEmbed';
 import { DirectHTML5Player } from './DirectHTML5Player';
 import {
@@ -122,6 +123,19 @@ interface CinemaPlayerProps {
   onToggleMobileCamPreview?: () => void;
 }
 
+const ROOM_ICON_OPTIONS: { id: IconName; label: string }[] = [
+  { id: 'movie', label: 'Clapper' },
+  { id: 'popcorn', label: 'Popcorn' },
+  { id: 'film', label: 'Film' },
+  { id: 'sparkles', label: 'Sparkles' },
+  { id: 'fire', label: 'Fire' },
+  { id: 'heart', label: 'Heart' },
+  { id: 'rocket', label: 'Rocket' },
+  { id: 'moon', label: 'Moon' },
+  { id: 'food', label: 'Pizza' },
+  { id: 'party', label: 'Party' },
+];
+
 export const CinemaPlayer = memo(function CinemaPlayer({
   media,
   playbackState,
@@ -179,15 +193,16 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   // Watch Party Customization States (Synced with localStorage for room session)
   const [customRoomName, setCustomRoomName] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('synccinema_custom_room_name') || (roomTitle || '🍿 Friday Movie Night');
+      return localStorage.getItem('synccinema_custom_room_name') || (roomTitle || 'Friday Movie Night');
     }
-    return roomTitle || '🍿 Friday Movie Night';
+    return roomTitle || 'Friday Movie Night';
   });
-  const [customRoomEmoji, setCustomRoomEmoji] = useState<string>(() => {
+  const [customRoomEmoji, setCustomRoomEmoji] = useState<IconName>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('synccinema_custom_room_emoji') || '🎬';
+      const stored = localStorage.getItem('synccinema_custom_room_emoji');
+      return isIconName(stored) ? stored : 'movie';
     }
-    return '🎬';
+    return 'movie';
   });
   const [customPrivacy, setCustomPrivacy] = useState<'INVITE_ONLY' | 'PUBLIC' | 'PRIVATE'>(() => {
     if (typeof window !== 'undefined') {
@@ -265,6 +280,16 @@ export const CinemaPlayer = memo(function CinemaPlayer({
       setIsMobileDevice(isMobile);
     }
   }, []);
+
+  // Hosting and screen sharing are desktop-only. Phones can join and watch, so the notice is shown only when a
+  // phone actually tries to start a share (every share entry point goes through this).
+  const requestShare = useCallback(() => {
+    if (isMobileDevice) {
+      setShowMobileShareModal(true);
+      return;
+    }
+    onStartScreenShare?.();
+  }, [isMobileDevice, onStartScreenShare]);
   useEffect(() => {
     if (!countdownActive) {
       setCountdownStep(null);
@@ -473,7 +498,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
   const handleEnableAudio = () => {
     if (screenVideoRef.current) {
       screenVideoRef.current.muted = false;
-      screenVideoRef.current.play().then(() => {
+      void screenVideoRef.current.play().then(() => {
         setIsAudioBlocked(false);
       });
     }
@@ -498,7 +523,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
         screenStream={screenStream}
         isScreenSharing={isScreenSharing}
         screenPresenter={screenPresenter}
-        onStartScreenShare={onStartScreenShare}
+        onStartScreenShare={requestShare}
         onStopScreenShare={onStopScreenShare}
         isMicMuted={isMicMuted}
         isCameraOn={isCameraOn}
@@ -869,19 +894,19 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                           } else if (onStartParty) {
                             onStartParty();
                           } else {
-                            onStartScreenShare();
+                            requestShare();
                           }
                         }}
                         className={`w-full ${isMobileLandscape ? 'py-2 px-3' : 'py-2.5 sm:py-3 px-4 sm:px-5'} bg-[#E50914] hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2 cursor-pointer`}
                       >
                         <ScreenShare className="w-4 h-4" />
-                        <span>{isMobileDevice ? 'Share Screen (Laptop Recommended)' : 'Share Screen & Start'}</span>
+                        <span>{isMobileDevice ? 'Share Screen (Desktop only)' : 'Share Screen & Start'}</span>
                       </button>
                     )}
 
                     {isMobileDevice && (
                       <p className="text-[9.5px] sm:text-[10px] text-zinc-400 leading-tight">
-                        📱 Safari &amp; mobile browsers block Netflix capture due to DRM. Host on laptop for Netflix!
+                        <AppIcon name="phone" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Hosting &amp; screen sharing need a laptop or PC. You can still join and watch from your phone.
                       </p>
                     )}
                   </div>
@@ -1084,7 +1109,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
             {/* Screen Share Button */}
             {onStartScreenShare && (
               <button
-                onClick={isScreenSharing ? onStopScreenShare : onStartScreenShare}
+                onClick={isScreenSharing ? onStopScreenShare : requestShare}
                 className={`p-2 rounded-full transition ${
                   isScreenSharing
                     ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-400/50'
@@ -1123,7 +1148,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   ? 'text-[#E50914] drop-shadow-[0_0_6px_rgba(229,9,20,0.8)]'
                   : 'text-zinc-300 hover:text-white'
               }`}
-              title={isTheaterMode ? 'Exit 3D Theater' : 'View in 3D Theater 🎬'}
+              title={isTheaterMode ? 'Exit 3D Theater' : 'View in 3D Theater'}
             >
               <Clapperboard className="w-4 h-4" />
             </button>
@@ -1215,21 +1240,21 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     <div className="col-span-1">
-                      <label className="text-[10px] text-zinc-400 mb-1 block">Emoji</label>
+                      <label className="text-[10px] text-zinc-400 mb-1 block">Icon</label>
                       <select
                         value={customRoomEmoji}
                         disabled={!isHost}
                         onChange={(e) => {
-                          setCustomRoomEmoji(e.target.value);
+                          setCustomRoomEmoji(e.target.value as IconName);
                           if (typeof window !== 'undefined') {
                             localStorage.setItem('synccinema_custom_room_emoji', e.target.value);
                           }
                         }}
                         className="w-full py-2 px-2 bg-[#0d1017] border border-white/15 rounded-xl text-center text-lg text-white focus:outline-none focus:border-red-500 cursor-pointer disabled:opacity-50"
                       >
-                        {['🎬', '🍿', '🎥', '✨', '🔥', '💖', '🚀', '🌌', '🍕', '🎉'].map((em) => (
-                          <option key={em} value={em}>
-                            {em}
+                        {ROOM_ICON_OPTIONS.map((em) => (
+                          <option key={em.id} value={em.id}>
+                            {em.label}
                           </option>
                         ))}
                       </select>
@@ -1247,7 +1272,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                             localStorage.setItem('synccinema_custom_room_name', e.target.value);
                           }
                         }}
-                        placeholder="🍿 Friday Movie Night"
+                        placeholder="Friday Movie Night"
                         className="w-full py-2.5 px-3 bg-[#0d1017] border border-white/15 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 disabled:opacity-50"
                       />
                     </div>
@@ -1298,9 +1323,9 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { id: 'INVITE_ONLY', label: '🔒 Invite Only', desc: 'Direct link only' },
-                      { id: 'PUBLIC', label: '🌐 Public', desc: 'Visible in lobby' },
-                      { id: 'PRIVATE', label: '🛡️ Private Knock', desc: 'Host approval needed' },
+                      { id: 'INVITE_ONLY', label: 'Invite Only', desc: 'Direct link only' },
+                      { id: 'PUBLIC', label: 'Public', desc: 'Visible in lobby' },
+                      { id: 'PRIVATE', label: 'Private Knock', desc: 'Host approval needed' },
                     ].map((p) => {
                       const isSelected = customPrivacy === p.id;
                       return (
@@ -1327,7 +1352,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   </div>
                   {customPrivacy === 'PRIVATE' && (
                     <p className="text-[10.5px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-1.5">
-                      🛡️ Knock-to-Join is enabled: Guests will wait at the admission gate until you admit them.
+                      <AppIcon name="shield" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Knock-to-Join is enabled: Guests will wait at the admission gate until you admit them.
                     </p>
                   )}
                 </div>
@@ -1375,8 +1400,8 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     {[
-                      { id: 'ANYONE', label: '☑ Anyone can start games', desc: 'Any player can launch Ludo, Connect 4, etc.' },
-                      { id: 'HOST_ONLY', label: '☐ Host only', desc: 'Only the room host can launch arcade games' },
+                      { id: 'ANYONE', label: 'Anyone can start games', desc: 'Any player can launch Ludo, Connect 4, etc.' },
+                      { id: 'HOST_ONLY', label: 'Host only', desc: 'Only the room host can launch arcade games' },
                     ].map((perm) => {
                       const isSelected = gamePermission === perm.id;
                       return (
@@ -1421,7 +1446,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
         </div>
       )}
 
-      {/* Mobile Screen Sharing / Netflix Guidance Modal */}
+      {/* Desktop-only notice: shown only when a phone tries to host / share */}
       {showMobileShareModal && (
         <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn overflow-y-auto">
           <div className="relative max-w-sm sm:max-w-md w-full my-auto bg-[#161224] border border-rose-500/40 rounded-3xl p-4 sm:p-6 shadow-2xl flex flex-col items-center text-center space-y-3 sm:space-y-4 max-h-[92vh] overflow-y-auto">
@@ -1440,21 +1465,21 @@ export const CinemaPlayer = memo(function CinemaPlayer({
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-sm sm:text-base font-black text-white">Streaming Netflix &amp; Movies</h3>
+              <h3 className="text-sm sm:text-base font-black text-white">Host &amp; share from a desktop</h3>
               <p className="text-[11px] sm:text-xs text-zinc-300 leading-relaxed max-w-xs sm:max-w-sm">
-                Mobile browsers block screen recording of <strong className="text-white font-semibold">Netflix, Prime &amp; Disney+</strong> due to DRM hardware security.
+                Starting a watch party and sharing your screen only works on a <strong className="text-white font-semibold">laptop or PC</strong>. Phones and tablets can&apos;t capture the screen or Netflix, Prime &amp; Disney+ audio.
               </p>
             </div>
 
             <div className="w-full p-2.5 sm:p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1.5">
               <div className="text-[10px] sm:text-[11px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 shrink-0" />
-                <span>How to Stream Netflix Together:</span>
+                <span>To host this room:</span>
               </div>
               <p className="text-[10.5px] sm:text-[11px] text-zinc-300 leading-relaxed">
-                1. Open room on a <strong>laptop or PC</strong> (Chrome/Edge).<br />
-                2. Share your screen with system audio.<br />
-                3. All friends on mobile watch in <strong>full screen</strong>!
+                1. Sign in on a <strong>desktop browser</strong> (Chrome or Edge).<br />
+                2. Open this room and press <strong>Share Screen</strong>.<br />
+                3. Friends can join from their phones and watch in <strong>full screen</strong>.
               </p>
             </div>
 
@@ -1464,7 +1489,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                 type="button"
                 onClick={() => {
                   if (typeof window !== 'undefined') {
-                    navigator.clipboard.writeText(window.location.href);
+                    void navigator.clipboard.writeText(window.location.href);
                     setCopiedHostLink(true);
                     setTimeout(() => setCopiedHostLink(false), 2500);
                   }
@@ -1472,19 +1497,15 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                 className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-md shadow-red-600/30 flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer whitespace-nowrap min-h-[40px]"
               >
                 {copiedHostLink ? <Check className="w-3.5 h-3.5 text-emerald-300 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
-                <span>{copiedHostLink ? 'Link Copied!' : 'Copy Link for Laptop'}</span>
+                <span>{copiedHostLink ? 'Link Copied!' : 'Copy Link for Desktop'}</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  setShowMobileShareModal(false);
-                  if (onStartParty) onStartParty();
-                  else if (onStartScreenShare) onStartScreenShare();
-                }}
+                onClick={() => setShowMobileShareModal(false)}
                 className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-zinc-300 hover:text-white font-medium text-xs border border-white/10 active:scale-95 transition cursor-pointer whitespace-nowrap min-h-[40px] flex items-center justify-center"
               >
-                Try Mobile Share Anyway
+                Keep Watching on Phone
               </button>
             </div>
 

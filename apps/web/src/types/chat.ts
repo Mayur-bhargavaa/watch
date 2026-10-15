@@ -127,7 +127,8 @@ export interface ChatMessage {
   } | null;
   reactions?: ChatMessageReaction[];
   createdAt: string;
-  status: 'sending' | 'sent' | 'delivered' | 'read';
+  /** 'failed' = the server rejected the message or the request could not be sent (can be retried) */
+  status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   isPinned?: boolean;
 }
 

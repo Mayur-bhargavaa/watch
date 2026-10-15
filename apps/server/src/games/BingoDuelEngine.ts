@@ -7,6 +7,7 @@ import {
   BingoDuelRoundSummary,
   BingoDuelCompletedLine
 } from '@synccinema/common';
+import { secureRandom } from '../util/random.js';
 
 const NUMBER_WORDS: Record<number, string> = {
   1: 'ONE', 2: 'TWO', 3: 'THREE', 4: 'FOUR', 5: 'FIVE',
@@ -25,6 +26,14 @@ export const DEFAULT_BINGO_DUEL_CONFIG: BingoDuelConfig = {
   falseBingoPenalty: 3 // 3 seconds penalty
 };
 
+export const DUEL_TURN_TIMEOUT_MS = 45000;
+
+export const BINGO_DUEL_PATTERNS = [
+  'fiveLines', 'firstRow', 'middleRow', 'lastRow', 'anyRow', 'anyCol',
+  'fourCorners', 'xPattern', 'plusPattern', 'diagonal', 'fullHouse', 'custom'
+] as const;
+export const BINGO_DUEL_MODES = ['quick', 'classic', 'bestOf3', 'bestOf5', 'custom'] as const;
+
 export class BingoDuelEngine {
   public static getNumberWord(n: number): string {
     return NUMBER_WORDS[n] || String(n);
@@ -36,7 +45,7 @@ export class BingoDuelEngine {
   public static generateBoard(): number[][] {
     const nums = Array.from({ length: 25 }, (_, i) => i + 1);
     for (let i = nums.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(secureRandom() * (i + 1));
       [nums[i], nums[j]] = [nums[j], nums[i]];
     }
 
@@ -53,7 +62,7 @@ export class BingoDuelEngine {
   public static generateCallQueue(): number[] {
     const queue = Array.from({ length: 25 }, (_, i) => i + 1);
     for (let i = queue.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(secureRandom() * (i + 1));
       [queue[i], queue[j]] = [queue[j], queue[i]];
     }
     return queue;
@@ -357,18 +366,88 @@ export class BingoDuelEngine {
   }
 
   /**
+   * Validates a (possibly partial, untrusted) config against known enums/ranges and merges it onto `base`.
+   * Throws an Error with a user-facing message when a field is invalid.
+   */
+  public static sanitizeConfig(input: unknown, base: BingoDuelConfig = DEFAULT_BINGO_DUEL_CONFIG): BingoDuelConfig {
+    if (input === undefined || input === null) return { ...base };
+    if (typeof input !== 'object' || Array.isArray(input)) {
+      throw new Error('Config must be an object.');
+    }
+    const src = input as Record<string, unknown>;
+    const out: BingoDuelConfig = { ...base };
+
+    if (src.pattern !== undefined) {
+      if (typeof src.pattern !== 'string' || !(BINGO_DUEL_PATTERNS as readonly string[]).includes(src.pattern)) {
+        throw new Error('Unknown bingo pattern.');
+      }
+      out.pattern = src.pattern as BingoDuelPattern;
+    }
+    if (src.mode !== undefined) {
+      if (typeof src.mode !== 'string' || !(BINGO_DUEL_MODES as readonly string[]).includes(src.mode)) {
+        throw new Error('Unknown match mode.');
+      }
+      out.mode = src.mode as BingoDuelMode;
+    }
+    if (src.autoCallSpeed !== undefined) {
+      const v = Number(src.autoCallSpeed);
+      if (!Number.isFinite(v) || v < 0 || v > 60000) throw new Error('autoCallSpeed must be between 0 and 60000 ms.');
+      out.autoCallSpeed = Math.round(v);
+    }
+    if (src.falseBingoPenalty !== undefined) {
+      const v = Number(src.falseBingoPenalty);
+      if (!Number.isFinite(v) || v < 0 || v > 30) throw new Error('falseBingoPenalty must be between 0 and 30 seconds.');
+      out.falseBingoPenalty = Math.round(v);
+    }
+    if (src.voiceCaller !== undefined) {
+      if (typeof src.voiceCaller !== 'boolean') throw new Error('voiceCaller must be a boolean.');
+      out.voiceCaller = src.voiceCaller;
+    }
+    if (src.sound !== undefined) {
+      if (typeof src.sound !== 'boolean') throw new Error('sound must be a boolean.');
+      out.sound = src.sound;
+    }
+    if (src.customPattern !== undefined) {
+      const cp = src.customPattern;
+      const ok =
+        Array.isArray(cp) &&
+        cp.length === 5 &&
+        cp.every(row => Array.isArray(row) && row.length === 5 && row.every(c => typeof c === 'boolean'));
+      if (!ok) throw new Error('customPattern must be a 5x5 grid of booleans.');
+      out.customPattern = (cp as boolean[][]).map(row => [...row]);
+    }
+    // An empty custom pattern can never be completed
+    if (out.pattern === 'custom') {
+      const any = out.customPattern?.some(row => row.some(Boolean));
+      if (!any) throw new Error('A custom pattern needs at least one selected cell.');
+    }
+    return out;
+  }
+
+  private static isValidBoard(board: unknown): board is number[][] {
+    if (!Array.isArray(board) || board.length !== 5) return false;
+    const seen = new Set<number>();
+    for (const row of board) {
+      if (!Array.isArray(row) || row.length !== 5) return false;
+      for (const n of row) {
+        if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > 25 || seen.has(n)) return false;
+        seen.add(n);
+      }
+    }
+    return seen.size === 25;
+  }
+
+  /**
    * Initializes a brand new Bingo Duel Game State
    */
   public static createInitialState(
     roomId: string,
     playerUserIds: string[],
     config: Partial<BingoDuelConfig> = {},
-    existingBoards?: Record<string, number[][]>
+    existingBoards?: Record<string, number[][]>,
+    starterIndex?: number
   ): BingoDuelGameState {
-    const fullConfig: BingoDuelConfig = {
-      ...DEFAULT_BINGO_DUEL_CONFIG,
-      ...config
-    };
+    const fullConfig: BingoDuelConfig = this.sanitizeConfig(config);
 
     let targetRounds = 1;
     if (fullConfig.mode === 'bestOf3') targetRounds = 2;
@@ -382,9 +461,9 @@ export class BingoDuelEngine {
     const roundsWon: Record<string, number> = {};
 
     playerUserIds.forEach(userId => {
-      // Use existing valid custom board if provided, otherwise generate a fresh randomized 5x5 board
-      if (existingBoards?.[userId] && Array.isArray(existingBoards[userId]) && existingBoards[userId].length === 5) {
-        boards[userId] = existingBoards[userId];
+      // Use an existing board only if it is a fully valid 5x5 of 1..25, otherwise generate a fresh one
+      if (this.isValidBoard(existingBoards?.[userId])) {
+        boards[userId] = existingBoards![userId];
       } else {
         boards[userId] = this.generateBoard();
       }
@@ -396,6 +475,14 @@ export class BingoDuelEngine {
     });
 
     const callQueue = this.generateCallQueue();
+
+    // Random starter so the host does not always move first
+    const idx = playerUserIds.length === 0
+      ? 0
+      : (starterIndex !== undefined && Number.isInteger(starterIndex) && starterIndex >= 0
+        ? starterIndex % playerUserIds.length
+        : Math.floor(secureRandom() * playerUserIds.length));
+    const starter = playerUserIds[idx] || null;
 
     return {
       roomId,
@@ -410,7 +497,10 @@ export class BingoDuelEngine {
       playerMarks,
       playerPicks,
       playerProgress,
-      currentTurnUserId: playerUserIds[0] || null, // Host selects first
+      currentTurnUserId: starter,
+      roundStarterUserId: starter,
+      turnStartedAt: Date.now(),
+      turnTimeoutMs: DUEL_TURN_TIMEOUT_MS,
       phase: 'PLAYING',
       currentRound: 1,
       targetRounds,
@@ -418,6 +508,7 @@ export class BingoDuelEngine {
       roundHistory: [],
       winnerUserId: null,
       winnerDisplayName: null,
+      lastRoundWinnerUserId: null,
       falseBingoPenaltyUntil: {},
       callingPaused: false,
       startedAt: Date.now(),
@@ -426,7 +517,10 @@ export class BingoDuelEngine {
   }
 
   /**
-   * Allows a player to set their custom 5x5 board (1-25 unique numbers)
+   * Allows a player to set their custom 5x5 board (1-25 unique integers).
+   * Only allowed during a pre-start setup phase and before any number has been called;
+   * once the match is running boards are locked (otherwise a player could build a winning board
+   * from the numbers already called).
    */
   public static setPlayerBoard(
     state: BingoDuelGameState,
@@ -434,50 +528,44 @@ export class BingoDuelEngine {
     customBoard: number[][],
     allPlayerUserIds?: string[]
   ): { state: BingoDuelGameState; success: boolean; message: string; allReady: boolean } {
-    // Validate custom board is 5x5 containing unique numbers 1..25
-    if (!Array.isArray(customBoard) || customBoard.length !== 5) {
-      return { state, success: false, message: 'Board must be a 5x5 grid.', allReady: false };
+    if (state.phase !== 'SETUP' && state.phase !== 'CONFIGURING') {
+      return { state, success: false, message: 'Boards are locked once the match has started.', allReady: false };
+    }
+    if (state.calledNumbers.length > 0) {
+      return { state, success: false, message: 'Boards are locked once numbers have been called.', allReady: false };
+    }
+    if (allPlayerUserIds && allPlayerUserIds.length > 0 && !allPlayerUserIds.includes(userId)) {
+      return { state, success: false, message: 'You are not a player in this match.', allReady: false };
+    }
+    if (!this.isValidBoard(customBoard)) {
+      return {
+        state,
+        success: false,
+        message: 'Board must be a 5x5 grid of integers containing every number from 1 to 25 exactly once.',
+        allReady: false
+      };
     }
 
-    const flat = customBoard.flat();
-    if (flat.length !== 25) {
-      return { state, success: false, message: 'Board must contain exactly 25 numbers.', allReady: false };
-    }
-
-    const seen = new Set<number>();
-    for (const n of flat) {
-      if (typeof n !== 'number' || n < 1 || n > 25 || seen.has(n)) {
-        return {
-          state,
-          success: false,
-          message: 'Board must contain all numbers from 1 to 25 without duplicates.',
-          allReady: false
-        };
-      }
-      seen.add(n);
-    }
-
-    state.boards[userId] = customBoard;
+    state.boards[userId] = customBoard.map(row => [...row]);
     if (!state.boardsReady) state.boardsReady = {};
     state.boardsReady[userId] = true;
 
-    // Reset marks and recalculate progress with existing called numbers
     const list = state.playerMarks[userId] || [];
     state.playerProgress[userId] = this.evaluatePattern(
-      customBoard,
+      state.boards[userId],
       state.config.pattern,
       list,
       state.calledNumbers,
       state.config.customPattern
     );
 
-    // Check if all players are ready
     const players = allPlayerUserIds && allPlayerUserIds.length > 0 ? allPlayerUserIds : Object.keys(state.boards);
     const allReady = players.length >= 2 && players.every(id => state.boardsReady?.[id] === true);
 
     if (allReady) {
       state.phase = 'PLAYING';
       state.startedAt = Date.now();
+      state.turnStartedAt = Date.now();
       state.statusMessage = 'Both players ready! Match started! Pick numbers alternatively.';
     } else {
       state.statusMessage = 'Waiting for other player to select their numbers...';
@@ -489,6 +577,35 @@ export class BingoDuelEngine {
       message: allReady ? 'All players ready! Game starts!' : 'Ticket locked! Waiting for opponent...',
       allReady
     };
+  }
+
+  private static refreshProgress(state: BingoDuelGameState, userId: string): void {
+    const board = state.boards[userId];
+    if (board && board.length === 5) {
+      state.playerProgress[userId] = this.evaluatePattern(
+        board,
+        state.config.pattern,
+        state.playerMarks[userId] || [],
+        state.calledNumbers,
+        state.config.customPattern
+      );
+    }
+  }
+
+  /**
+   * Called when all 25 numbers are out: if nobody can claim, the round resolves as a draw
+   * instead of leaving the match stuck in PLAYING.
+   */
+  private static resolveExhaustion(state: BingoDuelGameState, playerUserIds: string[]): void {
+    const anyone = playerUserIds.some(id => state.playerProgress[id]?.isCompleted);
+    if (anyone) {
+      state.statusMessage = 'All 25 numbers have been called! Claim BINGO now.';
+      return;
+    }
+    state.phase = 'FINISHED';
+    state.winnerUserId = null;
+    state.winnerDisplayName = null;
+    state.statusMessage = 'All 25 numbers were called and nobody completed the pattern. It is a draw!';
   }
 
   /**
@@ -510,12 +627,16 @@ export class BingoDuelEngine {
       return { state, success: false, message: 'Game is not in playing phase.' };
     }
 
+    if (!playerUserIds.includes(userId)) {
+      return { state, success: false, message: 'You are not a player in this match.' };
+    }
+
     if (state.currentTurnUserId && state.currentTurnUserId !== userId) {
       return { state, success: false, message: 'It is not your turn to pick a number.' };
     }
 
-    if (typeof numberToCall !== 'number' || numberToCall < 1 || numberToCall > 25) {
-      return { state, success: false, message: 'Number must be between 1 and 25.' };
+    if (typeof numberToCall !== 'number' || !Number.isInteger(numberToCall) || numberToCall < 1 || numberToCall > 25) {
+      return { state, success: false, message: 'Number must be a whole number between 1 and 25.' };
     }
 
     if (state.calledNumbers.includes(numberToCall)) {
@@ -539,32 +660,24 @@ export class BingoDuelEngine {
       state.playerPicks[userId].push(numberToCall);
     }
 
-    // Automatically mark the called number for ALL players who have it on their board
+    // Automatically mark the called number for ALL players
     playerUserIds.forEach(pId => {
       if (!state.playerMarks[pId]) state.playerMarks[pId] = [];
       if (!state.playerMarks[pId].includes(numberToCall)) {
         state.playerMarks[pId].push(numberToCall);
       }
-      if (state.boards[pId] && state.boards[pId].length === 5) {
-        state.playerProgress[pId] = this.evaluatePattern(
-          state.boards[pId],
-          state.config.pattern,
-          state.playerMarks[pId],
-          state.calledNumbers,
-          state.config.customPattern
-        );
-      }
+      this.refreshProgress(state, pId);
     });
 
-    // Check if all 25 numbers called
     const isFinished = state.calledNumbers.length >= 25;
     if (isFinished) {
-      state.statusMessage = 'All 25 numbers have been called!';
+      this.resolveExhaustion(state, playerUserIds);
     } else {
       // Alternate turn to the next player
       const currentIdx = playerUserIds.indexOf(userId);
       const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % playerUserIds.length : 0;
       state.currentTurnUserId = playerUserIds[nextIdx];
+      state.turnStartedAt = Date.now();
       state.statusMessage = `Number ${numberToCall} called! Next turn: Player ${nextIdx + 1}`;
     }
 
@@ -573,12 +686,33 @@ export class BingoDuelEngine {
       success: true,
       message: `Number ${numberToCall} called!`,
       calledNumber: numberToCall,
-      isFinished
+      isFinished: isFinished && (state.phase as string) === 'FINISHED'
     };
   }
 
   /**
-   * Calls the next random number from the queue
+   * Picks a random uncalled number on behalf of the player whose turn timed out.
+   */
+  public static autoPick(
+    state: BingoDuelGameState,
+    playerUserIds: string[]
+  ): ReturnType<typeof BingoDuelEngine.selectNumber> | null {
+    if (state.phase !== 'PLAYING' || !state.currentTurnUserId) return null;
+    const remaining = Array.from({ length: 25 }, (_, i) => i + 1).filter(n => !state.calledNumbers.includes(n));
+    if (remaining.length === 0) return null;
+    const pick = remaining[Math.floor(secureRandom() * remaining.length)];
+    return this.selectNumber(state, state.currentTurnUserId, pick, playerUserIds);
+  }
+
+  public static isTurnExpired(state: BingoDuelGameState, now: number = Date.now()): boolean {
+    if (state.phase !== 'PLAYING' || !state.currentTurnUserId || state.callingPaused) return false;
+    const timeout = state.turnTimeoutMs ?? DUEL_TURN_TIMEOUT_MS;
+    return now - (state.turnStartedAt ?? now) >= timeout;
+  }
+
+  /**
+   * Calls the next random number from the queue (host/manual path). Marks the number for every board,
+   * like a turn pick does.
    */
   public static callNext(state: BingoDuelGameState): {
     state: BingoDuelGameState;
@@ -590,32 +724,46 @@ export class BingoDuelEngine {
     }
 
     if (state.callQueue.length === 0) {
-      // All 25 numbers called!
-      state.statusMessage = 'All 25 numbers have been called!';
-      return { state, calledNumber: null, isFinished: true };
+      this.resolveExhaustion(state, Object.keys(state.boards));
+      return { state, calledNumber: null, isFinished: state.phase !== 'PLAYING' };
     }
 
     const nextNum = state.callQueue.shift()!;
     state.calledNumbers.push(nextNum);
     state.currentNumber = nextNum;
     state.currentNumberWord = this.getNumberWord(nextNum);
-    state.lastCalledNumbers = [nextNum, ...state.calledNumbers.slice(-5, -1)].slice(0, 5);
+    state.lastCalledNumbers = [nextNum, ...state.calledNumbers.slice(-6, -1).reverse()].slice(0, 5);
     state.statusMessage = `Number called: ${nextNum} (${state.currentNumberWord})`;
 
-    return { state, calledNumber: nextNum, isFinished: false };
+    const ids = Object.keys(state.boards);
+    ids.forEach(pId => {
+      if (!state.playerMarks[pId]) state.playerMarks[pId] = [];
+      if (!state.playerMarks[pId].includes(nextNum)) state.playerMarks[pId].push(nextNum);
+      this.refreshProgress(state, pId);
+    });
+
+    let isFinished = false;
+    if (state.calledNumbers.length >= 25) {
+      this.resolveExhaustion(state, ids);
+      isFinished = state.phase !== 'PLAYING';
+    }
+
+    return { state, calledNumber: nextNum, isFinished };
   }
 
   /**
-   * Marks or unmarks a called number for a player
+   * Marks a called number for a player. Idempotent (never un-marks) and only while PLAYING.
    */
   public static markNumber(
     state: BingoDuelGameState,
     userId: string,
     numberToMark: number
   ): { state: BingoDuelGameState; success: boolean } {
+    if (state.phase !== 'PLAYING') return { state, success: false };
+    if (!state.boards[userId]) return { state, success: false };
+    if (typeof numberToMark !== 'number' || !Number.isInteger(numberToMark)) return { state, success: false };
     // Prevent marking numbers that have not been called yet
-    const calledSet = new Set(state.calledNumbers);
-    if (!calledSet.has(numberToMark)) {
+    if (!state.calledNumbers.includes(numberToMark)) {
       return { state, success: false };
     }
 
@@ -624,34 +772,23 @@ export class BingoDuelEngine {
     }
 
     const list = state.playerMarks[userId];
-    const idx = list.indexOf(numberToMark);
-    if (idx >= 0) {
-      list.splice(idx, 1);
-    } else {
-      list.push(numberToMark);
-    }
+    if (!list.includes(numberToMark)) list.push(numberToMark);
 
-    // Update player progress
-    if (state.boards[userId]) {
-      state.playerProgress[userId] = this.evaluatePattern(
-        state.boards[userId],
-        state.config.pattern,
-        list,
-        state.calledNumbers,
-        state.config.customPattern
-      );
-    }
+    this.refreshProgress(state, userId);
 
     return { state, success: true };
   }
 
   /**
-   * Authoritatively validates a BINGO claim
+   * Authoritatively validates a BINGO claim. Only valid while a round is being played.
+   * If both players completed the pattern at the same time, the player who picked the last number
+   * (callerUserId) wins the round; `winnerUserId` in the result names the actual winner.
    */
   public static claimBingo(
     state: BingoDuelGameState,
     userId: string,
-    displayName: string
+    displayName: string,
+    displayNames?: Record<string, string>
   ): {
     valid: boolean;
     message: string;
@@ -659,7 +796,13 @@ export class BingoDuelEngine {
     isMatchOver?: boolean;
     isRoundOver?: boolean;
     winningIndices?: [number, number][];
+    winnerUserId?: string;
+    winnerDisplayName?: string;
   } {
+    if (state.phase !== 'PLAYING') {
+      return { valid: false, message: 'There is no round in progress to claim.' };
+    }
+
     // 1. Check if user is currently serving a False Bingo penalty cooldown
     const now = Date.now();
     const penaltyUntil = state.falseBingoPenaltyUntil[userId] || 0;
@@ -677,14 +820,16 @@ export class BingoDuelEngine {
       return { valid: false, message: 'Board not found' };
     }
 
-    const marks = state.playerMarks[userId] || [];
-    const progress = this.evaluatePattern(
-      board,
-      state.config.pattern,
-      marks,
-      state.calledNumbers,
-      state.config.customPattern
-    );
+    const evalFor = (uid: string) =>
+      this.evaluatePattern(
+        state.boards[uid],
+        state.config.pattern,
+        state.playerMarks[uid] || [],
+        state.calledNumbers,
+        state.config.customPattern
+      );
+
+    const progress = evalFor(userId);
 
     if (!progress.isCompleted) {
       // FALSE BINGO!
@@ -699,46 +844,67 @@ export class BingoDuelEngine {
       };
     }
 
+    // Tie-break: both complete -> the picker of the completing number wins
+    let winnerId = userId;
+    let winnerProgress = progress;
+    let winnerName = displayName;
+    const caller = state.callerUserId;
+    if (caller && caller !== userId && state.boards[caller]) {
+      const callerProgress = evalFor(caller);
+      if (callerProgress.isCompleted) {
+        winnerId = caller;
+        winnerProgress = callerProgress;
+        winnerName = displayNames?.[caller] || state.roundHistory.find(r => r.winnerUserId === caller)?.winnerDisplayName || 'Opponent';
+      }
+    }
+
     // VALID BINGO CLAIM!
-    state.roundsWon[userId] = (state.roundsWon[userId] || 0) + 1;
-    const roundsWonCount = state.roundsWon[userId];
+    state.roundsWon[winnerId] = (state.roundsWon[winnerId] || 0) + 1;
+    const roundsWonCount = state.roundsWon[winnerId];
     const duration = Math.round((Date.now() - state.startedAt) / 1000);
 
     const roundSummary: BingoDuelRoundSummary = {
       round: state.currentRound,
-      winnerUserId: userId,
-      winnerDisplayName: displayName,
-      patternName: progress.completedPatternName || state.config.pattern,
+      winnerUserId: winnerId,
+      winnerDisplayName: winnerName,
+      patternName: winnerProgress.completedPatternName || state.config.pattern,
       numbersCalledCount: state.calledNumbers.length,
       durationSeconds: duration
     };
     state.roundHistory.push(roundSummary);
+    state.lastRoundWinnerUserId = winnerId;
 
     const isMatchOver = roundsWonCount >= state.targetRounds;
 
     if (isMatchOver) {
       state.phase = 'FINISHED';
-      state.winnerUserId = userId;
-      state.winnerDisplayName = displayName;
-      state.statusMessage = `🎉 ${displayName} won the Bingo Duel!`;
+      state.winnerUserId = winnerId;
+      state.winnerDisplayName = winnerName;
+      state.statusMessage = `${winnerName} won the Bingo Duel!`;
     } else {
       state.phase = 'ROUND_OVER';
-      state.statusMessage = `🎉 ${displayName} won Round ${state.currentRound}! (${roundsWonCount}/${state.targetRounds})`;
+      state.statusMessage = `${winnerName} won Round ${state.currentRound}! (${roundsWonCount}/${state.targetRounds})`;
     }
 
     return {
-      valid: true,
-      message: `🎉 BINGO! ${displayName} completed ${progress.completedPatternName || 'the pattern'}!`,
+      valid: winnerId === userId,
+      message: winnerId === userId
+        ? `BINGO! ${displayName} completed ${progress.completedPatternName || 'the pattern'}!`
+        : `Both of you completed the pattern, but ${winnerName} picked the final number and wins the round.`,
       isMatchOver,
       isRoundOver: !isMatchOver,
-      winningIndices: progress.matchedIndices
+      winningIndices: winnerProgress.matchedIndices,
+      winnerUserId: winnerId,
+      winnerDisplayName: winnerName
     };
   }
 
   /**
-   * Resets boards and numbers for the next round in a Best-of series
+   * Resets boards and numbers for the next round in a Best-of series. Only allowed from ROUND_OVER.
+   * Returns the state unchanged (check `state.phase === 'PLAYING'` and round number) otherwise.
    */
   public static startNextRound(state: BingoDuelGameState): BingoDuelGameState {
+    if (state.phase !== 'ROUND_OVER') return state;
     state.currentRound += 1;
     state.phase = 'PLAYING';
     state.callQueue = this.generateCallQueue();
@@ -748,18 +914,71 @@ export class BingoDuelEngine {
     state.lastCalledNumbers = [];
     state.falseBingoPenaltyUntil = {};
     state.callingPaused = false;
+    state.callerUserId = null;
     state.startedAt = Date.now();
-    state.statusMessage = `Round ${state.currentRound} started! Calling numbers 1–25...`;
+    state.turnStartedAt = Date.now();
+    state.statusMessage = `Round ${state.currentRound} started! Pick numbers alternately.`;
 
     // Re-shuffle 5x5 boards for all players
     const picks = (state.playerPicks = state.playerPicks || {});
-    Object.keys(state.boards).forEach(uid => {
+    const ids = Object.keys(state.boards);
+    ids.forEach(uid => {
       state.boards[uid] = this.generateBoard();
       state.playerMarks[uid] = [];
       picks[uid] = [];
       state.playerProgress[uid] = { current: 0, total: 5, isCompleted: false };
     });
 
+    // Alternate who starts each round
+    if (ids.length > 0) {
+      const prevIdx = Math.max(0, ids.indexOf(state.roundStarterUserId || ''));
+      const next = ids[(prevIdx + 1) % ids.length];
+      state.roundStarterUserId = next;
+      state.currentTurnUserId = next;
+    }
+
     return state;
   }
+}
+
+/**
+ * Per-viewer projection of the state. Pure: returns a new object and never mutates `state`.
+ * Removes everything a player must not know:
+ *  - boards of other players (and of any non-player viewer),
+ *  - the future call queue (replaced by [] plus `remainingCount`),
+ *  - other players' marks (replaced by `markedCounts`),
+ *  - the layout-revealing parts of other players' progress (matchedIndices / completedLines).
+ */
+export function publicStateFor(state: BingoDuelGameState, viewerId: string | null | undefined): BingoDuelGameState {
+  if (!state) return state;
+  const viewer = viewerId ?? '';
+  const boards: Record<string, number[][]> = {};
+  if (viewer && state.boards && state.boards[viewer]) boards[viewer] = state.boards[viewer];
+
+  const playerMarks: Record<string, number[]> = {};
+  const markedCounts: Record<string, number> = {};
+  Object.entries(state.playerMarks || {}).forEach(([uid, marks]) => {
+    markedCounts[uid] = marks.length;
+    if (uid === viewer) playerMarks[uid] = [...marks];
+  });
+
+  const playerProgress: Record<string, BingoDuelPatternProgress> = {};
+  Object.entries(state.playerProgress || {}).forEach(([uid, prog]) => {
+    if (uid === viewer) {
+      playerProgress[uid] = prog;
+    } else {
+      const { matchedIndices: _m, completedLines: _c, ...rest } = prog;
+      playerProgress[uid] = rest;
+    }
+  });
+
+  return {
+    ...state,
+    boards,
+    callQueue: [],
+    remainingCount: Math.max(0, 25 - (state.calledNumbers?.length ?? 0)),
+    playerMarks,
+    markedCounts,
+    playerProgress
+  };
 }

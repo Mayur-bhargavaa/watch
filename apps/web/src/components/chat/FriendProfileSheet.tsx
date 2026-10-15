@@ -11,10 +11,8 @@ import {
   Calendar,
   Flame,
   User,
-  ShieldAlert,
-  ChevronRight,
-  Sparkles,
-} from 'lucide-react';
+  ChevronRight
+  } from 'lucide-react';
 import { ChatUser, ChatConversation } from '@/types/chat';
 
 interface FriendProfileSheetProps {
@@ -34,7 +32,7 @@ export const FriendProfileSheet: React.FC<FriendProfileSheetProps> = ({
   onStartVoiceCall,
   onStartVideoCall,
   onOpenCreatePlan,
-  onOpenInviteGame,
+  onOpenInviteGame
 }) => {
   const isGroup = conversation.type === 'group';
   const name = isGroup ? conversation.title || 'Group' : user?.name || 'Friend';

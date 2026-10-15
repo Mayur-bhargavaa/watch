@@ -1,5 +1,7 @@
 import { LudoColor, LudoToken, LudoGameState } from '@synccinema/common';
 import { GAME_DEFINITIONS } from './GameDefinitions.js';
+import { secureRandom } from '../util/random.js';
+import { GameRuleError } from './GameRuleError.js';
 
 // Color starting tile indices on the common 52-tile ring
 export const COLOR_START_TILES: Record<LudoColor, number> = {
@@ -11,6 +13,20 @@ export const COLOR_START_TILES: Record<LudoColor, number> = {
 
 // Safe Star tiles on the common 52-tile ring where tokens cannot be captured
 export const SAFE_STAR_TILES = new Set<number>([0, 8, 13, 21, 26, 34, 39, 47]);
+
+/**
+ * Seats listed in `state.eliminatedSeats` (left / forfeited players in 3-4 player games) are skipped
+ * when the turn advances. The field is optional and not part of the shared type.
+ */
+function nextActiveSeat(state: LudoGameState): number {
+  const eliminated: number[] = (state as any).eliminatedSeats || [];
+  let seat = state.currentTurnSeat;
+  for (let i = 0; i < state.playersCount; i++) {
+    seat = (seat + 1) % state.playersCount;
+    if (!eliminated.includes(seat) && state.seats[seat]) return seat;
+  }
+  return state.currentTurnSeat;
+}
 
 export class LudoEngine {
   /**
@@ -105,25 +121,25 @@ export class LudoEngine {
     passedTurn: boolean;
   } {
     if (state.winnerColor) {
-      throw new Error('Game is already finished');
+      throw new GameRuleError('GAME_OVER', 'Game is already finished');
     }
 
     if (seatIndex !== state.currentTurnSeat) {
-      throw new Error("It is not this player's turn to roll");
+      throw new GameRuleError('NOT_YOUR_TURN', "It is not this player's turn to roll");
     }
 
     if (!state.canRoll) {
-      throw new Error('Dice has already been rolled for this turn');
+      throw new GameRuleError('ALREADY_ROLLED', 'Dice has already been rolled for this turn');
     }
 
     // Authoritative pseudo-random dice roll: 1 to 6
-    const diceValue = Math.floor(Math.random() * 6) + 1;
+    const diceValue = Math.floor(secureRandom() * 6) + 1;
     const isSix = diceValue === 6;
     const consecutiveSixes = isSix ? state.consecutiveSixes + 1 : 0;
 
     // Rule: 3 consecutive sixes cancels turn
     if (consecutiveSixes >= 3) {
-      const nextSeat = (state.currentTurnSeat + 1) % state.playersCount;
+      const nextSeat = nextActiveSeat(state);
       const nextPlayer = state.seats[nextSeat];
       const updated: LudoGameState = {
         ...state,
@@ -150,7 +166,7 @@ export class LudoEngine {
 
     if (legalMoves.length === 0) {
       // No legal moves possible with this roll -> turn passes to next seat
-      const nextSeat = (state.currentTurnSeat + 1) % state.playersCount;
+      const nextSeat = nextActiveSeat(state);
       const nextPlayer = state.seats[nextSeat];
       const updated: LudoGameState = {
         ...state,
@@ -202,24 +218,29 @@ export class LudoEngine {
   ): {
     state: LudoGameState;
     capturedToken?: { color: LudoColor; tokenId: number };
+    capturedTokens?: Array<{ color: LudoColor; tokenId: number }>;
     reachedHome?: boolean;
     earnedBonusRoll: boolean;
     isWinner: boolean;
   } {
     if (state.winnerColor) {
-      throw new Error('Game is already finished');
+      throw new GameRuleError('GAME_OVER', 'Game is already finished');
     }
 
     if (seatIndex !== state.currentTurnSeat) {
-      throw new Error("It is not this player's turn to move");
+      throw new GameRuleError('NOT_YOUR_TURN', "It is not this player's turn to move");
     }
 
     if (state.canRoll || state.diceValue === null) {
-      throw new Error('Must roll dice before moving token');
+      throw new GameRuleError('MUST_ROLL', 'Must roll dice before moving token');
+    }
+
+    if (typeof tokenId !== 'number' || !Number.isInteger(tokenId) || tokenId < 0 || tokenId > 3) {
+      throw new GameRuleError('INVALID_INPUT', `Invalid token id: ${String(tokenId)}`);
     }
 
     if (!state.legalMoves.includes(tokenId)) {
-      throw new Error('Illegal move: this token cannot move with the current dice value');
+      throw new GameRuleError('ILLEGAL_MOVE', 'Illegal move: this token cannot move with the current dice value');
     }
 
     const activeColor = state.currentTurnColor;
@@ -247,27 +268,26 @@ export class LudoEngine {
     }
 
     let capturedToken: { color: LudoColor; tokenId: number } | undefined;
+    const capturedTokens: Array<{ color: LudoColor; tokenId: number }> = [];
     let earnedBonusRoll = dice === 6;
 
     // Check for token capture on the common track (step 0..50)
     const newRingPos = this.getAbsoluteRingPosition(activeColor, token.step);
     if (newRingPos !== null && !SAFE_STAR_TILES.has(newRingPos)) {
       // Look for opponent tokens occupying this exact ring position
-      for (const [seatStr, seatInfo] of Object.entries(state.seats)) {
+      // Every opponent token on this tile is captured (stacked tokens are not a block in this ruleset)
+      for (const seatInfo of Object.values(state.seats)) {
         if (seatInfo.color === activeColor) continue;
-        const opponentTokens = tokensCopy[seatInfo.color];
-        for (const oppToken of opponentTokens) {
+        for (const oppToken of tokensCopy[seatInfo.color]) {
           const oppRingPos = this.getAbsoluteRingPosition(seatInfo.color, oppToken.step);
           if (oppRingPos === newRingPos) {
-            // Cut / Capture opponent token!
             oppToken.step = -1; // Send back to base yard
-            capturedToken = { color: seatInfo.color, tokenId: oppToken.id };
+            capturedTokens.push({ color: seatInfo.color, tokenId: oppToken.id });
             earnedBonusRoll = true; // Capturing awards bonus roll!
-            break;
           }
         }
-        if (capturedToken) break;
       }
+      capturedToken = capturedTokens[0];
     }
 
     // Extra roll awarded if token reached home (56)
@@ -290,18 +310,18 @@ export class LudoEngine {
     let nextColor = activeColor;
 
     if (winnerColor) {
-      statusMessage = `🏆 ${activePlayer.displayName} (${activeColor.toUpperCase()}) HAS WON THE LUDO MATCH!`;
+      statusMessage = `${activePlayer.displayName} (${activeColor.toUpperCase()}) HAS WON THE LUDO MATCH!`;
     } else if (earnedBonusRoll) {
       if (capturedToken) {
-        statusMessage = `💥 ${activePlayer.displayName} captured an opponent token! Bonus roll awarded!`;
+        statusMessage = `${activePlayer.displayName} captured an opponent token! Bonus roll awarded!`;
       } else if (token.step === 56) {
-        statusMessage = `🏁 ${activePlayer.displayName} brought a token HOME! Bonus roll awarded!`;
+        statusMessage = `${activePlayer.displayName} brought a token HOME! Bonus roll awarded!`;
       } else {
-        statusMessage = `🎲 ${activePlayer.displayName} rolled a 6! Bonus roll awarded!`;
+        statusMessage = `${activePlayer.displayName} rolled a 6! Bonus roll awarded!`;
       }
     } else {
       // Pass turn to next seat
-      nextSeat = (state.currentTurnSeat + 1) % state.playersCount;
+      nextSeat = nextActiveSeat(state);
       const nextPlayer = state.seats[nextSeat];
       nextColor = nextPlayer.color;
       statusMessage = `${nextPlayer.displayName}'s turn (${nextColor.toUpperCase()}) — Roll the dice!`;
@@ -325,6 +345,7 @@ export class LudoEngine {
     return {
       state: updatedState,
       capturedToken,
+      capturedTokens: capturedTokens.length ? capturedTokens : undefined,
       reachedHome: token.step === 56,
       earnedBonusRoll,
       isWinner: !!winnerColor

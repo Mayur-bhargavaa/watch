@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { AppIcon } from '../ui/AppIcon';
 import { useRouter } from 'next/navigation';
 import {
   Flame,
@@ -87,8 +88,8 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
   };
 
   useEffect(() => {
-    fetchFriends();
-    const interval = setInterval(fetchFriends, 25000);
+    void fetchFriends();
+    const interval = setInterval(() => void fetchFriends(), 25000);
     return () => clearInterval(interval);
   }, [token]);
 
@@ -148,7 +149,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-2">
         <div className="space-y-1">
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            Friends & Streaks <span className="text-3xl leading-none">🔥</span>
+            Friends & Streaks <AppIcon name="fire" className="w-8 h-8" />
           </h1>
           <p className="text-sm text-slate-500 dark:text-zinc-400">
             Play, watch, and keep your streaks alive with friends.
@@ -173,7 +174,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
           {/* Card 2: Today */}
           <div className="px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl bg-white dark:bg-[#171821] border border-slate-200/80 dark:border-white/10 shadow-sm flex flex-col items-center justify-center text-center transition hover:shadow-md min-w-[88px] sm:min-w-[100px]">
             <div className="flex items-center gap-1.5">
-              <span className="text-base leading-none">🔥</span>
+              <AppIcon name="fire" className="w-4 h-4" />
               <span className="text-lg sm:text-xl font-black text-rose-600 leading-none">
                 {totalCompletedToday}
               </span>
@@ -377,7 +378,7 @@ export const FriendsStreaksCard: React.FC<FriendsStreaksCardProps> = ({
                     }`}
                     title="View streak calendar and stats"
                   >
-                    <span>🔥</span>
+                    <AppIcon name="fire" className="w-4 h-4" />
                     <span>{streak.currentStreak} days</span>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
                   </button>

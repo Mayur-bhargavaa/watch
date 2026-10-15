@@ -1,7 +1,13 @@
 'use client';
 
+import { ReactionGlyph } from '../../../components/ui/ReactionGlyph';
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
+import { AppIcon } from '../../../components/ui/AppIcon';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SpectatorBanner } from '../../../components/games/common/SpectatorBanner';
+import { TournamentMatchBanner } from '../../../components/games/common/TournamentMatchBanner';
+import { NewGameWithOpponent } from '../../../components/games/common/NewGameWithOpponent';
+import { isSpectateRequested } from '../../../lib/spectator';
 import {
   ChevronLeft,
   Settings,
@@ -62,6 +68,7 @@ import {
   ChessTakebackModal
 } from '../../../components/games/chess/ChessModals';
 import { Chess } from 'chess.js';
+import { interpolateChessClocks, isChessClockRunning, formatChessClockMs } from '../../../lib/chessClock';
 import {
   ChessGameState,
   ChessGameConfig,
@@ -89,26 +96,17 @@ function ChessGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomCodeParam = searchParams.get('room');
+  const spectateMode = isSpectateRequested(searchParams.get('spectate'));
 
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
   const [session, setSession] = useState<UserSession | null>(null);
-  const [showFriendDrawer, setShowFriendDrawer] = useState(false);
   const [showResignModal, setShowResignModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [chessConfig, setChessConfig] = useState<ChessGameConfig>(DEFAULT_CHESS_CONFIG);
   const [rematchRequested, setRematchRequested] = useState(false);
-
-  // Solo Practice Mode state
-  const [isPracticeMode, setIsPracticeMode] = useState<boolean>(false);
-  const [practiceFen, setPracticeFen] = useState<string>('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-  const [practiceTurn, setPracticeTurn] = useState<ChessColor>('w');
-  const [practiceLastMove, setPracticeLastMove] = useState<{ from: string; to: string } | null>(null);
-  const [practiceCheck, setPracticeCheck] = useState<boolean>(false);
-  const [practiceCheckSquare, setPracticeCheckSquare] = useState<string | undefined>(undefined);
-  const [practiceCheckmate, setPracticeCheckmate] = useState<boolean>(false);
 
   // Chat bar state
   const [chatMessage, setChatMessage] = useState('');
@@ -164,11 +162,17 @@ function ChessGameContent() {
     rematchStatus,
     chessDrawOffer,
     chessTakebackRequest,
-    lastChessMove,
     chessMoveError,
+    clearChessMoveError,
+    gameActionError,
+    clearGameActionError,
     streakCelebration,
-    clearStreakCelebration
-  } = useGameRoom(roomCodeParam || null);
+    clearStreakCelebration,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    rematchUnavailable
+  } = useGameRoom(roomCodeParam || null, undefined, { spectate: spectateMode });
 
   const gameState = rawGameState as ChessGameState | null;
   const effectiveUserId = hookUserId || session?.user?.id || '';
@@ -222,97 +226,86 @@ function ChessGameContent() {
 
   // Determine current player's color
   const myPlayerInfo = useMemo(() => {
-    if (isPracticeMode) {
-      return {
-        userId: effectiveUserId || 'practice_player',
-        displayName: `${displayName} (Solo)`,
-        avatarUrl: session?.user?.avatarUrl || null,
-        color: practiceTurn,
-        timeRemainingMs: 600000
-      };
-    }
-    if (!gameState) return null;
+    if (!gameState || isSpectator) return null;
     if (effectiveUserId) {
       if (gameState.whitePlayer?.userId === effectiveUserId) return gameState.whitePlayer;
       if (gameState.blackPlayer?.userId === effectiveUserId) return gameState.blackPlayer;
     }
-    // Fallback: room player seats
-    if (room?.players && room.players.length > 0) {
-      const idx = room.players.findIndex(p => p.userId === effectiveUserId);
-      if (idx === 0) return gameState.whitePlayer;
-      if (idx === 1) return gameState.blackPlayer;
-    }
-    return gameState.whitePlayer;
-  }, [gameState, effectiveUserId, room?.players, isPracticeMode, practiceTurn, displayName, session?.user?.avatarUrl]);
+    // Not seated: never treated as White.
+    return null;
+  }, [gameState, effectiveUserId, isSpectator]);
 
-  const playerColor: ChessColor = isPracticeMode ? practiceTurn : (myPlayerInfo?.color || 'w');
+  // Spectator = server role (read-only); never derived locally.
+  const playerColor: ChessColor = myPlayerInfo?.color || 'w';
 
   // Opponent player info
   const opponentPlayerInfo = useMemo(() => {
-    if (isPracticeMode) {
-      return {
-        userId: 'practice_pass_and_play',
-        displayName: 'Pass & Play (Local)',
-        avatarUrl: null,
-        color: (practiceTurn === 'w' ? 'b' : 'w') as ChessColor,
-        timeRemainingMs: 600000
-      };
-    }
-    if (!gameState) return null;
+    if (!gameState || isSpectator) return null;
     if (effectiveUserId) {
       if (gameState.whitePlayer?.userId !== effectiveUserId) return gameState.whitePlayer;
       if (gameState.blackPlayer?.userId !== effectiveUserId) return gameState.blackPlayer;
     }
     return playerColor === 'w' ? gameState.blackPlayer : gameState.whitePlayer;
-  }, [gameState, effectiveUserId, playerColor, isPracticeMode, practiceTurn]);
+  }, [gameState, effectiveUserId, playerColor, isSpectator]);
 
   // White and Black players for presentation
-  const whitePlayer = gameState?.whitePlayer || null;
-  const blackPlayer = gameState?.blackPlayer || null;
+  const whitePlayerRaw = gameState?.whitePlayer || null;
+  const blackPlayerRaw = gameState?.blackPlayer || null;
 
   // Board Flip Orientation state
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
 
+  // Server-authoritative clocks: re-base on every server value, interpolate visually only.
+  const clockBaseRef = useRef({ whiteMs: 0, blackMs: 0, turn: 'w' as ChessColor, at: 0 });
+  const [clockNow, setClockNow] = useState<number>(0);
+  const srvWhiteMs = gameState?.whitePlayer?.timeRemainingMs ?? 0;
+  const srvBlackMs = gameState?.blackPlayer?.timeRemainingMs ?? 0;
+  const srvTurn = (gameState?.turn || 'w') as ChessColor;
+  const srvStatus = gameState?.status;
+  const srvMoveCount = gameState?.moves?.length || 0;
+  const clockRunning = isChessClockRunning(srvStatus, srvTurn, srvMoveCount);
+  clockBaseRef.current = (() => {
+    const b = clockBaseRef.current;
+    if (b.whiteMs !== srvWhiteMs || b.blackMs !== srvBlackMs || b.turn !== srvTurn || b.at === 0) {
+      return { whiteMs: srvWhiteMs, blackMs: srvBlackMs, turn: srvTurn, at: Date.now() };
+    }
+    return b;
+  })();
   useEffect(() => {
-    if (!isPracticeMode) {
-      setIsFlipped(playerColor === 'b');
-    }
-  }, [playerColor, isPracticeMode]);
+    if (!clockRunning) return;
+    const id = setInterval(() => setClockNow(Date.now()), 100);
+    return () => clearInterval(id);
+  }, [clockRunning]);
+  const liveClocks = interpolateChessClocks(
+    clockBaseRef.current,
+    (clockNow || Date.now()) - clockBaseRef.current.at,
+    clockRunning
+  );
+  const whiteDisplay = whitePlayerRaw ? { ...whitePlayerRaw, timeRemainingMs: liveClocks.whiteMs } : null;
+  const blackDisplay = blackPlayerRaw ? { ...blackPlayerRaw, timeRemainingMs: liveClocks.blackMs } : null;
 
-  // Handle move emission (Practice vs Multiplayer)
+  const whitePlayer = whiteDisplay;
+  const blackPlayer = blackDisplay;
+
+  // Show server errors (rejected moves / actions) briefly
+  useEffect(() => {
+    if (!gameActionError) return;
+    const t = setTimeout(() => clearGameActionError(), 5000);
+    return () => clearTimeout(t);
+  }, [gameActionError, clearGameActionError]);
+  useEffect(() => {
+    if (!chessMoveError) return;
+    const t = setTimeout(() => clearChessMoveError(), 5000);
+    return () => clearTimeout(t);
+  }, [chessMoveError, clearChessMoveError]);
+
+  useEffect(() => {
+    setIsFlipped(playerColor === 'b');
+  }, [playerColor]);
+
+  // Handle move emission (spectators never move)
   const handleMove = (from: string, to: string, promotion?: 'q' | 'r' | 'b' | 'n') => {
-    if (isPracticeMode) {
-      try {
-        const c = new Chess(practiceFen);
-        const res = c.move({ from: from as any, to: to as any, promotion: promotion || 'q' });
-        if (res) {
-          const nextFen = c.fen();
-          setPracticeFen(nextFen);
-          const nextTurn = c.turn() as ChessColor;
-          setPracticeTurn(nextTurn);
-          setPracticeLastMove({ from, to });
-          setPracticeCheck(c.inCheck());
-          setPracticeCheckmate(c.isCheckmate());
-
-          if (c.inCheck()) {
-            const board = c.board();
-            for (let r = 0; r < 8; r++) {
-              for (let f = 0; f < 8; f++) {
-                const sq = board[r][f];
-                if (sq && sq.type === 'k' && sq.color === nextTurn) {
-                  setPracticeCheckSquare(`${['a','b','c','d','e','f','g','h'][f]}${8 - r}`);
-                }
-              }
-            }
-          } else {
-            setPracticeCheckSquare(undefined);
-          }
-        }
-      } catch (err) {
-        console.error('Solo practice move error:', err);
-      }
-      return;
-    }
+    if (isSpectator) return;
     makeChessMove(from, to, promotion);
   };
 
@@ -341,8 +334,7 @@ function ChessGameContent() {
 
   // Active or Finished Game State (Declared before any early returns)
   const isGameOver = Boolean(
-    !isPracticeMode &&
-      gameState?.status &&
+    gameState?.status &&
       ['CHECKMATE', 'DRAW', 'STALEMATE', 'TIMEOUT', 'RESIGNED', 'ABANDONED', 'COMPLETED'].includes(gameState.status) &&
       !rematchStatus?.allVoted
   );
@@ -374,17 +366,7 @@ function ChessGameContent() {
 
   // Rematch action
   const handleRematch = () => {
-    if (isPracticeMode) {
-      setPracticeFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-      setPracticeTurn('w');
-      setPracticeCheck(false);
-      setPracticeCheckSquare(undefined);
-      setPracticeCheckmate(false);
-      setPracticeLastMove(null);
-      setShowDelayedWinModal(false);
-      setShowPartyPoppers(false);
-      return;
-    }
+    if (isSpectator) return;
     setRematchRequested(true);
     rematch();
   };
@@ -400,7 +382,8 @@ function ChessGameContent() {
   }
 
   // Waiting Room state (before game starts)
-  const isLobby = !isPracticeMode && (room.status === 'WAITING' || gameState?.status === 'WAITING' || !gameState);
+  // Spectators never see the waiting room (the server only admits them to a started game).
+  const isLobby = !isSpectator && (room.status === 'WAITING' || gameState?.status === 'WAITING' || !gameState);
   if (isLobby) {
     const isHost = room.hostUserId === effectiveUserId;
     const chessSettingsNode = (
@@ -431,7 +414,7 @@ function ChessGameContent() {
                   type="button"
                   disabled={!isHost}
                   onClick={() => {
-                    const presetDef = (CHESS_TIME_PRESETS as any)[preset.id];
+                    const presetDef = CHESS_TIME_PRESETS.find(pr => pr.id === preset.id);
                     if (!presetDef) return;
                     const newCfg: ChessGameConfig = {
                       ...chessConfig,
@@ -483,7 +466,33 @@ function ChessGameContent() {
   }
 
   // Active or Finished Game View
-  const isMyTurn = gameState?.turn === playerColor;
+  const isMyTurn = !isSpectator && gameState?.turn === playerColor;
+  const cfg = gameState?.config;
+  const allowDraw = cfg?.allowDrawOffers !== false;
+  const allowTakeback = cfg?.allowTakeback !== false;
+  const drawPending = !!gameState?.drawOfferFrom;
+  const takebackPending = !!gameState?.takebackRequestFrom;
+  const nameOf = (uid: string | null | undefined) =>
+    gameState?.whitePlayer?.userId === uid ? gameState?.whitePlayer?.displayName : gameState?.blackPlayer?.displayName;
+  // Offers come from authoritative game state; the offerer never gets Accept/Decline.
+  const incomingDrawFrom =
+    !isGameOver && !isSpectator && gameState?.drawOfferFrom && gameState.drawOfferFrom !== effectiveUserId
+      ? gameState.drawOfferFrom
+      : null;
+  const incomingTakebackFrom =
+    !isGameOver && !isSpectator && gameState?.takebackRequestFrom && gameState.takebackRequestFrom !== effectiveUserId
+      ? gameState.takebackRequestFrom
+      : null;
+  const drawDisabled = isGameOver || isSpectator || !allowDraw || drawPending;
+  const takebackDisabled = isGameOver || isSpectator || !allowTakeback || takebackPending || (gameState?.moves?.length || 0) === 0;
+  const resignDisabled = isGameOver || isSpectator;
+  const shownError = chessMoveError || gameActionError?.message || null;
+  const opponentLeftRoom = !isSpectator && room.players.some(p => p.userId !== effectiveUserId && (p.status as string) === 'LEFT');
+  const showNewGame = !isSpectator && (opponentLeftRoom || rematchUnavailable);
+  const chessOpponent = room.players.find(p => p.userId !== effectiveUserId) || null;
+  const spectatorStatus = isGameOver
+    ? (gameState?.winnerReason || 'Game over')
+    : `${gameState?.turn === 'w' ? 'White' : 'Black'} to move`;
 
   return (
     <div
@@ -497,12 +506,13 @@ function ChessGameContent() {
       <ChessHeader
         roomCode={room.roomCode}
         playerCount={room.players?.length || 2}
+        isSpectator={isSpectator}
         isMicMuted={isMicMuted}
         isCameraOn={isCameraOn}
         isChatOpen={showChatPanel}
         onToggleMic={toggleMic}
         onToggleCamera={() => {
-          toggleCamera();
+          void toggleCamera();
           if (!isCameraOn) {
             setIsCallClosed(false);
           }
@@ -524,28 +534,37 @@ function ChessGameContent() {
 
           {/* Left Column: Branding + Game Actions */}
           <div className="min-h-0 overflow-y-auto overflow-x-hidden hidden lg:block">
-            <ChessLeftPanel
+            {!isSpectator && <ChessLeftPanel
               onOfferDraw={() => offerChessDraw()}
               onRequestTakeback={() => requestChessTakeback()}
               onResign={() => setShowResignModal(true)}
-              isDrawDisabled={isGameOver || !isMyTurn}
-              isTakebackDisabled={isGameOver || (gameState?.moves?.length || 0) === 0}
-              isResignDisabled={isGameOver}
-            />
+              isDrawDisabled={drawDisabled}
+              isTakebackDisabled={takebackDisabled}
+              isResignDisabled={resignDisabled}
+            />}
           </div>
 
           {/* Center Column: Turn Banner + ChessBoard + Controls */}
           <div className="min-h-0 flex flex-col items-center justify-start max-w-[620px] mx-auto w-full max-w-full min-w-0 overflow-y-auto overflow-x-hidden px-0.5">
             
+            <TournamentMatchBanner room={room} className="w-full mb-1.5 sm:mb-2 shrink-0" />
+            {isSpectator && (
+              <SpectatorBanner
+                className="w-full mb-1.5 sm:mb-2 shrink-0"
+                count={spectatorCount}
+                names={spectators}
+                status={spectatorStatus}
+                onLeave={handleLeave}
+              />
+            )}
+
             {/* Turn Status Banner + Flip Board (Single Black Glass Row) */}
             <div className="w-full mb-1.5 sm:mb-2 p-2 sm:p-3 rounded-2xl sm:rounded-[20px] flex items-center justify-between border border-white/15 bg-[#120f1d]/90 text-white backdrop-blur-md shadow-lg shrink-0 gap-2">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                 <span className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 ${
                   isGameOver
                     ? 'bg-white/50'
-                    : isPracticeMode
-                      ? 'bg-purple-400'
-                      : isMyTurn
+                    : isMyTurn
                         ? 'bg-[#ff2b70] animate-pulse'
                         : 'bg-amber-400 animate-ping'
                 }`} />
@@ -553,19 +572,19 @@ function ChessGameContent() {
                   <div className="text-xs sm:text-sm font-black tracking-tight flex items-center gap-1.5 truncate">
                     {isGameOver ? (
                       <span>Match Over · {gameState?.winnerReason || 'Completed'}</span>
-                    ) : isPracticeMode ? (
-                      <span>Solo Practice · {practiceTurn === 'w' ? 'White' : 'Black'} to Move</span>
+                    ) : isSpectator ? (
+                      <span>Watching · {gameState?.turn === 'w' ? 'White' : 'Black'} to move</span>
                     ) : isMyTurn ? (
-                      <span>👑 Your Turn — Move {playerColor === 'w' ? 'White' : 'Black'} Pieces</span>
+                      <span>Your Turn — Move {playerColor === 'w' ? 'White' : 'Black'} Pieces</span>
                     ) : (
-                      <span>⏳ Opponent&apos;s Turn — {gameState?.turn === 'w' ? 'White' : 'Black'} is thinking...</span>
+                      <span>Opponent&apos;s Turn — {gameState?.turn === 'w' ? 'White' : 'Black'} is thinking...</span>
                     )}
                   </div>
                   <div className="text-[10px] sm:text-[11px] text-white/50 mt-0.5 truncate hidden xs:block">
                     {isGameOver ? (
                       'Review moves or request a rematch'
-                    ) : isPracticeMode ? (
-                      'Free play mode. Click any piece to play.'
+                    ) : isSpectator ? (
+                      'Read-only view. The board updates as the players move.'
                     ) : isMyTurn ? (
                       'Click a piece to show legal moves, then click target square.'
                     ) : (
@@ -577,15 +596,6 @@ function ChessGameContent() {
 
               {/* Right: Flip Board Button */}
               <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                {isPracticeMode && (
-                  <button
-                    type="button"
-                    onClick={() => setShowFriendDrawer(true)}
-                    className="hidden sm:inline-flex px-2.5 py-1 rounded-xl bg-[#ff2b70] hover:bg-[#e11d48] text-[11px] font-bold text-white transition shadow-xs cursor-pointer"
-                  >
-                    Invite
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setIsFlipped(prev => !prev)}
@@ -599,10 +609,10 @@ function ChessGameContent() {
             </div>
 
             {/* Chess Error Toast */}
-            {chessMoveError && (
+            {shownError && (
               <div className="w-full mb-2 p-2.5 rounded-xl bg-rose-900/50 border border-rose-400/40 text-rose-200 text-xs font-bold flex items-center gap-2 shrink-0">
-                <span>⚠️</span>
-                <span>{chessMoveError}</span>
+                <AppIcon name="warning" className="w-4 h-4" />
+                <span>{shownError}</span>
               </div>
             )}
 
@@ -617,7 +627,7 @@ function ChessGameContent() {
                     {isFlipped ? 'White' : 'Black'}
                   </span>
                   <span className="text-xs font-black text-slate-900 dark:text-white truncate block">
-                    {(isFlipped ? whitePlayer : blackPlayer)?.displayName || (isPracticeMode ? (isFlipped ? 'White' : 'Black') : 'Waiting...')}
+                    {(isFlipped ? whitePlayer : blackPlayer)?.displayName || 'Waiting...'}
                   </span>
                 </div>
               </div>
@@ -626,24 +636,24 @@ function ChessGameContent() {
                   ? 'bg-[#ff2b70] text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300'
               }`}>
-                {((isFlipped ? whitePlayer : blackPlayer)?.timeRemainingMs !== undefined) ? `${Math.floor(((isFlipped ? whitePlayer : blackPlayer)?.timeRemainingMs || 600000) / 60000)}:${Math.floor((((isFlipped ? whitePlayer : blackPlayer)?.timeRemainingMs || 600000) % 60000) / 1000).toString().padStart(2, '0')}` : '10:00'}
+                {formatChessClockMs((isFlipped ? whitePlayer : blackPlayer)?.timeRemainingMs)}
               </div>
             </div>
 
             {/* Chessboard Hero */}
-            {(gameState || isPracticeMode) && (
+            {gameState && (
               <ChessBoard
-                fen={isPracticeMode ? practiceFen : gameState!.fen}
-                turn={isPracticeMode ? practiceTurn : gameState!.turn}
+                fen={gameState.fen}
+                turn={gameState.turn}
                 playerColor={playerColor}
-                inCheck={isPracticeMode ? practiceCheck : gameState!.inCheck}
-                checkSquare={isPracticeMode ? practiceCheckSquare : gameState!.checkSquare}
-                lastMove={isPracticeMode ? practiceLastMove : (lastChessMove ? { from: lastChessMove.from, to: lastChessMove.to } : null)}
+                inCheck={gameState.inCheck}
+                checkSquare={gameState.checkSquare}
+                lastMove={gameState.lastMove ? { from: gameState.lastMove.from, to: gameState.lastMove.to } : null}
                 onMove={handleMove}
-                disabled={isGameOver || !isMyTurn}
-                isCheckmate={isPracticeMode ? practiceCheckmate : (gameState?.status === 'CHECKMATE')}
+                disabled={isGameOver || !isMyTurn || isSpectator}
+                isCheckmate={gameState.status === 'CHECKMATE'}
                 theme={boardTheme}
-                isPracticeMode={isPracticeMode}
+                isSpectator={isSpectator}
                 showHints={showHints}
                 isFlipped={isFlipped}
               />
@@ -658,10 +668,10 @@ function ChessGameContent() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="text-[10px] font-bold uppercase text-slate-400 block truncate">
-                      {isFlipped ? 'Black' : 'White'} (You)
+                      {isFlipped ? 'Black' : 'White'}{!isSpectator && (isFlipped ? 'b' : 'w') === playerColor ? ' (You)' : ''}
                     </span>
                     <span className="text-xs font-black text-slate-900 dark:text-white truncate block">
-                      {(isFlipped ? blackPlayer : whitePlayer)?.displayName || displayName}
+                      {(isFlipped ? blackPlayer : whitePlayer)?.displayName || 'Waiting...'}
                     </span>
                   </div>
                 </div>
@@ -670,35 +680,35 @@ function ChessGameContent() {
                     ? 'bg-[#ff2b70] text-white shadow-xs'
                     : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-zinc-300'
                 }`}>
-                  {((isFlipped ? blackPlayer : whitePlayer)?.timeRemainingMs !== undefined) ? `${Math.floor(((isFlipped ? blackPlayer : whitePlayer)?.timeRemainingMs || 600000) / 60000)}:${Math.floor((((isFlipped ? blackPlayer : whitePlayer)?.timeRemainingMs || 600000) % 60000) / 1000).toString().padStart(2, '0')}` : '10:00'}
+                  {formatChessClockMs((isFlipped ? blackPlayer : whitePlayer)?.timeRemainingMs)}
                 </div>
               </div>
 
-              {/* Mobile Quick Action Buttons */}
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-0.5">
+              {/* Mobile Quick Action Buttons (hidden for spectators) */}
+              <div className={`grid grid-cols-3 gap-1.5 sm:gap-2 pt-0.5 ${isSpectator ? 'hidden' : ''}`}>
                 <button
                   type="button"
                   onClick={() => offerChessDraw()}
-                  disabled={isGameOver || !isMyTurn}
+                  disabled={drawDisabled}
                   className="py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-[11px] sm:text-xs text-center disabled:opacity-40 transition cursor-pointer truncate"
                 >
-                  🤝 Draw
+                  Draw
                 </button>
                 <button
                   type="button"
                   onClick={() => requestChessTakeback()}
-                  disabled={isGameOver || (gameState?.moves?.length || 0) === 0}
+                  disabled={takebackDisabled}
                   className="py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-zinc-200 font-bold text-[11px] sm:text-xs text-center disabled:opacity-40 transition cursor-pointer truncate"
                 >
-                  ↩️ Takeback
+                  <Undo2 className="w-3 h-3 inline mr-1" />Takeback
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowResignModal(true)}
-                  disabled={isGameOver}
+                  disabled={resignDisabled}
                   className="py-1.5 sm:py-2 px-1 sm:px-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 font-bold text-[11px] sm:text-xs text-center disabled:opacity-40 transition cursor-pointer truncate"
                 >
-                  🏳️ Resign
+                  Resign
                 </button>
               </div>
             </div>
@@ -707,29 +717,9 @@ function ChessGameContent() {
           {/* Right Column: Players Panel & Board Controls */}
           <div className="min-h-0 overflow-y-auto overflow-x-hidden hidden lg:block">
             <ChessPlayersPanel
-              whitePlayer={
-                isPracticeMode
-                  ? {
-                      userId: 'practice_w',
-                      displayName: `${displayName} (White)`,
-                      avatarUrl: session?.user?.avatarUrl || null,
-                      color: 'w',
-                      timeRemainingMs: 600000
-                    }
-                  : whitePlayer
-              }
-              blackPlayer={
-                isPracticeMode
-                  ? {
-                      userId: 'practice_b',
-                      displayName: 'Solo Black',
-                      avatarUrl: null,
-                      color: 'b',
-                      timeRemainingMs: 600000
-                    }
-                  : blackPlayer
-              }
-              turn={isPracticeMode ? practiceTurn : (gameState?.turn || 'w')}
+              whitePlayer={whitePlayer}
+              blackPlayer={blackPlayer}
+              turn={gameState?.turn || 'w'}
               myUserId={effectiveUserId}
               showHints={showHints}
               onToggleHints={setShowHints}
@@ -747,8 +737,8 @@ function ChessGameContent() {
         isOpen={showInfoPanel}
         onClose={() => setShowInfoPanel(false)}
         roomCode={room.roomCode}
-        timeControl={chessConfig?.presetId ? `${chessConfig.presetId}` : '10 min'}
-        increment={`${Math.floor((chessConfig?.incrementMs || 0) / 1000)} sec`}
+        timeControl={`${Math.round(((gameState?.config?.baseTimeMs ?? chessConfig?.baseTimeMs ?? 600000)) / 60000)} min`}
+        increment={`${Math.floor(((gameState?.config?.incrementMs ?? chessConfig?.incrementMs ?? 0)) / 1000)} sec`}
         gameType="Casual"
         moves={gameState?.moves || []}
       />
@@ -774,6 +764,7 @@ function ChessGameContent() {
         myUserId={effectiveUserId}
         onSendMessage={text => sendChat(text)}
         onSendReaction={handleSendReaction}
+        readOnly={isSpectator}
       />
 
 
@@ -788,7 +779,7 @@ function ChessGameContent() {
             transition: 'all 2s ease-out'
           }}
         >
-          {r.emoji}
+          <ReactionGlyph value={r.emoji} />
         </div>
       ))}
 
@@ -810,20 +801,20 @@ function ChessGameContent() {
       />
 
       {/* Draw Offer Modal */}
-      {chessDrawOffer && (
+      {incomingDrawFrom && (
         <ChessDrawOfferModal
           isOpen={true}
-          fromDisplayName={chessDrawOffer.fromDisplayName || 'Opponent'}
+          fromDisplayName={nameOf(incomingDrawFrom) || chessDrawOffer?.fromDisplayName || 'Opponent'}
           onAccept={() => respondChessDraw(true)}
           onDecline={() => respondChessDraw(false)}
         />
       )}
 
       {/* Takeback Request Modal */}
-      {chessTakebackRequest && (
+      {incomingTakebackFrom && (
         <ChessTakebackModal
           isOpen={true}
-          fromDisplayName={chessTakebackRequest.fromDisplayName || 'Opponent'}
+          fromDisplayName={nameOf(incomingTakebackFrom) || chessTakebackRequest?.fromDisplayName || 'Opponent'}
           onAccept={() => respondChessTakeback(true)}
           onDecline={() => respondChessTakeback(false)}
         />
@@ -842,6 +833,16 @@ function ChessGameContent() {
           onLeave={handleLeave}
           rematchRequested={rematchRequested}
           rematchStatus={rematchStatus}
+          isSpectator={isSpectator}
+          rematchUnavailable={showNewGame}
+          newGameSlot={showNewGame ? (
+            <NewGameWithOpponent
+              gameType="chess"
+              opponentUserId={chessOpponent?.userId}
+              opponentName={chessOpponent?.displayName}
+              className="w-full py-3.5 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-amber-500/30 cursor-pointer active:scale-95"
+            />
+          ) : undefined}
         />
       )}
 

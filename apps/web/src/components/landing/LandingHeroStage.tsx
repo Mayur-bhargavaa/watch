@@ -1,11 +1,13 @@
 'use client';
 
+import { LANDING_CHAT_SAMPLES } from '../../lib/reactionEmojis';
 import React, { useState, useEffect } from 'react';
+import { AppIcon, type IconName } from '../ui/AppIcon';
 import { Play, Pause, Sparkles, Radio, Crown } from 'lucide-react';
 
 interface FloatingReactionItem {
   id: string;
-  emoji: string;
+  icon: IconName;
   left: number;
 }
 
@@ -15,12 +17,7 @@ export function LandingHeroStage() {
   const [activeChatIndex, setActiveChatIndex] = useState(0);
   const [simulatedDrift, setSimulatedDrift] = useState(3.4);
 
-  const mockChats = [
-    { user: 'Sarah', text: 'OMG that scene was breathtaking!! 🤯', time: '12:04' },
-    { user: 'Mayur (Host)', text: 'The soundtrack in sync hits completely different 🎧', time: '12:05' },
-    { user: 'Alex', text: 'Wait rewind 5 seconds look at the background!', time: '12:06' },
-    { user: 'Elena', text: 'Sub-second sync is insane, zero delay 🔥', time: '12:07' }
-  ];
+  const mockChats = LANDING_CHAT_SAMPLES;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -30,10 +27,10 @@ export function LandingHeroStage() {
     return () => clearInterval(interval);
   }, [mockChats.length]);
 
-  const triggerReaction = (emoji: string) => {
+  const triggerReaction = (icon: IconName) => {
     const newReaction: FloatingReactionItem = {
       id: Math.random().toString(),
-      emoji,
+      icon,
       left: 15 + Math.random() * 70
     };
     setReactions((prev) => [...prev, newReaction]);
@@ -58,7 +55,7 @@ export function LandingHeroStage() {
               style={{ left: `${r.left}%` }}
               className="absolute bottom-16 text-3xl sm:text-4xl animate-float-up drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] select-none"
             >
-              {r.emoji}
+              <AppIcon name={r.icon} className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
           ))}
         </div>
@@ -128,19 +125,19 @@ export function LandingHeroStage() {
             <div className="flex items-center space-x-1 sm:space-x-1.5 bg-black/60 backdrop-blur px-2 sm:px-3 py-1 rounded-full border border-white/10">
               <span className="text-[10px] text-zinc-400 hidden sm:inline mr-1 font-medium">Click to react:</span>
               {[
-                { emoji: '🔥', label: 'Fire' },
-                { emoji: '🍿', label: 'Popcorn' },
-                { emoji: '❤️', label: 'Love' },
-                { emoji: '😂', label: 'Joy' },
-                { emoji: '🤯', label: 'Mind Blown' }
+                { icon: 'fire' as IconName, label: 'Fire' },
+                { icon: 'popcorn' as IconName, label: 'Popcorn' },
+                { icon: 'love' as IconName, label: 'Love' },
+                { icon: 'laugh' as IconName, label: 'Joy' },
+                { icon: 'zap' as IconName, label: 'Mind Blown' }
               ].map((item) => (
                 <button
-                  key={item.emoji}
-                  onClick={() => triggerReaction(item.emoji)}
+                  key={item.icon}
+                  onClick={() => triggerReaction(item.icon)}
                   className="hover:scale-125 active:scale-95 transition text-base sm:text-lg p-0.5"
                   title={`React ${item.label}`}
                 >
-                  {item.emoji}
+                  <AppIcon name={item.icon} className="w-4 h-4 sm:w-5 sm:h-5" label={item.label} />
                 </button>
               ))}
             </div>

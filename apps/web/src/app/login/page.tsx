@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../components/ui/AppIcon';
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -21,7 +22,7 @@ import {
   ShieldCheck,
   Calendar
 } from 'lucide-react';
-import { loginUser, registerUser, getStoredSession, setPassword as apiSetPassword } from '../../lib/api';
+import { loginUser, registerUser, verifyEmail, getStoredSession, requestPasswordReset, resetPassword as apiResetPassword } from '../../lib/api';
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
 function LoginFormContent() {
@@ -38,8 +39,15 @@ function LoginFormContent() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [needsPasswordSetup, setNeedsPasswordSetup] = useState<boolean>(false);
+  // Forgot-password / first-time password (emailed one-time link):
+  //   isResetPassword -> ask for the email, resetSent -> "check your inbox", resetToken (?reset=...) -> choose a new password
+  const resetToken = searchParams.get('reset');
+  // Signup is verify-first: registering emails a link (?verify=<token>); opening it creates the account
+  const verifyToken = searchParams.get('verify');
+  const [signupSent, setSignupSent] = useState<boolean>(false);
+  const [verifying, setVerifying] = useState<boolean>(false);
   const [isResetPassword, setIsResetPassword] = useState<boolean>(false);
+  const [resetSent, setResetSent] = useState<boolean>(false);
 
   // Phase 2: Personal milestones & dates
   const [dateOfBirth, setDateOfBirth] = useState<string>('');
@@ -65,6 +73,17 @@ function LoginFormContent() {
     }
     return age >= 0 && age <= 125 ? age : null;
   }, [dateOfBirth]);
+
+  // Finish signup when arriving from the confirmation email
+  useEffect(() => {
+    if (!verifyToken) return;
+    let cancelled = false;
+    setVerifying(true);
+    verifyEmail(verifyToken)
+      .then(() => { if (!cancelled) router.replace(redirectUrl); })
+      .catch((err: any) => { if (!cancelled) { setError(err.message || 'This confirmation link is invalid or has expired.'); setVerifying(false); } });
+    return () => { cancelled = true; };
+  }, [verifyToken, router, redirectUrl]);
 
   // If already logged in, redirect immediately
   useEffect(() => {
@@ -125,26 +144,27 @@ function LoginFormContent() {
     if (isLogin) {
       setLoading(true);
       try {
-        if (needsPasswordSetup || isResetPassword) {
+        if (resetToken) {
           if (!password || password.length < 6) {
             setError('Password must be at least 6 characters long.');
             setLoading(false);
             return;
           }
-          await apiSetPassword(email.trim(), password);
+          await apiResetPassword(resetToken, password);
           router.push(redirectUrl);
+          return;
+        }
+
+        if (isResetPassword) {
+          await requestPasswordReset(email.trim());
+          setResetSent(true);
           return;
         }
 
         await loginUser(email.trim(), password, displayName.trim() || undefined);
         router.push(redirectUrl);
       } catch (err: any) {
-        if (err.needsPasswordSetup) {
-          setNeedsPasswordSetup(true);
-          setError('No password is set for this account yet. Please create your password below to continue:');
-        } else {
-          setError(err.message || 'Authentication failed. Please check your credentials.');
-        }
+        setError(err.message || 'Authentication failed. Please check your credentials.');
       } finally {
         setLoading(false);
       }
@@ -174,7 +194,7 @@ function LoginFormContent() {
         isMarried,
         age: calculatedAge ?? undefined
       });
-      router.push(redirectUrl);
+      setSignupSent(true);
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -393,6 +413,17 @@ function LoginFormContent() {
             </div>
           )}
 
+          {verifying && (
+            <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-700 text-xs font-semibold">
+              Confirming your email…
+            </div>
+          )}
+          {signupSent && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold leading-relaxed">
+              Check your email: we sent a link to finish creating your account. It works once and expires in 24 hours.
+            </div>
+          )}
+
           {/* Error Banner */}
           {error && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[#d2281e] text-xs flex items-center gap-2.5 animate-in fade-in">
@@ -406,7 +437,18 @@ function LoginFormContent() {
           {/* ================================================================= */}
           {isLogin ? (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {resetSent && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold leading-relaxed">
+                  If an account exists for that email, we just sent a reset link. It works once and expires in 30 minutes.
+                </div>
+              )}
+              {resetToken && (
+                <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-700 text-xs font-semibold leading-relaxed">
+                  Choose a new password to finish signing in.
+                </div>
+              )}
               {/* Email Address */}
+              {!resetToken && (
               <div>
                 <label className="block text-xs font-bold text-zinc-700 mb-1.5 uppercase tracking-wider">
                   Email Address
@@ -425,27 +467,26 @@ function LoginFormContent() {
                   />
                 </div>
               </div>
+              )}
 
-              {/* Password */}
+              {/* Password (hidden while only asking for the reset email) */}
+              {(!isResetPassword || resetToken) && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-zinc-700 uppercase tracking-wider">
-                    {needsPasswordSetup
-                      ? 'Create Your Password (Min 6 Characters)'
-                      : isResetPassword
-                      ? 'Enter New Password'
-                      : 'Password'}
+                    {resetToken ? 'New Password (Min 6 Characters)' : 'Password'}
                   </label>
-                  {!needsPasswordSetup && (
+                  {!resetToken && (
                     <button
                       type="button"
                       onClick={() => {
-                        setIsResetPassword(!isResetPassword);
+                        setIsResetPassword(true);
+                        setResetSent(false);
                         setError(null);
                       }}
                       className="text-[11px] font-bold text-[#d2281e] hover:underline"
                     >
-                      {isResetPassword ? 'Back to Sign In' : 'Forgot Password?'}
+                      Forgot Password?
                     </button>
                   )}
                 </div>
@@ -458,7 +499,7 @@ function LoginFormContent() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={needsPasswordSetup || isResetPassword ? 'Create new password...' : '••••••••'}
+                    placeholder={resetToken ? 'Create new password...' : '••••••••'}
                     className="w-full pl-10 pr-10 py-3 rounded-xl bg-zinc-50 border border-zinc-300 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] focus:bg-white transition"
                   />
                   <button
@@ -471,6 +512,17 @@ function LoginFormContent() {
                   </button>
                 </div>
               </div>
+              )}
+
+              {isResetPassword && !resetToken && (
+                <button
+                  type="button"
+                  onClick={() => { setIsResetPassword(false); setResetSent(false); setError(null); }}
+                  className="text-[11px] font-bold text-[#d2281e] hover:underline"
+                >
+                  Back to Sign In
+                </button>
+              )}
 
               {/* Submit Button in Pure #d2281e */}
               <button
@@ -485,21 +537,13 @@ function LoginFormContent() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
                     <span>
-                      {needsPasswordSetup
-                        ? 'Setting password...'
-                        : isResetPassword
-                        ? 'Updating password...'
-                        : 'Signing in...'}
+                      {resetToken ? 'Updating password...' : isResetPassword ? 'Sending link...' : 'Signing in...'}
                     </span>
                   </>
                 ) : (
                   <>
                     <span>
-                      {needsPasswordSetup
-                        ? 'Set Password & Enter'
-                        : isResetPassword
-                        ? 'Update Password & Sign In'
-                        : 'Sign In & Continue'}
+                      {resetToken ? 'Set New Password & Enter' : isResetPassword ? 'Email Me a Reset Link' : 'Sign In & Continue'}
                     </span>
                     <ArrowRight className="w-4 h-4" />
                   </>
@@ -610,7 +654,7 @@ function LoginFormContent() {
                       </label>
                       {calculatedAge !== null && (
                         <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                          <span>🎂</span> {calculatedAge} years old
+                          <AppIcon name="cake" className="inline w-[1em] h-[1em] align-[-0.125em]" /> {calculatedAge} years old
                         </span>
                       )}
                     </div>
@@ -654,7 +698,7 @@ function LoginFormContent() {
                             : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100'
                         }`}
                       >
-                        <span>💍 Yes, Married</span>
+                        <span><AppIcon name="ring" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Yes, Married</span>
                       </button>
                     </div>
                   </div>
@@ -675,7 +719,7 @@ function LoginFormContent() {
                         className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-red-200 text-zinc-900 text-sm font-medium focus:outline-none focus:border-[#d2281e] transition"
                       />
                       <p className="text-[10.5px] text-zinc-500">
-                        🥂 We'll celebrate your anniversary with synchronized fireworks & romantic cinema lighting!
+                        <AppIcon name="drink" className="inline w-[1em] h-[1em] align-[-0.125em]" /> We'll celebrate your anniversary with synchronized fireworks & romantic cinema lighting!
                       </p>
                     </div>
                   )}
@@ -782,7 +826,7 @@ function LoginFormContent() {
         {/* Bottom Legal / Trust note */}
         <div className="pt-4 border-t border-zinc-200 text-center">
           <p className="text-[11px] text-zinc-400">
-            By continuing, you agree to Watch terms & privacy. Encrypted & 100% private.
+            By continuing you agree to the <Link href="/terms" className="underline hover:text-zinc-600">Terms</Link> and <Link href="/privacy" className="underline hover:text-zinc-600">Privacy Policy</Link>. Encrypted & 100% private.
           </p>
         </div>
       </div>

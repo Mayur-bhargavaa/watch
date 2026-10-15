@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Trophy, Lightbulb, Eraser, Edit3, CheckCircle2 } from 'lucide-react';
+import { RotateCcw, Trophy, Lightbulb, Eraser, Edit3, CheckCircle2, Clock } from 'lucide-react';
 
 interface ModukoGameProps {
   sendGameAction?: (payload: any) => void;
@@ -203,7 +203,7 @@ export const ModukoGame: React.FC<ModukoGameProps> = ({
         </div>
 
         <div className="flex items-center gap-3 text-xs font-semibold text-zinc-400 font-mono">
-          <span>⏱ {formatTimer(timerSeconds)}</span>
+          <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTimer(timerSeconds)}</span>
           <span>Mistakes: {mistakes}</span>
         </div>
 

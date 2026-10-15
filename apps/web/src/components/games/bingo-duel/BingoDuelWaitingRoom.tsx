@@ -58,7 +58,7 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(room.roomCode);
+    void navigator.clipboard.writeText(room.roomCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
@@ -74,7 +74,7 @@ export const BingoDuelWaitingRoom: React.FC<BingoDuelWaitingRoomProps> = ({
         })
         .catch(() => {});
     } else {
-      navigator.clipboard.writeText(url);
+      void navigator.clipboard.writeText(url);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     }

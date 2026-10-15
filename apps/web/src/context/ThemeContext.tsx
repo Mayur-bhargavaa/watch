@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 export type Theme = 'dark' | 'light' | 'system';
 export type ResolvedTheme = 'dark' | 'light';
@@ -9,7 +10,8 @@ interface ThemeContextType {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
+  /** Toggles light/dark with a colour wipe that spreads from the clicked button (bottom-left) to the opposite corner. */
+  toggleTheme: (event?: unknown) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -25,6 +27,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light');
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
   const [mounted, setMounted] = useState(false);
+  // Where the wipe starts: the last pointer press (the toggle button); keyboard use falls back to bottom-left
+  const lastPointer = useRef<{ x: number; y: number } | null>(null);
+  const transitioning = useRef(false);
+
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      lastPointer.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, []);
 
   // Initialize theme from localStorage on mount
   useEffect(() => {
@@ -81,9 +94,50 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleTheme = () => {
-    const next = resolvedTheme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
+  const applyDomTheme = (t: ResolvedTheme) => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', t === 'dark');
+    root.classList.toggle('light', t === 'light');
+    root.style.colorScheme = t;
+  };
+
+  const toggleTheme = (event?: unknown) => {
+    const next: ResolvedTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void>; finished: Promise<void> } };
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!doc.startViewTransition || reduceMotion || transitioning.current) {
+      setTheme(next);
+      return;
+    }
+
+    // Origin of the wipe: the click that triggered this (or the last press), else the bottom-left corner
+    const ev = event as { clientX?: number; clientY?: number } | undefined;
+    const origin =
+      typeof ev?.clientX === 'number' && typeof ev?.clientY === 'number' && (ev.clientX !== 0 || ev.clientY !== 0)
+        ? { x: ev.clientX, y: ev.clientY }
+        : lastPointer.current ?? { x: 0, y: window.innerHeight };
+    // Radius that reaches the farthest corner (so the colour finishes in the top-right when started bottom-left)
+    const radius = Math.hypot(Math.max(origin.x, window.innerWidth - origin.x), Math.max(origin.y, window.innerHeight - origin.y));
+
+    transitioning.current = true;
+    const transition = doc.startViewTransition(() => {
+      // Must change the DOM synchronously so the browser can snapshot "after"
+      applyDomTheme(next);
+      flushSync(() => setTheme(next));
+    });
+
+    transition.ready
+      .then(() => {
+        document.documentElement.animate(
+          { clipPath: [`circle(0px at ${origin.x}px ${origin.y}px)`, `circle(${radius}px at ${origin.x}px ${origin.y}px)`] },
+          { duration: 800, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' }
+        );
+      })
+      .catch(() => {});
+    void transition.finished.finally(() => {
+      transitioning.current = false;
+    });
   };
 
   return (

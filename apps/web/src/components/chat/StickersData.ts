@@ -88,7 +88,7 @@ export const EMOJI_CATEGORIES = [
   }
 ];
 
-export const STICKER_PACK: StickerItem[] = [
+const RAW_STICKER_PACK: StickerItem[] = [
   // ==========================================
   // 1. BUBU & DUDU (Panda & Bear Couple)
   // ==========================================
@@ -917,6 +917,30 @@ export const STICKER_PACK: StickerItem[] = [
   }
 ];
 
+/**
+ * The raw list defines some stickers twice (the second copy has extra styling fields). React needs unique keys, so keep
+ * one entry per id: the later (fuller) definition, at the position where the id first appears.
+ */
+export const STICKER_PACK: StickerItem[] = (() => {
+  const latest = new Map<string, StickerItem>();
+  for (const sticker of RAW_STICKER_PACK) latest.set(sticker.id, sticker);
+  const seen = new Set<string>();
+  const out: StickerItem[] = [];
+  for (const sticker of RAW_STICKER_PACK) {
+    if (seen.has(sticker.id)) continue;
+    seen.add(sticker.id);
+    out.push(latest.get(sticker.id)!);
+  }
+  return out;
+})();
+
+/** Small non-cryptographic string hash (djb2) used for stable ids. */
+function stableHash(text: string): string {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 export function parseStickerMessage(
   content?: string,
   mediaUrl?: string,
@@ -1037,7 +1061,7 @@ export function parseStickerMessage(
       caption = inner.slice(pipeIdx + 1) || 'HAND-DRAWN ✨';
     }
     return {
-      id: `draw_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `draw_${stableHash(inner)}`, // same drawing, same id: a changing id remounts the sticker on every render
       name: caption,
       category: 'drawn',
       drawingSvg: svgContent,

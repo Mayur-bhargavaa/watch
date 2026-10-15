@@ -1,5 +1,7 @@
 'use client';
 
+import { CINEMA_REACTIONS, CINEMA_REACTION_ICONS, QUICK_CHAT_PHRASES, cinemaReactionCode } from '../../../lib/reactionEmojis';
+import { AppIcon, type IconName } from '../../../components/ui/AppIcon';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -30,8 +32,12 @@ import {
   UserCheck,
   UserX,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Lock
 } from 'lucide-react';
+import { isPremiumTheme } from '@synccinema/common';
+import { ReactionPackPicker } from '../../../components/chat/ReactionPackPicker';
+import { useMyMembership } from '../../../components/membership/useMyMembership';
 import { ChatReplyTo } from '@synccinema/common';
 import { useRoomSocket } from '../../../hooks/useRoomSocket';
 import { useWebRTC } from '../../../hooks/useWebRTC';
@@ -50,6 +56,9 @@ import { getStoredSession, recordFriendStreak } from '../../../lib/api';
 import { StreakCelebrationModal } from '../../../components/streaks/StreakCelebrationModal';
 import { useWatchParty } from '../../../context/WatchPartyContext';
 
+
+// Reaction payloads are sent to other viewers (chat-like content) and stay emoji; the buttons render icons.
+const REACTION_BUTTON_ICONS = CINEMA_REACTION_ICONS;
 export interface RoomTheme {
   id: string;
   name: string;
@@ -162,7 +171,7 @@ const RoomChatInputBar = React.memo(function RoomChatInputBar({
     <>
       {/* Quick Chat Phrases Pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {['Good Luck! 🍀', 'Nice Move! 👏', 'Oops! 🙈', 'Well Played! 🌟', 'Hurry Up! ⏰', 'GG! 🏆'].map(text => (
+        {QUICK_CHAT_PHRASES.map(text => (
           <button
             key={text}
             type="button"
@@ -307,6 +316,8 @@ export default function RoomPage() {
     leaveRoom,
     endRoomForAll
   } = useRoomSocket(slug);
+  const myMembership = useMyMembership();
+  const canUsePremiumThemes = myMembership?.limits.premiumThemes ?? false;
 
   const {
     screenStream,
@@ -525,7 +536,7 @@ export default function RoomPage() {
         const stickerObj = parseStickerMessage(latestFromOther.content);
         setChatBubbleToast({
           sender: latestFromOther.userName || 'Member',
-          text: stickerObj ? `Sent sticker: ${stickerObj.emoji || '✨'} ${stickerObj.tagline}` : (latestFromOther.content || '')
+          text: stickerObj ? `Sent sticker: ${stickerObj.tagline}` : (latestFromOther.content || '')
         });
         const timer = setTimeout(() => {
           setChatBubbleToast(null);
@@ -595,6 +606,10 @@ export default function RoomPage() {
   }, [room?.themeId]);
 
   const handleSelectTheme = (themeId: string) => {
+    if (isPremiumTheme(themeId) && !canUsePremiumThemes) {
+      window.location.href = '/pricing';
+      return;
+    }
     setSelectedTheme(themeId);
     if (typeof window !== 'undefined') {
       localStorage.setItem('watch_party_theme_id', themeId);
@@ -799,7 +814,7 @@ export default function RoomPage() {
 
   const handleCopyInvite = () => {
     if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
+      void navigator.clipboard.writeText(window.location.href);
       setCopiedInvite(true);
       setTimeout(() => setCopiedInvite(false), 2000);
     }
@@ -809,18 +824,19 @@ export default function RoomPage() {
     sendReaction(code, emoji, currentPos);
   };
 
-  const handleToggleScreenShare = () => {
+  const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
       stopScreenShare();
     } else {
-      startScreenShare();
-      sendCountdownStart();
+      // The "3, 2, 1" countdown starts only after the screen was really captured (not when the user pressed Cancel)
+      const started = await startScreenShare();
+      if (started) sendCountdownStart();
     }
   };
 
-  const handleStartParty = () => {
-    startScreenShare();
-    sendCountdownStart();
+  const handleStartParty = async () => {
+    const started = await startScreenShare();
+    if (started) sendCountdownStart();
   };
 
   const handleLeaveRoom = () => {
@@ -955,12 +971,12 @@ export default function RoomPage() {
           {/* Room Title & Status */}
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-amber-300 font-semibold tracking-wide">
-              <span>🍿 Virtual Cinema Gate</span>
+              <span><AppIcon name="popcorn" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Virtual Cinema Gate</span>
               <span>•</span>
               <span>Private Room</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              {room.title || '🍿 Friday Movie Night'}
+              {room.title || 'Friday Movie Night'}
             </h1>
             <p className="text-xs text-zinc-400 max-w-xs mx-auto">
               {isRejected
@@ -1269,15 +1285,7 @@ export default function RoomPage() {
                 participants={gridParticipants}
                 latestReactions={latestReactions}
                 onSendReaction={(emoji: string, timestamp?: number) => {
-                  const code =
-                    emoji === '❤️' ? 'heart' :
-                    emoji === '😂' ? 'joy' :
-                    emoji === '🔥' ? 'fire' :
-                    emoji === '👏' ? 'clap' :
-                    emoji === '🎉' ? 'party' :
-                    emoji === '🎲' ? 'dice' :
-                    emoji === '🥳' ? 'celebrate' :
-                    emoji === '🥺' ? 'pleading' : 'emoji';
+                  const code = cinemaReactionCode(emoji);
                   sendReaction(code, emoji, timestamp ?? getAuthoritativePosition());
                 }}
                 onCopyInvite={handleCopyInvite}
@@ -1399,7 +1407,7 @@ export default function RoomPage() {
                 }`}
               >
                 <Video className="w-3.5 h-3.5" />
-                <span>Call {(isCameraOn || videoGridParticipants.some(p => p.isCameraOn)) ? '🔴' : ''}</span>
+                <span>Call {(isCameraOn || videoGridParticipants.some(p => p.isCameraOn)) ? <AppIcon name="dot" className="inline w-2 h-2 text-red-500 fill-current align-middle" /> : null}</span>
               </button>
 
               <button
@@ -1497,19 +1505,25 @@ export default function RoomPage() {
                 {/* Quick Reactions & Quick Chat Phrases */}
                 <div className="pt-2 pb-1 space-y-2 border-t border-rose-500/20 shrink-0">
                   {/* Emoji Reactions Row */}
+                  <ReactionPackPicker
+                    canUsePremium={Boolean(myMembership?.limits.reactionPacks)}
+                    onReact={handleReact}
+                    classicRow={
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                    {['❤️', '😂', '🔥', '👏', '🎉', '🎲', '🥳', '🥺'].map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => handleReact('emoji', emoji)}
-                        className="w-8 h-8 rounded-xl bg-white/5 hover:bg-rose-500/20 active:scale-95 transition-all text-base shrink-0 border border-white/10 hover:border-rose-400/40 flex items-center justify-center shadow-sm"
-                        title={`React with ${emoji}`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+                        {CINEMA_REACTIONS.map(emoji => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleReact('emoji', emoji)}
+                            className="w-8 h-8 rounded-xl bg-white/5 hover:bg-rose-500/20 active:scale-95 transition-all text-base shrink-0 border border-white/10 hover:border-rose-400/40 flex items-center justify-center shadow-sm"
+                            title={`React with ${emoji}`}
+                          >
+                            <AppIcon name={REACTION_BUTTON_ICONS[emoji] ?? 'sparkles'} className="w-4 h-4" label={`React with ${emoji}`} />
+                          </button>
+                        ))}
+                      </div>
+                    }
+                  />
 
                   <RoomChatInputBar
                     replyingTo={replyingTo}
@@ -1537,7 +1551,7 @@ export default function RoomPage() {
                         <span>All Games</span>
                       </button>
                       <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider">
-                        {activeMiniGame === 'tictactoe' ? '❌ Tic-Tac-Toe' : '🔴 Four In A Row'}
+                        {activeMiniGame === 'tictactoe' ? 'Tic-Tac-Toe' : 'Four In A Row'}
                       </span>
                     </div>
                     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -1573,7 +1587,7 @@ export default function RoomPage() {
                 <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-pink-500/10 border border-amber-500/20 text-center">
                   <p className="text-white font-bold text-xs mb-0.5">Live Room Video Call</p>
                   <p className="text-[11px] text-zinc-300">
-                    {isCameraOn ? '📹 Your camera is on' : '📷 Camera is off'} • {isMicMuted ? '🔇 Mic muted' : '🎙️ Mic unmuted'}
+                    {isCameraOn ? 'Your camera is on' : 'Camera is off'} • {isMicMuted ? 'Mic muted' : 'Mic unmuted'}
                   </p>
                 </div>
 
@@ -1768,6 +1782,7 @@ export default function RoomPage() {
             <div className="grid grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1 scrollbar-none">
               {ROOM_THEMES.map((theme) => {
                 const isSelected = selectedTheme === theme.id;
+                const locked = isPremiumTheme(theme.id) && !canUsePremiumThemes;
                 return (
                   <button
                     key={theme.id}
@@ -1796,6 +1811,12 @@ export default function RoomPage() {
                             Cinema Dark
                           </span>
                           <span className="text-[9px] text-zinc-500 mt-0.5">Classic View</span>
+                        </div>
+                      )}
+                      {locked && (
+                        <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-1 text-white">
+                          <Lock className="w-4 h-4" />
+                          <span className="text-[10px] font-bold">Watch+ · Upgrade</span>
                         </div>
                       )}
                       {isSelected && (
@@ -1960,7 +1981,7 @@ export default function RoomPage() {
           {/* Auto-Rotate Helper Card */}
           <div className="w-full p-3 rounded-2xl bg-white/5 border border-white/10 text-left space-y-1">
             <div className="text-[11px] font-bold text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-              <span>📱 Auto-Rotate Required</span>
+              <span><AppIcon name="phone" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Auto-Rotate Required</span>
             </div>
             <p className="text-[10.5px] text-zinc-300 leading-normal">
               Turn your phone sideways. If your screen does not flip, check that <strong>Portrait Orientation Lock</strong> is turned off in your quick settings.

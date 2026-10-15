@@ -1,4 +1,7 @@
-import { VideoProvider, NON_EMBEDDABLE_WARNING } from '@synccinema/common';
+import { VideoProvider, NON_EMBEDDABLE_WARNING, safeUrl } from '@synccinema/common';
+
+const escapeHtml = (v: string) =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 export class ExternalSessionProvider implements VideoProvider {
   readonly name = 'ExternalSession';
@@ -11,6 +14,8 @@ export class ExternalSessionProvider implements VideoProvider {
 
   async load(container: HTMLElement, url: string): Promise<void> {
     this.container = container;
+    // Only http(s) links are ever rendered; anything else (javascript:, data:) falls back to an inert '#'
+    const href = escapeHtml(safeUrl(url) ?? '#');
     // Renders the Section 9 fallback interface
     container.innerHTML = `
       <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; padding: 32px; text-align: center; background: #0b0f17; color: #f8fafc; border-radius: 12px; font-family: sans-serif;">
@@ -21,7 +26,7 @@ export class ExternalSessionProvider implements VideoProvider {
         <p style="font-size: 13px; color: #94a3b8; max-width: 480px; line-height: 1.5; margin: 0 0 20px 0;">
           ${NON_EMBEDDABLE_WARNING}
         </p>
-        <a href="${url}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: #6366f1; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 13px;">
+        <a href="${href}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: #6366f1; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 13px;">
           Open Official Streaming Tab
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
         </a>

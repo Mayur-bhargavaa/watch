@@ -26,6 +26,8 @@ interface ChessHeaderProps {
   isMicMuted: boolean;
   isCameraOn: boolean;
   isChatOpen: boolean;
+  /** Spectators get no mic/camera/call/settings controls. */
+  isSpectator?: boolean;
   onToggleMic: () => void;
   onToggleCamera: () => void;
   onToggleChat: () => void;
@@ -45,6 +47,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
   isMicMuted,
   isCameraOn,
   isChatOpen,
+  isSpectator = false,
   onToggleMic,
   onToggleCamera,
   onToggleChat,
@@ -62,7 +65,7 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
 
   const handleCopyCode = () => {
     if (!roomCode) return;
-    navigator.clipboard.writeText(roomCode);
+    void navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -112,7 +115,8 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
 
       {/* Right: Media toggles, Chat, Theme, Settings & Leave */}
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        {/* Mic Toggle */}
+        {!isSpectator && (<>
+{/* Mic Toggle */}
         <button
           type="button"
           onClick={onToggleMic}
@@ -157,6 +161,8 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
           </button>
         )}
 
+
+</>)}
         {/* Info Toggle */}
         <button
           type="button"
@@ -200,7 +206,8 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
           {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-white/60" />}
         </button>
 
-        {/* Settings Gear */}
+        {!isSpectator && (<>
+{/* Settings Gear */}
         <button
           type="button"
           onClick={onOpenSettings}
@@ -210,6 +217,8 @@ export const ChessHeader: React.FC<ChessHeaderProps> = ({
           <Settings className="w-4 h-4" />
         </button>
 
+
+</>)}
         {/* Leave Game Button */}
         <button
           type="button"

@@ -53,7 +53,7 @@ export const WatchHeader: React.FC<WatchHeaderProps> = ({
 
   const handleCopyCode = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(roomCode);
+    void navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

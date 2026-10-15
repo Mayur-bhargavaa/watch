@@ -1,5 +1,6 @@
 'use client';
 
+import { DOODLE_GUESS_QUICK_MESSAGES } from '../../../lib/reactionEmojis';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Send,
@@ -23,6 +24,9 @@ interface GuessPanelProps {
   onSendGuess: (guess: string) => void;
   onRequestHint?: () => void;
   canRequestHint?: boolean;
+  hint?: string | null;
+  hintUsed?: boolean;
+  isSpectator?: boolean;
   drawerDisplayName: string;
   guesserDisplayName: string;
   hasGuessedCorrectly?: boolean;
@@ -35,14 +39,7 @@ interface GuessPanelProps {
   onSendReaction?: (emoji: string) => void;
 }
 
-const QUICK_CHAT_PILLS = [
-  'Nice drawing! 🎨',
-  'So close!! 🔥',
-  'Haha that looks like a cat 😂',
-  'Good guess! 👏',
-  'Hurry, timer running out! ⏳',
-  'What is that?! 🤯'
-];
+const QUICK_CHAT_PILLS = DOODLE_GUESS_QUICK_MESSAGES;
 
 export const GuessPanel: React.FC<GuessPanelProps> = ({
   isDrawer,
@@ -52,6 +49,9 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
   onSendGuess,
   onRequestHint,
   canRequestHint = false,
+  hint = null,
+  hintUsed = false,
+  isSpectator = false,
   drawerDisplayName,
   guesserDisplayName,
   hasGuessedCorrectly = false,
@@ -103,7 +103,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
 
   // Focus input for guesser on guesses tab
   useEffect(() => {
-    if (activeTab === 'guesses' && !isDrawer && !hasGuessedCorrectly && !disabled) {
+    if (activeTab === 'guesses' && !isDrawer && !isSpectator && !hasGuessedCorrectly && !disabled) {
       inputRef.current?.focus();
     }
   }, [isDrawer, hasGuessedCorrectly, disabled, activeTab]);
@@ -111,7 +111,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
   const handleGuessSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = inputValue.trim();
-    if (!trimmed || isDrawer || hasGuessedCorrectly || disabled) return;
+    if (!trimmed || isDrawer || isSpectator || hasGuessedCorrectly || disabled) return;
     onSendGuess(trimmed);
     setInputValue('');
   };
@@ -125,7 +125,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
   };
 
   // Compute letter count from masked word
-  const letterCount = maskedWord.replace(/[^A-Za-z_]/g, '').length;
+  const letterCount = (maskedWord.match(/[_\p{L}\p{N}]/gu) || []).length;
 
   return (
     <div
@@ -204,6 +204,16 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
               {maskedWord}
             </div>
           </div>
+          {hintUsed && hint && !isDrawer && (
+            <div
+              className={`px-4 py-1.5 border-b flex items-center gap-1.5 text-[11px] font-bold ${
+                isDark ? 'border-white/10 bg-violet-500/10 text-violet-300' : 'border-slate-100 bg-violet-50 text-violet-700'
+              }`}
+            >
+              <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>Hint: {hint}</span>
+            </div>
+          )}
 
           {/* Guesses Feed */}
           <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-2 min-h-0 flex flex-col justify-center">
@@ -223,7 +233,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                   {/* Surrounding sparkles & exclamations */}
                   <span className="absolute -top-1.5 -right-3 text-xs text-[#ff3864] font-black">✦</span>
                   <span className="absolute -top-2 left-0 text-xs text-[#ff3864] font-black rotate-[-15deg]">!</span>
-                  <span className="absolute bottom-0 -right-2 text-[10px] text-[#ff3864]">✨</span>
+                  
                 </div>
                 <span className="text-sm font-extrabold text-[#1e1435] dark:text-white block">
                   No guesses yet!
@@ -305,7 +315,17 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
               isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-100 bg-slate-50/50'
             }`}
           >
-            {isDrawer ? (
+            {isSpectator ? (
+              <div
+                className={`flex items-center justify-center p-2 rounded-2xl border text-center ${
+                  isDark
+                    ? 'bg-white/5 border-white/10 text-zinc-400'
+                    : 'bg-slate-50 border-slate-200 text-slate-500'
+                }`}
+              >
+                <span className="text-xs font-semibold">You are watching this duel.</span>
+              </div>
+            ) : isDrawer ? (
               <div
                 className={`flex items-center justify-center p-2 rounded-2xl border text-center ${
                   isDark
@@ -314,12 +334,12 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                 }`}
               >
                 <span className="text-xs font-semibold">
-                  🎨 You are Drawing! Watch {guesserDisplayName}'s guesses appear live above.
+                  You are Drawing! Watch {guesserDisplayName}'s guesses appear live above.
                 </span>
               </div>
             ) : hasGuessedCorrectly ? (
               <div className="flex items-center justify-center p-2 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-center text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                🎉 You guessed correctly! Waiting for round to finish...
+                You guessed correctly! Waiting for round to finish...
               </div>
             ) : (
               <form onSubmit={handleGuessSubmit} className="flex items-center gap-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-1.5 pl-3 focus-within:border-[#ff3864] transition">
@@ -330,7 +350,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                   onChange={e => setInputValue(e.target.value)}
                   disabled={disabled}
                   placeholder="Type your guess..."
-                  maxLength={40}
+                  maxLength={60}
                   className="flex-1 bg-transparent text-xs sm:text-sm outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
                 />
 
@@ -338,7 +358,7 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
                   <Smile className="w-4 h-4" />
                 </span>
 
-                {onRequestHint && canRequestHint && (
+                {onRequestHint && canRequestHint && !hintUsed && (
                   <button
                     type="button"
                     onClick={onRequestHint}
@@ -365,7 +385,8 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
       {/* PARTY CHAT VIEW */}
       {activeTab === 'chat' && (
         <>
-          {/* Quick Chat Phrases Bar */}
+          {!isSpectator && (<>
+{/* Quick Chat Phrases Bar */}
           <div
             className={`px-3 py-2 border-b flex items-center gap-1.5 overflow-x-auto scrollbar-none ${
               isDark ? 'border-white/10 bg-white/[0.02]' : 'border-slate-200 bg-slate-50'
@@ -387,6 +408,8 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
             ))}
           </div>
 
+
+</>)}
           {/* Chat Messages Feed */}
           <div className="flex-1 p-3 overflow-y-auto space-y-2.5 min-h-0">
             {chatMessages.length === 0 ? (
@@ -434,7 +457,8 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
             <div ref={chatEndRef} />
           </div>
 
-          {/* Chat Input */}
+          {!isSpectator && (<>
+{/* Chat Input */}
           <form
             onSubmit={handleChatSubmit}
             className={`p-3 border-t flex items-center gap-2 ${
@@ -461,6 +485,8 @@ export const GuessPanel: React.FC<GuessPanelProps> = ({
               <Send className="w-4 h-4" />
             </button>
           </form>
+</>)}
+
         </>
       )}
     </div>

@@ -1,5 +1,7 @@
 'use client';
 
+import { CHESS_REACTIONS } from '../../../lib/reactionEmojis';
+import { AppIcon } from '../../ui/AppIcon';
 import React from 'react';
 import { Users, Clock, Crown, Sparkles, Eye, Smile } from 'lucide-react';
 import { ChessPlayerInfo, ChessColor } from '@synccinema/common';
@@ -103,7 +105,7 @@ export const ChessPlayersPanel: React.FC<ChessPlayersPanelProps> = ({
                 {whitePlayer?.displayName || 'Waiting...'}
               </h4>
               <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-zinc-400 font-semibold">
-                <span>♟ ELO 1200</span>
+                <span className="inline-flex items-center gap-1"><AppIcon name="crown" className="w-3 h-3" />ELO 1200</span>
                 <span>•</span>
                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Online</span>
               </div>
@@ -147,7 +149,7 @@ export const ChessPlayersPanel: React.FC<ChessPlayersPanelProps> = ({
                 {blackPlayer?.displayName || 'Waiting...'}
               </h4>
               <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-zinc-400 font-semibold">
-                <span>♚ ELO 1180</span>
+                <span className="inline-flex items-center gap-1"><AppIcon name="crown" className="w-3 h-3" />ELO 1180</span>
                 <span>•</span>
                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Online</span>
               </div>
@@ -198,7 +200,7 @@ export const ChessPlayersPanel: React.FC<ChessPlayersPanelProps> = ({
               <span>Cheer & React</span>
             </span>
             <div className="grid grid-cols-7 gap-1">
-              {['❤️', '😂', '🔥', '👏', '🧠', '👑', '💀'].map(emoji => (
+              {CHESS_REACTIONS.map(emoji => (
                 <button
                   key={emoji}
                   type="button"

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Crown,
   Film,
   Heart,
   Flame,
@@ -28,6 +29,8 @@ import {
   UserSession
 } from '../../lib/api';
 import { ChatStore } from '../../lib/chatStore';
+import { TIER_INFO } from '@synccinema/common';
+import { useMyMembership } from '../membership/useMyMembership';
 
 // Bitmoji avatar helper
 function getBitmojiAvatarUrl(url?: string | null, fallbackSeed?: string): string {
@@ -52,6 +55,7 @@ export type SidebarNavItem =
   | 'chat'
   | 'notifications'
   | 'profile'
+  | 'pricing'
   | 'settings';
 
 interface AppSidebarProps {
@@ -73,6 +77,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
   const isDark = resolvedTheme === 'dark';
 
   const [session, setSession] = useState<UserSession | null>(null);
+  const myMembership = useMyMembership();
+  const myTier = myMembership?.tier ?? session?.user.membership?.tier ?? 'free';
   const [pendingRequests, setPendingRequests] = useState<number>(incomingRequestsCount ?? 0);
 
   // Load user session
@@ -118,7 +124,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       setUnreadChatCount(ChatStore.getUnreadTotalCount());
     };
     updateCount();
-    ChatStore.syncWithExistingFriends();
+    void ChatStore.syncWithExistingFriends();
     const unsub = ChatStore.subscribe(updateCount);
     return () => unsub();
   }, []);
@@ -174,6 +180,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       ? 'rooms'
       : pathname === '/profile'
       ? 'profile'
+      : pathname === '/pricing'
+      ? 'pricing'
       : 'dashboard');
 
   const handleLogout = () => {
@@ -186,22 +194,33 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       {/* 1. Brand Header (Pinned top, shrink-0) */}
       <div className="px-5 py-4 sm:px-5 sm:py-5 pb-3 border-b border-slate-100 dark:border-white/[0.04] shrink-0">
         <div className="flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center space-x-3 group">
+          <Link href="/dashboard" className="flex items-center gap-2.5 group min-w-0">
             {/* Custom Brand Icon: Red squircle with hollow play square */}
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#ee1d49] to-[#ff3b68] shadow-md shadow-[#ee1d49]/30 flex items-center justify-center text-white transition-transform group-hover:scale-105">
+            <div className="w-9 h-9 shrink-0 rounded-xl bg-gradient-to-tr from-[#ee1d49] to-[#ff3b68] shadow-md shadow-[#ee1d49]/30 flex items-center justify-center text-white transition-transform group-hover:scale-105">
               <div className="w-4 h-4 rounded-md border-2 border-white flex items-center justify-center">
                 <div className="w-1.5 h-1.5 bg-white rounded-xs"></div>
               </div>
             </div>
             <div>
-              <div className="text-xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
+              <div className="text-lg font-black tracking-tight text-slate-900 dark:text-white leading-none">
                 Watch<span className="text-[#ee1d49]">.</span>
               </div>
-              <div className="text-[9px] font-bold tracking-widest text-slate-400 dark:text-zinc-500 uppercase mt-0.5">
-                Powered by StitchByte
+              <div className="text-[8px] font-bold tracking-wider text-slate-400 dark:text-zinc-500 uppercase mt-1 whitespace-nowrap">
+                by StitchByte
               </div>
             </div>
           </Link>
+
+          {session?.user && !session.user.isAnonymous && myTier === 'free' && (
+            <Link
+              href="/pricing"
+              onClick={onMobileClose}
+              className="ml-auto mr-1 flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-[10px] font-bold whitespace-nowrap text-amber-600 dark:text-amber-400 transition cursor-pointer shrink-0"
+            >
+              <Crown className="w-3 h-3" />
+              <span>Upgrade</span>
+            </Link>
+          )}
 
           {onMobileClose && (
             <button
@@ -302,12 +321,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               />
               <span className="truncate whitespace-nowrap">Friends</span>
             </div>
-            {pendingRequests > 0 ? (
+            {pendingRequests > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none animate-pulse shrink-0">
                 {pendingRequests}
               </span>
-            ) : (
-              <span className="text-sm shrink-0 leading-none">🔥</span>
             )}
           </Link>
 
@@ -381,12 +398,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               />
               <span className="truncate whitespace-nowrap font-bold">Chat</span>
             </div>
-            {unreadChatCount > 0 ? (
+            {unreadChatCount > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-[#ee1d49] text-white font-black text-[10px] leading-none shadow-sm shadow-[#ee1d49]/40 animate-pulse shrink-0">
                 {unreadChatCount}
               </span>
-            ) : (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Live chat active" />
             )}
           </Link>
         </div>
@@ -464,11 +479,13 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-white dark:ring-white/10 shrink-0 shadow-xs group-hover:scale-105 transition-transform duration-200"
               />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ee1d49] transition-colors">
-                  {session.user.displayName}
-                </p>
-                <p className="text-[9.5px] font-mono text-[#ee1d49] font-bold truncate">
-                  #{session.user.partnerCode || 'USER'}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ee1d49] transition-colors">
+                    {session.user.displayName}
+                  </p>
+                </div>
+                <p className={`text-[10px] font-bold truncate ${myTier === 'free' ? 'text-slate-500 dark:text-zinc-400' : myTier === 'plus' ? 'text-amber-600 dark:text-amber-400' : 'text-violet-600 dark:text-violet-400'}`}>
+                  {TIER_INFO[myTier].badgeLabel}
                 </p>
               </div>
             </Link>

@@ -1,5 +1,6 @@
 'use client';
 
+import { LANDING_BUBBLES } from '../lib/reactionEmojis';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -21,6 +22,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import { AppIcon, type IconName } from '../components/ui/AppIcon';
 import { getStoredSession, clearStoredSession, UserSession } from '../lib/api';
 
 export default function LandingPage() {
@@ -28,7 +30,7 @@ export default function LandingPage() {
   const [session, setSession] = useState<UserSession | null>(null);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [activeStep, setActiveStep] = useState<number>(0);
-  const [selectedAvatar, setSelectedAvatar] = useState<string>('🐻');
+  const [selectedAvatar, setSelectedAvatar] = useState<IconName>('paw');
   const [customNickname, setCustomNickname] = useState<string>('Alex');
   const [hostOnlyControl, setHostOnlyControl] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -64,19 +66,19 @@ export default function LandingPage() {
   };
 
   // Avatar choices for the customization showcase
-  const avatarOptions = [
-    { icon: '🐻', name: 'Teddy Bear' },
-    { icon: '🐸', name: 'Happy Frog' },
-    { icon: '🐼', name: 'Panda' },
-    { icon: '🐱', name: 'Kitty' },
-    { icon: '🍿', name: 'Popcorn' },
-    { icon: '🍕', name: 'Pizza' },
-    { icon: '🍪', name: 'Cookie' },
-    { icon: '🍦', name: 'Ice Cream' },
-    { icon: '🚀', name: 'Rocket' },
-    { icon: '💖', name: 'Heart' },
-    { icon: '🎮', name: 'Gamer' },
-    { icon: '👑', name: 'Crown' },
+  const avatarOptions: { icon: IconName; name: string }[] = [
+    { icon: 'paw', name: 'Teddy Bear' },
+    { icon: 'turtle', name: 'Happy Frog' },
+    { icon: 'cat', name: 'Panda' },
+    { icon: 'cat', name: 'Kitty' },
+    { icon: 'popcorn', name: 'Popcorn' },
+    { icon: 'food', name: 'Pizza' },
+    { icon: 'cookie', name: 'Cookie' },
+    { icon: 'gift', name: 'Ice Cream' },
+    { icon: 'rocket', name: 'Rocket' },
+    { icon: 'heart', name: 'Heart' },
+    { icon: 'game', name: 'Gamer' },
+    { icon: 'crown', name: 'Crown' },
   ];
 
   // How It Works Steps data for the interactive Teleparty-style stepper
@@ -195,6 +197,7 @@ export default function LandingPage() {
             <a href="#customize" className="hover:text-[#d2281e] transition-colors">Customize</a>
             <a href="#how-it-works" className="hover:text-[#d2281e] transition-colors">How It Works</a>
             <a href="#faq" className="hover:text-[#d2281e] transition-colors">FAQ</a>
+            <a href="/pricing" className="hover:text-[#d2281e] transition-colors">Pricing</a>
           </nav>
 
           {/* Right Header CTAs: In a clean row */}
@@ -376,7 +379,7 @@ export default function LandingPage() {
                         {/* Floating live reaction bubble on mobile */}
                         <div className="md:hidden self-start flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[9px] text-white">
                           <span className="w-3.5 h-3.5 rounded-full bg-[#d2281e] flex items-center justify-center text-[7.5px] font-black">P</span>
-                          <span>"Music is giving me chills! 😭✨"</span>
+                          <span>"{LANDING_BUBBLES.musicChills}"</span>
                         </div>
 
                         {/* Player Controls Bar */}
@@ -440,13 +443,13 @@ export default function LandingPage() {
                             P
                           </div>
                           <div className="p-2 rounded-2xl bg-white/10 text-white text-[11px] leading-tight">
-                            The music is giving me goosebumps! 😭✨
+                            {LANDING_BUBBLES.musicGoosebumps}
                           </div>
                         </div>
 
                         <div className="flex items-start gap-2 justify-end">
                           <div className="p-2 rounded-2xl bg-[#d2281e]/30 border border-[#d2281e]/40 text-red-100 text-[11px] leading-tight">
-                            Rematch on Four-in-a-Row after this? 🔴
+                            {LANDING_BUBBLES.rematch}
                           </div>
                           <div className="w-6 h-6 rounded-full bg-[#b82017] text-white font-bold text-[10px] flex items-center justify-center shrink-0">
                             Y
@@ -547,13 +550,13 @@ export default function LandingPage() {
 
             {/* Cottagecore Ludo 3D */}
             <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-red-50 border border-red-200 text-[#d2281e] font-black text-xs sm:text-sm">
-              <span className="text-sm sm:text-base">🎲</span>
+              <AppIcon name="dice" className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Cottagecore Ludo 3D</span>
             </div>
 
             {/* Four in a Row */}
             <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-red-50 border border-red-200 text-[#d2281e] font-black text-xs sm:text-sm">
-              <span className="text-sm sm:text-base">🔴</span>
+              <AppIcon name="dot" className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
               <span>Four in a Row</span>
             </div>
 
@@ -814,7 +817,7 @@ export default function LandingPage() {
                   {/* Active Preview Tag */}
                   <div className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center gap-3">
                     <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#d2281e] flex items-center justify-center text-lg sm:text-xl shadow-md text-white shrink-0">
-                      {selectedAvatar}
+                      <AppIcon name={selectedAvatar} className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-black text-zinc-900 truncate">{customNickname || 'Anonymous'}</div>
@@ -877,7 +880,7 @@ export default function LandingPage() {
                               : 'bg-white hover:bg-zinc-100 text-zinc-800 border border-zinc-200'
                           }`}
                         >
-                          {av.icon}
+                          <AppIcon name={av.icon} className="w-5 h-5" label={av.name} />
                         </button>
                       );
                     })}
@@ -1016,7 +1019,7 @@ export default function LandingPage() {
             >
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-4xl sm:text-5xl">🐻 🐸</span>
+                  <span className="flex items-center gap-2"><AppIcon name="paw" className="w-9 h-9 sm:w-11 sm:h-11" /><AppIcon name="turtle" className="w-9 h-9 sm:w-11 sm:h-11" /></span>
                   <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">
                     2-Player Classic
                   </span>
@@ -1045,7 +1048,7 @@ export default function LandingPage() {
             >
               <div className="space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-4xl sm:text-5xl">🔴 🟣</span>
+                  <span className="flex items-center gap-2"><AppIcon name="dot" className="w-9 h-9 sm:w-11 sm:h-11 text-[#d2281e] fill-current" /><AppIcon name="dot" className="w-9 h-9 sm:w-11 sm:h-11 text-purple-600 fill-current" /></span>
                   <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">
                     Connect 4 Stand
                   </span>
@@ -1184,6 +1187,9 @@ export default function LandingPage() {
             <button onClick={() => router.push('/login')} className="hover:text-zinc-950 transition">
               Sign In
             </button>
+            <a href="/terms" className="hover:text-zinc-950 transition">Terms</a>
+            <a href="/privacy" className="hover:text-zinc-950 transition">Privacy</a>
+            <a href="/refunds" className="hover:text-zinc-950 transition">Refunds</a>
           </div>
 
           <div className="text-[11px] text-zinc-500">

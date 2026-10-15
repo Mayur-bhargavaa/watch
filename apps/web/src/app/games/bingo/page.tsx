@@ -1,7 +1,12 @@
 'use client';
 
+import { ReactionGlyph } from '../../../components/ui/ReactionGlyph';
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SpectatorBanner } from '../../../components/games/common/SpectatorBanner';
+import { NewGameWithOpponent } from '../../../components/games/common/NewGameWithOpponent';
+import { BingoDuelSpectatorView } from '../../../components/games/bingo-duel/BingoDuelSpectatorView';
+import { isSpectateRequested } from '../../../lib/spectator';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -65,6 +70,7 @@ import {
   getUserMe,
   getUserPartner,
   connectUserPartner,
+  partnerRequestNotice,
   disconnectUserPartner,
   pingPartner,
   sendHeartbeat,
@@ -82,6 +88,7 @@ import { BingoDuelClaimButton } from '../../../components/games/bingo-duel/Bingo
 import { BingoDuelWinModal } from '../../../components/games/bingo-duel/BingoDuelWinModal';
 import { BingoPartyPoppers } from '../../../components/games/bingo-duel/BingoPartyPoppers';
 import { BingoCozyArena } from '../../../components/games/bingo-duel/BingoCozyArena';
+import { resolveDuelOutcome, isOpponentForfeit, turnSecondsLeft } from '../../../lib/bingoDuelView';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 import {
   BingoDuelConfig,
@@ -153,6 +160,7 @@ function BingoDuelGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomCodeParam = searchParams.get('room');
+  const spectateMode = isSpectateRequested(searchParams.get('spectate'));
 
   // Theme Context
   const { theme, resolvedTheme, toggleTheme } = useTheme();
@@ -356,7 +364,6 @@ function BingoDuelGameContent() {
     floatingReactions,
     connectionStatus,
     startBingoGame,
-    callNextBingoNumber,
     toggleBingoPause,
     startBingoNextRound,
     claimBingo,
@@ -385,8 +392,12 @@ function BingoDuelGameContent() {
     registerVoiceListener,
     error: gameRoomError,
     streakCelebration,
-    clearStreakCelebration
-  } = useGameRoom(roomCodeParam);
+    clearStreakCelebration,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    rematchUnavailable
+  } = useGameRoom(roomCodeParam, undefined, { spectate: spectateMode });
 
   const gameState = rawGameState as BingoDuelGameState | null;
 
@@ -407,8 +418,9 @@ function BingoDuelGameContent() {
   const effectiveUserId = myUserId || session?.user.id || '';
 
   // Determine players
-  const me = players.find(p => p.userId === effectiveUserId) || players[0];
-  const opponent = players.find(p => p.userId !== me?.userId);
+  // A spectator is never a player: no fallback to players[0].
+  const me = isSpectator ? undefined : (players.find(p => p.userId === effectiveUserId) || players[0]);
+  const opponent = isSpectator ? undefined : players.find(p => p.userId !== me?.userId);
 
   const isHost = room?.hostUserId === effectiveUserId;
   const isWaiting = room && (room.status === 'WAITING' || (room.status === 'PLAYING' && !gameState));
@@ -417,13 +429,7 @@ function BingoDuelGameContent() {
   const isFinished = room && (room.status === 'FINISHED' || gameState?.phase === 'FINISHED');
   const isPlayingOrFinished = Boolean(room && (isPlaying || isFinished || isRoundOver));
 
-  // Auto-start Bingo Duel as soon as 2 human players have joined
-  useEffect(() => {
-    if (isHost && isWaiting && room && players.length >= (room.maxPlayers || 2) && !isPlayingOrFinished) {
-      console.log('[Bingo] 2 human players joined! Auto-starting Bingo Duel...');
-      startBingoGame(duelConfig);
-    }
-  }, [isHost, isWaiting, room, players.length, isPlayingOrFinished, startBingoGame, duelConfig]);
+  // The server auto-starts the duel when the 2nd player joins (BD-22): the client never sends an extra start.
 
   const myBoard = gameState?.boards?.[effectiveUserId] || [];
   const myMarks = gameState?.playerMarks?.[effectiveUserId] || [];
@@ -432,18 +438,34 @@ function BingoDuelGameContent() {
   const myWins = gameState?.roundsWon?.[effectiveUserId] || 0;
 
   const opponentUserId = opponent?.userId || '';
-  const opponentMarks = gameState?.playerMarks?.[opponentUserId] || [];
+  const opponentMarks: number[] = [];
+  const opponentMarkedCount = gameState?.markedCounts?.[opponentUserId] ?? 0;
   const opponentPicks = (gameState as any)?.playerPicks?.[opponentUserId] || [];
   const opponentProgress = gameState?.playerProgress?.[opponentUserId];
   const opponentWins = gameState?.roundsWon?.[opponentUserId] || 0;
 
   // Check if opponent has left the duel room
   const opponentIsConnected = opponent ? (opponent.isConnected !== false && (opponent as any).status !== 'LEFT') : false;
-  const isOpponentLeft = Boolean(
-    opponentLeftWin ||
-    rematchDeclined?.reason === 'opponent_left' ||
-    (roomCodeParam && (isPlayingOrFinished || isRoundOver || isFinished) && (!opponent || !opponentIsConnected))
-  );
+  // Only a server-confirmed forfeit while the match was undecided counts (BD-10); a mere disconnect does not.
+  const isOpponentLeft = isOpponentForfeit(gameState?.phase, opponentLeftWin, effectiveUserId);
+
+  const opponentLeftAfterFinish = Boolean(opponent && (opponent as any).status === 'LEFT');
+  const showNewGame = !isSpectator && (Boolean(isOpponentLeft) || opponentLeftAfterFinish || rematchUnavailable);
+  const newGameSlot = showNewGame ? (
+    <NewGameWithOpponent
+      gameType="bingo"
+      opponentUserId={opponent?.userId}
+      opponentName={opponent?.displayName}
+      className="w-full py-3 px-5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 text-white font-bold text-sm shadow-xl shadow-purple-600/25 active:scale-98 transition cursor-pointer"
+    />
+  ) : undefined;
+  const spectatorStatus = gameState
+    ? (gameState.phase === 'FINISHED' || gameState.phase === 'ROUND_OVER')
+      ? (gameState.winnerDisplayName ? `${gameState.winnerDisplayName} won` : 'Game over')
+      : (players.find(p => p.userId === gameState.currentTurnUserId)?.displayName
+          ? `${players.find(p => p.userId === gameState.currentTurnUserId)?.displayName} to pick`
+          : null)
+    : null;
 
   // Party Poppers & 4-second Delayed Win Modal
   const [showPartyPoppers, setShowPartyPoppers] = useState(false);
@@ -486,7 +508,7 @@ function BingoDuelGameContent() {
     if (gameRoomError) {
       setClaimToast({
         valid: false,
-        message: `⚠️ ${gameRoomError}`,
+        message: `${gameRoomError}`,
         timestamp: Date.now()
       });
       const timer = setTimeout(() => {
@@ -524,18 +546,18 @@ function BingoDuelGameContent() {
     const targetId = opponentUserId || opponent?.userId;
 
     const BINGO_NUDGES = [
-      "Hey! It's your turn to pick a number! 🔔",
-      "Wake up! The Bingo board is waiting for you! ⚡",
-      "Don't fall asleep, make your pick! 😉",
-      "Arey jaldi number bolo, Bingo jeetna hai! 🎯",
-      "Thinking so hard? Pick a lucky number already! 🍀",
-      "Your move! Time's ticking! ⏱️"
+      "Hey! It's your turn to pick a number!",
+      "Wake up! The Bingo board is waiting for you!",
+      "Don't fall asleep, make your pick!",
+      "Arey jaldi number bolo, Bingo jeetna hai!",
+      "Thinking so hard? Pick a lucky number already!",
+      "Your move! Time's ticking!"
     ];
     const randomMsg = BINGO_NUDGES[Math.floor(Math.random() * BINGO_NUDGES.length)];
 
     if (isPreview) {
       setNudgeCooldown(5);
-      setNudgeFeedback("🔔 Nudged demo opponent!");
+      setNudgeFeedback("Nudged demo opponent!");
       const timer = setTimeout(() => setNudgeFeedback(null), 3000);
       return;
     }
@@ -544,7 +566,7 @@ function BingoDuelGameContent() {
 
     sendNudge(targetId, randomMsg);
     setNudgeCooldown(6);
-    setNudgeFeedback(`🔔 Nudged ${opponent?.displayName || 'opponent'}!`);
+    setNudgeFeedback(`Nudged ${opponent?.displayName || 'opponent'}!`);
     const timer = setTimeout(() => setNudgeFeedback(null), 3000);
   }, [nudgeCooldown, opponentUserId, opponent?.userId, opponent?.displayName, isPreview, sendNudge]);
 
@@ -559,13 +581,22 @@ function BingoDuelGameContent() {
   const penaltyUntil = gameState?.falseBingoPenaltyUntil?.[effectiveUserId] || 0;
   const penaltySeconds = Math.max(0, Math.ceil((penaltyUntil - now) / 1000));
 
+  const [turnNow, setTurnNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (gameState?.phase !== 'PLAYING') return;
+    const id = setInterval(() => setTurnNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [gameState?.phase, gameState?.turnStartedAt]);
+  const turnSeconds = turnSecondsLeft(gameState, turnNow);
+  const duelOutcome = resolveDuelOutcome(gameState, lastBingoConditionWon);
+
   const winningIndices = gameState?.phase === 'ROUND_OVER' || gameState?.phase === 'FINISHED'
     ? (lastBingoConditionWon?.winningIndices || lastBingoClaimResult?.winningIndices)
     : myProgress?.matchedIndices;
 
   // Alternating Turn Number Picking / Marking
   const handleCellClick = (num: number) => {
-    if (isFinished || isRoundOver) return;
+    if (isFinished || isRoundOver || gameState?.phase !== 'PLAYING') return;
 
     const isAlreadyCalled = gameState?.calledNumbers?.includes(num);
 
@@ -582,7 +613,7 @@ function BingoDuelGameContent() {
     if (!isMyTurn) {
       setClaimToast({
         valid: false,
-        message: `⏳ It's ${currentTurnDisplayName}'s turn to pick a number! Please wait.`,
+        message: `It's ${currentTurnDisplayName}'s turn to pick a number! Please wait.`,
         timestamp: Date.now()
       });
       setTimeout(() => {
@@ -597,6 +628,11 @@ function BingoDuelGameContent() {
 
   // Custom 5x5 Board saving handler
   const handleSaveCustomBoard = (customBoard: number[][]) => {
+    // The server only accepts board changes before play starts (BD-1).
+    if (isPlayingOrFinished) {
+      setShowSetupModal(false);
+      return;
+    }
     setBingoBoard(customBoard);
     setShowSetupModal(false);
     setClaimToast({
@@ -634,8 +670,14 @@ function BingoDuelGameContent() {
   const myCompletedLines = gameState?.playerProgress?.[effectiveUserId]?.completedLines || [];
   const currentLinesCount = myCompletedLines.length;
 
+  const currentRoundNo = gameState?.currentRound;
   useEffect(() => {
-    if (!isPlaying) {
+    // Reset per round so announcements for lines 1-4 fire again (BD-23)
+    lastSpokenLineCountRef.current = 0;
+  }, [currentRoundNo]);
+
+  useEffect(() => {
+    if (!isPlaying || gameState?.phase !== 'PLAYING') {
       lastSpokenLineCountRef.current = 0;
       return;
     }
@@ -663,8 +705,8 @@ function BingoDuelGameContent() {
         valid: true,
         message:
           currentLinesCount >= 5
-            ? '🎉 B-I-N-G-O COMPLETE! Claim your victory now!'
-            : `✨ Line completed! Letter [${currentLetter}] unlocked!`,
+            ? 'B-I-N-G-O COMPLETE! Claim your victory now!'
+            : `Line completed! Letter [${currentLetter}] unlocked!`,
         timestamp: Date.now()
       });
       setTimeout(() => {
@@ -673,7 +715,7 @@ function BingoDuelGameContent() {
         );
       }, 4000);
     }
-  }, [isPlaying, currentLinesCount, effectiveUserId]);
+  }, [isPlaying, currentLinesCount, effectiveUserId, gameState?.phase]);
 
   // WebRTC Floating PIP Call Window Setup
   const webRTCMembers = useMemo(() => {
@@ -823,11 +865,17 @@ function BingoDuelGameContent() {
   };
 
   // Sync config from gameState when active
+  // Only when the config content changes; voiceCaller is a local setting and never overwritten (BD-16).
+  const serverConfigKey = gameState?.config ? JSON.stringify(gameState.config) : '';
   useEffect(() => {
-    if (gameState?.config) {
-      setDuelConfig(gameState.config);
+    if (!serverConfigKey) return;
+    try {
+      const { voiceCaller: _ignored, ...rest } = JSON.parse(serverConfigKey);
+      setDuelConfig(prev => ({ ...prev, ...rest }));
+    } catch {
+      // ignore malformed config
     }
-  }, [gameState?.config]);
+  }, [serverConfigKey]);
 
   // Show claim result feedback toast
   useEffect(() => {
@@ -910,7 +958,7 @@ function BingoDuelGameContent() {
 
   const handlePlayWithFriendFromDrawer = (friend: FriendWithStreak) => {
     handleSelectFriendFromDrawer(friend);
-    handlePlayWithPartner(friend.friendUser.id);
+    void handlePlayWithPartner(friend.friendUser.id);
   };
 
   const handleCreateCustomRoom = async () => {
@@ -949,14 +997,14 @@ function BingoDuelGameContent() {
   const handleCopyPartnerCode = () => {
     const code = myPartnerCode || session?.user?.partnerCode;
     if (!code) return;
-    navigator.clipboard.writeText(code);
+    void navigator.clipboard.writeText(code);
     setCopiedPartnerCode(true);
     setTimeout(() => setCopiedPartnerCode(false), 2000);
   };
 
   const handleCopyRoomCode = () => {
     if (!room?.roomCode) return;
-    navigator.clipboard.writeText(room.roomCode);
+    void navigator.clipboard.writeText(room.roomCode);
     setCopiedRoomCode(true);
     setTimeout(() => setCopiedRoomCode(false), 2000);
   };
@@ -970,6 +1018,9 @@ function BingoDuelGameContent() {
       const res = await connectUserPartner(session.token, partnerInputCode.trim());
       if (res?.partner) {
         setPartner(res.partner);
+        setPartnerInputCode('');
+      } else if (partnerRequestNotice(res)) {
+        setPartnerConnectError(partnerRequestNotice(res));
         setPartnerInputCode('');
       }
     } catch (err: any) {
@@ -1002,9 +1053,9 @@ function BingoDuelGameContent() {
         gameType: 'bingo'
       });
       if (res?.deliveredLive) {
-        setPartnerPingStatus(`🚀 Game invite delivered live to ${partner.displayName}!`);
+        setPartnerPingStatus(`Game invite delivered live to ${partner.displayName}!`);
       } else {
-        setPartnerPingStatus(`🔔 Game invite sent to ${partner.displayName}!`);
+        setPartnerPingStatus(`Game invite sent to ${partner.displayName}!`);
       }
       setTimeout(() => setPartnerPingStatus(null), 3000);
     } catch (err: any) {
@@ -1088,7 +1139,7 @@ function BingoDuelGameContent() {
                 animationDuration: '1.2s'
               }}
             >
-              {r.emoji}
+              <ReactionGlyph value={r.emoji} />
             </div>
           ))}
         </div>
@@ -1157,7 +1208,7 @@ function BingoDuelGameContent() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Room: <strong className="text-white font-bold">{room?.roomCode || roomCodeParam}</strong></span>
             </div>
-            {isPipClosed && (
+            {isPipClosed && !isSpectator && (
               <button
                 onClick={() => setIsPipClosed(false)}
                 className="px-3 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-500 border border-rose-500/30 shadow text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
@@ -1174,7 +1225,8 @@ function BingoDuelGameContent() {
         <div className="flex items-center gap-2">
           {roomCodeParam && (
             <>
-              {/* Audio / Mic Toggle */}
+              {!isSpectator && (<>
+{/* Audio / Mic Toggle */}
               <button
                 onClick={toggleMic}
                 className={`w-9 h-9 rounded-xl border transition flex items-center justify-center shadow-xs cursor-pointer ${
@@ -1200,6 +1252,8 @@ function BingoDuelGameContent() {
                 {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
               </button>
 
+
+</>)}
               {/* Chat Drawer Toggle */}
               <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
@@ -1233,7 +1287,8 @@ function BingoDuelGameContent() {
             <HelpCircle className="w-4 h-4" />
           </button>
 
-          {/* Rematch / Restart Button (ONLY IN ROOM) */}
+          {!isSpectator && (<>
+{/* Rematch / Restart Button (ONLY IN ROOM) */}
           {roomCodeParam && (
             <button
               onClick={() => {
@@ -1259,7 +1314,10 @@ function BingoDuelGameContent() {
             </button>
           )}
 
-          {/* Settings Button */}
+
+</>)}
+          {!isSpectator && (<>
+{/* Settings Button */}
           <button
             onClick={() => setShowSettingsModal(true)}
             className="w-9 h-9 rounded-xl border border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.1] text-zinc-300 hover:text-white transition flex items-center justify-center shadow-xs cursor-pointer"
@@ -1267,12 +1325,14 @@ function BingoDuelGameContent() {
           >
             <Settings className="w-4 h-4" />
           </button>
+
+</>)}
         </div>
       </header>
       )}
 
       {/* MOVEABLE FLOATING VIDEO CALL WINDOW (ONLY WHEN IN ACTIVE ROOM) */}
-      {roomCodeParam && !isPipClosed && (
+      {roomCodeParam && !isPipClosed && !isSpectator && (
         <div
           ref={pipRef}
           onMouseDown={handlePipDragStart}
@@ -1304,7 +1364,7 @@ function BingoDuelGameContent() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleMic();
+                  void toggleMic();
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
                   isMicMuted
@@ -1321,7 +1381,7 @@ function BingoDuelGameContent() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleCamera();
+                  void toggleCamera();
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
                   isCameraOn
@@ -1491,6 +1551,7 @@ function BingoDuelGameContent() {
             config={duelConfig}
             onUpdateConfig={partial => {
               setDuelConfig(prev => ({ ...prev, ...partial }));
+              if (Object.keys(partial).length === 1 && 'voiceCaller' in partial) return;
               updateBingoConfig(partial);
             }}
             onStartGame={() => startBingoGame(duelConfig)}
@@ -1506,6 +1567,23 @@ function BingoDuelGameContent() {
         {/* ROOM VIEW: ACTIVE / FINISHED MATCH OR PREVIEW (Pixel-Perfect Cozy Arena) */}
         {((roomCodeParam && isPlayingOrFinished) || isPreview) && (
           <div className="w-full h-full flex flex-col relative overflow-y-auto overflow-x-hidden">
+            {isSpectator ? (
+              <>
+                <SpectatorBanner
+                  className="mx-auto mb-2 w-full max-w-3xl"
+                  count={spectatorCount}
+                  names={spectators}
+                  status={spectatorStatus}
+                  onLeave={handleLeave}
+                />
+                <BingoDuelSpectatorView
+                  players={players}
+                  gameState={gameState}
+                  onToggleChat={() => setIsChatOpen(!isChatOpen)}
+                  isChatOpen={isChatOpen}
+                />
+              </>
+            ) : (
             <BingoCozyArena
               roomCode={room?.roomCode || (isPreview ? 'COZY-DEMO' : roomCodeParam || '')}
               board={myBoard.length === 5 ? myBoard : demoBoard}
@@ -1516,6 +1594,8 @@ function BingoDuelGameContent() {
               completedLines={isPreview ? demoCompletedLines : (myProgress?.completedLines ?? [])}
               winningIndices={winningIndices}
               isMyTurn={isPreview ? true : isMyTurn}
+              turnSecondsLeft={isPreview ? null : turnSeconds}
+              opponentMarkedCount={isPreview ? undefined : opponentMarkedCount}
               currentTurnDisplayName={isPreview ? 'You' : currentTurnDisplayName}
               player1={{
                 displayName: me?.displayName || 'Player 1',
@@ -1547,8 +1627,9 @@ function BingoDuelGameContent() {
               canClaimBingo={Boolean(myProgress?.isCompleted)}
               isFinished={Boolean(isFinished)}
               isRoundOver={isRoundOver}
-              isOpponentLeft={Boolean(isOpponentLeft)}
+              isOpponentLeft={Boolean(isOpponentLeft) || showNewGame}
               onStartNewMatch={handleStartNewMatch}
+              newGameSlot={newGameSlot}
               onNudge={handleNudgeOpponent}
               nudgeCooldown={nudgeCooldown}
               nudgeFeedback={nudgeFeedback}
@@ -1564,6 +1645,7 @@ function BingoDuelGameContent() {
               rematchStatus={rematchStatus}
               effectiveUserId={effectiveUserId}
             />
+            )}
 
             {/* Slide-Over Drawer: Game Chat with Stickers, Reactions, & Drawing */}
             {roomCodeParam && isChatOpen && (
@@ -1712,7 +1794,8 @@ function BingoDuelGameContent() {
                     }}
                   />
 
-                  <form onSubmit={handleSendChat} className="flex items-center gap-2">
+                  {!isSpectator && (<>
+<form onSubmit={handleSendChat} className="flex items-center gap-2">
                     <div className="flex-1 relative flex items-center">
                       <input
                         ref={chatInputRef}
@@ -1739,6 +1822,8 @@ function BingoDuelGameContent() {
                       <Send className="w-4 h-4" />
                     </button>
                   </form>
+</>)}
+
                 </div>
               </div>
             )}
@@ -2339,12 +2424,12 @@ function BingoDuelGameContent() {
           winnerDisplayName={
             isPreview
               ? (me?.displayName || 'You')
-              : (isOpponentLeft ? (me?.displayName || 'You') : (gameState?.winnerDisplayName || lastBingoConditionWon?.displayName || 'Player'))
+              : (isOpponentLeft ? (me?.displayName || 'You') : (duelOutcome.winnerDisplayName || (gameState?.phase === 'FINISHED' && !duelOutcome.winnerUserId ? 'Nobody (draw)' : 'Player')))
           }
           isWinnerMe={
             isPreview
               ? true
-              : (isOpponentLeft ? true : ((gameState?.winnerUserId || lastBingoConditionWon?.userId) === effectiveUserId))
+              : (isOpponentLeft ? true : (Boolean(duelOutcome.winnerUserId) && duelOutcome.winnerUserId === effectiveUserId))
           }
           isOpponentLeft={Boolean(isOpponentLeft)}
           opponentDisplayName={opponent?.displayName || opponentLeftWin?.opponentDisplayName || 'Opponent'}
@@ -2369,6 +2454,9 @@ function BingoDuelGameContent() {
           } : handleLeave}
           rematchStatus={rematchStatus}
           effectiveUserId={effectiveUserId}
+          newGameSlot={newGameSlot}
+          rematchUnavailable={showNewGame && !isOpponentLeft}
+          isSpectator={isSpectator}
         />
       )}
 

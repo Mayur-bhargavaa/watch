@@ -49,7 +49,7 @@ export const BingoPartyPoppers: React.FC<BingoPartyPoppersProps> = ({
 
       const playPop = (delayMs: number, pitch = 1) => {
         setTimeout(() => {
-          if (ctx.state === 'suspended') ctx.resume();
+          if (ctx.state === 'suspended') void ctx.resume();
           const now = ctx.currentTime;
 
           // Noise crack

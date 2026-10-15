@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
 import React, { useMemo } from 'react';
 import { ChessColor, ChessPieceType, ChessPlayerInfo } from '@synccinema/common';
 import { ChessClock } from './ChessClock';
@@ -86,7 +87,7 @@ export const ChessPlayerCard: React.FC<ChessPlayerCardProps> = ({
                 : 'bg-slate-950 text-white border-white/40'
             }`}
           >
-            {isWhite ? '♔' : '♚'}
+            <AppIcon name="crown" className="w-3.5 h-3.5" />
           </span>
         </div>
 

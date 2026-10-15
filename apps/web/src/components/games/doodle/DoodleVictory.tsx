@@ -4,11 +4,16 @@ import React, { useEffect } from 'react';
 import { Trophy, Award, RotateCcw, ArrowLeft, Sparkles, Check, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { DoodleGameState, DoodleRoundSummary } from '@synccinema/common';
+import { resolveFinalWinner } from '../../../lib/doodleView';
 
 interface DoodleVictoryProps {
   gameState: DoodleGameState;
   myUserId: string;
   onRematch: () => void;
+  isSpectator?: boolean;
+  /** Opponent left / server refused a rematch: newGameSlot replaces the Rematch button. */
+  rematchUnavailable?: boolean;
+  newGameSlot?: React.ReactNode;
   rematchStatus?: {
     votedUserIds: string[];
     votedCount: number;
@@ -23,6 +28,9 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
   gameState,
   myUserId,
   onRematch,
+  isSpectator = false,
+  rematchUnavailable = false,
+  newGameSlot,
   rematchStatus,
   player1,
   player2
@@ -30,8 +38,9 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
   const p1Score = gameState.scores[player1.userId] || 0;
   const p2Score = gameState.scores[player2.userId] || 0;
 
-  const isTie = p1Score === p2Score;
-  const winnerUserId = isTie ? null : p1Score > p2Score ? player1.userId : player2.userId;
+  // The server records the real winner (forfeits included) and null on a tie
+  const winnerUserId = resolveFinalWinner(gameState, [player1.userId, player2.userId]);
+  const isTie = !winnerUserId;
   const winner = isTie ? null : winnerUserId === player1.userId ? player1 : player2;
   const isMeWinner = winnerUserId === myUserId;
 
@@ -53,11 +62,11 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
 
         {/* Victory Headline */}
         <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight mb-1 shrink-0">
-          {isTie ? "It's a Draw!" : isMeWinner ? 'Victory! 🏆' : `${winner?.displayName} Wins!`}
+          {isTie ? "It's a Draw!" : isMeWinner ? 'Victory!' : `${winner?.displayName} Wins!`}
         </h2>
         <p className="text-xs sm:text-sm text-zinc-400 mb-3.5 sm:mb-6 leading-snug shrink-0">
           {isTie
-            ? 'Incredible duel! Both players finished with equal points.'
+            ? 'Incredible duel! No winner this time.'
             : isMeWinner
             ? 'Outstanding doodling and guessing skills!'
             : 'Well played! Rematch to reclaim the title.'}
@@ -78,7 +87,7 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
             </span>
             {winnerUserId === player1.userId && (
               <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-400 mt-0.5 truncate max-w-full">
-                Winner 👑
+                Winner
               </span>
             )}
             <span className="text-2xl sm:text-3xl font-black text-white mt-1 sm:mt-2">{p1Score}</span>
@@ -98,7 +107,7 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
             </span>
             {winnerUserId === player2.userId && (
               <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-400 mt-0.5 truncate max-w-full">
-                Winner 👑
+                Winner
               </span>
             )}
             <span className="text-2xl sm:text-3xl font-black text-white mt-1 sm:mt-2">{p2Score}</span>
@@ -115,13 +124,13 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
             <div className="space-y-1.5 max-h-36 sm:max-h-40 overflow-y-auto pr-1">
               {gameState.roundHistory.map(r => (
                 <div
-                  key={r.roundNumber}
+                  key={r.roundNumber ?? r.round}
                   className="w-full flex items-center justify-between p-2 sm:p-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-xs min-w-0"
                 >
                   <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-                    <span className="font-mono text-zinc-500 shrink-0">R{r.roundNumber}</span>
-                    <span className="font-bold text-white uppercase truncate">{r.secretWord}</span>
-                    <span className="text-[10px] text-zinc-400 truncate hidden xs:inline">({r.drawerDisplayName})</span>
+                    <span className="font-mono text-zinc-500 shrink-0">R{r.roundNumber ?? r.round}</span>
+                    <span className="font-bold text-white uppercase truncate">{r.secretWord || r.word}</span>
+                    <span className="text-[10px] text-zinc-400 truncate hidden xs:inline">({r.drawerDisplayName || r.drawerName})</span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
@@ -144,7 +153,8 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
 
         {/* Rematch & Navigation Actions */}
         <div className="w-full flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 shrink-0">
-          <button
+          {rematchUnavailable && !isSpectator ? newGameSlot : null}
+          {!rematchUnavailable && !isSpectator && <button
             type="button"
             onClick={onRematch}
             disabled={hasVotedRematch}
@@ -155,8 +165,8 @@ export const DoodleVictory: React.FC<DoodleVictoryProps> = ({
             }`}
           >
             <RotateCcw className={`w-4 h-4 ${hasVotedRematch ? 'animate-spin' : ''}`} />
-            <span>{hasVotedRematch ? 'Waiting for opponent...' : 'Vote Rematch 🔄'}</span>
-          </button>
+            <span>{hasVotedRematch ? 'Waiting for opponent...' : 'Vote Rematch'}</span>
+          </button>}
 
           <Link
             href="/games"

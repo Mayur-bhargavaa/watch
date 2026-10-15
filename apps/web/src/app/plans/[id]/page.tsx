@@ -1,177 +1,275 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ChevronLeft,
-  Calendar,
-  Clock,
-  Globe,
   Share2,
   Check,
   Bell,
-  Sparkles,
-  Users,
-  Menu,
-  Sun,
-  Moon,
   Plus,
-  Play,
-  Film,
-  Gamepad2,
-  MessageCircle,
   Crown,
   X,
   Download,
   ExternalLink,
   CalendarCheck,
   UserPlus,
-  Send,
-  MessageSquare
+  LogOut,
+  Trash2
 } from 'lucide-react';
+import { formatPlanDate, formatTime12, parseTimeOfDay, REMINDER_MINUTES } from '@synccinema/common';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
-import { useTheme } from '../../../context/ThemeContext';
+import { getStoredSession, UserSession, getFriendsWithStreaks } from '../../../lib/api';
+import { Plan, PlanPreview, RSVPStatus, PlanActivity } from '../../../types/plans';
 import {
-  getStoredSession,
-  UserSession,
-  getApiPlanById,
-  getFriendsWithStreaks
-} from '../../../lib/api';
-import { Plan, RSVPStatus, PlanActivity } from '../../../types/plans';
-import {
-  getPlanById,
+  getPlan,
   updatePlan,
-  updateRSVP,
-  voteOption,
-  addPlanChatMessage,
-  inviteParticipant
-} from '../../../lib/plansStore';
-import { ActivityTimeline } from '../../../components/plans/ActivityTimeline';
+  deletePlan,
+  leavePlan,
+  rsvpPlan,
+  joinPlan,
+  invitePlanFriends,
+  votePlan,
+  addPlanVoteOption,
+  confirmPlanVote,
+  sendPlanChat,
+  isPreview,
+  planInviteLink
+} from '../../../lib/plansApi';
+import { buildIcs, googleCalendarUrl } from '../../../lib/planCalendar';
+import { planIconName, localStartLabel, planBadgeLabel, safeActionUrl } from '../../../lib/planUi';
+import { AppIcon } from '../../../components/ui/AppIcon';
+import { PersonAvatar } from '../../../components/plans/PersonAvatar';
+import { MembershipBadge } from '../../../components/membership/MembershipBadge';
 import { CollaborativeVoting } from '../../../components/plans/CollaborativeVoting';
-import { ParticipantList } from '../../../components/plans/ParticipantList';
 import { EventChat } from '../../../components/plans/EventChat';
+
+const POLL_MS = 15000;
 
 export default function PlanDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const planId = params?.id as string;
-
-  const { resolvedTheme, toggleTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
+  const inviteToken = searchParams?.get('invite') || null;
 
   const [session, setSession] = useState<UserSession | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [preview, setPreview] = useState<PlanPreview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState<'idle' | 'ok' | 'failed'>('idle');
   const [availableFriends, setAvailableFriends] = useState<any[]>([]);
+  const [showMenu, setShowMenu] = useState(false);
+  const [confirming, setConfirming] = useState<'delete' | 'leave' | null>(null);
+  const [joining, setJoining] = useState(false);
 
-  // Invite modal
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
 
-  // Add Step modal
   const [showAddStepModal, setShowAddStepModal] = useState(false);
   const [newStepType, setNewStepType] = useState<'movie' | 'game' | 'hangout'>('game');
   const [newStepTitle, setNewStepTitle] = useState('');
-  const [newStepTime, setNewStepTime] = useState('11:00 PM');
+  const [newStepTime, setNewStepTime] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'schedule' | 'about' | 'attendees' | 'chat'>('schedule');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'people' | 'chat'>('schedule');
   const [attendeesFilter, setAttendeesFilter] = useState<'ALL' | RSVPStatus>('ALL');
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currentUserId = session?.user?.id || 'usr_hN35KGS9RX';
-  const currentUserName = session?.user?.displayName || 'Mayur Bhargava';
+  const currentUserId = session?.user?.id || '';
+  const currentUserName = session?.user?.displayName || '';
   const currentUserAvatar = session?.user?.avatarUrl;
 
-  const loadCurrentPlan = async () => {
+  const showError = useCallback((err: unknown) => {
+    setActionError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    if (errorTimer.current) clearTimeout(errorTimer.current);
+    errorTimer.current = setTimeout(() => setActionError(null), 6000);
+  }, []);
+
+  const loadPlan = useCallback(async () => {
     if (!planId) return;
-    const found = getPlanById(planId);
-    if (found) {
-      setPlan(found);
+    try {
+      const result = await getPlan(planId, inviteToken);
+      if (isPreview(result)) {
+        setPreview(result);
+        setPlan(null);
+      } else {
+        setPlan(result);
+        setPreview(null);
+      }
+      setNotFound(false);
+      setLoadError(null);
+    } catch (err) {
+      if ((err as { status?: number }).status === 404) setNotFound(true);
+      else setLoadError(err instanceof Error ? err.message : 'Could not load this plan');
+    } finally {
       setLoading(false);
     }
-    try {
-      const res = await getApiPlanById(planId);
-      if (res?.plan) {
-        setPlan(res.plan);
-        setLoading(false);
-      }
-    } catch {
-      if (!found) setLoading(false);
-    }
-  };
+  }, [planId, inviteToken]);
 
   useEffect(() => {
     const s = getStoredSession();
-    if (s && s.token) {
-      setSession(s);
-      getFriendsWithStreaks(s.token)
-        .then((res) => {
-          if (res?.friends && Array.isArray(res.friends)) {
-            setAvailableFriends(res.friends.map((f: any) => f.friendUser));
-          }
-        })
-        .catch(() => {});
+    if (!s?.user || s.user.isAnonymous) {
+      const back = `/plans/${planId}${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}`;
+      router.replace(`/login?redirect=${encodeURIComponent(back)}`);
+      return;
     }
-    loadCurrentPlan();
+    setSession(s);
+    getFriendsWithStreaks(s.token)
+      .then((res) => {
+        if (res?.friends && Array.isArray(res.friends)) setAvailableFriends(res.friends.map((f: any) => f.friendUser));
+      })
+      .catch((err) => console.warn('[plan] could not load friends:', err));
+    void loadPlan();
+  }, [planId, inviteToken, router, loadPlan]);
 
-    // Auto poll real event data every 5s so friends' live RSVPs and chat messages appear in real-time
-    const interval = setInterval(() => {
-      if (planId) {
-        getApiPlanById(planId)
-          .then((res) => {
-            if (res?.plan) {
-              setPlan(res.plan);
-            }
-          })
-          .catch(() => {});
-      }
-    }, 5000);
+  // Live-ish updates (friends' RSVPs, chat) only while the tab is visible and the user is a member
+  useEffect(() => {
+    if (!plan) return;
+    const tick = () => {
+      if (!document.hidden) void loadPlan();
+    };
+    const interval = setInterval(tick, POLL_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [plan?.id, loadPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    return () => clearInterval(interval);
-  }, [planId]);
+  /** Runs a server action, applies the returned plan, and shows the server's message when it fails. */
+  const perform = async (action: () => Promise<Plan | void>) => {
+    try {
+      const updated = await action();
+      if (updated) setPlan(updated);
+    } catch (err) {
+      showError(err);
+      void loadPlan(); // show the truth, not what the user tried
+    }
+  };
+
+  const isHost = Boolean(plan) && plan!.hostId === currentUserId;
+  const myParticipant = plan?.participants.find((p) => p.userId === currentUserId);
+  const myStatus: RSVPStatus | undefined = myParticipant?.status;
+
+  const handleRSVP = (status: RSVPStatus) => {
+    if (!plan || status === 'INVITED') return;
+    return perform(() => rsvpPlan(plan.id, status));
+  };
+  const handleVote = (optionId: string) => perform(() => votePlan(plan!.id, optionId));
+  const handleConfirmSelection = (optionId: string) => perform(() => confirmPlanVote(plan!.id, optionId));
+  const handleAddVotingOption = (title: string) => perform(() => addPlanVoteOption(plan!.id, title));
+
+  const handleSendMessage = async (text: string) => {
+    if (!plan) return;
+    try {
+      const message = await sendPlanChat(plan.id, text);
+      setPlan((prev) => (prev ? { ...prev, chatMessages: [...(prev.chatMessages || []), message] } : prev));
+    } catch (err) {
+      showError(err);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!plan) return;
+    try {
+      await navigator.clipboard.writeText(planInviteLink(plan));
+      setCopiedLink('ok');
+    } catch {
+      setCopiedLink('failed');
+    }
+    setTimeout(() => setCopiedLink('idle'), 2500);
+  };
+
+  const handleJoin = async () => {
+    if (!preview || !inviteToken) return;
+    setJoining(true);
+    try {
+      const joined = await joinPlan(preview.id, inviteToken);
+      setPlan(joined);
+      setPreview(null);
+      router.replace(`/plans/${joined.id}`); // drop the token from the address bar
+    } catch (err) {
+      showError(err);
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const handleDeleteOrLeave = async () => {
+    if (!plan || !confirming) return;
+    try {
+      if (confirming === 'delete') await deletePlan(plan.id);
+      else await leavePlan(plan.id);
+      router.push('/plans');
+    } catch (err) {
+      showError(err);
+      setConfirming(null);
+    }
+  };
 
   const handleDownloadICS = () => {
     if (!plan) return;
-    const icsContent = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//StitchByte//Watch Plans//EN',
-      'CALSCALE:GREGORIAN',
-      'METHOD:PUBLISH',
-      'BEGIN:VEVENT',
-      `UID:plan-${plan.id}@stitchbyte.in`,
-      'DTSTAMP:20260920T120000Z',
-      'DTSTART:20260927T153000Z',
-      'DTEND:20260927T190000Z',
-      `SUMMARY:${plan.title}`,
-      `DESCRIPTION:${plan.description || ''} - Join: ${typeof window !== 'undefined' ? window.location.href : ''}`,
-      'LOCATION:Online Watch Party',
-      'STATUS:CONFIRMED',
-      'END:VEVENT',
-      'END:VCALENDAR'
-    ].join('\r\n');
-
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const ics = buildIcs(plan, `${window.location.origin}/plans/${plan.id}`);
+    if (!ics) {
+      showError(new Error('This plan has no valid date/time to export.'));
+      return;
+    }
+    const url = window.URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
     const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
+    link.href = url;
     link.setAttribute('download', `${plan.id}.ics`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
-  const getGoogleCalendarUrl = () => {
-    const startStr = '20260927T153000Z';
-    const endStr = '20260927T190000Z';
-    const title = encodeURIComponent(plan?.title || 'Watch Party');
-    const details = encodeURIComponent(
-      `${plan?.description || ''}\n\nJoin live: ${typeof window !== 'undefined' ? window.location.href : ''}`
-    );
-    const location = encodeURIComponent('Watch App · StitchByte (Online)');
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startStr}/${endStr}&details=${details}&location=${location}`;
+  const getGoogleCalendarUrl = () => (plan ? googleCalendarUrl(plan, `${window.location.origin}/plans/${plan.id}`) || '#' : '#');
+
+  const handleInviteFriend = async (friend: { id: string; displayName: string }) => {
+    if (!plan) return;
+    try {
+      const res = await invitePlanFriends(plan.id, [friend.id]);
+      setPlan(res.plan);
+      setInviteFeedback(`Invited ${friend.displayName}`);
+    } catch (err) {
+      showError(err);
+    }
+    setTimeout(() => setInviteFeedback(null), 2500);
   };
+
+  const handleAddStepSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!plan || !newStepTitle.trim()) return;
+    if (newStepTime && parseTimeOfDay(newStepTime) === null) {
+      showError(new Error('Pick a valid time for this step.'));
+      return;
+    }
+    const newActivity: PlanActivity = {
+      id: `act-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      type: newStepType,
+      time: newStepTime ? formatTime12(newStepTime) : plan.time,
+      title: newStepTitle.trim(),
+      actionLabel: newStepType === 'movie' ? 'Enter Cinema' : newStepType === 'game' ? 'Play Together' : 'Join Chat',
+      actionUrl: newStepType === 'game' ? '/games/ludo' : '/rooms'
+    };
+    await perform(() => updatePlan(plan.id, { activities: [...plan.activities, newActivity] }));
+    setShowAddStepModal(false);
+    setNewStepTitle('');
+    setNewStepTime('');
+  };
+
+  const shell = (children: React.ReactNode) => (
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-x-hidden">
+      <AppSidebar activeNav="plans" isMobileOpen={isMobileSidebarOpen} onMobileClose={() => setIsMobileSidebarOpen(false)} />
+      <main className="flex-1 p-6 sm:p-8 flex flex-col items-center justify-center space-y-4 text-center">{children}</main>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -181,720 +279,343 @@ export default function PlanDetailPage() {
     );
   }
 
-  if (!plan) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-x-hidden">
-        <AppSidebar activeNav="plans" />
-        <main className="flex-1 p-8 flex flex-col items-center justify-center space-y-4">
-          <div className="text-4xl">🔍</div>
-          <h2 className="text-xl font-bold">Plan Not Found</h2>
-          <p className="text-xs text-slate-500">This plan may have been removed or link is invalid.</p>
-          <Link
-            href="/plans"
-            className="px-5 py-2.5 rounded-2xl bg-[#ee1d49] text-white text-xs font-bold"
+  if (preview) {
+    return shell(
+      <div className="w-full max-w-md rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/10 shadow-xs space-y-4">
+        <div><AppIcon name={planIconName(preview)} className="w-12 h-12 text-[#ee1d49]" /></div>
+        <h2 className="text-xl font-black">{preview.title}</h2>
+        <p className="text-xs text-slate-500 dark:text-zinc-400">
+          {preview.hostName} invited you · {formatPlanDate(preview.date)}, {preview.time} ({preview.timezone.split(' ')[0]}) · {preview.participantCount} people
+        </p>
+        {actionError && <p role="alert" className="text-xs font-semibold text-rose-500">{actionError}</p>}
+        {preview.isPast ? (
+          <p className="text-sm font-semibold text-slate-500">This plan is already over.</p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void handleJoin()}
+            disabled={joining || !inviteToken}
+            className="w-full py-3 rounded-2xl bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-sm font-black disabled:opacity-60 cursor-pointer"
           >
-            Back to Plans
-          </Link>
-        </main>
+            {joining ? 'Joining…' : 'Join this plan'}
+          </button>
+        )}
+        <Link href="/plans" className="block text-xs font-bold text-slate-400 hover:text-slate-600">Not now</Link>
       </div>
     );
   }
 
-  const isHost = plan.participants.some((p) => p.userId === currentUserId && p.isHost);
-  const myParticipant = plan.participants.find((p) => p.userId === currentUserId);
-  const myStatus = myParticipant?.status || 'GOING';
+  if (!plan) {
+    return shell(
+      <>
+        <div><AppIcon name={loadError ? 'warning' : 'search'} className="w-10 h-10 text-slate-400" /></div>
+        <h2 className="text-xl font-bold">{loadError ? 'Could not load this plan' : notFound ? 'Plan not found' : 'Plan unavailable'}</h2>
+        <p className="text-xs text-slate-500 max-w-sm">
+          {loadError || 'It may have been removed, or you were not invited. Ask the host for an invite link.'}
+        </p>
+        <div className="flex gap-2">
+          {loadError && (
+            <button type="button" onClick={() => { setLoading(true); void loadPlan(); }} className="px-5 py-2.5 rounded-2xl bg-slate-200 dark:bg-white/10 text-xs font-bold cursor-pointer">
+              Try again
+            </button>
+          )}
+          <Link href="/plans" className="px-5 py-2.5 rounded-2xl bg-[#ee1d49] text-white text-xs font-bold">
+            Back to Plans
+          </Link>
+        </div>
+      </>
+    );
+  }
 
-  const handleRSVP = async (status: RSVPStatus) => {
-    updateRSVP(plan.id, currentUserId, status, currentUserName, currentUserAvatar);
-    loadCurrentPlan();
+  const viewerTime = localStartLabel(plan);
+  const reminderText =
+    plan.reminder && plan.reminder !== 'none'
+      ? `${REMINDER_MINUTES[plan.reminder] >= 1440 ? '1 day' : REMINDER_MINUTES[plan.reminder] >= 60 ? '1 hour' : '30 minutes'} before it starts`
+      : null;
+
+  const counts = {
+    ALL: plan.participants.length,
+    GOING: plan.participants.filter((p) => p.status === 'GOING').length,
+    MAYBE: plan.participants.filter((p) => p.status === 'MAYBE').length,
+    INVITED: plan.participants.filter((p) => p.status === 'INVITED').length,
+    CANT_GO: plan.participants.filter((p) => p.status === 'CANT_GO').length
   };
-
-  const handleVote = async (optionId: string) => {
-    voteOption(plan.id, optionId, currentUserId);
-    loadCurrentPlan();
-  };
-
-  const handleConfirmSelection = async (optionId: string) => {
-    if (!plan.voting) return;
-    const option = plan.voting.options.find((o) => o.id === optionId);
-    if (!option) return;
-
-    const updatedVoting = {
-      ...plan.voting,
-      isClosed: true,
-      confirmedTitle: option.title
-    };
-
-    updatePlan(plan.id, { voting: updatedVoting });
-    loadCurrentPlan();
-  };
-
-  const handleAddVotingOption = async (title: string) => {
-    if (!plan.voting) return;
-    const newOpt = {
-      id: `opt-${Date.now()}`,
-      title,
-      type: plan.voting.type,
-      votes: [currentUserId]
-    };
-    const updatedVoting = {
-      ...plan.voting,
-      options: [...plan.voting.options, newOpt]
-    };
-    updatePlan(plan.id, { voting: updatedVoting });
-    loadCurrentPlan();
-  };
-
-  const handleSendMessage = async (text: string) => {
-    addPlanChatMessage(plan.id, {
-      userId: currentUserId,
-      displayName: currentUserName,
-      avatarUrl: currentUserAvatar,
-      text
-    });
-    loadCurrentPlan();
-  };
-
-  const handleShare = () => {
-    if (typeof window !== 'undefined') {
-      const url = window.location.href;
-      navigator.clipboard.writeText(url);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
-    }
-  };
-
-  const handleAddStepSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newStepTitle.trim()) return;
-
-    const newActivity: PlanActivity = {
-      id: `act-${Date.now()}`,
-      type: newStepType,
-      time: newStepTime || '11:00 PM',
-      title: newStepTitle.trim(),
-      actionLabel:
-        newStepType === 'movie'
-          ? 'Enter Cinema'
-          : newStepType === 'game'
-          ? 'Play Together'
-          : 'Join Chat',
-      actionUrl:
-        newStepType === 'movie'
-          ? '/rooms'
-          : newStepType === 'game'
-          ? '/games/ludo'
-          : '/rooms'
-    };
-
-    const updatedActivities = [...plan.activities, newActivity];
-    updatePlan(plan.id, { activities: updatedActivities });
-    setShowAddStepModal(false);
-    setNewStepTitle('');
-    loadCurrentPlan();
-  };
+  const statusPill = (status: RSVPStatus) =>
+    status === 'GOING'
+      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
+      : status === 'MAYBE'
+      ? 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400'
+      : status === 'INVITED'
+      ? 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-zinc-300'
+      : 'bg-rose-50 text-rose-500 dark:bg-rose-500/15 dark:text-rose-400';
+  const statusLabel = (status: RSVPStatus) => (status === 'GOING' ? 'Going' : status === 'MAYBE' ? 'Maybe' : status === 'INVITED' ? 'No reply yet' : "Can't go");
+  const hostName = plan.participants.find((p) => p.isHost)?.displayName || 'The host';
+  const rsvpOptions: { status: Exclude<RSVPStatus, 'INVITED'>; label: string; on: string }[] = [
+    { status: 'GOING', label: 'Going', on: 'bg-emerald-500 text-white' },
+    { status: 'MAYBE', label: 'Maybe', on: 'bg-amber-500 text-white' },
+    { status: 'CANT_GO', label: "Can't go", on: 'bg-rose-500 text-white' }
+  ];
 
   return (
     <div className="h-screen bg-slate-50 dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-hidden">
-      {/* Centralized App Sidebar - Fixed in place */}
-      <AppSidebar
-        activeNav="plans"
-        isMobileOpen={isMobileSidebarOpen}
-        onMobileClose={() => setIsMobileSidebarOpen(false)}
-      />
+      <AppSidebar activeNav="plans" isMobileOpen={isMobileSidebarOpen} onMobileClose={() => setIsMobileSidebarOpen(false)} />
 
-      {/* Main Content Area - Scrollable */}
       <main className="flex-1 min-w-0 flex flex-col h-screen overflow-y-auto">
-        {/* Top Header Bar matching screenshot */}
-        <header className="flex items-center justify-between px-6 md:px-10 py-4 bg-white/80 dark:bg-[#130e1b]/80 backdrop-blur-md border-b border-slate-200/60 dark:border-white/5 sticky top-0 z-30 shrink-0">
-          <div className="flex items-center space-x-3">
-            <Link
-              href="/plans"
-              className="inline-flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-zinc-200 hover:text-rose-500 dark:hover:text-rose-400 transition group"
-            >
-              <ChevronLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Back to Plans</span>
-            </Link>
-          </div>
+        <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white/80 dark:bg-[#130e1b]/80 backdrop-blur-md border-b border-slate-200/60 dark:border-white/5 sticky top-0 z-30 shrink-0">
+          <Link href="/plans" className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-zinc-200 hover:text-[#ee1d49] transition">
+            <ChevronLeft className="w-4 h-4" />
+            <span>Plans</span>
+          </Link>
 
-          <div className="flex items-center space-x-3">
-            {/* Notification Bell with red dot */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleShare()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-xs font-bold transition cursor-pointer"
+            >
+              {copiedLink === 'ok' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
+              <span>{copiedLink === 'ok' ? 'Link copied' : copiedLink === 'failed' ? 'Copy failed' : 'Share'}</span>
+            </button>
+
             <div className="relative">
               <button
                 type="button"
-                className="w-9 h-9 rounded-full bg-white dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/10 transition cursor-pointer"
+                aria-label="More options"
+                onClick={() => {
+                  setShowMenu(!showMenu);
+                  setConfirming(null);
+                }}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-slate-500 dark:text-zinc-400 transition cursor-pointer text-xs"
               >
-                <Bell className="w-4 h-4" />
-                <span className="absolute 1 top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#ee1d49] ring-2 ring-white dark:ring-[#130e1b]" />
+                •••
               </button>
-            </div>
-
-            {/* Share Button */}
-            <button
-              type="button"
-              onClick={handleShare}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-white/10 transition cursor-pointer shadow-xs"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Share</span>
-                </>
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 rounded-2xl bg-white dark:bg-[#1c162b] border border-slate-200 dark:border-white/10 shadow-xl py-1.5 z-40">
+                  {confirming ? (
+                    <div className="px-3.5 py-2.5 space-y-2.5">
+                      <p className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                        {confirming === 'delete' ? 'Delete this plan for everyone? This cannot be undone.' : 'Leave this plan?'}
+                      </p>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => void handleDeleteOrLeave()} className="flex-1 py-1.5 rounded-xl bg-rose-500 text-white text-xs font-bold cursor-pointer">
+                          {confirming === 'delete' ? 'Delete' : 'Leave'}
+                        </button>
+                        <button type="button" onClick={() => setConfirming(null)} className="flex-1 py-1.5 rounded-xl bg-slate-100 dark:bg-white/10 text-xs font-bold cursor-pointer">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : isHost ? (
+                    <button type="button" onClick={() => setConfirming('delete')} className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 flex items-center gap-2.5 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete plan
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => setConfirming('leave')} className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/10 flex items-center gap-2.5 cursor-pointer">
+                      <LogOut className="w-3.5 h-3.5" /> Leave plan
+                    </button>
+                  )}
+                </div>
               )}
-            </button>
-
-            {/* More options button */}
-            <button
-              type="button"
-              className="w-9 h-9 rounded-xl bg-white dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-white/10 transition cursor-pointer text-xs"
-            >
-              •••
-            </button>
+            </div>
           </div>
         </header>
 
-        {/* Content Container */}
-        <div className="max-w-6xl w-full mx-auto px-4 md:px-8 py-6 space-y-6">
-          {/* Hero Card */}
-          <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs relative overflow-hidden">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-16 md:w-20 md:h-20 shrink-0 rounded-3xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 flex items-center justify-center text-4xl shadow-inner">
-                  {plan.emoji || '🍿'}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] font-black uppercase tracking-wider px-3 py-0.5 rounded-full bg-rose-50 text-[#ff2a5f] dark:bg-[#ff2a5f]/15 border border-rose-200/60 dark:border-[#ff2a5f]/30">
-                      {plan.type}
-                    </span>
-                    {isHost && (
-                      <span className="text-[11px] font-black uppercase tracking-wider px-3 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-200/60 dark:border-amber-500/30 flex items-center gap-1">
-                        <Crown className="w-3 h-3" />
-                        YOU ARE HOST
-                      </span>
-                    )}
-                  </div>
-
-                  <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                    {plan.title}
-                  </h1>
-
-                  <div className="flex items-center gap-3 text-xs font-semibold text-slate-600 dark:text-zinc-300 flex-wrap">
-                    <span className="flex items-center gap-1.5 text-slate-900 dark:text-white font-bold">
-                      <Calendar className="w-4 h-4 text-[#ee1d49]" />
-                      {plan.dateFormatted}
-                    </span>
-                    <span>·</span>
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-slate-400" />
-                      {plan.time} {plan.endTime ? `– ${plan.endTime}` : ''} ({plan.timezone})
-                    </span>
-                    {plan.reminder && plan.reminder !== 'none' && (
-                      <>
-                        <span>·</span>
-                        <span className="flex items-center gap-1 text-slate-400">
-                          <Bell className="w-3.5 h-3.5" />
-                          Reminder: {plan.reminder}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  {plan.description && (
-                    <p className="text-xs md:text-sm text-slate-500 dark:text-zinc-400 max-w-xl">
-                      {plan.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons & RSVP matching screenshot */}
-              <div className="flex flex-col items-start lg:items-end gap-3 shrink-0">
-                {/* RSVP control */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleRSVP('GOING')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                      myStatus === 'GOING'
-                        ? 'bg-[#ff2a5f]/10 border-[#ff2a5f]/30 text-[#ff2a5f] shadow-xs'
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5 text-[#ff2a5f]" />
-                    <span>Going</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRSVP('MAYBE')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                      myStatus === 'MAYBE'
-                        ? 'bg-amber-500/15 border-amber-500/30 text-amber-500 shadow-xs'
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Maybe</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRSVP('CANT_GO')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                      myStatus === 'CANT_GO'
-                        ? 'bg-rose-500/15 border-rose-500/30 text-rose-500 shadow-xs'
-                        : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <X className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Can't Go</span>
-                  </button>
-                </div>
-
-                {/* Share link & Big Pink Invite Friends button */}
-                <div className="flex items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-xs font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-white/10 transition cursor-pointer shadow-xs"
-                  >
-                    <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                    <span>{copiedLink ? 'Copied Link!' : 'Share Invite'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowInviteModal(true)}
-                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#ff2a5f] hover:bg-[#ee1d49] text-white text-xs font-black shadow-md shadow-[#ff2a5f]/25 hover:brightness-105 transition cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Invite Friends</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+        {actionError && (
+          <div role="alert" className="w-full mt-4 px-4 sm:px-8">
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-xs font-semibold text-rose-700 dark:text-rose-300">{actionError}</div>
           </div>
+        )}
 
-          {/* Navigation Tabs matching screenshot media_1789897511705.png */}
-          <div className="flex items-center gap-8 border-b border-slate-200/80 dark:border-white/10 px-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab('schedule')}
-              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
-                activeTab === 'schedule'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
-                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
-              }`}
-            >
-              Schedule
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('about')}
-              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
-                activeTab === 'about'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
-                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
-              }`}
-            >
-              About
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('attendees')}
-              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
-                activeTab === 'attendees'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
-                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
-              }`}
-            >
-              Attendees
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('chat')}
-              className={`pb-3 text-sm transition cursor-pointer border-b-2 font-bold ${
-                activeTab === 'chat'
-                  ? 'border-[#ff2a5f] text-[#ff2a5f] font-black'
-                  : 'border-transparent text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white'
-              }`}
-            >
-              Chat
-            </button>
-          </div>
-
-          {/* TAB 1: SCHEDULE VIEW (matches default 2-column layout) */}
-          {activeTab === 'schedule' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Column (2 Cols) */}
-              <div className="lg:col-span-2 space-y-8">
-                {/* Activity Timeline (Visual Centerpiece) */}
-                <ActivityTimeline
-                  activities={plan.activities}
-                  planTitle={plan.title}
-                  isHost={isHost}
-                  onAddActivity={() => setShowAddStepModal(true)}
-                />
-
-                {/* Collaborative Voting (if applicable) */}
-                {plan.voting && (
-                  <CollaborativeVoting
-                    question={plan.voting.question}
-                    type={plan.voting.type}
-                    options={plan.voting.options}
-                    currentUserId={currentUserId}
-                    isClosed={plan.voting.isClosed}
-                    confirmedTitle={plan.voting.confirmedTitle}
-                    isHost={isHost}
-                    onVote={handleVote}
-                    onConfirmSelection={handleConfirmSelection}
-                    onAddOption={handleAddVotingOption}
-                  />
+        <div className="w-full px-4 sm:px-8 py-6 space-y-6">
+          {/* Title block */}
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#ee1d49] to-[#7c2d92] flex items-center justify-center shrink-0 select-none"><AppIcon name={planIconName(plan)} className="w-7 h-7 text-white" /></div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-bold uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-zinc-300">{planBadgeLabel(plan)}</span>
+                {isHost && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 inline-flex items-center gap-1">
+                    <Crown className="w-3 h-3" /> You&apos;re the host
+                  </span>
                 )}
+                {plan.isPast && <span className="px-2 py-0.5 rounded-full bg-slate-200 dark:bg-white/15 text-slate-600 dark:text-zinc-200">Finished</span>}
+                {plan.recurring && plan.recurring !== 'none' && <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-zinc-300"><AppIcon name="repeat" className="inline w-[1em] h-[1em] align-[-0.125em]" /> {plan.recurring}</span>}
               </div>
-
-              {/* Right Column (1 Col) */}
-              <div className="space-y-6">
-                {/* Attendees List */}
-                <ParticipantList
-                  participants={plan.participants}
-                  currentUserId={currentUserId}
-                  onInviteClick={() => setShowInviteModal(true)}
-                  onUpdateRSVP={handleRSVP}
-                />
-
-                {/* Event Chat */}
-                <EventChat
-                  messages={plan.chatMessages || []}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  currentUserAvatar={currentUserAvatar}
-                  onSendMessage={handleSendMessage}
-                />
-              </div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight">{plan.title}</h1>
+              <p className="text-sm text-slate-600 dark:text-zinc-300">
+                {formatPlanDate(plan.date)} · {plan.time}
+                {plan.endTime ? ` – ${plan.endTime}` : ''} <span className="text-slate-400">({plan.timezone})</span>
+              </p>
+              {viewerTime && !plan.isPast && <p className="text-xs text-slate-400 dark:text-zinc-500">Your time: {viewerTime}</p>}
+              {plan.description && <p className="text-sm text-slate-500 dark:text-zinc-400 pt-1 whitespace-pre-line">{plan.description}</p>}
             </div>
-          )}
+          </div>
 
-          {/* TAB 2: ABOUT VIEW */}
-          {activeTab === 'about' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Left Details (2 Cols) */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Description & Overview */}
-                <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                    About This Plan
-                  </h3>
-                  <p className="text-sm leading-relaxed text-slate-600 dark:text-zinc-300">
-                    {plan.description ||
-                      'Join our synchronized watch session and competitive game night with live banter, voice chat, and synchronized playback!'}
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-white/[0.06]">
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 space-y-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        Date & Time
-                      </span>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">
-                        {plan.dateFormatted} · {plan.time} {plan.endTime ? `– ${plan.endTime}` : ''}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        Timezone: {plan.timezone} (Indian Standard Time)
-                      </p>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 space-y-1">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        Reminder Status
-                      </span>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-[#ff2a5f]" />
-                        {plan.reminder && plan.reminder !== 'none'
-                          ? `Alert set for ${plan.reminder} prior`
-                          : 'No reminder set'}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        Syncs with mobile push & browser notifications
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Activities Breakdown */}
-                <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                    Program Schedule
-                  </h3>
-                  <div className="space-y-3">
-                    {plan.activities.map((act, index) => (
-                      <div
-                        key={act.id}
-                        className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/[0.06] flex items-center justify-between gap-4"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="w-8 h-8 rounded-xl bg-[#ff2a5f]/10 text-[#ff2a5f] font-black text-xs flex items-center justify-center">
-                            #{index + 1}
-                          </span>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                              {act.title}
-                            </h4>
-                            <p className="text-xs text-slate-400">
-                              {act.time} · {act.subtitle || act.type}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Link
-                          href={act.actionUrl || '/rooms'}
-                          className="px-4 py-2 rounded-xl bg-white dark:bg-white/10 text-slate-800 dark:text-white text-xs font-bold border border-slate-200 dark:border-white/10 hover:border-[#ff2a5f] hover:text-[#ff2a5f] transition inline-flex items-center gap-1.5"
-                        >
-                          <span>{act.actionLabel || 'Enter'}</span>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Details (1 Col) */}
-              <div className="space-y-6">
-                {/* Host Card */}
-                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                    Host & Organizer
-                  </h4>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={
-                        plan.participants.find((p) => p.isHost)?.avatarUrl ||
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
-                      }
-                      alt="Host"
-                      className="w-12 h-12 rounded-full object-cover ring-2 ring-[#ff2a5f]/30"
-                    />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-slate-900 dark:text-white">
-                          {plan.participants.find((p) => p.isHost)?.displayName || 'Mayur Bhargava'}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-full bg-[#fff8ee] dark:bg-amber-500/10 text-[#f59e0b] dark:text-amber-400 border border-[#fed7aa] dark:border-amber-500/30 text-[10px] font-black uppercase">
-                          HOST
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400">Event Creator & Stream Director</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Calendar Sync */}
-                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-3">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                    Add to Calendar
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Export event to your personal calendar to never miss when the party starts.
-                  </p>
-
-                  <div className="space-y-2 pt-1">
-                    <a
-                      href={getGoogleCalendarUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-900 dark:text-white text-xs font-bold flex items-center justify-center gap-2 transition"
-                    >
-                      <CalendarCheck className="w-4 h-4 text-[#ff2a5f]" />
-                      <span>Add to Google Calendar</span>
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={handleDownloadICS}
-                      className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-900 dark:text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
-                    >
-                      <Download className="w-4 h-4 text-emerald-500" />
-                      <span>Download .ICS File</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: ATTENDEES VIEW */}
-          {activeTab === 'attendees' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Main Attendees Card (2 Cols) */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                        Guest Roster & RSVPs
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        {plan.participants.length} friends invited to this watch session
-                      </p>
-                    </div>
-
-                    {/* Filter Pills */}
-                    <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-white/5">
-                      {(['ALL', 'GOING', 'MAYBE', 'CANT_GO'] as const).map((status) => {
-                        const count =
-                          status === 'ALL'
-                            ? plan.participants.length
-                            : plan.participants.filter((p) => p.status === status).length;
-                        return (
-                          <button
-                            key={status}
-                            type="button"
-                            onClick={() => setAttendeesFilter(status)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                              attendeesFilter === status
-                                ? 'bg-white dark:bg-white/15 text-slate-900 dark:text-white shadow-xs'
-                                : 'text-slate-400 hover:text-slate-700 dark:hover:text-white'
-                            }`}
-                          >
-                            {status === 'ALL'
-                              ? `All (${count})`
-                              : status === 'GOING'
-                              ? `Going (${count})`
-                              : status === 'MAYBE'
-                              ? `Maybe (${count})`
-                              : `Can't Go (${count})`}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Attendees List matching media_1789897511706.png */}
-                  <div className="divide-y divide-slate-100 dark:divide-white/[0.06]">
-                    {plan.participants
-                      .filter((p) => (attendeesFilter === 'ALL' ? true : p.status === attendeesFilter))
-                      .map((p) => (
-                        <div
-                          key={p.userId}
-                          className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img
-                              src={
-                                p.avatarUrl ||
-                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
-                              }
-                              alt={p.displayName}
-                              className="w-11 h-11 rounded-full object-cover shrink-0 ring-1 ring-slate-200/80 dark:ring-white/10 shadow-xs"
-                            />
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="font-bold text-sm text-slate-900 dark:text-white truncate">
-                                {p.displayName}
-                              </span>
-                              {p.isHost && (
-                                <span className="px-2.5 py-0.5 rounded-full bg-[#fff8ee] dark:bg-amber-500/10 text-[#f59e0b] dark:text-amber-400 border border-[#fed7aa] dark:border-amber-500/30 text-[11px] font-black tracking-wider uppercase inline-flex items-center shrink-0">
-                                  HOST
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <span
-                            className={`px-4 py-1.5 rounded-full font-bold text-xs shrink-0 ${
-                              p.status === 'GOING'
-                                ? 'bg-[#eafaf1] text-[#10b981] dark:bg-emerald-500/15 dark:text-emerald-400'
-                                : p.status === 'MAYBE'
-                                ? 'bg-[#fef9c3] text-[#ca8a04] dark:bg-amber-500/15 dark:text-amber-400'
-                                : 'bg-[#fee2e2] text-[#ef4444] dark:bg-rose-500/15 dark:text-rose-400'
-                            }`}
-                          >
-                            {p.status === 'GOING' ? 'Going' : p.status === 'MAYBE' ? 'Maybe' : "Can't Go"}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Sidebar Action: Invite & Your Status (1 Col) */}
-              <div className="space-y-6">
-                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                    Your Response
-                  </h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP('GOING')}
-                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                        myStatus === 'GOING'
-                          ? 'bg-[#10b981]/15 border-[#10b981]/30 text-[#10b981]'
-                          : 'border-slate-200 dark:border-white/10'
-                      }`}
-                    >
-                      Going
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP('MAYBE')}
-                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                        myStatus === 'MAYBE'
-                          ? 'bg-amber-500/15 border-amber-500/30 text-amber-500'
-                          : 'border-slate-200 dark:border-white/10'
-                      }`}
-                    >
-                      Maybe
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRSVP('CANT_GO')}
-                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                        myStatus === 'CANT_GO'
-                          ? 'bg-rose-500/15 border-rose-500/30 text-rose-500'
-                          : 'border-slate-200 dark:border-white/10'
-                      }`}
-                    >
-                      Can't Go
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-3xl p-6 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs space-y-4">
-                  <h4 className="text-sm font-black uppercase tracking-wider text-slate-400">
-                    Invite More Friends
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    Have friends who want to watch Interstellar or play Ludo? Send them an invite link.
-                  </p>
+          {/* Answer + quick actions */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-3 rounded-2xl bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08]">
+            {!plan.isPast ? (
+              <div className="flex items-center gap-1 p-1 rounded-full bg-slate-100 dark:bg-white/[0.07]">
+                {rsvpOptions.map((o) => (
                   <button
+                    key={o.status}
                     type="button"
-                    onClick={() => setShowInviteModal(true)}
-                    className="w-full py-3 rounded-2xl bg-[#ff2a5f] hover:bg-[#ee1d49] text-white text-xs font-black shadow-md shadow-[#ff2a5f]/25 transition flex items-center justify-center gap-2 cursor-pointer"
+                    onClick={() => void handleRSVP(o.status)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${myStatus === o.status ? o.on : 'text-slate-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-white/10'}`}
                   >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Invite Friends</span>
+                    {o.label}
                   </button>
-                </div>
+                ))}
               </div>
+            ) : (
+              <span className="text-xs text-slate-500">This plan is over.</span>
+            )}
+            {!plan.isPast && myStatus === 'INVITED' && <span className="text-xs text-slate-500 dark:text-zinc-400">Let {hostName} know if you&apos;re coming.</span>}
+
+            <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+              {isHost && !plan.isPast && (
+                <button type="button" onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-xs font-bold transition cursor-pointer">
+                  <Plus className="w-3.5 h-3.5" /> Invite
+                </button>
+              )}
+              <a href={getGoogleCalendarUrl()} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-xs font-bold transition">
+                <CalendarCheck className="w-3.5 h-3.5 text-[#ee1d49]" /> Google Calendar
+              </a>
+              <button type="button" onClick={handleDownloadICS} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-xs font-bold transition cursor-pointer">
+                <Download className="w-3.5 h-3.5" /> .ics
+              </button>
+            </div>
+          </div>
+          {reminderText && !plan.isPast && (
+            <p className="-mt-3 text-xs text-slate-400 dark:text-zinc-500 flex items-center gap-1.5">
+              <Bell className="w-3.5 h-3.5" /> Reminder {reminderText}
+            </p>
+          )}
+
+          {/* Tabs */}
+          <div className="flex items-center gap-6 border-b border-slate-200 dark:border-white/10">
+            {(
+              [
+                ['schedule', 'Schedule', null],
+                ['people', 'People', plan.participants.length],
+                ['chat', 'Chat', plan.chatMessages?.length || null]
+              ] as const
+            ).map(([key, label, count]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveTab(key)}
+                className={`pb-2.5 -mb-px text-sm font-bold border-b-2 transition cursor-pointer ${
+                  activeTab === key ? 'border-[#ee1d49] text-slate-900 dark:text-white' : 'border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200'
+                }`}
+              >
+                {label} {count ? <span className="ml-1 text-xs font-semibold text-slate-400">{count}</span> : null}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'schedule' && (
+            <div className="space-y-5">
+              {plan.activities.length === 0 ? (
+                <p className="p-6 text-center text-sm text-slate-500 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
+                  {isHost ? 'No steps yet. Add a movie, a game or a hangout.' : 'The host has not added any steps yet.'}
+                </p>
+              ) : (
+                <ol className="space-y-2">
+                  {plan.activities.map((act, index) => (
+                    <li key={act.id} className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08]">
+                      <span className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/10 text-xs font-bold text-slate-500 dark:text-zinc-300 flex items-center justify-center shrink-0">{index + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold truncate">{act.title}</div>
+                        <div className="text-xs text-slate-500 dark:text-zinc-400 truncate">
+                          {[act.time, act.subtitle || act.type].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                      <Link href={safeActionUrl(act.actionUrl)} className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-[#ee1d49] hover:text-white text-xs font-bold transition">
+                        <span>{act.actionLabel || 'Open'}</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {isHost && !plan.isPast && (
+                <button type="button" onClick={() => setShowAddStepModal(true)} className="inline-flex items-center gap-1 text-xs font-bold text-[#ee1d49] hover:underline cursor-pointer">
+                  <Plus className="w-3.5 h-3.5" /> Add a step
+                </button>
+              )}
+
+              {plan.voting && (
+                <CollaborativeVoting
+                  question={plan.voting.question}
+                  type={plan.voting.type}
+                  options={plan.voting.options}
+                  currentUserId={currentUserId}
+                  isClosed={plan.voting.isClosed}
+                  confirmedTitle={plan.voting.confirmedTitle}
+                  isHost={isHost}
+                  onVote={handleVote}
+                  onConfirmSelection={isHost ? handleConfirmSelection : undefined}
+                  onAddOption={handleAddVotingOption}
+                />
+              )}
             </div>
           )}
 
-          {/* TAB 4: CHAT VIEW */}
-          {activeTab === 'chat' && (
-            <div className="rounded-3xl p-6 md:p-8 bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08] shadow-xs">
-              <EventChat
-                messages={plan.chatMessages || []}
-                currentUserId={currentUserId}
-                currentUserName={currentUserName}
-                currentUserAvatar={currentUserAvatar}
-                onSendMessage={handleSendMessage}
-              />
+          {activeTab === 'people' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                {(
+                  [
+                    ['ALL', 'All'],
+                    ['GOING', 'Going'],
+                    ['MAYBE', 'Maybe'],
+                    ['INVITED', 'No reply'],
+                    ['CANT_GO', "Can't go"]
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setAttendeesFilter(key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                      attendeesFilter === key ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-slate-100 dark:bg-white/[0.07] text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {label} <span className="opacity-60">{counts[key]}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-1.5">
+                {plan.participants
+                  .filter((p) => attendeesFilter === 'ALL' || p.status === attendeesFilter)
+                  .map((p) => (
+                    <div key={p.userId} className="flex items-center gap-3 p-2.5 rounded-xl bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.08]">
+                      <PersonAvatar name={p.displayName} src={p.avatarUrl} className="w-9 h-9" />
+                      <div className="flex-1 min-w-0 flex items-center gap-2">
+                        <span className="text-sm font-bold truncate">{p.displayName}</span>
+                        {(p.membershipTier === 'plus' || p.membershipTier === 'creator') && <MembershipBadge tier={p.membershipTier} />}
+                        {p.isHost && <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-bold uppercase shrink-0">Host</span>}
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold shrink-0 ${statusPill(p.status)}`}>{statusLabel(p.status)}</span>
+                    </div>
+                  ))}
+              </div>
+              {isHost && !plan.isPast && (
+                <button type="button" onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-1 text-xs font-bold text-[#ee1d49] hover:underline cursor-pointer">
+                  <UserPlus className="w-3.5 h-3.5" /> Invite more friends
+                </button>
+              )}
+              {!isHost && (
+                <button type="button" onClick={() => void handleShare()} className="inline-flex items-center gap-1 text-xs font-bold text-[#ee1d49] hover:underline cursor-pointer">
+                  <Share2 className="w-3.5 h-3.5" /> {copiedLink === 'ok' ? 'Link copied' : 'Copy invite link'}
+                </button>
+              )}
             </div>
+          )}
+
+          {activeTab === 'chat' && (
+            <EventChat messages={plan.chatMessages || []} currentUserId={currentUserId} currentUserName={currentUserName} currentUserAvatar={currentUserAvatar} onSendMessage={handleSendMessage} />
           )}
         </div>
       </main>
@@ -917,19 +638,19 @@ export default function PlanDetailPage() {
             </div>
 
             <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Share the plan link or send an in-app invite directly to your friends on Watch.
+              Share the invite link, or send an in-app invite to your friends on Watch. They get a notification and answer Going / Maybe / Can't go.
             </p>
 
             <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
               <div className="text-xs font-mono text-slate-600 dark:text-zinc-300 truncate">
-                {typeof window !== 'undefined' ? window.location.href : `/plans/${plan.id}`}
+                {planInviteLink(plan)}
               </div>
               <button
                 type="button"
                 onClick={handleShare}
                 className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shrink-0 cursor-pointer"
               >
-                {copiedLink ? 'Copied!' : 'Copy'}
+                {copiedLink === 'ok' ? 'Copied!' : copiedLink === 'failed' ? 'Failed' : 'Copy'}
               </button>
             </div>
 
@@ -948,14 +669,7 @@ export default function PlanDetailPage() {
                         className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-white/5"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <img
-                            src={
-                              f.avatarUrl ||
-                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
-                            }
-                            alt={f.displayName}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
+                          <PersonAvatar name={f.displayName} src={f.avatarUrl} className="w-8 h-8" />
                           <span className="text-xs font-bold truncate text-slate-900 dark:text-white">
                             {f.displayName}
                           </span>
@@ -963,17 +677,7 @@ export default function PlanDetailPage() {
                         <button
                           type="button"
                           disabled={alreadyInvited}
-                          onClick={() => {
-                            inviteParticipant(plan.id, {
-                              userId: f.id,
-                              displayName: f.displayName,
-                              avatarUrl: f.avatarUrl,
-                              status: 'GOING'
-                            });
-                            loadCurrentPlan();
-                            setInviteFeedback(`Invited ${f.displayName}!`);
-                            setTimeout(() => setInviteFeedback(null), 2000);
-                          }}
+                          onClick={() => void handleInviteFriend(f)}
                           className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
                             alreadyInvited
                               ? 'bg-slate-200 dark:bg-white/10 text-slate-400 cursor-default'
@@ -989,18 +693,13 @@ export default function PlanDetailPage() {
               </div>
             )}
 
+            {inviteFeedback && <p role="status" className="text-xs font-semibold text-emerald-600">{inviteFeedback}</p>}
             <button
               type="button"
-              onClick={() => {
-                setInviteFeedback('Invites sent to your friends on Watch!');
-                setTimeout(() => {
-                  setInviteFeedback(null);
-                  setShowInviteModal(false);
-                }, 1500);
-              }}
+              onClick={() => setShowInviteModal(false)}
               className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#ee1d49] to-[#ff3b68] text-white text-xs font-bold shadow-md shadow-[#ee1d49]/30 cursor-pointer"
             >
-              {inviteFeedback || 'Notify All Friends On Watch'}
+              Done
             </button>
           </div>
         </div>
@@ -1038,7 +737,7 @@ export default function PlanDetailPage() {
                         : 'border-slate-200 dark:border-white/10'
                     }`}
                   >
-                    🎬 Movie
+                    <AppIcon name="movie" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Movie
                   </button>
                   <button
                     type="button"
@@ -1049,7 +748,7 @@ export default function PlanDetailPage() {
                         : 'border-slate-200 dark:border-white/10'
                     }`}
                   >
-                    🎮 Game
+                    <AppIcon name="game" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Game
                   </button>
                   <button
                     type="button"
@@ -1060,7 +759,7 @@ export default function PlanDetailPage() {
                         : 'border-slate-200 dark:border-white/10'
                     }`}
                   >
-                    ☕ Hangout
+                    <AppIcon name="coffee" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Hangout
                   </button>
                 </div>
               </div>
@@ -1084,10 +783,9 @@ export default function PlanDetailPage() {
                   Time
                 </label>
                 <input
-                  type="text"
+                  type="time"
                   value={newStepTime}
                   onChange={(e) => setNewStepTime(e.target.value)}
-                  placeholder="11:30 PM"
                   className="w-full px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-900 dark:text-white"
                 />
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { AppIcon } from '../ui/AppIcon';
 import { Flame, Sparkles, X, Trophy, PartyPopper } from 'lucide-react';
 
 interface StreakCelebrationModalProps {
@@ -57,7 +58,7 @@ export const StreakCelebrationModal: React.FC<StreakCelebrationModalProps> = ({
         </span>
 
         <h2 className="text-3xl font-black text-white tracking-tight">
-          🔥 {streakCount} {streakCount === 1 ? 'DAY' : 'DAYS'}
+          <AppIcon name="fire" className="inline w-[1em] h-[1em] align-[-0.125em]" /> {streakCount} {streakCount === 1 ? 'DAY' : 'DAYS'}
         </h2>
 
         <p className="text-sm font-semibold text-rose-400 mt-1">
@@ -75,7 +76,7 @@ export const StreakCelebrationModal: React.FC<StreakCelebrationModalProps> = ({
             onClick={onClose}
             className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition"
           >
-            Keep Watching! 🔥
+            Keep Watching!
           </button>
         </div>
       </div>

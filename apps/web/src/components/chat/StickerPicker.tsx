@@ -1,14 +1,14 @@
 'use client';
 
+import { sanitizeSvg } from '@synccinema/common';
 import React, { useState, useMemo, useRef } from 'react';
 import {
   STICKER_PACK,
   STICKER_CATEGORIES,
   WHATSAPP_REACTION_TAGS,
   TRENDING_GIFS,
-  EMOJI_CATEGORIES,
-  StickerItem
-} from './StickersData';
+  EMOJI_CATEGORIES
+  } from './StickersData';
 import {
   Search,
   X,
@@ -16,11 +16,9 @@ import {
   ImagePlus,
   PenTool,
   Clock,
-  Sparkles,
   Sticker as StickerIcon,
-  Smile,
-  Film
-} from 'lucide-react';
+  Smile
+  } from 'lucide-react';
 
 import { useTheme } from '../../context/ThemeContext';
 
@@ -331,7 +329,7 @@ export function StickerPicker({ onSelectSticker, onClose, onOpenDrawModal }: Sti
                   />
                 ) : sticker.drawingSvg ? (
                   <div
-                    dangerouslySetInnerHTML={{ __html: sticker.drawingSvg }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeSvg(sticker.drawingSvg) ?? '' }}
                     className="w-full h-full flex items-center justify-center group-hover:scale-110 transition-transform"
                   />
                 ) : (
@@ -517,7 +515,7 @@ export const StickerMessageView: React.FC<{ content: string }> = ({ content }) =
           />
         ) : sticker.drawingSvg ? (
           <div
-            dangerouslySetInnerHTML={{ __html: sticker.drawingSvg }}
+            dangerouslySetInnerHTML={{ __html: sanitizeSvg(sticker.drawingSvg) ?? '' }}
             className="w-32 h-32 sm:w-40 sm:h-40 flex items-center justify-center drop-shadow-md"
           />
         ) : (

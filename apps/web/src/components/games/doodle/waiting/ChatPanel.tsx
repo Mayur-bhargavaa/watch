@@ -1,5 +1,6 @@
 'use client';
 
+import { DOODLE_WAITING_REACTIONS } from '../../../../lib/reactionEmojis';
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, Info, Send, Smile, X } from 'lucide-react';
 import { GameRoom } from '@synccinema/common';
@@ -17,7 +18,7 @@ interface ChatPanelProps {
   isDark?: boolean;
 }
 
-const QUICK_REACTIONS = ['❤️', '😂', '🔥', '👏', '🎉'];
+const QUICK_REACTIONS = DOODLE_WAITING_REACTIONS;
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
   room,

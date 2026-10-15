@@ -1,5 +1,6 @@
 'use client';
 
+import { CINEMA_REACTIONS, CINEMA_REACTION_ICONS } from '../../lib/reactionEmojis';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Mic,
@@ -37,6 +38,7 @@ import {
   Film
 } from 'lucide-react';
 import { MediaItem, RoomPlaybackState, Reaction } from '@synccinema/common';
+import { AppIcon, isIconName, type IconName } from '../ui/AppIcon';
 import { YouTubeEmbed } from './YouTubeEmbed';
 import { DirectHTML5Player } from './DirectHTML5Player';
 
@@ -316,7 +318,22 @@ function TheaterEmptyInviteSlot({
   );
 }
 
-const LIVE_REACTIONS = ['❤️', '😂', '🔥', '👏', '🎉', '🎲', '🥳', '🥺'] as const;
+const ROOM_ICON_OPTIONS: { id: IconName; label: string }[] = [
+  { id: 'movie', label: 'Clapper' },
+  { id: 'popcorn', label: 'Popcorn' },
+  { id: 'film', label: 'Film' },
+  { id: 'sparkles', label: 'Sparkles' },
+  { id: 'fire', label: 'Fire' },
+  { id: 'heart', label: 'Heart' },
+  { id: 'rocket', label: 'Rocket' },
+  { id: 'moon', label: 'Moon' },
+  { id: 'food', label: 'Pizza' },
+  { id: 'party', label: 'Party' },
+];
+
+// Reaction payloads are sent to other viewers (chat-like content), so the emoji stay as data; buttons render icons.
+const REACTION_ICONS = CINEMA_REACTION_ICONS;
+const LIVE_REACTIONS = CINEMA_REACTIONS;
 
 export function PixelPerfectTheater({
   media,
@@ -389,15 +406,16 @@ export function PixelPerfectTheater({
   // 🎨 Watch Party Customization State (Persisted in localStorage for room session)
   const [customRoomName, setCustomRoomName] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('synccinema_custom_room_name') || (roomTitle || '🍿 Friday Movie Night');
+      return localStorage.getItem('synccinema_custom_room_name') || (roomTitle || 'Friday Movie Night');
     }
-    return roomTitle || '🍿 Friday Movie Night';
+    return roomTitle || 'Friday Movie Night';
   });
-  const [customRoomEmoji, setCustomRoomEmoji] = useState<string>(() => {
+  const [customRoomEmoji, setCustomRoomEmoji] = useState<IconName>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('synccinema_custom_room_emoji') || '🎬';
+      const stored = localStorage.getItem('synccinema_custom_room_emoji');
+      return isIconName(stored) ? stored : 'movie';
     }
-    return '🎬';
+    return 'movie';
   });
   const [customPrivacy, setCustomPrivacy] = useState<'INVITE_ONLY' | 'PUBLIC' | 'PRIVATE'>(() => {
     if (typeof window !== 'undefined') {
@@ -911,7 +929,7 @@ export function PixelPerfectTheater({
               </div>
               <span className="text-zinc-600 text-sm hidden sm:inline">/</span>
               <div className="flex items-center gap-1.5 truncate max-w-[150px] sm:max-w-[300px]">
-                <span className="text-base sm:text-lg select-none">{customRoomEmoji}</span>
+                <AppIcon name={customRoomEmoji} className="w-4 h-4 sm:w-5 sm:h-5 select-none" />
                 <span className="text-xs sm:text-sm font-semibold text-white tracking-wide truncate">
                   {customRoomName}
                 </span>
@@ -1108,7 +1126,7 @@ export function PixelPerfectTheater({
               <div className="flex items-center gap-1">
                 <span className="text-zinc-200">Connected</span>
                 <span className="text-[8.5px] px-1.5 py-0.2 rounded-full bg-white/10 text-zinc-300 font-semibold">
-                  {customPrivacy === 'INVITE_ONLY' ? '🔒 Invite Only' : customPrivacy === 'PRIVATE' ? '🛡️ Private' : '🌐 Public'}
+                  {customPrivacy === 'INVITE_ONLY' ? 'Invite Only' : customPrivacy === 'PRIVATE' ? 'Private' : 'Public'}
                 </span>
               </div>
               <span className="text-[8px] text-zinc-400 mt-0.5 flex items-center gap-1">
@@ -1130,7 +1148,7 @@ export function PixelPerfectTheater({
                     className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/5 hover:bg-rose-500/25 active:scale-90 transition-all text-base sm:text-lg shrink-0 border border-white/10 hover:border-rose-400/50 flex items-center justify-center shadow-sm cursor-pointer hover:scale-115"
                     title={`React with ${emoji}`}
                   >
-                    {emoji}
+                    <AppIcon name={REACTION_ICONS[emoji] ?? 'sparkles'} className="w-4 h-4 sm:w-5 sm:h-5" label={`React with ${emoji}`} />
                   </button>
                 ))}
               </div>
@@ -1421,21 +1439,21 @@ export function PixelPerfectTheater({
                     </label>
                     <div className="grid grid-cols-4 gap-2">
                       <div className="col-span-1">
-                        <label className="text-[10px] text-zinc-400 mb-1 block">Emoji</label>
+                        <label className="text-[10px] text-zinc-400 mb-1 block">Icon</label>
                         <select
                           value={customRoomEmoji}
                           disabled={!isHost}
                           onChange={(e) => {
-                            setCustomRoomEmoji(e.target.value);
+                            setCustomRoomEmoji(e.target.value as IconName);
                             if (typeof window !== 'undefined') {
                               localStorage.setItem('synccinema_custom_room_emoji', e.target.value);
                             }
                           }}
                           className="w-full py-2 px-2 bg-[#0d1017] border border-white/15 rounded-xl text-center text-lg text-white focus:outline-none focus:border-red-500 cursor-pointer disabled:opacity-50"
                         >
-                          {['🎬', '🍿', '🎥', '✨', '🔥', '💖', '🚀', '🌌', '🍕', '🎉'].map((em) => (
-                            <option key={em} value={em}>
-                              {em}
+                          {ROOM_ICON_OPTIONS.map((em) => (
+                            <option key={em.id} value={em.id}>
+                              {em.label}
                             </option>
                           ))}
                         </select>
@@ -1453,7 +1471,7 @@ export function PixelPerfectTheater({
                               localStorage.setItem('synccinema_custom_room_name', e.target.value);
                             }
                           }}
-                          placeholder="🍿 Friday Movie Night"
+                          placeholder="Friday Movie Night"
                           className="w-full py-2.5 px-3 bg-[#0d1017] border border-white/15 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 disabled:opacity-50"
                         />
                       </div>
@@ -1546,9 +1564,9 @@ export function PixelPerfectTheater({
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { id: 'INVITE_ONLY', label: '🔒 Invite Only', desc: 'Direct link only' },
-                        { id: 'PUBLIC', label: '🌐 Public', desc: 'Visible in lobby' },
-                        { id: 'PRIVATE', label: '🛡️ Private Knock', desc: 'Host approval needed' },
+                        { id: 'INVITE_ONLY', label: 'Invite Only', desc: 'Direct link only' },
+                        { id: 'PUBLIC', label: 'Public', desc: 'Visible in lobby' },
+                        { id: 'PRIVATE', label: 'Private Knock', desc: 'Host approval needed' },
                       ].map((p) => {
                         const isSelected = customPrivacy === p.id;
                         return (
@@ -1575,7 +1593,7 @@ export function PixelPerfectTheater({
                     </div>
                     {customPrivacy === 'PRIVATE' && (
                       <p className="text-[10.5px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-1.5">
-                        🛡️ Knock-to-Join is enabled: Guests will wait at the admission gate until you admit them.
+                        <AppIcon name="shield" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Knock-to-Join is enabled: Guests will wait at the admission gate until you admit them.
                       </p>
                     )}
                   </div>
@@ -1623,8 +1641,8 @@ export function PixelPerfectTheater({
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { id: 'ANYONE', label: '☑ Anyone can start games', desc: 'Any player can launch Ludo, Connect 4, etc.' },
-                        { id: 'HOST_ONLY', label: '☐ Host only', desc: 'Only the room host can launch arcade games' },
+                        { id: 'ANYONE', label: 'Anyone can start games', desc: 'Any player can launch Ludo, Connect 4, etc.' },
+                        { id: 'HOST_ONLY', label: 'Host only', desc: 'Only the room host can launch arcade games' },
                       ].map((perm) => {
                         const isSelected = gamePermission === perm.id;
                         return (

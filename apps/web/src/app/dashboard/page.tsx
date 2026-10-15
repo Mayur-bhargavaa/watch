@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../components/ui/AppIcon';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -367,7 +368,7 @@ export default function DashboardPage() {
     setLoading(false);
 
     // Sync fresh user profile & avatar directly from DB
-    fetchCurrentUser(current.token).then((fresh) => {
+    void fetchCurrentUser(current.token).then((fresh) => {
       if (fresh) {
         setSession(fresh);
         if (fresh.user.displayName) setSettingsName(fresh.user.displayName);
@@ -544,7 +545,7 @@ export default function DashboardPage() {
     const extractedId = extractYouTubeId(searchQuery);
     if (extractedId) {
       const fullYtUrl = `https://www.youtube.com/watch?v=${extractedId}`;
-      handleDirectCreateRoom(`YouTube Party (${extractedId})`, fullYtUrl);
+      void handleDirectCreateRoom(`YouTube Party (${extractedId})`, fullYtUrl);
       return;
     }
 
@@ -1323,7 +1324,7 @@ export default function DashboardPage() {
                           onClick={() => {
                             if (typeof navigator !== 'undefined' && navigator.clipboard) {
                               const url = `${window.location.origin}/room/${r.slug}`;
-                              navigator.clipboard.writeText(url);
+                              void navigator.clipboard.writeText(url);
                             }
                           }}
                           className="text-slate-400 hover:text-slate-900 dark:text-zinc-500 dark:hover:text-white p-0.5 transition shrink-0"
@@ -1376,7 +1377,7 @@ export default function DashboardPage() {
 
               <div className="flex items-center space-x-3">
                 <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-rose-600/20 text-rose-500 dark:text-rose-400 border border-rose-600/30">
-                  👥 Max 6 Persons / Room
+                  <AppIcon name="users" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Max 6 Persons / Room
                 </span>
                 <button
                   onClick={() => handleDirectCreateRoom('Custom Watch Party')}
@@ -1519,7 +1520,7 @@ export default function DashboardPage() {
                 type="button"
                 onClick={() => {
                   if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                    navigator.clipboard.writeText(createdRoomInfo.inviteUrl);
+                    void navigator.clipboard.writeText(createdRoomInfo.inviteUrl);
                     setCopiedLink(true);
                   }
                 }}
@@ -1531,7 +1532,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-500 px-1">
-              <span>👥 Max 6 Persons Allowed</span>
+              <span><AppIcon name="users" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Max 6 Persons Allowed</span>
               <span className="text-slate-600 dark:text-zinc-400">
                 Redirecting in <span className="font-bold text-rose-500 dark:text-rose-400">{redirectCountdown}s</span>...
               </span>
@@ -1580,14 +1581,14 @@ export default function DashboardPage() {
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
                   <span>{session?.user.displayName || 'Profile & Preferences'}</span>
-                  {session?.user.isMarried && <span className="text-xs">💍</span>}
+                  {session?.user.isMarried && <AppIcon name="ring" className="w-3.5 h-3.5" />}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">
                   {session?.user.email || 'Manage your profile and room defaults'}
                 </p>
                 {session?.user.age ? (
                   <p className="text-[10.5px] text-slate-500 dark:text-zinc-400 font-semibold mt-0.5">
-                    🎂 Age: {session.user.age} · {session.user.isMarried && session.user.anniversaryDate ? `Anniversary: ${session.user.anniversaryDate}` : 'Watch Cinema Member'}
+                    <AppIcon name="cake" className="inline w-[1em] h-[1em] align-[-0.125em]" /> Age: {session.user.age} · {session.user.isMarried && session.user.anniversaryDate ? `Anniversary: ${session.user.anniversaryDate}` : 'Watch Cinema Member'}
                   </p>
                 ) : null}
               </div>

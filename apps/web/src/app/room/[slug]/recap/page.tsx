@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Film, Flame, MessageSquare, Users, ArrowLeft, Play, Sparkles } from 'lucide-react';
-import { API_BASE } from '../../../../lib/api';
+import { Flame, MessageSquare, Users, ArrowLeft, Play, Sparkles, Lock, Crown } from 'lucide-react';
+import { API_BASE, authHeaders } from '../../../../lib/api';
 import { ReactionHeatmap } from '../../../../components/social/ReactionHeatmap';
 import { formatSecondsToTimestamp } from '@synccinema/common';
 
@@ -19,7 +19,7 @@ export default function RecapPage() {
   useEffect(() => {
     async function loadRecap() {
       try {
-        const res = await fetch(`${API_BASE}/api/rooms/${slug}/recap`);
+        const res = await fetch(`${API_BASE}/api/rooms/${slug}/recap`, { headers: authHeaders() });
         if (res.ok) {
           const json = await res.json();
           setData(json);
@@ -30,7 +30,7 @@ export default function RecapPage() {
         setIsLoading(false);
       }
     }
-    loadRecap();
+    void loadRecap();
   }, [slug]);
 
   if (isLoading) {
@@ -56,7 +56,27 @@ export default function RecapPage() {
     );
   }
 
-  const { room, heatmap, topMoments, chatHighlights, members } = data;
+  const { room, members } = data;
+  const advanced: boolean = data.advanced === true;
+  const heatmap: any[] = data.heatmap || [];
+  const topMoments: any[] = data.topMoments || [];
+  const chatHighlights: any[] = data.chatHighlights || [];
+  const memberStats: any[] = data.memberStats || [];
+  const totalReactions: number = typeof data.totalReactions === 'number' ? data.totalReactions : heatmap.reduce((acc: number, curr: any) => acc + curr.count, 0);
+  const UpgradeCard = ({ what }: { what: string }) => (
+    <div className="bg-cinema-card rounded-2xl sm:rounded-3xl p-5 border border-dashed border-amber-400/40 flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0"><Lock className="w-4 h-4" /></span>
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-bold text-white">{what}</p>
+          <p className="text-[11px] text-slate-400">Part of the advanced recap in Watch+ (VIP Pass).</p>
+        </div>
+      </div>
+      <Link href="/pricing" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold shrink-0">
+        <Crown className="w-3.5 h-3.5" /> Upgrade
+      </Link>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-cinema-darkest text-slate-100 p-4 sm:p-8 lg:p-12 max-w-5xl mx-auto space-y-5 sm:space-y-8 animate-fadeIn pb-[max(2.5rem,env(safe-area-inset-bottom))]">
@@ -104,7 +124,7 @@ export default function RecapPage() {
             <span className="truncate">Reactions</span>
           </div>
           <div className="text-base sm:text-2xl font-black text-white">
-            {heatmap.reduce((acc: number, curr: any) => acc + curr.count, 0)}
+            {totalReactions}
           </div>
         </div>
 
@@ -113,16 +133,38 @@ export default function RecapPage() {
             <MessageSquare className="w-3.5 h-3.5 text-cinema-emerald shrink-0" />
             <span className="truncate">Comments</span>
           </div>
-          <div className="text-base sm:text-2xl font-black text-white">{chatHighlights.length}</div>
+          <div className="text-base sm:text-2xl font-black text-white">{advanced ? chatHighlights.length : <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" aria-label="Watch+ only" />}</div>
         </div>
       </div>
 
       {/* Reaction Intensity Timeline Heatmap */}
-      <ReactionHeatmap
-        buckets={heatmap}
-        durationSeconds={room.currentMedia?.durationSeconds || 3600}
-        onSeek={(sec) => router.push(`/room/${slug}`)}
-      />
+      {advanced ? (
+        <ReactionHeatmap
+          buckets={heatmap}
+          durationSeconds={room.currentMedia?.durationSeconds || 3600}
+          onSeek={(sec) => router.push(`/room/${slug}`)}
+        />
+      ) : (
+        <UpgradeCard what="Full reaction timeline" />
+      )}
+
+      {/* Per-person stats (Watch+) */}
+      {advanced && memberStats.length > 0 && (
+        <div className="bg-cinema-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-cinema-border space-y-3 shadow-sm">
+          <h2 className="text-xs sm:text-sm font-bold text-white flex items-center space-x-2">
+            <Users className="w-4 h-4 text-cinema-accent shrink-0" />
+            <span>Who did what</span>
+          </h2>
+          <div className="space-y-2">
+            {memberStats.map((m: any) => (
+              <div key={m.userId} className="p-3 bg-cinema-base rounded-xl border border-cinema-border/50 flex items-center justify-between gap-3 text-xs">
+                <span className="font-bold text-slate-100 truncate">{m.userName}</span>
+                <span className="text-slate-400 shrink-0">{m.messages} messages · {m.reactions} reactions{m.topEmoji ? <span className="ml-1.5 text-base align-middle">{m.topEmoji}</span> : null}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Top Reacted Moments */}
       <div className="bg-cinema-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-cinema-border space-y-3 sm:space-y-4 shadow-sm">
@@ -161,6 +203,7 @@ export default function RecapPage() {
       </div>
 
       {/* Chat Highlights */}
+      {!advanced ? <UpgradeCard what="Chat highlights and per-person stats" /> : (
       <div className="bg-cinema-card rounded-2xl sm:rounded-3xl p-4 sm:p-5 border border-cinema-border space-y-3 sm:space-y-4 shadow-sm">
         <h2 className="text-xs sm:text-sm font-bold text-white flex items-center space-x-2">
           <MessageSquare className="w-4 h-4 text-cinema-accent shrink-0" />
@@ -190,6 +233,7 @@ export default function RecapPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Actions: Responsive Stack on mobile */}
       <div className="pt-3 sm:pt-4 flex flex-col-reverse xs:flex-row items-stretch xs:items-center justify-between gap-2.5 sm:gap-4 border-t border-cinema-border/60">

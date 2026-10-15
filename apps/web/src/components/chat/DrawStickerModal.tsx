@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Sparkles, Trash2, Undo2, Send, X, Palette } from 'lucide-react';
 import { formatDrawStickerMessage } from './StickersData';
+import { buildStickerSvg, sanitizeTagline, type DrawStroke, type StickerAnimation } from '../../lib/drawSticker';
 import { useTheme } from '../../context/ThemeContext';
 
 interface DrawStickerModalProps {
@@ -20,24 +21,15 @@ const NEON_PALETTE = [
   { name: 'Pure White', color: '#ffffff', glow: '#ffffff' }
 ];
 
-const ANIMATION_EFFECTS = [
+const ANIMATION_EFFECTS: { id: StickerAnimation; name: string; css: string }[] = [
   { id: 'float', name: 'Floating 🎈', css: 'animate-bounce' },
   { id: 'pulse', name: 'Pulsing 💓', css: 'animate-pulse' },
   { id: 'spin', name: 'Spinning 💫', css: 'animate-spin' },
   { id: 'wiggle', name: 'Wiggle ✨', css: 'hover:rotate-6' }
 ];
 
-interface PathPoint {
-  x: number;
-  y: number;
-}
-
-interface Stroke {
-  points: PathPoint[];
-  color: string;
-  size: number;
-  glow: string;
-}
+/** Drawing space is always 280x280 (it is also the svg viewBox); the canvas bitmap is scaled up for sharp lines on high-DPI screens. */
+const LOGICAL_SIZE = 280;
 
 export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawStickerModalProps) {
   const { resolvedTheme } = useTheme();
@@ -47,10 +39,11 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
   const [selectedColor, setSelectedColor] = useState(NEON_PALETTE[0].color);
   const [brushSize, setBrushSize] = useState(6);
   const [tagline, setTagline] = useState('MADE WITH LOVE ❤️');
-  const [selectedAnim, setSelectedAnim] = useState('float');
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [selectedAnim, setSelectedAnim] = useState<StickerAnimation>('float');
+  const [error, setError] = useState<string | null>(null);
+  const [strokes, setStrokes] = useState<DrawStroke[]>([]);
   const isDrawingRef = useRef(false);
-  const currentStrokeRef = useRef<Stroke | null>(null);
+  const currentStrokeRef = useRef<DrawStroke | null>(null);
 
   // Redraw canvas with high DPI and smooth neon glow
   const renderCanvas = useCallback(() => {
@@ -60,22 +53,30 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Match the bitmap to the screen's pixel ratio (a 280px bitmap is blurry on retina displays)
+      const dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      const pixels = Math.round(LOGICAL_SIZE * dpr);
+      if (canvas.width !== pixels || canvas.height !== pixels) {
+        canvas.width = pixels;
+        canvas.height = pixels;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // from here on, draw in 280x280 logical units
+      ctx.clearRect(0, 0, LOGICAL_SIZE, LOGICAL_SIZE);
 
       // Draw grid texture
       ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.05)';
       ctx.lineWidth = 1;
       const step = 24;
-      for (let x = 0; x < canvas.width; x += step) {
+      for (let x = 0; x < LOGICAL_SIZE; x += step) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.lineTo(x, LOGICAL_SIZE);
         ctx.stroke();
       }
-      for (let y = 0; y < canvas.height; y += step) {
+      for (let y = 0; y < LOGICAL_SIZE; y += step) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.lineTo(LOGICAL_SIZE, y);
         ctx.stroke();
       }
 
@@ -94,6 +95,7 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
 
         ctx.beginPath();
         ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        if (stroke.points.length === 1) ctx.lineTo(stroke.points[0].x, stroke.points[0].y); // a tap is a dot
         for (let i = 1; i < stroke.points.length; i++) {
           ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
         }
@@ -106,6 +108,7 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
 
         ctx.beginPath();
         ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        if (stroke.points.length === 1) ctx.lineTo(stroke.points[0].x, stroke.points[0].y);
         for (let i = 1; i < stroke.points.length; i++) {
           ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
         }
@@ -121,68 +124,43 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
     renderCanvas();
   }, [renderCanvas]);
 
-  const handleStartDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    try {
-      isDrawingRef.current = true;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const touch = 'touches' in e && e.touches.length > 0 ? e.touches[0] : null;
-      const clientX = touch ? touch.clientX : ('clientX' in e ? e.clientX : undefined);
-      const clientY = touch ? touch.clientY : ('clientY' in e ? e.clientY : undefined);
-      if (clientX === undefined || clientY === undefined) return;
-
-      const scaleX = canvas.width / (rect.width || 280);
-      const scaleY = canvas.height / (rect.height || 280);
-      const point = {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY
-      };
-
-      const paletteItem = NEON_PALETTE.find((p) => p.color === selectedColor) || NEON_PALETTE[0];
-      const newStroke: Stroke = {
-        points: [point],
-        color: paletteItem.color,
-        size: brushSize,
-        glow: paletteItem.glow
-      };
-      currentStrokeRef.current = newStroke;
-      setStrokes((prev) => [...prev, newStroke]);
-    } catch (err) {
-      console.warn('handleStartDraw error:', err);
-    }
+  /** Canvas coordinates of a pointer event (the canvas is 280x280 but may be shown larger or smaller). */
+  const pointFromEvent = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (LOGICAL_SIZE / (rect.width || LOGICAL_SIZE)),
+      y: (e.clientY - rect.top) * (LOGICAL_SIZE / (rect.height || LOGICAL_SIZE))
+    };
   };
 
-  const handleDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawingRef.current || !currentStrokeRef.current) return;
+  // Pointer events cover mouse, touch and pen with one code path. (The old mouse + touch handlers also received the
+  // mouse events browsers synthesise after a touch, which added a phantom stroke after every finger stroke.)
+  const handleStartDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault();
     try {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const touch = 'touches' in e && e.touches.length > 0 ? e.touches[0] : null;
-      const clientX = touch ? touch.clientX : ('clientX' in e ? e.clientX : undefined);
-      const clientY = touch ? touch.clientY : ('clientY' in e ? e.clientY : undefined);
-      if (clientX === undefined || clientY === undefined) return;
-
-      const scaleX = canvas.width / (rect.width || 280);
-      const scaleY = canvas.height / (rect.height || 280);
-      const point = {
-        x: (clientX - rect.left) * scaleX,
-        y: (clientY - rect.top) * scaleY
-      };
-
-      currentStrokeRef.current.points.push(point);
-      setStrokes((prev) => {
-        const copy = [...prev];
-        copy[copy.length - 1] = {
-          ...currentStrokeRef.current!,
-          points: [...currentStrokeRef.current!.points]
-        };
-        return copy;
-      });
-    } catch (err) {
-      console.warn('handleDraw error:', err);
+      canvasRef.current.setPointerCapture(e.pointerId); // keep drawing when the pointer leaves the canvas
+    } catch {
+      // not supported: drawing still works inside the canvas
     }
+    isDrawingRef.current = true;
+    setError(null);
+    const paletteItem = NEON_PALETTE.find((p) => p.color === selectedColor) || NEON_PALETTE[0];
+    const newStroke: DrawStroke = { points: [pointFromEvent(e)], color: paletteItem.color, size: brushSize, glow: paletteItem.glow };
+    currentStrokeRef.current = newStroke;
+    setStrokes((prev) => [...prev, newStroke]);
+  };
+
+  const handleDraw = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current || !currentStrokeRef.current || !canvasRef.current) return;
+    currentStrokeRef.current.points.push(pointFromEvent(e));
+    const snapshot = { ...currentStrokeRef.current, points: [...currentStrokeRef.current.points] };
+    setStrokes((prev) => {
+      const copy = [...prev];
+      copy[copy.length - 1] = snapshot;
+      return copy;
+    });
   };
 
   const handleEndDraw = () => {
@@ -198,25 +176,17 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
     setStrokes([]);
   };
 
-  // Convert hand strokes to optimized SVG markup
+  // Convert hand strokes to a compact, sanitiser-safe SVG (long scribbles are simplified so they always fit)
   const handleSend = () => {
-    if (strokes.length === 0) return;
-
-    // Create SVG paths
-    const pathTags = strokes.map((s) => {
-      if (s.points.length === 0) return '';
-      const d = s.points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${Math.round(p.x)} ${Math.round(p.y)}`).join(' ');
-      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.size}" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 ${s.size}px ${s.glow})"/>`;
-    }).join('');
-
-    const animCls = selectedAnim === 'spin' ? 'animate-spin' : selectedAnim === 'pulse' ? 'animate-pulse' : 'animate-bounce';
-
-    const svgMarkup = `<svg viewBox="0 0 280 280" class="w-full h-full ${animCls} drop-shadow-[0_4px_12px_rgba(255,45,117,0.6)]">${pathTags}</svg>`;
-
-    const formatted = formatDrawStickerMessage(svgMarkup, tagline.trim() || 'HAND-DRAWN ✨');
-    onSendDrawnSticker(formatted);
+    const built = buildStickerSvg(strokes, selectedAnim);
+    if (!built.ok) {
+      setError(built.reason === 'empty' ? 'Draw something first.' : 'That drawing is too detailed. Clear it and draw with fewer strokes.');
+      return;
+    }
+    onSendDrawnSticker(formatDrawStickerMessage(built.svg, sanitizeTagline(tagline)));
     onClose();
     setStrokes([]);
+    setError(null);
   };
 
   if (!isOpen) return null;
@@ -282,13 +252,11 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
             ref={canvasRef}
             width={280}
             height={280}
-            onMouseDown={handleStartDraw}
-            onMouseMove={handleDraw}
-            onMouseUp={handleEndDraw}
-            onMouseLeave={handleEndDraw}
-            onTouchStart={handleStartDraw}
-            onTouchMove={handleDraw}
-            onTouchEnd={handleEndDraw}
+            onPointerDown={handleStartDraw}
+            onPointerMove={handleDraw}
+            onPointerUp={handleEndDraw}
+            onPointerCancel={handleEndDraw}
+            style={{ touchAction: 'none' }}
             className="cursor-crosshair w-full h-full block"
           />
 
@@ -395,6 +363,7 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
               onChange={(e) => setTagline(e.target.value)}
               placeholder="Tagline (e.g. MISS YOU, SLAY, BOINK)..."
               maxLength={26}
+              aria-label="Sticker caption"
               className={`w-full px-3 py-1.5 border rounded-xl text-xs focus:outline-hidden transition ${
                 isDark
                   ? 'bg-black/50 border-rose-500/30 text-white placeholder-rose-300/30 focus:border-rose-400'
@@ -403,6 +372,12 @@ export function DrawStickerModal({ isOpen, onClose, onSendDrawnSticker }: DrawSt
             />
           </div>
         </div>
+
+        {error && (
+          <p role="alert" className="text-[11px] font-semibold text-rose-500 -mt-1">
+            {error}
+          </p>
+        )}
 
         {/* Action Buttons: Undo, Clear, and Send */}
         <div

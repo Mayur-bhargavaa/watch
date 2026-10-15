@@ -16,10 +16,16 @@ import {
   MediaChangePayload,
   VoiceSignalPayload,
   VoiceStatePayload,
-  calculateAuthoritativePosition
+  calculateAuthoritativePosition,
+  TIER_INFO,
+  isPremiumTheme,
+  isPremiumReaction,
+  type MembershipTier
 } from '@synccinema/common';
 import { DatabaseService } from '../db/database.js';
 import { mongoLogger } from '../services/mongoLogger.js';
+import { SocketGuard } from '../util/socketGuard.js';
+import { ROOM_PAYLOAD_SCHEMAS } from './schemas.js';
 
 export interface ConnectedClient {
   socket: WebSocket;
@@ -33,6 +39,23 @@ export interface ConnectedClient {
   reactionCountInWindow: number;
   lastChatMessageTime: number;
   isAlive: boolean;
+  /** PRIVATE room guest that the host has not admitted yet: receives nothing, can only knock. */
+  pending?: boolean;
+  /** membership tier at connect time (gates premium themes) */
+  tier?: MembershipTier;
+}
+
+const MAX_TITLE_LEN = 200;
+
+/** Only absolute http(s) URLs may become media sources (blocks javascript:, data:, etc). */
+export function safeHttpUrl(value: unknown, maxLen = 2048): string | null {
+  if (typeof value !== 'string' || value.length > maxLen) return null;
+  try {
+    const u = new URL(value.trim());
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 export class RoomSyncManager {
@@ -45,6 +68,8 @@ export class RoomSyncManager {
   private activeRooms = new Map<string, Room>();
   // roomId -> Screen presenter info
   private activeScreenPresenters = new Map<string, { userId: string; displayName: string }>();
+  // roomId -> userIds the host admitted into a PRIVATE room
+  private admitted = new Map<string, Set<string>>();
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
   constructor(db: DatabaseService) {
@@ -114,7 +139,8 @@ export class RoomSyncManager {
   handleConnection(
     socket: WebSocket,
     room: Room,
-    user: { id: string; displayName: string; avatarUrl?: string | null }
+    user: { id: string; displayName: string; avatarUrl?: string | null },
+    ctx: { capacity?: number; tier?: MembershipTier } = {}
   ): ConnectedClient | null {
     let clientSet = this.roomClients.get(room.id);
     if (!clientSet) {
@@ -142,7 +168,7 @@ export class RoomSyncManager {
     }
 
     // Strict maximum limit: exactly 6 participants per room
-    const MAX_ROOM_CAPACITY = 6;
+    const MAX_ROOM_CAPACITY = ctx.capacity ?? TIER_INFO.free.limits.roomCapacity;
     const activeUserIds = new Set(
       Array.from(clientSet)
         .filter((c) => c.socket.readyState === WebSocket.OPEN || c.socket.readyState === WebSocket.CONNECTING)
@@ -158,7 +184,7 @@ export class RoomSyncManager {
             timestamp: Date.now(),
             payload: {
               code: 'ROOM_CAPACITY_REACHED',
-              message: 'This watch party is full (6/6 participants). Only 6 participants are allowed per room.'
+              message: `This watch party is full (${MAX_ROOM_CAPACITY}/${MAX_ROOM_CAPACITY} participants). Watch+ hosts get larger rooms.`
             }
           })
         );
@@ -195,8 +221,16 @@ export class RoomSyncManager {
       });
     }
 
-    // Save to database
-    this.db.upsertMember(member);
+    // PRIVATE rooms: anyone who is not the host, a previous member, or admitted by the host waits outside.
+    const pending =
+      room.privacy === 'PRIVATE' &&
+      !isHost &&
+      !this.admitted.get(room.id)?.has(user.id) &&
+      !this.db.isRoomMember(room.id, user.id);
+
+    if (!pending) {
+      this.db.upsertMember(member);
+    }
 
     const client: ConnectedClient = {
       socket,
@@ -206,10 +240,12 @@ export class RoomSyncManager {
       roomId: room.id,
       role,
       joinedAt: Date.now(),
+      tier: ctx.tier,
       lastReactionTime: 0,
       reactionCountInWindow: 0,
       lastChatMessageTime: 0,
-      isAlive: true
+      isAlive: true,
+      pending
     };
 
     socket.on('pong', () => {
@@ -222,8 +258,8 @@ export class RoomSyncManager {
     // Send initial authoritative snapshot to the newly joined client
     this.sendStateSnapshot(client, room);
 
-    // Notify other peers in the room
-    this.broadcastToRoom(
+    // Notify other peers in the room (pending guests are invisible until admitted)
+    if (!pending) this.broadcastToRoom(
       room.id,
       {
         type: 'presence:update',
@@ -238,15 +274,17 @@ export class RoomSyncManager {
       client // exclude self
     );
 
-    mongoLogger.logUserJoined(room.id, user.id, user.displayName, role);
+    if (!pending) mongoLogger.logUserJoined(room.id, user.id, user.displayName, role);
 
     // Setup message handler
+    const guard = new SocketGuard(socket, { label: 'room', ratePerSec: 40, burst: 120 }, `${user.displayName} (${user.id})`);
     socket.on('message', (raw) => {
+      const msg = guard.accept(raw);
+      if (!msg) return;
       try {
-        const msg = JSON.parse(raw.toString()) as WSMessage;
-        this.routeMessage(client, room, msg);
+        this.routeMessage(client, room, msg as WSMessage);
       } catch (err) {
-        console.error('Error parsing WS message:', err);
+        guard.failed(msg.type, err);
       }
     });
 
@@ -379,12 +417,27 @@ export class RoomSyncManager {
       this.roomClients.delete(room.id);
     }
     this.activeScreenPresenters.delete(room.id);
+    this.admitted.delete(room.id);
     this.activeRooms.delete(room.id);
     this.activeRooms.delete(room.slug);
   }
 
   // --- Message Router ---
   private routeMessage(client: ConnectedClient, room: Room, msg: WSMessage<any>): void {
+    if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
+    const schema = ROOM_PAYLOAD_SCHEMAS[msg.type];
+    if (schema) {
+      const parsed = schema.safeParse(msg.payload ?? {});
+      if (!parsed.success) {
+        this.sendError(client.socket, 'INVALID_PAYLOAD', `Invalid payload for ${msg.type}`);
+        return;
+      }
+      msg.payload = parsed.data;
+    }
+    if (client.pending) {
+      const knock = msg.type === 'game:action' && msg.payload?.action === 'KNOCK_JOIN_REQUEST';
+      if (!knock && msg.type !== 'room:leave' && msg.type !== 'sync:ping') return;
+    }
     switch (msg.type) {
       case 'room:leave':
         this.handleRoomLeave(client, room);
@@ -568,6 +621,18 @@ export class RoomSyncManager {
       client.reactionCountInWindow = 1;
     }
 
+    if (isPremiumReaction(payload.emoji) && !TIER_INFO[client.tier ?? 'free'].limits.reactionPacks) {
+      try {
+        client.socket.send(JSON.stringify({
+          type: 'error:notification',
+          roomId: room.id,
+          timestamp: now,
+          payload: { code: 'UPGRADE_REQUIRED', message: 'Premium reaction packs are part of Watch+ (VIP Pass).' }
+        }));
+      } catch {}
+      return;
+    }
+
     const reaction: Reaction = {
       id: nanoid(),
       roomId: room.id,
@@ -689,13 +754,18 @@ export class RoomSyncManager {
       return;
     }
 
+    const sourceUrl = safeHttpUrl(payload?.sourceUrl);
+    if (!sourceUrl) {
+      this.sendError(client.socket, 'INVALID_MEDIA', 'Media source must be a valid http(s) URL');
+      return;
+    }
     const media = this.db.createOrGetMedia({
       id: nanoid(),
       provider: payload.provider,
-      providerMediaId: payload.providerMediaId,
-      sourceUrl: payload.sourceUrl,
-      title: payload.title,
-      posterUrl: payload.posterUrl,
+      providerMediaId: typeof payload.providerMediaId === 'string' ? payload.providerMediaId.slice(0, 200) : '',
+      sourceUrl,
+      title: String(payload.title ?? '').replace(/[<>]/g, '').slice(0, MAX_TITLE_LEN),
+      posterUrl: safeHttpUrl(payload.posterUrl) || undefined,
       durationSeconds: payload.durationSeconds || 0
     });
 
@@ -864,6 +934,17 @@ export class RoomSyncManager {
 
   private handleRoomTheme(client: ConnectedClient, room: Room, payload: { themeId: string }): void {
     if (!payload?.themeId) return;
+    if (isPremiumTheme(payload.themeId) && !TIER_INFO[client.tier ?? 'free'].limits.premiumThemes) {
+      try {
+        client.socket.send(JSON.stringify({
+          type: 'error:notification',
+          roomId: room.id,
+          timestamp: Date.now(),
+          payload: { code: 'UPGRADE_REQUIRED', message: 'This theater theme is part of Watch+ (VIP Pass).' }
+        }));
+      } catch {}
+      return;
+    }
     room.themeId = payload.themeId;
     try {
       this.db.updateRoomTheme(room.id, payload.themeId);
@@ -897,16 +978,17 @@ export class RoomSyncManager {
       .filter((m) => activeUserIds.has(m.userId))
       .slice(0, 6);
 
-    const recentChat = this.db.getRecentChatMessages(room.id, 50);
-    const recentReactions = this.db.getRecentReactions(room.id, 30);
+    const pending = Boolean(client.pending);
+    const recentChat = pending ? [] : this.db.getRecentChatMessages(room.id, 50);
+    const recentReactions = pending ? [] : this.db.getRecentReactions(room.id, 30);
 
     const snapshotMessage: WSMessage = {
       type: 'room:state',
       roomId: room.id,
       timestamp: Date.now(),
       payload: {
-        room,
-        members,
+        room: pending ? { ...room, currentMedia: null } : room,
+        members: pending ? [] : members,
         myRole: client.role,
         myUserId: client.userId,
         serverTimestamp: Date.now(),
@@ -929,6 +1011,7 @@ export class RoomSyncManager {
     const data = JSON.stringify(message);
     for (const client of clients) {
       if (excludeClient && client === excludeClient) continue;
+      if (client.pending) continue;
       if (client.socket.readyState === WebSocket.OPEN) {
         client.socket.send(data);
       }
@@ -947,6 +1030,62 @@ export class RoomSyncManager {
   }
 
   private handleGameAction(client: ConnectedClient, room: Room, payload: any): void {
+    if (!payload || typeof payload !== 'object') return;
+
+    // --- Knock-to-join is enforced here, not in the browser ---
+    if (payload.action === 'KNOCK_JOIN_REQUEST') {
+      const forward: WSMessage = {
+        type: 'game:action',
+        roomId: room.id,
+        senderId: client.userId,
+        timestamp: Date.now(),
+        payload: {
+          action: 'KNOCK_JOIN_REQUEST',
+          userId: client.userId, // never trust a client-supplied identity
+          displayName: client.displayName,
+          avatarUrl: client.avatarUrl
+        }
+      };
+      for (const c of this.roomClients.get(room.id) || []) {
+        if (c.role === 'HOST') this.send(c.socket, forward);
+      }
+      return;
+    }
+    if (payload.action === 'KNOCK_JOIN_APPROVED' || payload.action === 'KNOCK_JOIN_DECLINED') {
+      if (client.role !== 'HOST') {
+        this.sendError(client.socket, 'FORBIDDEN', 'Only the host can admit or decline guests');
+        return;
+      }
+      const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId : '';
+      const target = Array.from(this.roomClients.get(room.id) || []).find((c) => c.userId === targetUserId);
+      if (!target) return;
+      const result: WSMessage = {
+        type: 'game:action',
+        roomId: room.id,
+        senderId: client.userId,
+        timestamp: Date.now(),
+        payload: { action: payload.action, targetUserId }
+      };
+      if (payload.action === 'KNOCK_JOIN_APPROVED') {
+        if (!this.admitted.has(room.id)) this.admitted.set(room.id, new Set());
+        this.admitted.get(room.id)!.add(targetUserId);
+        if (target.pending) {
+          target.pending = false;
+          const member: RoomMember = {
+            id: nanoid(), roomId: room.id, userId: target.userId, displayName: target.displayName,
+            avatarUrl: target.avatarUrl, role: 'PARTICIPANT', status: 'WATCHING',
+            joinedAt: new Date().toISOString(), isConnected: true
+          };
+          this.db.upsertMember(member);
+          this.sendStateSnapshot(target, room);
+          this.broadcastToRoom(room.id, { type: 'presence:update', roomId: room.id, senderId: target.userId, timestamp: Date.now(), payload: { member, status: 'JOINED' } }, target);
+        }
+      }
+      this.send(target.socket, result);
+      this.send(client.socket, result);
+      return;
+    }
+
     // Broadcast the game action/state to all participants in the room
     this.broadcastToRoom(room.id, {
       type: 'game:action',

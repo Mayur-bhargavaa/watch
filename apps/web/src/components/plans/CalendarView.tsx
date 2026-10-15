@@ -11,6 +11,8 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Plan } from '../../types/plans';
+import { planIconName } from '../../lib/planUi';
+import { AppIcon } from '../ui/AppIcon';
 
 interface CalendarViewProps {
   plans: Plan[];
@@ -199,8 +201,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ plans }) => {
                 className="group flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-[#151022] border border-slate-200/80 dark:border-white/[0.06] hover:border-[#ee1d49]/40 transition shadow-sm"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center text-xl shrink-0">
-                    {plan.emoji}
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+                    <AppIcon name={planIconName(plan)} className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-[#ee1d49] transition-colors truncate">

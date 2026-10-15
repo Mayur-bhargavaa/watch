@@ -1,5 +1,7 @@
+import { gameRoutePath, gameTitleFor } from './gameRoutes';
 import type { GameRoom, User, GameType, ActiveDeviceSession } from '@synccinema/common';
 import { getClientDeviceInfo, ClientDeviceInfo } from './deviceToken';
+import { notificationStorageKey, LEGACY_NOTIFICATION_KEY } from './notifyHelpers';
 
 const isClient = typeof window !== 'undefined';
 const isRemoteClient = isClient && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
@@ -33,7 +35,60 @@ export interface UserSession {
     favoriteGenres?: string[] | null;
     viewingVibe?: string | null;
     age?: number | null;
+    discoverable?: boolean;
+    membership?: { tier: 'free' | 'plus' | 'creator'; badge: string; badgeLabel: string };
   };
+}
+
+/**
+ * Browser sessions live in an httpOnly cookie that JavaScript cannot read. What we keep in localStorage is
+ * only this placeholder, so existing `Bearer ${token}` call sites keep working: the fetch wrapper below
+ * drops the placeholder header and lets the cookie authenticate the request.
+ */
+export const SESSION_PLACEHOLDER = 'cookie-session';
+
+let apiFetchInstalled = false;
+function installApiFetch(): void {
+  if (apiFetchInstalled || typeof window === 'undefined') return;
+  apiFetchInstalled = true;
+  const original = window.fetch.bind(window);
+  window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+    if (!url.startsWith(API_BASE)) return original(input, init);
+    const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+    if (headers.get('Authorization') === `Bearer ${SESSION_PLACEHOLDER}`) headers.delete('Authorization');
+    headers.set('X-Session-Mode', 'cookie');
+    return original(input, { ...init, headers, credentials: 'include' });
+  };
+  void migrateLegacyToken();
+}
+
+/** One-time upgrade for users who still have a real JWT in localStorage from before cookie sessions. */
+async function migrateLegacyToken(): Promise<void> {
+  try {
+    const raw = localStorage.getItem('synccinema_session');
+    if (!raw) return;
+    const session = JSON.parse(raw) as UserSession;
+    if (!session?.token || session.token === SESSION_PLACEHOLDER) return;
+    const res = await fetch(`${API_BASE}/api/auth/session`, { method: 'POST', headers: { Authorization: `Bearer ${session.token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem('synccinema_session', JSON.stringify({ ...session, token: SESSION_PLACEHOLDER, user: data.user || session.user }));
+    }
+  } catch {}
+}
+
+/** One-time ticket for opening a WebSocket (so no credential ever appears in a URL). */
+export async function getWsTicket(): Promise<string> {
+  const res = await fetch(`${API_BASE}/api/auth/ws-ticket`, { method: 'POST', headers: authHeaders() });
+  if (!res.ok) throw new Error('Not signed in');
+  return (await res.json()).ticket as string;
+}
+
+/** Authorization header from the stored session (empty when signed out). */
+export function authHeaders(): Record<string, string> {
+  const t = getStoredSession()?.token;
+  return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
 export function getStoredSession(): UserSession | null {
@@ -56,35 +111,54 @@ export function setStoredSession(session: UserSession): void {
 
 export function clearStoredSession(): void {
   if (typeof window === 'undefined') return;
+  // Notifications belong to the account: drop them and this browser's push subscription on sign-out
+  try {
+    const userId = getStoredSession()?.user?.id;
+    if (userId) localStorage.removeItem(notificationStorageKey(userId)!);
+    localStorage.removeItem(LEGACY_NOTIFICATION_KEY);
+    localStorage.removeItem('stitchbyte_watch_plans_v5'); // old shared plans cache
+  } catch (err) {
+    console.warn('[session] could not clear stored notifications:', err);
+  }
+  void import('./push').then((m) => m.removePushSubscription()).catch(() => {});
   localStorage.removeItem('synccinema_session');
+  window.dispatchEvent(new Event('synccinema:session-updated'));
+  // Ask the server to expire the httpOnly cookie
+  fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', keepalive: true }).catch(() => {});
 }
 
-export async function checkEmail(email: string): Promise<{
-  exists: boolean;
-  hasPassword?: boolean;
-  displayName?: string;
-  avatarUrl?: string;
-}> {
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/check-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    if (!res.ok) {
-      return { exists: false };
-    }
-    return await res.json();
-  } catch {
-    return { exists: false };
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Could not send the reset email');
   }
 }
 
-export async function setPassword(email: string, newPassword: string): Promise<UserSession> {
-  const res = await fetch(`${API_BASE}/api/auth/set-password`, {
+export async function resetPassword(token: string, newPassword: string): Promise<UserSession> {
+  const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, newPassword })
+    body: JSON.stringify({ token, newPassword })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Could not reset the password');
+  }
+  const session = (await res.json()) as UserSession;
+  setStoredSession(session);
+  return session;
+}
+
+export async function setPassword(_email: string, newPassword: string, currentPassword?: string): Promise<UserSession> {
+  const res = await fetch(`${API_BASE}/api/auth/set-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ newPassword, currentPassword })
   });
 
   if (!res.ok) {
@@ -161,11 +235,12 @@ export interface RegisterPayload {
   age?: number;
 }
 
+/** Signup is verify-first: the account is only created when the emailed link is opened (see verifyEmail). */
 export async function registerUser(
   payloadOrEmail: string | RegisterPayload,
   password?: string,
   displayName?: string
-): Promise<UserSession> {
+): Promise<{ pending: true; message: string }> {
   const body =
     typeof payloadOrEmail === 'object'
       ? payloadOrEmail
@@ -181,7 +256,19 @@ export async function registerUser(
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || 'Failed to register');
   }
+  return res.json();
+}
 
+export async function verifyEmail(token: string): Promise<UserSession> {
+  const res = await fetch(`${API_BASE}/api/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || 'This confirmation link is invalid or has expired.');
+  }
   const session = (await res.json()) as UserSession;
   setStoredSession(session);
   return session;
@@ -231,6 +318,7 @@ export async function updateUserProfile(updates: {
   favoriteGenres?: string[];
   viewingVibe?: string;
   age?: number;
+  discoverable?: boolean;
 }): Promise<UserSession['user']> {
   const current = getStoredSession();
   if (!current?.token) throw new Error('Not authenticated');
@@ -403,35 +491,6 @@ export interface PartnerPing {
   read: boolean;
 }
 
-export async function registerPartnerCode(params: {
-  userId?: string;
-  displayName?: string;
-  customCode?: string;
-  avatarUrl?: string;
-  token?: string;
-}): Promise<{ partnerCode: string; entry: any }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (params.token) headers['Authorization'] = `Bearer ${params.token}`;
-
-  const res = await fetch(`${API_BASE}/api/games/partner/register`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(params)
-  });
-  if (!res.ok) throw new Error('Failed to register partner code');
-  return res.json();
-}
-
-export async function checkPartnerStatus(code: string): Promise<PartnerPresence> {
-  try {
-    const res = await fetch(`${API_BASE}/api/games/partner/${encodeURIComponent(code)}`);
-    if (!res.ok) return { found: false, online: false, partnerCode: code };
-    return await res.json();
-  } catch {
-    return { found: false, online: false, partnerCode: code };
-  }
-}
-
 export async function pingPartner(params: {
   targetCode: string;
   fromCode?: string;
@@ -442,7 +501,7 @@ export async function pingPartner(params: {
 }): Promise<{ success: boolean; deliveredLive: boolean; ping: PartnerPing }> {
   const res = await fetch(`${API_BASE}/api/games/partner/ping`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(params)
   });
   if (!res.ok) {
@@ -461,7 +520,7 @@ export async function sendPartnerNudge(
     link?: string;
   }
 ): Promise<{ success: boolean; deliveredLive: boolean; nudge: any }> {
-  const res = await fetch(`${API_BASE}/api/notifications/nudge`, {
+  const res = await fetch(`${API_BASE}/api/friends/nudge`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -474,27 +533,6 @@ export async function sendPartnerNudge(
     throw new Error(err.error || 'Failed to send nudge');
   }
   return res.json();
-}
-
-export async function getPartnerPings(code: string): Promise<PartnerPing[]> {
-  try {
-    const res = await fetch(`${API_BASE}/api/games/partner/${encodeURIComponent(code)}/pings`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.pings || [];
-  } catch {
-    return [];
-  }
-}
-
-export async function markPartnerPingsRead(code: string): Promise<void> {
-  try {
-    await fetch(`${API_BASE}/api/games/partner/pings/read`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ targetCode: code })
-    });
-  } catch {}
 }
 
 export async function getUserMe(token: string): Promise<{ user: User }> {
@@ -525,7 +563,7 @@ export async function connectUserPartner(
   token: string,
   partnerCode?: string,
   friendUserId?: string
-): Promise<{ success: boolean; partner: any }> {
+): Promise<{ success: boolean; partner?: any; requested?: boolean; pending?: boolean; recipient?: { id: string; displayName: string; avatarUrl: string | null } }> {
   const res = await fetch(`${API_BASE}/api/user/partner/connect`, {
     method: 'POST',
     headers: {
@@ -539,6 +577,45 @@ export async function connectUserPartner(
     throw new Error(data.error || 'Failed to connect partner');
   }
   return res.json();
+}
+
+/** Text for a partner code that created a request instead of linking at once. */
+export function partnerRequestNotice(res: { requested?: boolean; recipient?: { displayName: string } } | null | undefined): string | null {
+  return res?.requested ? `Request sent. Waiting for ${res.recipient?.displayName || 'them'} to accept.` : null;
+}
+
+export interface PartnerRequestRow { userId: string; displayName: string; avatarUrl: string | null; createdAt: number }
+
+async function partnerRequestCall(token: string, path: string, body?: unknown): Promise<any> {
+  const res = await fetch(`${API_BASE}/api/user/partner/requests${path}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+export const getPartnerRequests = (token: string): Promise<{ incoming: PartnerRequestRow[]; outgoing: PartnerRequestRow[] }> => partnerRequestCall(token, '');
+export const acceptPartnerRequest = (token: string, requesterUserId: string) => partnerRequestCall(token, '/accept', { requesterUserId });
+export const declinePartnerRequest = (token: string, requesterUserId: string) => partnerRequestCall(token, '/decline', { requesterUserId });
+export const cancelPartnerRequest = (token: string, recipientUserId: string) => partnerRequestCall(token, '/cancel', { recipientUserId });
+
+export async function getGameInterest(token: string): Promise<string[]> {
+  const res = await fetch(`${API_BASE}/api/games/interest`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error('Could not load your notify list');
+  return (await res.json()).gameIds || [];
+}
+export async function setGameInterest(token: string, gameId: string, on: boolean): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/games/interest${on ? '' : `/${encodeURIComponent(gameId)}`}`, {
+    method: on ? 'POST' : 'DELETE',
+    headers: { Authorization: `Bearer ${token}`, ...(on ? { 'Content-Type': 'application/json' } : {}) },
+    body: on ? JSON.stringify({ gameId }) : undefined
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Could not update your notify list');
+  }
 }
 
 export async function disconnectUserPartner(token: string): Promise<{ success: boolean }> {
@@ -595,8 +672,8 @@ export async function createGameRoom(
   return res.json();
 }
 
-export async function getGameRoom(code: string): Promise<{ room: GameRoom; isFull?: boolean; canJoin?: boolean }> {
-  const res = await fetch(`${API_BASE}/api/games/rooms/${encodeURIComponent(code)}`);
+export async function getGameRoom(code: string): Promise<{ room: GameRoom; isFull?: boolean; canJoin?: boolean; spectatable?: boolean }> {
+  const res = await fetch(`${API_BASE}/api/games/rooms/${encodeURIComponent(code)}`, { headers: authHeaders() });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Failed to get game room');
@@ -708,38 +785,11 @@ export async function joinGameRoomByCode(code: string): Promise<{ room: GameRoom
 }
 
 export function getGameRoute(gameType?: string, roomCode?: string): string {
-  const lower = (gameType || '').toLowerCase();
-  const code = (roomCode || '').toUpperCase();
-
-  let basePath = '/games/ludo';
-  if (lower.includes('tambola') || lower.includes('housie') || code.startsWith('TAMBOLA-')) {
-    basePath = '/games/tambola';
-  } else if (lower.includes('bingo') || code.startsWith('BINGO-')) {
-    basePath = '/games/bingo';
-  } else if (lower.includes('tic') || code.startsWith('TIC-')) {
-    basePath = '/games/tic-tac-toe';
-  } else if (lower.includes('four') || lower.includes('connect') || code.startsWith('FOUR-')) {
-    basePath = '/games/four-in-a-row';
-  } else if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) {
-    basePath = '/games/doodle-duel';
-  } else if (lower.includes('chess') || code.startsWith('CHESS-')) {
-    basePath = '/games/chess';
-  } else if (lower.includes('ludo') || code.startsWith('LUDO-')) {
-    basePath = '/games/ludo';
-  }
-  return roomCode ? `${basePath}?room=${encodeURIComponent(roomCode)}` : basePath;
+  return gameRoutePath(gameType, roomCode);
 }
 
 export function getGameTitle(gameType?: string, roomCode?: string): string {
-  const lower = (gameType || '').toLowerCase();
-  const code = (roomCode || '').toUpperCase();
-  if (lower.includes('tambola') || lower.includes('housie') || code.startsWith('TAMBOLA-')) return 'Tambola';
-  if (lower.includes('bingo') || code.startsWith('BINGO-')) return 'Bingo Duel';
-  if (lower.includes('tic') || code.startsWith('TIC-')) return 'Tic-Tac-Toe';
-  if (lower.includes('four') || lower.includes('connect') || code.startsWith('FOUR-')) return 'Four in a Row';
-  if (lower.includes('doodle') || lower.includes('draw') || lower.includes('pictionary') || code.startsWith('DOODLE-')) return 'Doodle Duel';
-  if (lower.includes('chess') || code.startsWith('CHESS-')) return 'Chess';
-  return 'Ludo';
+  return gameTitleFor(gameType, roomCode);
 }
 
 // =====================================================================
@@ -753,6 +803,8 @@ export interface FriendStreakInfo {
   completedToday: boolean;
   atRisk: boolean;
   totalMinutesWatched: number;
+  /** length of the last run of streak days ending at lastWatchedDate (still set after the streak breaks) */
+  lastRunLength?: number;
 }
 
 export interface FriendUser {
@@ -761,6 +813,7 @@ export interface FriendUser {
   avatarUrl?: string;
   partnerCode: string;
   isOnline: boolean;
+  membershipTier?: 'free' | 'plus' | 'creator';
 }
 
 export interface FriendWithStreak {
@@ -954,106 +1007,6 @@ export async function recordFriendStreak(
   return res.json();
 }
 
-// --- Real Plans API Endpoints ---
-export async function getApiPlans(token?: string): Promise<{ plans: any[] }> {
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans`, { headers });
-  if (!res.ok) throw new Error('Failed to fetch plans');
-  return res.json();
-}
-
-export async function getApiPlanById(id: string, token?: string): Promise<{ plan: any }> {
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans/${id}`, { headers });
-  if (!res.ok) throw new Error('Failed to fetch plan');
-  return res.json();
-}
-
-export async function createApiPlan(plan: any, token?: string): Promise<{ success: boolean; plan: any }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(plan)
-  });
-  if (!res.ok) throw new Error('Failed to create plan');
-  return res.json();
-}
-
-export async function updateApiPlan(id: string, updates: any, token?: string): Promise<{ success: boolean; plan: any }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans/${id}`, {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify(updates)
-  });
-  if (!res.ok) throw new Error('Failed to update plan');
-  return res.json();
-}
-
-export async function updateApiPlanRSVP(
-  planId: string,
-  payload: { userId: string; displayName?: string; avatarUrl?: string | null; status: string },
-  token?: string
-): Promise<{ success: boolean; plan: any }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans/${planId}/rsvp`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) throw new Error('Failed to update RSVP');
-  return res.json();
-}
-
-export async function voteApiPlanOption(
-  planId: string,
-  payload: { optionId: string; userId: string },
-  token?: string
-): Promise<{ success: boolean; plan: any }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans/${planId}/vote`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) throw new Error('Failed to vote');
-  return res.json();
-}
-
-export async function sendApiPlanChatMessage(
-  planId: string,
-  payload: { userId: string; displayName: string; avatarUrl?: string | null; text: string },
-  token?: string
-): Promise<{ success: boolean; message: any; plan: any }> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans/${planId}/chat`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) throw new Error('Failed to send plan chat message');
-  return res.json();
-}
-
-export async function deleteApiPlan(planId: string, token?: string): Promise<{ success: boolean; id: string }> {
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${API_BASE}/api/plans/${planId}`, {
-    method: 'DELETE',
-    headers
-  });
-  if (!res.ok) throw new Error('Failed to delete plan');
-  return res.json();
-}
-
 export interface ActiveFriendInGame {
   friend: {
     id: string;
@@ -1072,6 +1025,10 @@ export interface ActiveFriendInGame {
     maxPlayers: number;
     isHost: boolean;
     joinUrl: string;
+    /** PLAYING rooms of a friend that the caller may watch read-only. */
+    canSpectate?: boolean;
+    spectateUrl?: string;
+    spectatorCount?: number;
   };
 }
 
@@ -1087,4 +1044,4 @@ export async function getActiveFriendsInGames(token: string): Promise<{ success:
   return res.json();
 }
 
-
+installApiFetch();

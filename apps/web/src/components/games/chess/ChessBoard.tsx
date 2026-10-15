@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
 import React, { useState, useMemo, useCallback } from 'react';
 import { Chess, Square } from 'chess.js';
 import { ChessColor, ChessPieceType } from '@synccinema/common';
@@ -18,7 +19,8 @@ interface ChessBoardProps {
   disabled?: boolean;
   isCheckmate?: boolean;
   theme?: 'wood' | 'slate' | 'charcoal';
-  isPracticeMode?: boolean;
+  /** Read-only spectator view: clicking only explains that the board is read-only. */
+  isSpectator?: boolean;
   showHints?: boolean;
   isFlipped?: boolean;
 }
@@ -37,7 +39,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   disabled = false,
   isCheckmate = false,
   theme = 'wood',
-  isPracticeMode = false,
+  isSpectator = false,
   showHints = true,
   isFlipped: propIsFlipped
 }) => {
@@ -49,10 +51,16 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   // Sync flip orientation when player color changes
   React.useEffect(() => {
-    if (!isPracticeMode && propIsFlipped === undefined) {
+    if (propIsFlipped === undefined) {
       setInternalFlipped(playerColor === 'b');
     }
-  }, [playerColor, isPracticeMode, propIsFlipped]);
+  }, [playerColor, propIsFlipped]);
+
+  // Position changed (opponent move, takeback, rematch) or board locked: drop stale selection/promotion
+  React.useEffect(() => {
+    setSelectedSquare(null);
+    setPendingPromotion(null);
+  }, [fen, disabled]);
 
   // Notice auto-dismiss timer
   const triggerNotice = useCallback((msg: string) => {
@@ -75,8 +83,8 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     return chess.board();
   }, [chess]);
 
-  // Can interact if not disabled or in practice mode
-  const canInteract = !disabled || isPracticeMode;
+  // Can interact only when the board is not disabled
+  const canInteract = !disabled;
 
   // Calculate all legal moves for currently selected square
   const legalMovesForSelected = useMemo(() => {
@@ -104,8 +112,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       return;
     }
 
-    if (disabled && !isPracticeMode) {
-      if (turn !== playerColor) {
+    if (disabled) {
+      if (isSpectator) {
+        triggerNotice('You are watching (read-only).');
+      } else if (turn !== playerColor) {
         triggerNotice(`Waiting for Opponent (${turn === 'w' ? 'White' : 'Black'}) to move...`);
       } else {
         triggerNotice('Game is paused or waiting.');
@@ -139,9 +149,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     // Otherwise, click selects/deselects piece
     if (piece) {
       const isTurnColor = piece.color === turn;
-      const isMyPiece = isPracticeMode || piece.color === playerColor;
+      const isMyPiece = piece.color === playerColor;
 
-      if (!isPracticeMode && !isMyPiece) {
+      if (!isMyPiece) {
         triggerNotice(`You play as ${playerColor === 'w' ? 'White' : 'Black'}. Click your own pieces.`);
         setSelectedSquare(null);
         return;
@@ -169,7 +179,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     } else {
       setSelectedSquare(null);
     }
-  }, [chess, selectedSquare, legalTargetSquares, disabled, isPracticeMode, isCheckmate, turn, playerColor, onMove, triggerNotice]);
+  }, [chess, selectedSquare, legalTargetSquares, disabled, isSpectator, isCheckmate, turn, playerColor, onMove, triggerNotice]);
 
   // Promotion modal confirmation
   const handleConfirmPromotion = (promotion: 'q' | 'r' | 'b' | 'n') => {
@@ -212,7 +222,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         {/* Floating Notice / Error Banner */}
         {boardNotice && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 max-w-[90%] px-3.5 py-1.5 rounded-full bg-[#16132b]/95 border border-pink-500/40 text-pink-200 text-[11px] sm:text-xs font-black shadow-2xl flex items-center gap-1.5 backdrop-blur-md animate-fadeIn pointer-events-none">
-            <span className="text-pink-400 text-sm">♟</span>
+            <AppIcon name="crown" className="w-3.5 h-3.5 text-pink-400" />
             <span>{boardNotice}</span>
           </div>
         )}

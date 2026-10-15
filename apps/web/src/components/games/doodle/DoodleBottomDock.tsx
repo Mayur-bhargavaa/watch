@@ -1,5 +1,6 @@
 'use client';
 
+import { DOODLE_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState } from 'react';
 import { Mic, MicOff, Video, VideoOff, MessageCircle, Smile, Settings, LogOut } from 'lucide-react';
 
@@ -14,9 +15,11 @@ interface DoodleBottomDockProps {
   onOpenSettings: () => void;
   onLeave?: () => void;
   isDark?: boolean;
+  /** Spectators only get chat (read) and reactions. */
+  isSpectator?: boolean;
 }
 
-const REACTION_EMOJIS = ['🎨', '🧠', '🔥', '😂', '👏', '🤯', '❤️'];
+const REACTION_EMOJIS = DOODLE_REACTIONS;
 
 export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
   isMuted,
@@ -28,7 +31,8 @@ export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
   onSendReaction,
   onOpenSettings,
   onLeave,
-  isDark = true
+  isDark = true,
+  isSpectator = false
 }) => {
   const [showReactions, setShowReactions] = useState(false);
 
@@ -69,7 +73,8 @@ export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
             : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-slate-100'
         }`}
       >
-        {/* Mic Toggle */}
+        {!isSpectator && (<>
+{/* Mic Toggle */}
         <button
           type="button"
           onClick={onToggleMic}
@@ -111,6 +116,8 @@ export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
           </span>
         </button>
 
+
+</>)}
         {/* Chat Drawer Toggle */}
         <button
           type="button"
@@ -146,7 +153,8 @@ export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
           </span>
         </button>
 
-        {/* More / Settings */}
+        {!isSpectator && (<>
+{/* More / Settings */}
         <button
           type="button"
           onClick={onOpenSettings}
@@ -160,6 +168,8 @@ export const DoodleBottomDock: React.FC<DoodleBottomDockProps> = ({
             More
           </span>
         </button>
+
+</>)}
       </div>
     </div>
   );

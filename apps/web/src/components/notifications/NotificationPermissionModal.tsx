@@ -55,10 +55,10 @@ export const NotificationPermissionModal: React.FC = () => {
 
           <div className="space-y-1.5">
             <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              Stay in the Loop 🔔
+              Stay in the Loop
             </h3>
             <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 max-w-xs mx-auto leading-relaxed">
-              Enable notifications to get witty partner roasts, game challenges, and watch invites even when this tab is closed!
+              Enable notifications to get witty partner roasts, game challenges, and watch invites even while Watch Party is in the background.
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@ export const NotificationPermissionModal: React.FC = () => {
         {permission === 'denied' && (
           <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center space-y-1">
             <p className="text-[11px] text-rose-500 dark:text-rose-400 font-bold">
-              ⚠️ Notifications are blocked in your browser settings.
+              Notifications are blocked in your browser settings.
             </p>
             <p className="text-[10px] text-slate-500 dark:text-zinc-400">
               For <strong>Safari</strong>: Go to <em>Safari &gt; Settings &gt; Websites &gt; Notifications</em> and select <strong>Allow</strong> for this site.
@@ -138,7 +138,7 @@ export const NotificationPermissionModal: React.FC = () => {
         {permission === 'unsupported' && (
           <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1">
             <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold">
-              📱 Using Safari on iPhone / iPad?
+              Using Safari on iPhone / iPad?
             </p>
             <p className="text-[10px] text-slate-500 dark:text-zinc-400">
               In-app alerts are active! To also receive lock-screen alerts on iOS, tap the Share icon and tap <strong>Add to Home Screen</strong>.

@@ -20,7 +20,7 @@ export const RoomCodeCard: React.FC<RoomCodeCardProps> = ({ roomCode, isDark = f
 
   const handleCopyCode = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(roomCode);
+    void navigator.clipboard.writeText(roomCode);
     setCopiedCode(true);
     showToast('Room code copied!');
     setTimeout(() => setCopiedCode(false), 2000);
@@ -44,7 +44,7 @@ export const RoomCodeCard: React.FC<RoomCodeCardProps> = ({ roomCode, isDark = f
       }
     }
 
-    navigator.clipboard.writeText(url);
+    void navigator.clipboard.writeText(url);
     setCopiedLink(true);
     showToast('Room link copied to clipboard!');
     setTimeout(() => setCopiedLink(false), 2000);

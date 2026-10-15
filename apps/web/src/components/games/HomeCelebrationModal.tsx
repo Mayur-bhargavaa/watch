@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Sparkles, Trophy, X, Zap } from 'lucide-react';
+import { AppIcon } from '../ui/AppIcon';
 import { LudoColor } from '@synccinema/common';
 
 interface HomeCelebrationModalProps {
@@ -21,8 +22,7 @@ interface Particle {
   vRot: number;
   size: number;
   color: string;
-  shape: 'rect' | 'circle' | 'star' | 'emoji';
-  emoji?: string;
+  shape: 'rect' | 'circle' | 'star';
   wobble: number;
   wobbleSpeed: number;
   alpha: number;
@@ -47,7 +47,7 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
       const playPopperBlast = (delayMs: number, pitchMultiplier = 1) => {
         setTimeout(() => {
           if (ctx.state === 'suspended') {
-            ctx.resume();
+            void ctx.resume();
           }
           const now = ctx.currentTime;
 
@@ -152,7 +152,6 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
       '#10b981', '#06b6d4', '#8b5cf6', '#ec4899',
       '#ffffff', '#3b82f6'
     ];
-    const emojis = ['🎉', '🎊', '✨', '⭐', '💫', '🚀', '💥', '🏆', '🔥'];
 
     const particles: Particle[] = [];
     const count = isMe ? 180 : 80;
@@ -161,7 +160,6 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
     const spawnParticle = (originX: number, originY: number, angleDegMin: number, angleDegMax: number, speedMin: number, speedMax: number) => {
       const angle = ((Math.random() * (angleDegMax - angleDegMin) + angleDegMin) * Math.PI) / 180;
       const speed = Math.random() * (speedMax - speedMin) + speedMin;
-      const isEmoji = Math.random() < 0.16;
       const shapeRoll = Math.random();
 
       particles.push({
@@ -171,10 +169,9 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
         vy: Math.sin(angle) * speed,
         rotation: Math.random() * Math.PI * 2,
         vRot: (Math.random() - 0.5) * 0.25,
-        size: isEmoji ? 22 + Math.random() * 12 : 7 + Math.random() * 9,
+        size: 7 + Math.random() * 9,
         color: colors[Math.floor(Math.random() * colors.length)],
-        shape: isEmoji ? 'emoji' : shapeRoll < 0.65 ? 'rect' : shapeRoll < 0.85 ? 'circle' : 'star',
-        emoji: isEmoji ? emojis[Math.floor(Math.random() * emojis.length)] : undefined,
+        shape: shapeRoll < 0.65 ? 'rect' : shapeRoll < 0.85 ? 'circle' : 'star',
         wobble: Math.random() * 10,
         wobbleSpeed: 0.08 + Math.random() * 0.08,
         alpha: 1,
@@ -247,12 +244,7 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rotation);
 
-        if (p.shape === 'emoji' && p.emoji) {
-          ctx.font = `${p.size}px sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(p.emoji, 0, 0);
-        } else if (p.shape === 'rect') {
+        if (p.shape === 'rect') {
           // 3D ribbon twist effect via cos(wobble)
           const scaleX = Math.cos(p.wobble);
           ctx.scale(scaleX, 1);
@@ -351,9 +343,9 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
               </div>
 
               {/* Corner Poppers */}
-              <span className="absolute -top-3 -left-3 text-2xl animate-spin" style={{ animationDuration: '4s' }}>✨</span>
-              <span className="absolute -top-2 -right-3 text-2xl animate-bounce">🎉</span>
-              <span className="absolute -bottom-1 -left-3 text-2xl animate-pulse">🚀</span>
+              <span className="absolute -top-3 -left-3 text-2xl animate-spin" style={{ animationDuration: '4s' }}><Sparkles className="w-6 h-6 text-amber-300" /></span>
+              <span className="absolute -top-2 -right-3 text-2xl animate-bounce"><Trophy className="w-6 h-6 text-amber-300" /></span>
+              <span className="absolute -bottom-1 -left-3 text-2xl animate-pulse"><Zap className="w-6 h-6 text-amber-300" /></span>
             </div>
 
             {/* Glowing Big Title */}
@@ -362,7 +354,7 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
                 GOTI REACHED HOME!
               </h2>
               <p className="text-xs sm:text-sm font-bold text-amber-200/90">
-                Pawn safely secured in Home Sanctuary 🏠✨
+                Pawn safely secured in Home Sanctuary
               </p>
             </div>
 
@@ -371,7 +363,7 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
               <Zap className="w-5 h-5 text-amber-300 animate-pulse fill-amber-300" />
               <div className="text-left">
                 <p className="text-xs font-black text-white uppercase tracking-wide">
-                  💥 +1 BONUS ROLL AWARDED!
+                  +1 BONUS ROLL AWARDED!
                 </p>
                 <p className="text-[10px] text-amber-200/80">
                   Take your extra turn immediately!
@@ -394,7 +386,7 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
               className="mt-5 w-full py-3 rounded-2xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-amber-500/40 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4 fill-current" />
-              <span>Let&apos;s Roll Again! 🎲</span>
+              <span>Let&apos;s Roll Again!</span>
             </button>
           </div>
         ) : (
@@ -404,10 +396,10 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
           <div className="relative z-10 flex flex-col items-center">
             <div className="relative mb-3 flex items-center justify-center">
               <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-rose-600 via-pink-600 to-purple-600 flex items-center justify-center shadow-xl shadow-rose-600/40 border-2 border-rose-300/40 animate-pulse">
-                <span className="text-3xl">🥲</span>
+                <AppIcon name="sad" className="w-9 h-9 text-white" />
               </div>
-              <span className="absolute -top-2 -right-2 text-2xl">👀</span>
-              <span className="absolute -bottom-1 -left-2 text-2xl">🚨</span>
+              <span className="absolute -top-2 -right-2"><AppIcon name="eye" className="w-6 h-6 text-rose-200" /></span>
+              <span className="absolute -bottom-1 -left-2"><AppIcon name="warning" className="w-6 h-6 text-amber-300" /></span>
             </div>
 
             <h2 className="text-xl sm:text-2xl font-black text-rose-300 tracking-tight">
@@ -418,7 +410,7 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
             </p>
 
             <div className="mt-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-[11px] text-rose-200 font-medium">
-              🛡️ Stay sharp! Cut their next pawn before they reach the safe lane!
+              <AppIcon name="shield" className="inline w-[1em] h-[1em] align-[-0.125em] mr-1" />Stay sharp! Cut their next pawn before they reach the safe lane!
             </div>
 
             <button
@@ -426,7 +418,7 @@ export const HomeCelebrationModal: React.FC<HomeCelebrationModalProps> = ({
               type="button"
               className="mt-5 w-full py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs uppercase tracking-wider active:scale-95 transition cursor-pointer"
             >
-              Game On! ⚔️
+              Game On!
             </button>
           </div>
         )}

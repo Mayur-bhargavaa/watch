@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../../ui/AppIcon';
 import React from 'react';
 import { Palette, Users, Clock, Sparkles } from 'lucide-react';
 
@@ -13,9 +14,9 @@ export const GameOverview: React.FC<GameOverviewProps> = ({ isDark = false }) =>
       {/* Hand-drawn annotation doodle in top right */}
       <div className="absolute top-2.5 right-3.5 pointer-events-none select-none text-right hidden sm:block">
         <span className="font-serif italic text-[11px] font-bold text-[#ec4899] dark:text-[#f472b6] leading-tight block -rotate-3">
-          Good Drawings<br />Better Friends. ♡
+          Good Drawings<br />Better Friends. 
         </span>
-        <span className="text-[9px] text-[#ff2b70] block">👑</span>
+        <AppIcon name="crown" className="w-3 h-3 text-[#ff2b70] block" />
       </div>
 
       <div className="flex items-center gap-3 mb-2.5">

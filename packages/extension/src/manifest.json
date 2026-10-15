@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "description": "Legitimate social synchronization bridge for SyncCinema watch party rooms.",
   "permissions": [
-    "storage",
-    "tabs"
+    "storage"
   ],
   "host_permissions": [
     "https://*.youtube.com/*",

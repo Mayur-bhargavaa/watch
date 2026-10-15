@@ -38,7 +38,7 @@ export const ReadyState: React.FC<ReadyStateProps> = ({
             }`}
           >
             <Play className={`w-4 h-4 fill-current ${isStarting ? 'animate-spin' : ''}`} />
-            <span>{isStarting ? 'Starting Duel... 🚀' : 'Start Doodle Duel 🚀'}</span>
+            <span>{isStarting ? 'Starting Duel...' : 'Start Doodle Duel'}</span>
           </button>
         </div>
       ) : (

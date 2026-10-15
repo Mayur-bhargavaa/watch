@@ -67,7 +67,7 @@ export const ChessReview: React.FC<ChessReviewProps> = ({ gameState, onClose }) 
     else if (gameState.winnerColor === 'b') pgn += '0-1';
     else if (gameState.status === 'DRAW' || gameState.status === 'STALEMATE') pgn += '1/2-1/2';
 
-    navigator.clipboard.writeText(pgn.trim());
+    void navigator.clipboard.writeText(pgn.trim());
     setCopiedPgn(true);
     setTimeout(() => setCopiedPgn(false), 2000);
   };

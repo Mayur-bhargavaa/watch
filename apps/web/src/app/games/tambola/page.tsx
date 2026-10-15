@@ -1,7 +1,13 @@
 'use client';
 
+import { ReactionGlyph } from '../../../components/ui/ReactionGlyph';
+import { TAMBOLA_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
+import { AppIcon } from '../../../components/ui/AppIcon';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SpectatorBanner } from '../../../components/games/common/SpectatorBanner';
+import { NewGameWithOpponent } from '../../../components/games/common/NewGameWithOpponent';
+import { isSpectateRequested } from '../../../lib/spectator';
 import {
   Ticket,
   Crown,
@@ -40,6 +46,8 @@ import { GameFriendSelectorDrawer } from '../../../components/games/GameFriendSe
 import { BingoRoomConfig } from '@synccinema/common';
 import { UnifiedGameWaitingRoom } from '../../../components/games/common/waiting/UnifiedGameWaitingRoom';
 import { PartyPoppers } from '../../../components/games/common/PartyPoppers';
+import { TAMBOLA_PRIZES, claimablePrizes, recentCalls, seatColor } from '../../../lib/tambolaLogic';
+import type { TambolaPrize } from '../../../lib/tambolaLogic';
 
 const ONES = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
 const TENS = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
@@ -182,7 +190,7 @@ const VideoAvatar = React.memo(function VideoAvatar({
   );
 });
 
-function TambolaGameRoom({ roomCode }: { roomCode: string }) {
+function TambolaGameRoom({ roomCode, spectate = false }: { roomCode: string; spectate?: boolean }) {
   const router = useRouter();
 
   const [session, setSession] = useState<UserSession | null>(null);
@@ -230,6 +238,9 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
     startBingoGame,
     claimBingo,
     markBingoNumber,
+    toggleBingoPause,
+    callNextBingoNumber,
+    error: gameError,
     sendChat,
     sendReaction,
     sendLeave,
@@ -243,19 +254,23 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
     registerCameraListener,
     registerVoiceListener,
     streakCelebration,
-    clearStreakCelebration
-  } = useGameRoom(roomCode);
+    clearStreakCelebration,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    rematchUnavailable
+  } = useGameRoom(roomCode, undefined, { spectate });
 
   // Cross-game redirect guard
   useEffect(() => {
     if (roomCode) {
       const code = roomCode.trim().toUpperCase();
-      if (!code.startsWith('TAMBOLA-') && !code.startsWith('BINGO-') && (code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-'))) {
+      if (!code.startsWith('TAMBOLA-') && (code.startsWith('BINGO-') || code.startsWith('LUDO-') || code.startsWith('TIC-') || code.startsWith('FOUR-') || code.startsWith('DOODLE-') || code.startsWith('CHESS-'))) {
         router.replace(getGameRoute(undefined, roomCode));
         return;
       }
     }
-    if (room?.gameType && room.gameType !== 'tambola' && room.gameType !== 'bingo' && room?.roomCode) {
+    if (room?.gameType && room.gameType !== 'tambola' && room?.roomCode) {
       router.replace(getGameRoute(room.gameType, room.roomCode));
     }
   }, [roomCode, room?.gameType, room?.roomCode, router]);
@@ -263,8 +278,10 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   const effectiveUserId = myUserId || session?.user?.id || '';
 
   // Determine real players from WebSocket room state
-  const me = players.find((p: any) => p.userId === effectiveUserId) || players[0];
-  const opponent = players.find((p: any) => p.userId !== me?.userId);
+  // A spectator is never a player: no fallback to players[0], everyone is shown as an other player.
+  const me = isSpectator ? undefined : (players.find((p: any) => p.userId === effectiveUserId) || players[0]);
+  const opponent = isSpectator ? undefined : players.find((p: any) => p.userId !== me?.userId);
+  const otherPlayers = isSpectator ? players : players.filter((p: any) => p.userId !== me?.userId);
 
   const isHost = room?.hostUserId === effectiveUserId;
   const isWaiting = Boolean(room && room.status === 'WAITING');
@@ -417,6 +434,14 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
     }
   }, [lastBingoClaimResult]);
 
+  // Server errors (bingo:error) surface as a toast; ALREADY_STARTED noise is harmless.
+  useEffect(() => {
+    if (!gameError) return;
+    setClaimToast({ valid: false, message: String(gameError), timestamp: Date.now() });
+    const timer = setTimeout(() => setClaimToast(null), 4500);
+    return () => clearTimeout(timer);
+  }, [gameError]);
+
   // Auto-scroll chat
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -427,7 +452,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   // Copy room invite link
   const handleCopyLink = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };
@@ -435,7 +460,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   // Copy room code
   const handleCopyCode = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(room?.roomCode || roomCode || '');
+    void navigator.clipboard.writeText(room?.roomCode || roomCode || '');
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 3000);
   };
@@ -449,24 +474,28 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   // Participants for call
   const callParticipants = useMemo(() => {
     const list = [...videoGridParticipants];
-    if (opponent && !list.some(p => p.userId === opponent.userId)) {
-      list.push({
-        userId: opponent.userId,
-        displayName: opponent.displayName,
-        stream: null,
-        isMuted: true,
-        isSelf: false,
-        isCameraOn: false
-      });
-    }
+    otherPlayers.forEach((op: any) => {
+      if (!list.some(p => p.userId === op.userId)) {
+        list.push({
+          userId: op.userId,
+          displayName: op.displayName,
+          stream: null,
+          isMuted: true,
+          isSelf: false,
+          isCameraOn: false
+        });
+      }
+    });
     return list;
-  }, [videoGridParticipants, opponent]);
+  }, [videoGridParticipants, otherPlayers]);
 
   // Derived state for live game arena & ticket calculations
   const currentNum = lastBingoCall?.number ?? gameState?.currentNumber ?? null;
   const currentWord = lastBingoCall?.word ?? gameState?.currentNumberWord ?? (currentNum ? formatNumberWord(currentNum) : 'READY');
-  const lastCalled: number[] = lastBingoCall?.calledNumbers ?? gameState?.lastCalledNumbers ?? [];
-  const remaining: number = lastBingoCall?.remainingCount ?? gameState?.callQueue?.length ?? 90;
+  // Prefer the authoritative full history (state or last event) and derive the newest five from it.
+  const calledHistory: number[] = gameState?.calledNumbers ?? lastBingoCall?.calledNumbers ?? [];
+  const lastCalled: number[] = recentCalls(calledHistory, 5);
+  const remaining: number = gameState?.remainingCount ?? lastBingoCall?.remainingCount ?? Math.max(0, 90 - calledHistory.length);
 
   // Real Ticket data
   const serverTicket = gameState?.tickets?.[me?.userId || ''];
@@ -480,11 +509,22 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
   // Real Marked numbers from server
   const serverMarkedList: number[] = gameState?.playerMarked?.[me?.userId || ''] || [];
-  const myMarkedSet = useMemo(() => {
+  // Preview marks (before the game starts) live in their own state so no memoised Set is mutated.
+  const [previewMarked, setPreviewMarked] = useState<Set<number>>(new Set());
+  const liveMarkedSet = useMemo(() => {
     const s = new Set<number>(serverMarkedList);
     localMarked.forEach((n: number) => s.add(n));
     return s;
   }, [serverMarkedList, localMarked]);
+  const myMarkedSet = isPlaying || isFinished ? liveMarkedSet : previewMarked;
+
+  // New ticket (new game / rematch): drop every local mark from the previous game.
+  const ticketKey = serverTicket?.cells ? JSON.stringify(serverTicket.cells) : '';
+  useEffect(() => {
+    setLocalMarked(new Set());
+    markedSentRef.current = new Set();
+    setPreviewMarked(new Set());
+  }, [ticketKey]);
 
   const calledSet = useMemo(() => new Set<number>(gameState?.calledNumbers || []), [gameState?.calledNumbers]);
 
@@ -508,7 +548,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
   // Full working Auto-Mark effect: scans called numbers on ticket and marks them instantly
   useEffect(() => {
-    if (autoMark && isPlaying && ticketCells) {
+    if (!isSpectator && autoMark && isPlaying && ticketCells) {
       const allNums: number[] = ticketCells.flat().filter((n: number | null): n is number => n !== null);
       const toMark: number[] = [];
       allNums.forEach((num: number) => {
@@ -538,11 +578,10 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
   const allTicketNumbers = ticketCells.flat().filter((n: number | null): n is number => n !== null);
   const myMarkedCount = allTicketNumbers.filter((n: number) => myMarkedSet.has(n)).length;
 
-  const opponentMarkedList: number[] = opponent ? (gameState?.playerMarked?.[opponent.userId] || []) : [];
-  const opponentMarkedCount = opponentMarkedList.length;
+  // Other players' marks are hidden by the server: only counts are available.
+  const markedCountOf = (uid: string): number => gameState?.markedCounts?.[uid] ?? 0;
 
   const myScore = gameState?.scores?.[me?.userId || ''] || 0;
-  const opponentScore = opponent ? (gameState?.scores?.[opponent.userId] || 0) : 0;
 
   // Winning conditions calculation
   const row0Nums = ticketCells[0]?.filter((n: number | null): n is number => n !== null) || [];
@@ -560,7 +599,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
   // Handler for clicking a number on ticket (Instant optimistic response)
   const handleCellClick = (num: number | null) => {
-    if (num === null) return;
+    if (num === null || isSpectator) return;
     if (isPlaying) {
       if (myMarkedSet.has(num)) {
         // Optimistic unmark
@@ -582,31 +621,46 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         markBingoNumber(num, true);
       }
     } else {
-      if (myMarkedSet.has(num)) {
-        myMarkedSet.delete(num);
-      } else {
-        myMarkedSet.add(num);
-      }
-      setPreviewTicketGrid([...previewTicketGrid]);
+      setPreviewMarked(prev => {
+        const next = new Set(prev);
+        if (next.has(num)) next.delete(num);
+        else next.add(num);
+        return next;
+      });
     }
   };
 
+  // Prizes that are enabled, unclaimed and complete on the numbers actually called.
+  const claimable: TambolaPrize[] = useMemo(
+    () =>
+      isPlaying
+        ? claimablePrizes(ticketCells, calledSet, gameState?.claimedConditions, roomConfig?.winConditions as any)
+        : [],
+    [isPlaying, ticketCells, calledSet, gameState?.claimedConditions, roomConfig?.winConditions]
+  );
+  const enabledPrizes = TAMBOLA_PRIZES.filter(({ id }) => (roomConfig?.winConditions as any)?.[id]);
+
   // Primary Tambola action (Claim or Start)
   const handleClaimOrStart = () => {
+    if (isSpectator) return;
     if (!isPlaying) {
-      if (isHost && opponent) {
-        startBingoGame(roomConfig);
+      if (isHost && players.length >= 2) {
+        startBingoGame({ ...roomConfig, mode: '90-ball' });
       }
       return;
     }
-    if (housefullCount >= 15) claimBingo('housefull');
-    else if (topLineCount >= 5) claimBingo('topLine');
-    else if (middleLineCount >= 5) claimBingo('middleLine');
-    else if (bottomLineCount >= 5) claimBingo('bottomLine');
-    else if (fourCornersCount >= 4) claimBingo('fourCorners');
-    else if (early5Count >= 5) claimBingo('early5');
-    else claimBingo('early5');
+    if (claimable.length > 0) claimBingo(claimable[0]);
   };
+
+  const lastName = (id: string | undefined) => players.find((p: any) => p.userId === id)?.displayName;
+  const spectatorStatus = isFinished
+    ? (gameState?.winnerDisplayName ? `${gameState.winnerDisplayName} won` : 'Game over')
+    : (lastBingoConditionWon?.displayName ? `${lastBingoConditionWon.displayName} won ${lastBingoConditionWon.conditionName}` : (isPlaying ? `Number ${currentNum ?? '-'} called` : null));
+  void lastName;
+  const leftOpponent = !isSpectator && players.find((p: any) => p.userId !== effectiveUserId && p.status === 'LEFT');
+  const showNewGame = !isSpectator && (rematchUnavailable || Boolean(leftOpponent));
+  // A new game with a single friend only makes sense in a 2-player room.
+  const newGameOpponent = players.length <= 2 ? players.find((p: any) => p.userId !== effectiveUserId) : undefined;
 
   // Send Chat message
   const handleSendChat = (e?: React.FormEvent) => {
@@ -663,7 +717,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             key={r.id}
             className="absolute bottom-28 left-1/2 -translate-x-1/2 animate-bounce text-3xl font-bold flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full border border-pink-200 shadow-2xl"
           >
-            <span>{r.emoji}</span>
+            <span><ReactionGlyph value={r.emoji} /></span>
             <span className="text-xs text-[#ff3864] font-semibold">{r.userName}</span>
           </div>
         ))}
@@ -711,11 +765,11 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                   Tambola
                 </h1>
                 <div className="hidden md:block font-serif italic text-[10px] leading-[1.05] text-[#ff2b70] tracking-tight select-none">
-                  Play<br />Laugh<br />Stay Together ♡
+                  Play<br />Laugh<br />Stay Together
                 </div>
               </div>
               <p className="hidden sm:block text-[11px] text-[#8a80a0] font-medium tracking-wide truncate">
-                1-90 Numbers • Classic Fun • 2 Players
+                1-90 Numbers • Classic Fun • {players.length} Player{players.length === 1 ? '' : 's'}
               </p>
             </div>
           </div>
@@ -723,10 +777,11 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           {/* Right: Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <span className="hidden xl:inline-block font-serif italic text-sm text-[#8d4b88] tracking-wide select-none mr-1">
-              “Same Numbers Different Hearts” ♡
+              “Same Numbers Different Hearts”
             </span>
 
             {/* Call Toggle Button */}
+            {!isSpectator && (<>
             <button
               type="button"
               onClick={() => setIsPipClosed(!isPipClosed)}
@@ -741,6 +796,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               <span className="hidden xs:inline">Call</span>
             </button>
 
+            </>)}
             {/* Chat Bubble Toggle Button */}
             <button
               type="button"
@@ -771,9 +827,18 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           </div>
         </header>
 
+        {isSpectator && (
+          <SpectatorBanner
+            count={spectatorCount}
+            names={spectators}
+            status={spectatorStatus}
+          />
+        )}
+
         {/* 2. TOP DUEL PLAYERS BAR (REAL PLAYERS) */}
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 sm:gap-3 shrink-0">
-          {/* Left Player Card (You) */}
+        <div className={`grid ${isSpectator ? 'grid-cols-1' : 'grid-cols-[1fr_auto_1fr]'} items-center gap-1.5 sm:gap-3 shrink-0`}>
+          {!isSpectator && (<>
+{/* Left Player Card (You) */}
           <div className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-2.5 px-2.5 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-pink-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-[#ff3864] text-xs sm:text-sm">
               {me?.avatarUrl && !me.avatarUrl.includes('bottts') ? (
@@ -816,47 +881,51 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             </div>
           </div>
 
-          {/* Right Player Card (Real Opponent) */}
-          <div className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 sm:p-2.5 px-2.5 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 ring-purple-100 shadow-xs shrink-0 flex items-center justify-center font-bold text-purple-600 text-xs sm:text-sm">
-              {opponent?.avatarUrl && !opponent.avatarUrl.includes('bottts') ? (
-                <img src={opponent.avatarUrl} alt={opponent.displayName} className="w-full h-full object-cover" />
-              ) : (
-                opponent?.displayName?.charAt(0).toUpperCase() || 'O'
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-2">
-                <span className="text-xs sm:text-sm font-extrabold text-[#1e1435] truncate">
-                  {opponent ? opponent.displayName : 'Opponent'}
-                </span>
-                <span className="px-1.5 py-0.2 rounded-full bg-purple-50 text-purple-600 text-[8px] sm:text-[9px] font-black uppercase tracking-wider shrink-0">
-                  Opp
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[10px] sm:text-[11px] mt-0.5">
-                <span className="font-bold text-[#1e1435] truncate mr-1">
-                  Score: <span className="font-extrabold text-[#7c3aed]">{opponentScore} pts</span>
-                </span>
-                <span className="text-[9px] sm:text-[10px] font-semibold text-[#8a80a0] shrink-0">
-                  {opponentMarkedCount}/15<span className="hidden xs:inline"> Marked</span>
-                </span>
-              </div>
-              {/* Lavender Progress Bar */}
-              <div className="w-full h-1.5 rounded-full bg-[#f3eafc] overflow-hidden mt-1">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#8b5cf6] to-[#a855f7] transition-all duration-300"
-                  style={{ width: `${Math.min(100, (opponentMarkedCount / 15) * 100)}%` }}
-                />
-              </div>
-            </div>
+
+</>)}
+          {/* Other players (2-20 seats): scrollable leaderboard cards */}
+          <div className={`grid gap-1.5 min-w-0 ${otherPlayers.length > 1 ? 'grid-cols-1 sm:grid-cols-2 max-h-28 overflow-y-auto' : 'grid-cols-1'}`}>
+            {otherPlayers.length === 0 && (
+              <div className="bg-white/95 rounded-xl p-2.5 text-xs font-bold text-[#8a80a0]">Waiting for players...</div>
+            )}
+            {otherPlayers.map((op: any, idx: number) => {
+              const color = seatColor(idx + 1);
+              const count = markedCountOf(op.userId);
+              return (
+                <div key={op.userId} className="bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl p-2 px-2.5 sm:px-3.5 border border-white/80 shadow-[0_4px_20px_rgba(240,160,200,0.10)] flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div
+                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-slate-100 ring-2 shadow-xs shrink-0 flex items-center justify-center font-bold text-xs sm:text-sm"
+                    style={{ color, ['--tw-ring-color' as any]: color }}
+                  >
+                    {op.avatarUrl && !op.avatarUrl.includes('bottts') ? (
+                      <img src={op.avatarUrl} alt={op.displayName} className="w-full h-full object-cover" />
+                    ) : (
+                      op.displayName?.charAt(0).toUpperCase() || 'P'
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-xs sm:text-sm font-extrabold text-[#1e1435] truncate">{op.displayName}</span>
+                    <div className="flex items-center justify-between text-[10px] sm:text-[11px] mt-0.5">
+                      <span className="font-bold text-[#1e1435] truncate mr-1">
+                        Score: <span className="font-extrabold" style={{ color }}>{gameState?.scores?.[op.userId] || 0} pts</span>
+                      </span>
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-[#8a80a0] shrink-0">{count}/15</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-1">
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${Math.min(100, (count / 15) * 100)}%`, background: color }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* 3. MAIN ARENA (TICKET + CALLER ROW) */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 items-stretch flex-1 min-h-0">
           
-          {/* YOUR TAMBOLA TICKET CARD (7 COLS OF 12) */}
+          {!isSpectator && (<>
+{/* YOUR TAMBOLA TICKET CARD (7 COLS OF 12) */}
           <div className="md:col-span-7 bg-white/95 backdrop-blur-md rounded-[22px] sm:rounded-[26px] p-3 sm:p-4 border border-white/90 shadow-[0_6px_25px_rgba(240,160,200,0.10)] flex flex-col justify-between">
             {/* Ticket Header */}
             <div className="flex items-center justify-between mb-1.5">
@@ -959,6 +1028,30 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             </div>
           </div>
 
+
+</>)}
+          {isSpectator && (
+            <div className="md:col-span-7 bg-white/95 backdrop-blur-md rounded-[22px] sm:rounded-[26px] p-3 sm:p-4 border border-white/90 shadow-[0_6px_25px_rgba(240,160,200,0.10)] flex flex-col">
+              <h2 className="text-xs sm:text-sm font-black text-[#1e1435] mb-2">Called numbers</h2>
+              <div className="grid grid-cols-10 gap-1">
+                {Array.from({ length: 90 }, (_, i) => i + 1).map(n => (
+                  <div
+                    key={n}
+                    className={`aspect-square rounded-md border flex items-center justify-center font-mono text-[10px] sm:text-xs font-bold ${
+                      n === currentNum
+                        ? 'bg-[#ff3864] border-[#ff3864] text-white'
+                        : calledSet.has(n)
+                          ? 'bg-[#ffe4ec] border-[#ff3864]/40 text-[#1e1435]'
+                          : 'bg-[#f7f8fc] border-slate-200/60 text-slate-300'
+                    }`}
+                  >
+                    {n}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* CURRENT NUMBER CALLER CARD (5 COLS OF 12) */}
           <div className="md:col-span-5 bg-white/95 backdrop-blur-md rounded-[22px] sm:rounded-[26px] p-3 sm:p-4 border border-white/90 shadow-[0_6px_25px_rgba(240,160,200,0.10)] flex flex-col items-center justify-between text-center">
             <h3 className="text-xs sm:text-sm font-extrabold text-[#1e1435]">
@@ -996,7 +1089,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
                   <div className="flex items-center justify-center gap-1">
                     {lastCalled.length > 0 ? (
-                      lastCalled.slice(0, 5).map((num: number, idx: number) => (
+                      lastCalled.map((num: number, idx: number) => (
                         <div
                           key={`${num}-${idx}`}
                           className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center font-mono text-xs font-bold ${
@@ -1028,23 +1121,50 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               </div>
             )}
 
-            {/* Primary Action Button */}
+            {!isSpectator && (<>
+{/* Primary Action Button */}
             <button
               type="button"
               onClick={handleClaimOrStart}
-              className="w-full mt-2 py-2 sm:py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition shadow-[0_6px_20px_rgba(255,56,100,0.30)] cursor-pointer"
+              disabled={isPlaying ? claimable.length === 0 : !(isHost && players.length >= 2)}
+              className="disabled:opacity-50 disabled:cursor-not-allowed w-full mt-2 py-2 sm:py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#ff3864] via-[#ff2b70] to-[#e6005c] hover:brightness-105 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 active:scale-98 transition shadow-[0_6px_20px_rgba(255,56,100,0.30)] cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 fill-white" />
               <span>
                 {!isPlaying && isHost
-                  ? '🚀 START TAMBOLA MATCH'
-                  : '🎉 CLAIM TAMBOLA!'}
+                  ? 'START TAMBOLA MATCH'
+                  : claimable.length > 0
+                    ? `CLAIM ${TAMBOLA_PRIZES.find(p => p.id === claimable[0])?.label.toUpperCase()}!`
+                    : 'CLAIM TAMBOLA!'}
               </span>
             </button>
+
+
+</>)}
+            {/* Host-only caller controls */}
+            {isHost && !isSpectator && isPlaying && !isFinished && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <button
+                  type="button"
+                  onClick={toggleBingoPause}
+                  className="flex-1 py-1.5 rounded-lg bg-white border border-pink-200 text-[11px] font-black text-[#ff3864] cursor-pointer hover:bg-pink-50"
+                >
+                  {gameState?.callingPaused ? 'Resume calling' : 'Pause calling'}
+                </button>
+                <button
+                  type="button"
+                  onClick={callNextBingoNumber}
+                  className="flex-1 py-1.5 rounded-lg bg-white border border-purple-200 text-[11px] font-black text-purple-600 cursor-pointer hover:bg-purple-50"
+                >
+                  Call next number
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 4. WINNING PROGRESS CARD (HORIZONTAL 6-COL STRIP) */}
+        {!isSpectator && (<>
+{/* 4. WINNING PROGRESS CARD (HORIZONTAL 6-COL STRIP) */}
         <div className="bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 px-3.5 sm:px-4 border border-white/90 shadow-[0_4px_20px_rgba(240,160,200,0.10)] shrink-0">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-4.5 h-4.5 rounded-md bg-amber-100 text-amber-600 flex items-center justify-center shadow-xs">
@@ -1055,6 +1175,29 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
             </h3>
           </div>
 
+          {isPlaying && !isFinished && !isSpectator && (
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {enabledPrizes.map(({ id, label }) => {
+                const claimedBy = gameState?.claimedConditions?.[id];
+                const canClaim = claimable.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={!canClaim}
+                    onClick={() => claimBingo(id)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition ${
+                      canClaim
+                        ? 'bg-[#ff3864] text-white border-[#ff3864] cursor-pointer shadow-sm'
+                        : 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                    }`}
+                  >
+                    {claimedBy ? `${label} (taken)` : `Claim ${label}`}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-1.5">
             {/* Early 5 */}
             <div>
@@ -1142,10 +1285,12 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           </div>
         </div>
 
+
+</>)}
         {/* 5. Bottom Quote Bar */}
         <div className="flex items-center justify-between text-[11px] font-serif italic text-[#8d4b88] px-1 shrink-0 select-none">
-          <span>“Good Games, Better Company” ♡</span>
-          <span className="text-[10px] text-[#ff3864] font-sans font-bold">Good Vibes Only 🍿</span>
+          <span>“Good Games, Better Company”</span>
+          <span className="text-[10px] text-[#ff3864] font-sans font-bold">Good Vibes Only</span>
         </div>
 
       </div>
@@ -1153,7 +1298,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
       {/* ========================================================================= */}
       {/* 4. DRAGGABLE MOVEABLE VIDEO CALL WINDOW                                    */}
       {/* ========================================================================= */}
-      {!isPipClosed && (
+      {!isPipClosed && !isSpectator && (
         <div
           ref={pipRef}
           onMouseDown={handlePipDragStart}
@@ -1175,7 +1320,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               <GripHorizontal className="w-4 h-4 text-rose-500" />
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               <span className="text-[11px] font-black uppercase tracking-wider text-[#1e1435]">
-                Call ({callParticipants.length}/2)
+                Call ({callParticipants.length}/{Math.max(players.length, 1)})
               </span>
             </div>
 
@@ -1184,7 +1329,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleMic();
+                  void toggleMic();
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
                   isMicMuted
@@ -1200,7 +1345,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  toggleCamera();
+                  void toggleCamera();
                 }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition border shadow-xs cursor-pointer ${
                   isCameraOn
@@ -1240,7 +1385,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
 
           {/* Working Video Feeds */}
           {!isPipMinimized && (
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 pt-1 flex-wrap max-w-[420px] max-h-[40vh] overflow-y-auto">
               {/* Self Video Feed */}
               <div className="relative w-24 xs:w-28 sm:w-32 h-18 xs:h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
                 {localUserStream && isCameraOn ? (
@@ -1259,11 +1404,12 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                 )}
                 <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-bold text-white drop-shadow pointer-events-none">
                   <span className="truncate max-w-[65px]">You</span>
-                  <span>{isMicMuted ? '🔴' : '🟢'}</span>
+                  <span><span className={`inline-block w-2 h-2 rounded-full ${isMicMuted ? 'bg-red-500' : 'bg-green-500'}`} /></span>
                 </div>
               </div>
 
-              {/* Opponent Video Feed */}
+              {/* Other players' video feeds */}
+              {otherPlayers.map((opponent: any) => (
               <div className="relative w-24 xs:w-28 sm:w-32 h-18 xs:h-20 sm:h-22 rounded-2xl bg-black/80 border border-slate-200 overflow-hidden flex items-center justify-center shadow-inner group">
                 {opponent ? (
                   (() => {
@@ -1291,10 +1437,11 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                   </div>
                 )}
                 <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] font-bold text-white drop-shadow pointer-events-none">
-                  <span className="truncate max-w-[65px]">{opponent?.displayName || 'Opponent'}</span>
-                  <span>🟢</span>
+                  <span className="truncate max-w-[65px]">{opponent?.displayName || 'Player'}</span>
+                  <span><span className="inline-block w-2 h-2 rounded-full bg-green-500" /></span>
                 </div>
               </div>
+              ))}
             </div>
           )}
         </div>
@@ -1364,7 +1511,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
           <div className="space-y-1.5 pt-2 border-t border-slate-100">
             {/* Emojis row */}
             <div className="flex items-center justify-between text-lg px-0.5">
-              {['❤️', '😂', '🔥', '🎉', '🎲', '😍'].map((emoji: string) => (
+              {TAMBOLA_REACTIONS.map((emoji: string) => (
                 <button
                   key={emoji}
                   type="button"
@@ -1376,9 +1523,10 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
               ))}
             </div>
 
-            {/* Quick phrases pills */}
+            {!isSpectator && (<>
+{/* Quick phrases pills */}
             <div className="flex items-center justify-between gap-1 text-[9px]">
-              {['Good Luck! 🍀', 'Nice Mark! 👏', 'Tambola soon! 🎯'].map((phrase: string) => (
+              {['Good Luck!', 'Nice Mark!', 'Tambola soon!'].map((phrase: string) => (
                 <button
                   key={phrase}
                   type="button"
@@ -1407,6 +1555,8 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
                 <Send className="w-3.5 h-3.5" />
               </button>
             </form>
+</>)}
+
           </div>
 
         </div>
@@ -1417,7 +1567,7 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-sm rounded-[32px] p-6 bg-white border border-pink-200 text-[#1e1435] shadow-2xl text-center space-y-4">
             <div className="w-16 h-16 mx-auto rounded-full bg-pink-100 text-3xl flex items-center justify-center shadow-sm">
-              ⚔️
+              <AppIcon name="swords" className="w-7 h-7" />
             </div>
             <div>
               <h3 className="text-xl font-black">Rematch Challenge!</h3>
@@ -1454,13 +1604,24 @@ function TambolaGameRoom({ roomCode }: { roomCode: string }) {
         <BingoVictory
           conditionWon={lastBingoConditionWon}
           isHousefull={Boolean(gameState?.claimedConditions?.housefull)}
-          winnerDisplayName={gameState?.winnerDisplayName || gameState?.gameSummary?.winnerDisplayName || 'Winner'}
+          winnerDisplayName={gameState?.winnerDisplayName || gameState?.gameSummary?.winnerDisplayName || (gameState?.winnerUserId ? 'Winner' : 'No winner')}
           winnerUserId={gameState?.winnerUserId || ''}
           myUserId={effectiveUserId}
           finalScores={gameState?.scores || gameState?.gameSummary?.finalScores || {}}
+          playerNames={Object.fromEntries(players.map((p: any) => [p.userId, p.displayName]))}
           roundsWon={gameState?.gameSummary?.roundsWon || []}
           rematchStatus={rematchStatus}
           onRematch={rematch}
+          rematchUnavailable={showNewGame}
+          isSpectator={isSpectator}
+          newGameSlot={showNewGame ? (
+            <NewGameWithOpponent
+              gameType="tambola"
+              opponentUserId={newGameOpponent?.userId}
+              opponentName={newGameOpponent?.displayName}
+              className="w-full py-3 sm:py-3.5 px-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-rose-600 to-[#ee1d49] text-white font-black text-xs uppercase tracking-wider shadow-lg cursor-pointer"
+            />
+          ) : undefined}
           onBackToPlan={() => router.push('/plans')}
           onBackToLobby={() => router.push('/games')}
         />
@@ -1488,7 +1649,7 @@ function TambolaPageInner() {
     return <BingoLobby />;
   }
 
-  return <TambolaGameRoom roomCode={roomCodeParam} />;
+  return <TambolaGameRoom roomCode={roomCodeParam} spectate={isSpectateRequested(searchParams.get('spectate'))} />;
 }
 
 export default function TambolaPage() {

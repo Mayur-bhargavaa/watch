@@ -6,10 +6,13 @@ import { CallProvider } from '../context/CallContext';
 import { WatchPartyProvider } from '../context/WatchPartyContext';
 import { NotificationToast } from '../components/notifications/NotificationToast';
 import { NotificationPermissionModal } from '../components/notifications/NotificationPermissionModal';
+import { InstallAppPrompt } from '../components/notifications/InstallAppPrompt';
 import { ActiveCallOverlay } from '../components/chat/ActiveCallOverlay';
 import { FloatingRoomPiP } from '../components/player/FloatingRoomPiP';
 
 export const metadata: Metadata = {
+  appleWebApp: { capable: true, title: 'Watch', statusBarStyle: 'black-translucent' },
+  icons: { icon: '/favicon.ico', apple: '/icons/apple-touch-icon.png' },
   title: 'Watch — Watch Together, Play Together',
   description: 'Watch YouTube in perfect sync, play 2-player games, and video call together — all in one private room. Powered by StitchByte.',
 };
@@ -52,6 +55,7 @@ export default function RootLayout({
                 {children}
                 <NotificationPermissionModal />
                 <NotificationToast />
+                <InstallAppPrompt />
                 <ActiveCallOverlay />
                 <FloatingRoomPiP />
               </WatchPartyProvider>

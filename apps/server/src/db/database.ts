@@ -1,7 +1,9 @@
+import { effectiveStreak } from '../util/streak.js';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import { nanoid } from 'nanoid';
+import { secureCode } from '../util/random.js';
 import {
   User,
   Room,
@@ -29,6 +31,8 @@ export interface FriendStreak {
   longestStreak: number;
   lastWatchedDate: string | null;
   totalMinutesWatched: number;
+  /** length of the last run of streak days ending at lastWatchedDate (kept after the streak breaks, for the calendar) */
+  lastRunLength?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +53,7 @@ export interface FriendWithStreak {
     completedToday: boolean;
     atRisk: boolean;
     totalMinutesWatched: number;
+    lastRunLength?: number;
   };
   createdAt: string;
 }
@@ -400,6 +405,14 @@ export class DatabaseService {
       this.db.exec("ALTER TABLE rooms ADD COLUMN activity_mode TEXT DEFAULT 'CINEMA'");
     } catch {}
 
+    // Tournament Arena: a match room created by a tournament remembers which tournament it belongs to (NULL for every normal room)
+    try {
+      this.db.exec('ALTER TABLE game_rooms ADD COLUMN tournament_id TEXT');
+    } catch {}
+    try {
+      this.db.exec('ALTER TABLE game_rooms ADD COLUMN tournament_code TEXT');
+    } catch {}
+
     // Normalize direct chat messages to canonical conversation IDs if legacy
     try {
       this.db.exec(`
@@ -498,129 +511,6 @@ export class DatabaseService {
       this.db.exec("UPDATE game_room_players SET is_connected = 0 WHERE is_connected = 1");
     } catch {}
 
-    // Ensure real plan plan-1789841556778 is initialized with real participants
-    try {
-      const existing = this.getPlanById('plan-1789841556778');
-      if (!existing) {
-        this.createPlan({
-          id: 'plan-1789841556778',
-          hostId: 'usr_hN35KGS9RX',
-          title: 'Friday Movie & Game Night',
-          emoji: '🍿',
-          type: 'movie',
-          date: '2026-09-27',
-          dateFormatted: 'Sunday, September 27',
-          time: '9:00 PM',
-          endTime: '12:30 AM',
-          timezone: 'IST',
-          description: 'Watching a movie together and then jumping straight into a Ludo showdown!',
-          activities: [
-            {
-              id: 'act-1',
-              type: 'movie',
-              time: '9:00 PM',
-              title: 'Interstellar',
-              subtitle: '2h 49m · Watch Together',
-              actionLabel: 'Enter Cinema',
-              actionUrl: '/dashboard?autojoin=interstellar',
-              movieDetails: {
-                title: 'Interstellar',
-                duration: '2h 49m',
-                provider: 'youtube',
-                posterUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400&auto=format&fit=crop&q=80'
-              }
-            },
-            {
-              id: 'act-2',
-              type: 'game',
-              time: '11:50 PM',
-              title: 'Ludo Party',
-              subtitle: '2–4 Players · Classic Board Game',
-              actionLabel: 'Play Together',
-              actionUrl: '/games/ludo'
-            },
-            {
-              id: 'act-3',
-              type: 'hangout',
-              time: '12:30 AM',
-              title: 'Late Night Chat',
-              subtitle: 'Open Discussion · Voice / Video',
-              actionLabel: 'Join Chat',
-              actionUrl: '/rooms'
-            }
-          ],
-          participants: [
-            {
-              userId: 'usr_hN35KGS9RX',
-              displayName: 'Mayur Bhargava',
-              avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-              status: 'GOING',
-              isHost: true
-            },
-            {
-              userId: 'usr_-jq7XMcBhu',
-              displayName: 'Mayur. 1',
-              avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=120&auto=format&fit=crop&q=80',
-              status: 'GOING'
-            },
-            {
-              userId: 'usr_rahul',
-              displayName: 'Rahul',
-              avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
-              status: 'GOING'
-            },
-            {
-              userId: 'usr_mansi',
-              displayName: 'Mansi',
-              avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80',
-              status: 'GOING'
-            },
-            {
-              userId: 'usr_dhruv',
-              displayName: 'Dhruv',
-              avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
-              status: 'GOING'
-            },
-            {
-              userId: 'usr_kunal',
-              displayName: 'Kunal',
-              avatarUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=120&auto=format&fit=crop&q=80',
-              status: 'CANT_GO'
-            }
-          ],
-          reminder: '30m',
-          recurring: 'none',
-          chatMessages: [
-            {
-              id: 'm1',
-              userId: 'usr_rahul',
-              displayName: 'Rahul',
-              avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
-              text: "Can't wait for this! 🚀",
-              createdAt: Date.now() - 120000
-            },
-            {
-              id: 'm2',
-              userId: 'usr_mansi',
-              displayName: 'Mansi',
-              avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80',
-              text: 'Interstellar is perfect! ✨',
-              createdAt: Date.now() - 300000
-            },
-            {
-              id: 'm3',
-              userId: 'usr_dhruv',
-              displayName: 'Dhruv',
-              avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80',
-              text: 'Ludo after is crazy 😂',
-              createdAt: Date.now() - 480000
-            }
-          ]
-        });
-      }
-    } catch (e: any) {
-      console.error('Failed to ensure default plan-1789841556778:', e.message);
-    }
   }
 
   clearAllUsers(): void {
@@ -1063,6 +953,15 @@ export class DatabaseService {
     this.db.prepare(`UPDATE room_members SET role = ? WHERE room_id = ? AND user_id = ?`).run(role, roomId, userId);
   }
 
+  countOpenGameRoomsByHost(userId: string): number {
+    const row = this.db.prepare(`SELECT COUNT(*) AS c FROM game_rooms WHERE host_user_id = ? AND status = 'WAITING'`).get(userId) as any;
+    return Number(row?.c || 0);
+  }
+
+  isRoomMember(roomId: string, userId: string): boolean {
+    return Boolean(this.db.prepare('SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?').get(roomId, userId));
+  }
+
   getRoomMembers(roomId: string): RoomMember[] {
     const rows = this.db.prepare(`SELECT * FROM room_members WHERE room_id = ? AND is_connected = 1`).all(roomId) as any[];
     return rows.map(r => ({
@@ -1117,6 +1016,43 @@ export class DatabaseService {
   }
 
   // Aggregated reaction timeline / heatmap for Post-Watch Recap
+  /** Per-person totals for one room (recap): messages, reactions and their favourite reaction. */
+  getRoomMemberStats(roomId: string): Array<{ userId: string; userName: string; messages: number; reactions: number; topEmoji: string | null }> {
+    const msgs = this.db.prepare(`SELECT user_id AS userId, MAX(user_name) AS userName, COUNT(*) AS n FROM chat_messages WHERE room_id = ? AND is_deleted = 0 GROUP BY user_id`).all(roomId) as any[];
+    const reacts = this.db.prepare(`SELECT user_id AS userId, MAX(user_name) AS userName, emoji, COUNT(*) AS n FROM reactions WHERE room_id = ? GROUP BY user_id, emoji`).all(roomId) as any[];
+    const out = new Map<string, { userId: string; userName: string; messages: number; reactions: number; topEmoji: string | null; top: number }>();
+    const row = (userId: string, userName: string) => {
+      if (!out.has(userId)) out.set(userId, { userId, userName, messages: 0, reactions: 0, topEmoji: null, top: 0 });
+      return out.get(userId)!;
+    };
+    for (const m of msgs) row(m.userId, m.userName).messages = Number(m.n);
+    for (const r of reacts) {
+      const x = row(r.userId, r.userName);
+      x.reactions += Number(r.n);
+      if (Number(r.n) > x.top) { x.top = Number(r.n); x.topEmoji = r.emoji; }
+    }
+    return Array.from(out.values()).map(({ top: _t, ...rest }) => rest).sort((a, b) => b.messages + b.reactions - (a.messages + a.reactions));
+  }
+
+  /** Lifetime numbers for one person (personal stats). Rooms/chat/reactions live in SQLite. */
+  getUserWatchStats(userId: string): {
+    roomsJoined: number; roomsHosted: number; messagesSent: number; reactionsSent: number; gamesPlayed: number;
+    topEmoji: string | null; firstActivityAt: string | null; busiestDay: string | null;
+  } {
+    const one = (sql: string) => Number((this.db.prepare(sql).get(userId) as any)?.n ?? 0);
+    const topEmoji = (this.db.prepare(`SELECT emoji FROM reactions WHERE user_id = ? GROUP BY emoji ORDER BY COUNT(*) DESC LIMIT 1`).get(userId) as any)?.emoji ?? null;
+    const first = (this.db.prepare(`SELECT MIN(t) AS t FROM (SELECT MIN(joined_at) AS t FROM room_members WHERE user_id = ? UNION ALL SELECT MIN(created_at) AS t FROM chat_messages WHERE user_id = ?)`).get(userId, userId) as any)?.t ?? null;
+    const busiest = (this.db.prepare(`SELECT substr(joined_at, 1, 10) AS d FROM room_members WHERE user_id = ? GROUP BY d ORDER BY COUNT(*) DESC LIMIT 1`).get(userId) as any)?.d ?? null;
+    return {
+      roomsJoined: one(`SELECT COUNT(*) AS n FROM room_members WHERE user_id = ?`),
+      roomsHosted: one(`SELECT COUNT(*) AS n FROM rooms WHERE host_id = ?`),
+      messagesSent: one(`SELECT COUNT(*) AS n FROM chat_messages WHERE user_id = ? AND is_deleted = 0`),
+      reactionsSent: one(`SELECT COUNT(*) AS n FROM reactions WHERE user_id = ?`),
+      gamesPlayed: one(`SELECT COUNT(*) AS n FROM game_room_players WHERE user_id = ?`),
+      topEmoji, firstActivityAt: first, busiestDay: busiest
+    };
+  }
+
   getReactionHeatmap(roomId: string, bucketSeconds = 15): Array<{
     bucketStart: number;
     count: number;
@@ -1140,7 +1076,7 @@ export class DatabaseService {
     }
 
     return Array.from(buckets.entries()).map(([bucketStart, data]) => {
-      let topEmoji = '🔥';
+      let topEmoji = '';
       let maxCount = 0;
       for (const [emoji, cnt] of Object.entries(data.emojis)) {
         if (cnt > maxCount) {
@@ -1561,7 +1497,7 @@ export class DatabaseService {
     const prefix = rawPrefix.length >= 3 ? rawPrefix : 'PLAYER';
 
     for (let attempt = 0; attempt < 10; attempt++) {
-      const suffix = Math.random().toString(36).substring(2, 5).toUpperCase();
+      const suffix = secureCode(4);
       const code = `${prefix}${suffix}`;
       const existing = this.db.prepare('SELECT id FROM users WHERE partner_code = ?').get(code);
       if (!existing) {
@@ -1851,7 +1787,7 @@ export class DatabaseService {
       return {
         status: 'ACCEPTED',
         friend,
-        message: `You and ${targetUser.displayName} are now friends! 🔥`
+        message: `You and ${targetUser.displayName} are now friends!`
       };
     }
 
@@ -1926,10 +1862,8 @@ export class DatabaseService {
       SELECT * FROM friend_streaks WHERE user_id_1 = ? AND user_id_2 = ?
     `).get(u1, u2) as any;
 
-    const currentStreak = streakRow?.current_streak || 0;
     const lastDate = streakRow?.last_watched_date || null;
-    const completedToday = lastDate === todayStr;
-    const atRisk = !completedToday && lastDate === yesterdayStr && currentStreak > 0;
+    const { currentStreak, completedToday, atRisk } = effectiveStreak({ currentStreak: streakRow?.current_streak, lastWatchedDate: lastDate }, todayStr, yesterdayStr);
 
     return {
       friendshipId: friendshipId1,
@@ -1946,7 +1880,8 @@ export class DatabaseService {
         lastWatchedDate: lastDate,
         completedToday,
         atRisk,
-        totalMinutesWatched: streakRow?.total_minutes_watched || 0
+        totalMinutesWatched: streakRow?.total_minutes_watched || 0,
+        lastRunLength: streakRow?.current_streak || 0
       },
       createdAt: now
     };
@@ -2112,10 +2047,8 @@ export class DatabaseService {
         SELECT * FROM friend_streaks WHERE user_id_1 = ? AND user_id_2 = ?
       `).get(u1, u2) as any;
 
-      const currentStreak = streakRow?.current_streak || 0;
       const lastDate = streakRow?.last_watched_date || null;
-      const completedToday = lastDate === todayStr;
-      const atRisk = !completedToday && lastDate === yesterdayStr && currentStreak > 0;
+      const { currentStreak, completedToday, atRisk } = effectiveStreak({ currentStreak: streakRow?.current_streak, lastWatchedDate: lastDate }, todayStr, yesterdayStr);
 
       return {
         friendshipId: row.friendship_id,
@@ -2132,7 +2065,8 @@ export class DatabaseService {
           lastWatchedDate: lastDate,
           completedToday,
           atRisk,
-          totalMinutesWatched: streakRow?.total_minutes_watched || 0
+          totalMinutesWatched: streakRow?.total_minutes_watched || 0,
+          lastRunLength: streakRow?.current_streak || 0
         },
         createdAt: row.friendship_created_at
       };
@@ -2252,8 +2186,8 @@ export class DatabaseService {
     const stmt = this.db.prepare(`
       INSERT INTO game_rooms (
         id, room_code, game_type, host_user_id, max_players, min_players,
-        is_private, status, game_state, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        is_private, status, game_state, created_at, tournament_id, tournament_code
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
       room.id,
@@ -2265,7 +2199,9 @@ export class DatabaseService {
       room.isPrivate ? 1 : 0,
       room.status,
       room.gameState ? JSON.stringify(room.gameState) : null,
-      room.createdAt
+      room.createdAt,
+      room.tournamentId ?? null,
+      room.tournamentCode ?? null
     );
     return room;
   }
@@ -2291,8 +2227,14 @@ export class DatabaseService {
       gameState,
       createdAt: row.created_at,
       startedAt: row.started_at,
-      finishedAt: row.finished_at
+      finishedAt: row.finished_at,
+      ...this.tournamentFields(row)
     };
+  }
+
+  /** Only a tournament match room carries these fields: every other room payload is exactly as before. */
+  private tournamentFields(row: any): { tournamentId?: string; tournamentCode?: string } {
+    return row.tournament_id ? { tournamentId: row.tournament_id, tournamentCode: row.tournament_code ?? undefined } : {};
   }
 
   getGameRoomById(id: string): GameRoom | null {
@@ -2316,20 +2258,22 @@ export class DatabaseService {
       gameState,
       createdAt: row.created_at,
       startedAt: row.started_at,
-      finishedAt: row.finished_at
+      finishedAt: row.finished_at,
+      ...this.tournamentFields(row)
     };
   }
 
   findOpenWaitingGameRoom(gameType: string, maxPlayers: number, excludeUserId?: string): GameRoom | null {
     const rows = this.db.prepare(`
       SELECT * FROM game_rooms
-      WHERE game_type = ? AND max_players = ? AND status = 'WAITING' AND is_private = 0
+      WHERE game_type = ? AND max_players = ? AND status = 'WAITING' AND is_private = 0 AND tournament_id IS NULL
       ORDER BY created_at ASC
     `).all(gameType, maxPlayers) as any[];
 
     for (const row of rows) {
       const players = this.getGameRoomPlayers(row.id);
-      if (players.length < row.max_players) {
+      // skip abandoned (empty) lobbies: nobody is there to start the game (GR-7)
+      if (players.length > 0 && players.length < row.max_players) {
         if (!excludeUserId || !players.some(p => p.userId === excludeUserId)) {
           let gameState: any = null;
           if (row.game_state) {
@@ -2360,7 +2304,7 @@ export class DatabaseService {
     const row = this.db.prepare(`
       SELECT gr.* FROM game_rooms gr
       JOIN game_room_players grp ON grp.room_id = gr.id
-      WHERE grp.user_id = ? AND gr.status = 'WAITING'
+      WHERE grp.user_id = ? AND gr.status = 'WAITING' AND gr.tournament_id IS NULL
       ORDER BY gr.created_at DESC
       LIMIT 1
     `).get(userId) as any;
@@ -2407,7 +2351,8 @@ export class DatabaseService {
     roomId: string,
     user: { id: string; displayName: string; avatarUrl?: string | null },
     seat: number,
-    color: LudoColor
+    color: LudoColor,
+    connected = true
   ): GameRoomPlayer {
     if (!this.getUserById(user.id)) {
       this.ensureUserPartnerCode(
@@ -2420,15 +2365,16 @@ export class DatabaseService {
 
     const id = `gplayer_${nanoid(10)}`;
     const now = new Date().toISOString();
+    // `connected` is false for seats taken over REST (no socket yet); registerClient flips it when the socket opens
     const stmt = this.db.prepare(`
       INSERT INTO game_room_players (id, room_id, user_id, display_name, avatar_url, seat, color, status, is_connected, joined_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'WAITING', 1, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)
       ON CONFLICT(room_id, user_id) DO UPDATE SET
-        is_connected = 1,
+        is_connected = excluded.is_connected,
         display_name = excluded.display_name,
         avatar_url = excluded.avatar_url
     `);
-    stmt.run(id, roomId, user.id, user.displayName, user.avatarUrl || null, seat, color, now);
+    stmt.run(id, roomId, user.id, user.displayName, user.avatarUrl || null, seat, color, connected ? 1 : 0, now);
 
     return {
       id,
@@ -2439,9 +2385,39 @@ export class DatabaseService {
       seat,
       color,
       status: 'WAITING',
-      isConnected: true,
+      isConnected: connected,
       joinedAt: now
     };
+  }
+
+  setGamePlayerStatus(roomId: string, userId: string, status: string): void {
+    this.db.prepare('UPDATE game_room_players SET status = ? WHERE room_id = ? AND user_id = ?').run(status, roomId, userId);
+  }
+
+  updateGameRoomHost(roomId: string, hostUserId: string): void {
+    this.db.prepare('UPDATE game_rooms SET host_user_id = ? WHERE id = ?').run(hostUserId, roomId);
+  }
+
+  /** Rooms still WAITING that were created before `cutoffIso` (used by the stale-room sweep). */
+  listWaitingGameRoomIds(cutoffIso: string): string[] {
+    return (this.db.prepare(`SELECT id FROM game_rooms WHERE status = 'WAITING' AND created_at < ?`).all(cutoffIso) as any[]).map(r => r.id);
+  }
+
+  /** PLAYING rooms that started before `cutoffIso` (candidates for abandoned-room cleanup, GR-27). */
+  listPlayingGameRoomIds(cutoffIso: string): string[] {
+    return (this.db.prepare(`SELECT id FROM game_rooms WHERE status = 'PLAYING' AND COALESCE(started_at, created_at) < ?`).all(cutoffIso) as any[]).map(r => r.id);
+  }
+
+  /** Deletes FINISHED/CANCELLED rooms (and their seats) older than `cutoffIso`; returns the number removed (GR-27). */
+  purgeOldGameRooms(cutoffIso: string): number {
+    const ids = (this.db.prepare(
+      `SELECT id FROM game_rooms WHERE status IN ('FINISHED','CANCELLED') AND COALESCE(finished_at, started_at, created_at) < ?`
+    ).all(cutoffIso) as any[]).map(r => r.id);
+    for (const id of ids) {
+      this.db.prepare('DELETE FROM game_room_players WHERE room_id = ?').run(id);
+      this.db.prepare('DELETE FROM game_rooms WHERE id = ?').run(id);
+    }
+    return ids.length;
   }
 
   removePlayerFromGameRoom(roomId: string, userId: string): void {
@@ -2497,7 +2473,7 @@ export class DatabaseService {
       plan.id,
       plan.hostId || (plan.participants && plan.participants[0]?.userId) || 'u1',
       plan.title,
-      plan.emoji || '✨',
+      plan.emoji || '',
       plan.type || 'custom',
       plan.date,
       plan.dateFormatted || plan.date,

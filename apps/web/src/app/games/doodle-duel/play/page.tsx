@@ -1,7 +1,12 @@
 'use client';
 
+import { ReactionGlyph } from '../../../../components/ui/ReactionGlyph';
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
+import { AppIcon } from '../../../../components/ui/AppIcon';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { SpectatorBanner } from '../../../../components/games/common/SpectatorBanner';
+import { NewGameWithOpponent } from '../../../../components/games/common/NewGameWithOpponent';
+import { isSpectateRequested } from '../../../../lib/spectator';
 import {
   ChevronLeft,
   ChevronUp,
@@ -25,7 +30,8 @@ import {
   BarChart3,
   ArrowRight,
   MessageCircle,
-  Info
+  Info,
+  Star
 } from 'lucide-react';
 import { useTheme } from '../../../../context/ThemeContext';
 import { useGameRoom } from '../../../../hooks/useGameRoom';
@@ -48,6 +54,7 @@ import { DoodleBottomDock } from '../../../../components/games/doodle/DoodleBott
 import { DoodleSettingsModal, DOODLE_THEMES, BoardTheme } from '../../../../components/games/doodle/DoodleSettingsModal';
 import { DoodleChatDrawer } from '../../../../components/games/doodle/DoodleChatDrawer';
 import { DoodleStroke, DoodleGameState, DoodleConfig } from '@synccinema/common';
+import { phaseTotalSeconds, maskedLetterCount } from '../../../../lib/doodleView';
 
 // Remote Audio Receiver to Hear Connected Players
 const RemoteAudioPlayer = React.memo(function RemoteAudioPlayer({
@@ -71,12 +78,15 @@ const RemoteAudioPlayer = React.memo(function RemoteAudioPlayer({
   return <audio ref={audioRef} autoPlay playsInline className="hidden" />;
 });
 
-// Synthetic sound chimes for game events
+// Synthetic sound chimes for game events (one shared AudioContext; browsers cap the number of live contexts)
+let sharedAudioCtx: AudioContext | null = null;
 function playTone(freq: number, duration: number, type: OscillatorType = 'sine') {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') sharedAudioCtx = new AudioCtx();
+    const ctx = sharedAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
@@ -94,6 +104,7 @@ function DoodleDuelGameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const roomCodeParam = searchParams.get('room');
+  const spectateMode = isSpectateRequested(searchParams.get('spectate'));
 
   const [session, setSession] = useState<UserSession | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -137,6 +148,7 @@ function DoodleDuelGameContent() {
     lastDoodleStroke,
     liveDoodleStroke,
     lastDoodleGuess,
+    doodleError,
     chatMessages,
     floatingReactions,
     connectionStatus,
@@ -166,8 +178,12 @@ function DoodleDuelGameContent() {
     rematchStatus,
     opponentLeftWin,
     streakCelebration,
-    clearStreakCelebration
-  } = useGameRoom(roomCodeParam);
+    clearStreakCelebration,
+    isSpectator,
+    spectatorCount,
+    spectators,
+    rematchUnavailable
+  } = useGameRoom(roomCodeParam, undefined, { spectate: spectateMode });
 
   // Cross-game redirect guard
   useEffect(() => {
@@ -183,9 +199,9 @@ function DoodleDuelGameContent() {
       return;
     }
     if (room?.status === 'WAITING' && room?.roomCode) {
-      router.replace(`/games/doodle-duel?room=${room.roomCode}`);
+      router.replace(`/games/doodle-duel?room=${room.roomCode}${spectateMode ? '&spectate=1' : ''}`);
     }
-  }, [roomCodeParam, room?.gameType, room?.roomCode, room?.status, router]);
+  }, [roomCodeParam, room?.gameType, room?.roomCode, room?.status, router, spectateMode]);
 
   // currentUserId: prefer WebSocket-confirmed userId, then React session state,
   // then read directly from localStorage as a synchronous fallback (avoids race where
@@ -264,31 +280,39 @@ function DoodleDuelGameContent() {
   // Sound FX triggers
   useEffect(() => {
     if (!soundEnabled || !lastDoodleGuess) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
     if (lastDoodleGuess.isCorrect) {
       playTone(523.25, 0.15); // C5
-      setTimeout(() => playTone(659.25, 0.15), 100); // E5
-      setTimeout(() => playTone(783.99, 0.3), 200); // G5
+      timers.push(setTimeout(() => playTone(659.25, 0.15), 100)); // E5
+      timers.push(setTimeout(() => playTone(783.99, 0.3), 200)); // G5
     } else if (lastDoodleGuess.isClose) {
       playTone(440, 0.15);
     }
+    return () => timers.forEach(clearTimeout);
   }, [lastDoodleGuess, soundEnabled]);
+
+  // Server rejections (`doodle:error`) surface as a short toast (DD-25)
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!doodleError) return;
+    setErrorToast(doodleError.message);
+    const t = setTimeout(() => setErrorToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [doodleError]);
 
   const { resolvedTheme, toggleTheme } = useTheme();
   const isDark = resolvedTheme !== 'light';
 
   const isHost = room?.hostUserId === currentUserId;
+  const doodleOpponent = players.find(p => p.userId !== currentUserId) || null;
+  const opponentLeftRoom = !isSpectator && players.some(p => p.userId !== currentUserId && (p.status as string) === 'LEFT');
+  const showNewGame = !isSpectator && (opponentLeftRoom || rematchUnavailable);
 
-  // Determine roles: robust role resolution supporting multi-player matches and solo/host testing
-  const isDrawer = Boolean(
-    (dState?.drawerUserId && currentUserId && dState.drawerUserId === currentUserId) ||
-    (players.length <= 1) ||
-    (!dState?.drawerUserId && isHost) ||
-    (players[0]?.userId === currentUserId && (!dState?.drawerUserId || dState?.drawerUserId === 'p1')) ||
-    (isHost && (!dState?.drawerUserId || dState?.drawerUserId === 'p1'))
-  );
-  const isGuesser = Boolean(
-    !isDrawer && (dState?.guesserUserId === currentUserId || players.length > 1)
-  );
+  // Roles come straight from the server state: only the drawer draws, only the guesser guesses.
+  const inMatch = Boolean(dState?.drawerUserId && dState?.guesserUserId);
+  const isDrawer = Boolean(inMatch && currentUserId && dState?.drawerUserId === currentUserId);
+  const isGuesser = Boolean(inMatch && currentUserId && dState?.guesserUserId === currentUserId);
+  // Spectator = server role (read-only), never inferred from the roles locally.
 
   const player1 = players[0] || {
     userId: dState?.drawerUserId || 'p1',
@@ -314,11 +338,7 @@ function DoodleDuelGameContent() {
     (dState?.phase as string)?.toUpperCase() === 'WORD_CHOICE' ||
     (dState?.phase as string)?.toUpperCase() === 'CHOOSING_WORD';
   const isRoundIntro = dState?.phase === 'ROUND_INTRO';
-  const isDrawing = Boolean(
-    dState?.phase === 'DRAWING' ||
-    (players.length <= 1) ||
-    (!dState?.phase)
-  );
+  const isDrawing = dState?.phase === 'DRAWING';
   const isGuessing = dState?.phase === 'GUESSING';
   const isRoundResult = dState?.phase === 'ROUND_RESULT';
   const isFinished = room?.status === 'FINISHED' || dState?.phase === 'FINISHED';
@@ -429,10 +449,20 @@ function DoodleDuelGameContent() {
                 animation: 'floatUp 2.5s ease-out forwards'
               }}
             >
-              {r.emoji}
+              <ReactionGlyph value={r.emoji} />
             </div>
           ))}
         </div>
+
+        {errorToast && (
+          <div
+            role="alert"
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-2xl bg-rose-500/90 text-white shadow-2xl flex items-center gap-2 text-xs font-bold animate-in slide-in-from-top-4 duration-200"
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span className="truncate">{errorToast}</span>
+          </div>
+        )}
 
         {/* Opponent Left / Forfeit Toast */}
         {opponentLeftWin && (
@@ -480,7 +510,7 @@ function DoodleDuelGameContent() {
           {/* Center: Icon, Title, Subtitle, Round Pill & Circular Timer */}
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 justify-center">
             <div className="hidden md:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-pink-100 via-rose-50 to-amber-100 dark:from-rose-950/40 dark:to-pink-900/40 items-center justify-center text-lg sm:text-xl shadow-xs shrink-0">
-              🎨
+              <AppIcon name="palette" className="w-5 h-5" />
             </div>
             <div className="hidden md:flex flex-col text-left min-w-0">
               <h1 className="text-sm sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white leading-none truncate">
@@ -496,11 +526,7 @@ function DoodleDuelGameContent() {
               <div className="flex items-center shrink-0">
                 <DoodleGameTimer
                   timeLeft={dState.timeLeftSeconds ?? dState.timeRemaining ?? 60}
-                  totalTime={
-                    dState.phase === 'GUESSING'
-                      ? dState.config?.guessTime || 60
-                      : dState.config?.drawTimeSeconds || dState.config?.drawTime || 60
-                  }
+                  totalTime={phaseTotalSeconds(dState.phase, dState.config)}
                   currentRound={dState.currentRound ?? dState.round ?? 1}
                   totalRounds={dState.totalRounds || dState.config?.rounds || 6}
                   phase={dState.phase}
@@ -511,7 +537,8 @@ function DoodleDuelGameContent() {
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Mic Toggle (hidden on mobile, provided by bottom dock) */}
+            {!isSpectator && (<>
+{/* Mic Toggle (hidden on mobile, provided by bottom dock) */}
             <button
               type="button"
               onClick={toggleMic}
@@ -539,6 +566,8 @@ function DoodleDuelGameContent() {
               {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
             </button>
 
+
+</>)}
             {/* Chat Toggle (hidden on mobile, provided by bottom dock) */}
             <button
               type="button"
@@ -563,7 +592,8 @@ function DoodleDuelGameContent() {
               {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700" />}
             </button>
 
-            {/* Settings (hidden on mobile, provided by bottom dock) */}
+            {!isSpectator && (<>
+{/* Settings (hidden on mobile, provided by bottom dock) */}
             <button
               type="button"
               onClick={() => setShowSettingsModal(true)}
@@ -577,6 +607,8 @@ function DoodleDuelGameContent() {
               <Settings className="w-4 h-4" />
             </button>
 
+
+</>)}
             {/* Leave Game Button (Pink Gradient Pill) */}
             <button
               type="button"
@@ -592,7 +624,21 @@ function DoodleDuelGameContent() {
 
         {/* Main Arena Container */}
         <main className="relative z-10 flex-1 w-full max-w-[1520px] mx-auto p-1.5 xs:p-2 sm:p-3 lg:p-4 flex flex-col justify-between min-h-0 overflow-hidden">
-          {isLobby && room && (
+          {isSpectator && (
+            <SpectatorBanner
+              className="w-full shrink-0 mb-1.5"
+              count={spectatorCount}
+              names={spectators}
+              status={dState?.drawerDisplayName && dState?.guesserDisplayName ? `${dState.drawerDisplayName} draws, ${dState.guesserDisplayName} guesses` : null}
+              onLeave={handleLeave}
+            />
+          )}
+          {isLobby && room && isSpectator && (
+            <div className="w-full flex-1 flex items-center justify-center text-sm font-semibold opacity-80">
+              Waiting for the next round to start...
+            </div>
+          )}
+          {isLobby && room && !isSpectator && (
             <div className="relative w-full h-full min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
               <DoodleLobby
                 room={room}
@@ -661,7 +707,7 @@ function DoodleDuelGameContent() {
                           : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
                       }`}
                     >
-                      <span>🎨 Canvas</span>
+                      <span>Canvas</span>
                     </button>
                     <button
                       type="button"
@@ -672,7 +718,7 @@ function DoodleDuelGameContent() {
                           : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
                       }`}
                     >
-                      <span>💬 Guesses & Chat</span>
+                      <span>Guesses & Chat</span>
                       {dState.currentGuesses && dState.currentGuesses.length > 0 && (
                         <span className="w-1.5 h-1.5 rounded-full bg-[#ff3864]" />
                       )}
@@ -687,7 +733,7 @@ function DoodleDuelGameContent() {
                 <div className="p-3.5 sm:p-4 rounded-3xl bg-white dark:bg-[#111625] border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_rgba(240,160,200,0.08)] flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-amber-500 text-sm">👑</span>
+                      <AppIcon name="crown" className="w-4 h-4 text-amber-500" />
                       <span className="text-[11px] font-black uppercase tracking-wider text-[#ff3864]">
                         DRAWER
                       </span>
@@ -746,10 +792,10 @@ function DoodleDuelGameContent() {
                     <Pencil className="w-4 h-4 text-[#ff3864] shrink-0" />
                     <div className="flex flex-col text-left">
                       <span className="text-xs font-bold text-[#ff3864]">
-                        You are drawing!
+                        {isDrawer ? 'You are drawing!' : `${dState.drawerDisplayName || 'Opponent'} is drawing`}
                       </span>
                       <span className="text-[10px] text-[#8a80a0] dark:text-zinc-400">
-                        Show your creativity ✨
+                        {isDrawer ? 'Show your creativity' : 'Watch the canvas closely'}
                       </span>
                     </div>
                   </div>
@@ -759,7 +805,7 @@ function DoodleDuelGameContent() {
                 <div className="p-3.5 sm:p-4 rounded-3xl bg-white dark:bg-[#111625] border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_rgba(240,160,200,0.08)] flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-purple-600 text-sm">👓</span>
+                      <AppIcon name="glasses" className="w-4 h-4 text-purple-600" />
                       <span className="text-[11px] font-black uppercase tracking-wider text-purple-600">
                         GUESSER
                       </span>
@@ -815,13 +861,13 @@ function DoodleDuelGameContent() {
 
                   {/* Sub-card inner prompt matching mockup */}
                   <div className="p-2.5 rounded-2xl bg-[#f8f7ff] dark:bg-purple-500/10 border border-[#eeebff] dark:border-purple-500/20 flex items-center gap-2.5">
-                    <span className="text-sm">💡</span>
+                    <AppIcon name="idea" className="w-4 h-4" />
                     <div className="flex flex-col text-left">
                       <span className="text-xs font-bold text-[#1e1435] dark:text-white">
-                        Guess what they're drawing!
+                        {isGuesser ? "Guess what they're drawing!" : `${dState.guesserDisplayName || 'Opponent'} is guessing`}
                       </span>
                       <span className="text-[10px] text-[#8a80a0] dark:text-zinc-400">
-                        Type your guess below ••
+                        {isGuesser ? 'Type your guess below' : 'Waiting for a correct answer'}
                       </span>
                     </div>
                   </div>
@@ -830,7 +876,7 @@ function DoodleDuelGameContent() {
                 {/* 3. Pro Tip Card matching mockup */}
                 <div className="p-3 px-3.5 rounded-2xl bg-white dark:bg-[#111625] border border-slate-200/80 dark:border-white/10 shadow-[0_4px_20px_rgba(240,160,200,0.08)] flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                    <span className="text-sm">💡</span>
+                    <AppIcon name="idea" className="w-4 h-4" />
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-xs font-extrabold text-[#1e1435] dark:text-white">
@@ -845,7 +891,21 @@ function DoodleDuelGameContent() {
 
               {/* Center Zone: Floating Toolbar ON TOP + Canvas */}
               <div className={`${mobileTab === 'canvas' ? 'flex' : 'hidden'} lg:flex flex-1 flex-col justify-between gap-1.5 sm:gap-2.5 min-w-0 min-h-0`}>
-                {/* Floating Toolbar ON TOP of Canvas */}
+                {/* Only the drawer's state carries the secret word */}
+                {isDrawer && dState.secretWord && (isDrawing || isGuessing) && (
+                  <div className="w-full shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#ff3864]/10 border border-[#ff3864]/25 text-[#ff3864]">
+                    <span className="text-[10px] font-black uppercase tracking-wider">Your word</span>
+                    <span className="text-sm font-black truncate">{dState.secretWord}</span>
+                    {(dState.category || dState.secretWordCategory) && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-80 truncate">
+                        {dState.category || dState.secretWordCategory}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {!isSpectator && (<>
+{/* Floating Toolbar ON TOP of Canvas */}
                 <DrawingToolbar
                   currentTool={currentTool}
                   currentColor={currentColor}
@@ -861,6 +921,8 @@ function DoodleDuelGameContent() {
                   isDark={isDark}
                 />
 
+
+</>)}
                 {/* Canvas Card */}
                 <div className="w-full flex-1 min-h-[120px] xs:min-h-[160px] sm:min-h-[300px]">
                   <DrawingCanvas
@@ -887,23 +949,26 @@ function DoodleDuelGameContent() {
                 </div>
 
                 {/* Mobile Quick Guess Bar for Guesser */}
-                {isGuesser && (
+                {isGuesser && (isDrawing || isGuessing) && (
                   <div className="lg:hidden w-full shrink-0 flex flex-col gap-1 p-2 rounded-2xl bg-white/95 dark:bg-[#111625]/95 border border-slate-200/80 dark:border-white/10 shadow-sm backdrop-blur-md">
                     <div className="flex items-center justify-between px-1">
                       <div className="flex items-center gap-1.5">
-                        {dState.category && (
+                        {(dState.category || dState.secretWordCategory) && (
                           <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 text-[9px] font-bold uppercase tracking-wider">
-                            {dState.category}
+                            {dState.category || dState.secretWordCategory}
                           </span>
                         )}
                         <span className="text-[10px] text-slate-400 font-medium">
-                          {dState.maskedWord?.replace(/[^A-Za-z_]/g, '').length || 0} letters
+                          {maskedLetterCount(dState.maskedWord)} letters
                         </span>
                       </div>
                       <div className="font-mono text-xs font-black tracking-widest text-[#ff3864]">
                         {dState.maskedWord || '_____'}
                       </div>
                     </div>
+                    {dState.hintUsed && dState.hint && (
+                      <div className="px-1 text-[11px] font-bold text-violet-500">Hint: {dState.hint}</div>
+                    )}
 
                     <form
                       onSubmit={(e) => {
@@ -920,17 +985,18 @@ function DoodleDuelGameContent() {
                         name="mobileGuess"
                         type="text"
                         placeholder="Type your guess..."
-                        maxLength={40}
+                        maxLength={60}
                         className="flex-1 min-w-0 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-xs font-semibold outline-none focus:border-[#ff3864] text-slate-900 dark:text-white placeholder:text-slate-400"
                       />
-                      {requestDoodleHint && (dState.timeLeftSeconds ?? dState.timeRemaining ?? 60) <= 35 && (
+                      {requestDoodleHint && dState.hintAvailable && !dState.hintUsed && (
                         <button
                           type="button"
                           onClick={requestDoodleHint}
                           title="Hint"
+                          aria-label="Hint"
                           className="p-1.5 rounded-xl bg-violet-500/20 text-violet-400 border border-violet-500/30 text-xs font-bold shrink-0 cursor-pointer"
                         >
-                          💡
+                          <AppIcon name="idea" className="w-4 h-4" />
                         </button>
                       )}
                       <button
@@ -948,7 +1014,7 @@ function DoodleDuelGameContent() {
                   <div className="lg:hidden w-full flex items-center justify-between px-3 py-1 rounded-xl bg-slate-900/85 text-white text-[10px] font-bold shrink-0">
                     <span className="text-zinc-400">Latest guess:</span>
                     <span className={dState.currentGuesses[dState.currentGuesses.length - 1].isCorrect ? 'text-emerald-400' : 'text-rose-400'}>
-                      "{dState.currentGuesses[dState.currentGuesses.length - 1].guess}" {dState.currentGuesses[dState.currentGuesses.length - 1].isCorrect ? '✓ Correct!' : '✗'}
+                      "{dState.currentGuesses[dState.currentGuesses.length - 1].guess || dState.currentGuesses[dState.currentGuesses.length - 1].text}" {dState.currentGuesses[dState.currentGuesses.length - 1].isCorrect ? '✓ Correct!' : '✗'}
                     </span>
                   </div>
                 )}
@@ -960,19 +1026,20 @@ function DoodleDuelGameContent() {
                   <GuessPanel
                     isDrawer={isDrawer}
                     maskedWord={dState.maskedWord || '_____'}
-                    category={dState.category}
+                    category={dState.category || dState.secretWordCategory}
                     guesses={dState.currentGuesses || []}
                     onSendGuess={guess => sendDoodleGuess(guess)}
                     onRequestHint={requestDoodleHint}
-                    canRequestHint={
-                      isGuesser && (dState.timeLeftSeconds ?? dState.timeRemaining ?? 60) <= 35
-                    }
+                    canRequestHint={isGuesser && Boolean(dState.hintAvailable) && !dState.hintUsed}
+                    hint={dState.hint}
+                    hintUsed={Boolean(dState.hintUsed)}
+                    isSpectator={isSpectator}
                     drawerDisplayName={dState.drawerDisplayName || 'Drawer'}
                     guesserDisplayName={dState.guesserDisplayName || 'Guesser'}
                     hasGuessedCorrectly={Boolean(
                       dState.currentGuesses?.some(g => g.isCorrect && g.userId === currentUserId)
                     )}
-                    disabled={!isDrawing && !isGuessing}
+                    disabled={!isGuesser || (!isDrawing && !isGuessing)}
                     isDark={isDark}
                     chatMessages={chatMessages}
                     myUserId={currentUserId}
@@ -1018,7 +1085,7 @@ function DoodleDuelGameContent() {
                           <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Time per turn</span>
                         </div>
                         <span className="text-xs font-bold text-[#1e1435] dark:text-white">
-                          {dState.config?.drawTimeSeconds || 60} seconds
+                          {dState.config?.drawTime ?? dState.config?.drawTimeSeconds ?? 60} seconds
                         </span>
                       </div>
 
@@ -1043,7 +1110,7 @@ function DoodleDuelGameContent() {
                           </div>
                           <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Difficulty</span>
                         </div>
-                        <span className="text-xs font-bold text-[#1e1435] dark:text-white">Mixed</span>
+                        <span className="text-xs font-bold text-[#1e1435] dark:text-white capitalize">{dState.config?.difficulty || 'mixed'}</span>
                       </div>
                     </div>
                   )}
@@ -1067,6 +1134,7 @@ function DoodleDuelGameContent() {
               onOpenSettings={() => setShowSettingsModal(true)}
               onLeave={handleLeave}
               isDark={isDark}
+              isSpectator={isSpectator}
             />
           </footer>
         )}
@@ -1074,18 +1142,18 @@ function DoodleDuelGameContent() {
         {/* Hand-drawn Doodles & Romantic Quote Background Watermarks matching mockup */}
         <div className="fixed bottom-4 left-6 pointer-events-none select-none z-0 hidden lg:block">
           <div className="font-serif italic text-sm sm:text-base text-[#8d4b88]/80 leading-tight">
-            Good Drawings<br />Better Friends. ♡
+            Good Drawings<br />Better Friends.
           </div>
           <div className="text-pink-400 text-sm mt-1 flex gap-2">
             <span>✦</span>
-            <span className="text-xs">✰</span>
+            <Star className="w-3 h-3" aria-hidden="true" />
           </div>
         </div>
 
         <div className="fixed bottom-4 right-6 pointer-events-none select-none z-0 hidden lg:block">
           <div className="relative inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-pink-200/70 to-rose-200/70 rounded-md -rotate-3 shadow-2xs">
             <span className="font-serif italic text-xs font-bold text-[#ff2b70]">
-              Same Game, Different Hearts ♡
+              Same Game, Different Hearts
             </span>
           </div>
         </div>
@@ -1099,6 +1167,7 @@ function DoodleDuelGameContent() {
         myUserId={currentUserId}
         onSendMessage={sendChat}
         isDark={isDark}
+        readOnly={isSpectator}
       />
 
       {/* Settings Modal (Theme Selection, Sound, Rules, Leave) */}
@@ -1135,7 +1204,8 @@ function DoodleDuelGameContent() {
           drawerDisplayName={dState.drawerDisplayName || players.find(p => p.userId === dState.drawerUserId)?.displayName || 'Drawer'}
           guesserDisplayName={dState.guesserDisplayName || players.find(p => p.userId === dState.guesserUserId)?.displayName || 'Guesser'}
           timeLeft={dState.timeLeftSeconds ?? 30}
-          totalTime={30}
+          totalTime={phaseTotalSeconds('WORD_CHOICE', dState.config)}
+          guessTime={dState.config?.guessTime || 60}
           onChooseWord={(word: string) => chooseDoodleWord(word)}
         />
       )}
@@ -1175,6 +1245,16 @@ function DoodleDuelGameContent() {
           gameState={dState}
           myUserId={currentUserId}
           onRematch={rematch}
+          isSpectator={isSpectator}
+          rematchUnavailable={showNewGame}
+          newGameSlot={showNewGame ? (
+            <NewGameWithOpponent
+              gameType="doodle-duel"
+              opponentUserId={doodleOpponent?.userId}
+              opponentName={doodleOpponent?.displayName}
+              className="flex-1 w-full py-2.5 sm:py-3.5 px-4 sm:px-5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-[0_0_25px_rgba(244,63,94,0.4)] active:scale-[0.98] cursor-pointer"
+            />
+          ) : null}
           rematchStatus={rematchStatus}
           player1={player1}
           player2={player2}

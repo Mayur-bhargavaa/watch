@@ -21,7 +21,7 @@ export const MatchmakingStatus: React.FC<MatchmakingStatusProps> = ({
       {/* Hand-drawn scribble top-right: Play Laugh Stay Together ♡ */}
       <div className="absolute -top-3 right-1 sm:right-4 pointer-events-none select-none text-right hidden sm:block">
         <span className="font-serif italic text-[11px] font-bold text-[#ec4899] dark:text-[#f472b6] leading-tight block -rotate-6">
-          Play<br />Laugh<br />Stay Together ♡
+          Play<br />Laugh<br />Stay Together 
         </span>
         <svg className="w-4 h-4 text-[#ff2b70] inline-block -rotate-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M7 17l9.2-9.2M17 17V7H7" />

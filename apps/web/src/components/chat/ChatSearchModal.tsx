@@ -4,13 +4,9 @@ import React, { useState } from 'react';
 import {
   Search,
   X,
-  MessageSquare,
-  User,
-  Users,
   Calendar,
   Gamepad2,
-  Film,
-  ArrowRight,
+  ArrowRight
 } from 'lucide-react';
 import { ChatConversation, ChatUser, ChatMessage } from '@/types/chat';
 
@@ -27,7 +23,7 @@ export const ChatSearchModal: React.FC<ChatSearchModalProps> = ({
   users,
   currentUserId,
   onClose,
-  onSelectConversation,
+  onSelectConversation
 }) => {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'messages' | 'people' | 'plans' | 'games'>('all');

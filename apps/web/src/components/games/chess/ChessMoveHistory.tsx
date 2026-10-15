@@ -47,7 +47,7 @@ export const ChessMoveHistory: React.FC<ChessMoveHistoryProps> = ({
     const pgn = movePairs
       .map(p => `${p.number}. ${p.white?.san || ''} ${p.black?.san || ''}`.trim())
       .join(' ');
-    navigator.clipboard.writeText(pgn);
+    void navigator.clipboard.writeText(pgn);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

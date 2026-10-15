@@ -1,5 +1,6 @@
 'use client';
 
+import { DoorOpen } from 'lucide-react';
 import React from 'react';
 import { Trophy, RotateCcw, Home, Sparkles, Heart, ArrowRight } from 'lucide-react';
 import { BingoDuelRoundSummary } from '@synccinema/common';
@@ -30,6 +31,11 @@ interface BingoDuelWinModalProps {
     allVoted: boolean;
   } | null;
   effectiveUserId?: string;
+  /** Replaces the dead Rematch/Start New Match button (NewGameWithOpponent). */
+  newGameSlot?: React.ReactNode;
+  /** Server refused a rematch (someone left): show newGameSlot instead of Rematch. */
+  rematchUnavailable?: boolean;
+  isSpectator?: boolean;
 }
 
 export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
@@ -50,7 +56,10 @@ export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
   isOpponentLeft,
   opponentDisplayName,
   rematchStatus,
-  effectiveUserId
+  effectiveUserId,
+  newGameSlot,
+  rematchUnavailable = false,
+  isSpectator = false
 }) => {
   const hasVoted = Boolean(
     effectiveUserId && rematchStatus?.votedUserIds?.includes(effectiveUserId)
@@ -91,11 +100,11 @@ export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
         <h2 className="text-2xl sm:text-3xl font-black tracking-tight mb-1">
           {isOpponentLeft ? (
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-rose-500">
-              🚪 OPPONENT LEFT
+              OPPONENT LEFT
             </span>
           ) : isWinnerMe ? (
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-rose-500">
-              🎉 VICTORY!
+              VICTORY!
             </span>
           ) : (
             <span className="text-slate-800">
@@ -122,7 +131,7 @@ export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
         {isOpponentLeft && (
           <div className="bg-purple-50/90 border border-purple-200/90 rounded-2xl p-4 mb-5 flex items-center gap-3 text-left">
             <div className="w-10 h-10 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center text-lg text-purple-700 shrink-0 font-bold shadow-xs">
-              🚪
+              <DoorOpen className="w-5 h-5" />
             </div>
             <div>
               <div className="text-sm font-black text-slate-900">
@@ -136,7 +145,7 @@ export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
         )}
 
         {/* Series Scoreboard (if best of 3 or 5 and not opponent left) */}
-        {!isOpponentLeft && targetRounds > 1 && (
+        {!isOpponentLeft && !isSpectator && targetRounds > 1 && (
           <div className="bg-purple-50/70 border border-purple-100/90 rounded-2xl p-3 mb-5 flex items-center justify-around shadow-xs">
             <div>
               <div className="text-[10px] uppercase font-bold text-purple-700">You</div>
@@ -172,14 +181,14 @@ export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
           {isOpponentLeft ? (
             <>
               {/* Primary Start New Match CTA */}
-              <button
+              {newGameSlot ? newGameSlot : <button
                 type="button"
                 onClick={onStartNewMatch || onLeave}
                 className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-600/25 flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-amber-300" />
                 <span>Start New Match</span>
-              </button>
+              </button>}
 
               {/* Back to Lobby */}
               <button
@@ -212,7 +221,8 @@ export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
               )}
 
               {/* Rematch CTA if match is finished */}
-              {isMatchOver && onRematch && (
+              {isMatchOver && rematchUnavailable && !isSpectator && newGameSlot}
+              {isMatchOver && onRematch && !rematchUnavailable && !isSpectator && (
                 <button
                   type="button"
                   onClick={onRematch}
@@ -230,7 +240,7 @@ export const BingoDuelWinModal: React.FC<BingoDuelWinModalProps> = ({
                     {hasVoted
                       ? 'Rematch Requested — Waiting for Opponent (1/2)...'
                       : rematchStatus
-                        ? '⚡ Accept Rematch Request (1/2)!'
+                        ? 'Accept Rematch Request (1/2)!'
                         : 'Request Rematch'}
                   </span>
                 </button>

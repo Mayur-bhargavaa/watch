@@ -1,5 +1,6 @@
 'use client';
 
+import { AppIcon } from '../../ui/AppIcon';
 import React, { useState } from 'react';
 import {
   Users,
@@ -56,14 +57,14 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
 
   const handleCopyRoomCode = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(room.roomCode);
+    void navigator.clipboard.writeText(room.roomCode);
     setCopiedRoomCode(true);
     setTimeout(() => setCopiedRoomCode(false), 2000);
   };
 
   const handleCopyRoomLink = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href);
     setCopiedRoomLink(true);
     setTimeout(() => setCopiedRoomLink(false), 2000);
   };
@@ -117,7 +118,7 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
           <span className="text-zinc-400">Game Lobby</span>
           <span className="text-zinc-600">/</span>
           <span className="text-[#ff2b5e] font-black flex items-center gap-1.5">
-            <span>🎱</span>
+            <AppIcon name="game" className="w-4 h-4" />
             <span>Tambola</span>
           </span>
         </div>
@@ -303,7 +304,7 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
                 <div className="w-full mb-4 p-4 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-center space-y-2.5 animate-pulse">
                   <div className="flex items-center justify-center gap-2 text-rose-300 font-black text-sm">
                     <Sparkles className="w-4 h-4 text-rose-400" />
-                    <span>🔥 {requestingPlayer?.displayName || 'Opponent'} wants to play again!</span>
+                    <span>{requestingPlayer?.displayName || 'Opponent'} wants to play again!</span>
                   </div>
                   <p className="text-xs text-zinc-300">
                     Your opponent is in the waiting room ready for a rematch.
@@ -315,7 +316,7 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
                       className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-[#ee1d49] hover:brightness-110 active:scale-95 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <RotateCcw className="w-4 h-4" />
-                      <span>Accept & Play Again 🔄</span>
+                      <span>Accept & Play Again</span>
                     </button>
                   )}
                 </div>
@@ -345,7 +346,7 @@ export const BingoWaitingRoom: React.FC<BingoWaitingRoomProps> = ({
                   className="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] hover:from-[#e11d48] hover:to-[#be123c] text-white font-extrabold text-sm uppercase tracking-wider shadow-[0_4px_20px_rgba(255,43,94,0.4)] transition active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-white" />
-                  <span>Start Tambola 🚀</span>
+                  <span>Start Tambola</span>
                 </button>
               ) : (
                 <div className="w-full py-3.5 px-6 rounded-2xl bg-[#161220]/90 border border-white/10 text-center text-xs font-bold text-zinc-300 flex items-center justify-center gap-2">

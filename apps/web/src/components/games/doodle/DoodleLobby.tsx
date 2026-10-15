@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Palette, Brain, Play, Copy, Check, Users, ShieldCheck, Crown, User, Settings2, Share2, Sparkles, RotateCcw } from 'lucide-react';
 import { GameRoom, DoodleConfig, DoodleGameState } from '@synccinema/common';
+import { resolveLobbyDrawer, roleSelectionPayload } from '../../../lib/doodleView';
 
 interface DoodleLobbyProps {
   room: GameRoom;
@@ -39,26 +40,38 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
   const p1 = players[0];
   const p2 = players[1];
 
-  const config = gameState?.config || {
-    totalRounds: 6,
-    drawTimeSeconds: 60,
-    wordSelectionTimeSeconds: 15,
+  const config: any = gameState?.config || {
+    rounds: 6,
+    drawTime: 60,
+    guessTime: 60,
     difficulty: 'mixed',
     hintsEnabled: true
   };
+  const currentRounds = config.rounds ?? config.totalRounds ?? 6;
+  const currentDrawTime = config.drawTime ?? config.drawTimeSeconds ?? 60;
 
-  const selectedDrawerId = gameState?.drawerUserId || (players.length > 0 ? players[0].userId : '');
+  const selectedDrawerId = resolveLobbyDrawer(
+    players,
+    room.hostUserId,
+    gameState?.drawerUserId,
+    gameState?.roleSelections as any
+  );
+  const isSeated = players.some(p => p.userId === myUserId);
+  const handleSeatClick = (clickedUserId: string) => {
+    if (!isSeated) return;
+    onSelectRole(roleSelectionPayload(isHost, myUserId, clickedUserId));
+  };
 
   const handleCopyRoomCode = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(room.roomCode);
+    void navigator.clipboard.writeText(room.roomCode);
     setCopiedRoomCode(true);
     setTimeout(() => setCopiedRoomCode(false), 2000);
   };
 
   const handleCopyRoomLink = () => {
     if (typeof window === 'undefined') return;
-    navigator.clipboard.writeText(window.location.href);
+    void navigator.clipboard.writeText(window.location.href);
     setCopiedRoomLink(true);
     setTimeout(() => setCopiedRoomLink(false), 2000);
   };
@@ -132,7 +145,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
           {/* Seat 1: Host / Player 1 */}
           {p1 ? (
             <div
-              onClick={() => onSelectRole(p1.userId)}
+              onClick={() => handleSeatClick(p1.userId)}
               className={`rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[130px] border transition-all cursor-pointer relative ${
                 selectedDrawerId === p1.userId
                   ? 'bg-[#1e1428]/95 border-[#ff2b5e] shadow-[0_0_20px_rgba(255,43,94,0.3)] ring-1 ring-[#ff2b5e]'
@@ -141,7 +154,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
             >
               {selectedDrawerId === p1.userId && (
                 <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-[#ff2b5e] text-[9px] font-black uppercase tracking-wider text-white shadow-xs">
-                  Draws 1st 🎨
+                  Draws 1st
                 </span>
               )}
 
@@ -155,7 +168,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
                 <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> Host
               </span>
               <span className="text-[10px] text-zinc-400 font-semibold mt-1">
-                {selectedDrawerId === p1.userId ? 'Starts as Drawer 🎨' : 'Starts as Guesser 🧠'}
+                {selectedDrawerId === p1.userId ? 'Starts as Drawer' : 'Starts as Guesser'}
               </span>
             </div>
           ) : (
@@ -171,7 +184,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
           {/* Seat 2: Opponent / Player 2 */}
           {p2 ? (
             <div
-              onClick={() => onSelectRole(p2.userId)}
+              onClick={() => handleSeatClick(p2.userId)}
               className={`rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-md min-h-[130px] border transition-all cursor-pointer relative ${
                 selectedDrawerId === p2.userId
                   ? 'bg-[#1e1428]/95 border-[#ff2b5e] shadow-[0_0_20px_rgba(255,43,94,0.3)] ring-1 ring-[#ff2b5e]'
@@ -180,7 +193,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
             >
               {selectedDrawerId === p2.userId && (
                 <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-[#ff2b5e] text-[9px] font-black uppercase tracking-wider text-white shadow-xs">
-                  Draws 1st 🎨
+                  Draws 1st
                 </span>
               )}
 
@@ -194,7 +207,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
                 <User className="w-3.5 h-3.5 text-zinc-400" /> Player
               </span>
               <span className="text-[10px] text-zinc-400 font-semibold mt-1">
-                {selectedDrawerId === p2.userId ? 'Starts as Drawer 🎨' : 'Starts as Guesser 🧠'}
+                {selectedDrawerId === p2.userId ? 'Starts as Drawer' : 'Starts as Guesser'}
               </span>
             </div>
           ) : (
@@ -230,17 +243,17 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
             <span className="text-[10px] text-zinc-400">Roles switch every round</span>
           </div>
           <div className="flex items-center gap-1.5">
-            {[4, 6, 8, 10].map(r => (
+            {[2, 4, 6, 8, 10].map(r => (
               <button
                 key={r}
                 type="button"
                 disabled={!isHost}
-                onClick={() => onUpdateConfig?.({ totalRounds: r })}
+                onClick={() => onUpdateConfig?.({ rounds: r })}
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  config.totalRounds === r
+                  currentRounds === r
                     ? 'bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] text-white shadow-xs'
                     : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
-                } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                } ${!isHost ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 {r}
               </button>
@@ -255,17 +268,17 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
             <span className="text-[10px] text-zinc-400">Seconds per round</span>
           </div>
           <div className="flex items-center gap-1.5">
-            {[45, 60, 90].map(sec => (
+            {[30, 45, 60, 90].map(sec => (
               <button
                 key={sec}
                 type="button"
                 disabled={!isHost}
-                onClick={() => onUpdateConfig?.({ drawTimeSeconds: sec })}
+                onClick={() => onUpdateConfig?.({ drawTime: sec })}
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                  config.drawTimeSeconds === sec
+                  currentDrawTime === sec
                     ? 'bg-gradient-to-r from-[#ff2b5e] to-[#f43f5e] text-white shadow-xs'
                     : 'bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
-                } ${!isHost ? 'cursor-default' : 'cursor-pointer'}`}
+                } ${!isHost ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 {sec}s
               </button>
@@ -299,7 +312,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
             <div className="w-full mb-4 p-4 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-center space-y-2.5 animate-pulse">
               <div className="flex items-center justify-center gap-2 text-rose-300 font-black text-sm">
                 <Sparkles className="w-4 h-4 text-rose-400" />
-                <span>🔥 {requestingPlayer?.displayName || 'Opponent'} wants to play again!</span>
+                <span>{requestingPlayer?.displayName || 'Opponent'} wants to play again!</span>
               </div>
               <p className="text-xs text-zinc-300">
                 Your opponent is in the waiting room ready for a rematch.
@@ -311,7 +324,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-rose-600 to-[#ee1d49] hover:brightness-110 active:scale-95 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-600/30 transition flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span>Accept & Play Again 🔄</span>
+                  <span>Accept & Play Again</span>
                 </button>
               )}
             </div>
@@ -322,7 +335,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
           <div className="w-full mb-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1.5 animate-fadeIn">
             <div className="flex items-center justify-center gap-2 text-amber-400 font-bold text-xs">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
-              <span>Waiting for partner to accept Play Again... (1/2)</span>
+              <span>Waiting for partner to accept Play Again... ({rematchVotedCount}/{rematchStatus?.totalNeeded ?? 2})</span>
             </div>
             <p className="text-[11px] text-zinc-400">
               Match will automatically start as soon as your partner accepts!
@@ -348,7 +361,7 @@ export const DoodleLobby: React.FC<DoodleLobbyProps> = ({
             }`}
           >
             <Play className={`w-4 h-4 fill-current ${isStarting ? 'animate-spin' : ''}`} />
-            <span>{isStarting ? 'Starting Duel... 🚀' : p2 ? 'Start Doodle Duel 🚀' : 'Start Duel (Solo / Practice) 🚀'}</span>
+            <span>{isStarting ? 'Starting Duel...' : p2 ? 'Start Doodle Duel' : 'Start Duel (Solo / Practice)'}</span>
           </button>
         ) : (
           <div className="w-full py-3.5 px-6 rounded-2xl bg-[#161220]/90 border border-white/10 text-center">

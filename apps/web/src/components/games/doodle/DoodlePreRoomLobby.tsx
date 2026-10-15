@@ -22,7 +22,8 @@ export const DoodlePreRoomLobby: React.FC = () => {
     }
     const res = await createGameRoomWithPartner('doodle-duel');
     if (res?.room?.roomCode) {
-      router.push(`/games/doodle-duel?room=${res.room.roomCode}`);
+      // the waiting room applies these as the host's settings (the server validates them)
+      router.push(`/games/doodle-duel?room=${res.room.roomCode}&rounds=${rounds}&drawTime=${drawTime}`);
     }
   };
 

@@ -362,7 +362,7 @@ export default function WatchlistPage() {
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(createdRoomInfo.inviteUrl);
+                  void navigator.clipboard.writeText(createdRoomInfo.inviteUrl);
                   setCopiedLink(true);
                   setTimeout(() => setCopiedLink(false), 2000);
                 }}

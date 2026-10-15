@@ -1,5 +1,6 @@
 'use client';
 
+import { CHESS_CHAT_REACTIONS } from '../../../lib/reactionEmojis';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   MessageSquare,
@@ -35,7 +36,7 @@ interface ChessRightPanelProps {
   isGameOver?: boolean;
 }
 
-const QUICK_REACTIONS = ['❤️', '😂', '🔥', '👏', '🎉', '👑'];
+const QUICK_REACTIONS = CHESS_CHAT_REACTIONS;
 
 function UserAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | null }) {
   if (avatarUrl && !avatarUrl.includes('api.dicebear.com/7.x/bottts')) {
@@ -120,7 +121,7 @@ export const ChessRightPanel: React.FC<ChessRightPanelProps> = ({
     const pgn = movePairs
       .map(p => `${p.number}. ${p.white?.san || ''} ${p.black?.san || ''}`.trim())
       .join(' ');
-    navigator.clipboard.writeText(pgn);
+    void navigator.clipboard.writeText(pgn);
     setCopiedPgn(true);
     setTimeout(() => setCopiedPgn(false), 2000);
   };

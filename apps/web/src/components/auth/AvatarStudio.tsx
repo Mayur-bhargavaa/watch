@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Check, RefreshCw } from 'lucide-react';
+import { Check, RefreshCw, Lock } from 'lucide-react';
+import { PREMIUM_AVATAR_STYLES, isPremiumAvatarUrl } from '@synccinema/common';
+import { useMyMembership } from '../membership/useMyMembership';
+import { AppIcon, type IconName } from '../ui/AppIcon';
 
 export interface AvatarConfig {
   seed: string;
@@ -34,18 +37,18 @@ const SKIN_TONES = [
 ];
 
 const HAIR_STYLES = [
-  { id: 'shortFlat',    name: 'Classic Short',  emoji: '💇' },
-  { id: 'shortCurly',   name: 'Curly Fade',     emoji: '🌀' },
-  { id: 'shortRound',   name: 'Crew Cut',        emoji: '✂️' },
-  { id: 'shortWaved',   name: 'Wavy Crop',       emoji: '🌊' },
-  { id: 'bob',          name: 'Sleek Bob',       emoji: '💁' },
-  { id: 'bun',          name: 'Top Bun',         emoji: '🍡' },
-  { id: 'straight01',   name: 'Long Straight',   emoji: '💆' },
-  { id: 'curvy',        name: 'Wavy Flow',       emoji: '〰️' },
-  { id: 'dreads01',     name: 'Dreadlocks',      emoji: '🎵' },
-  { id: 'fro',          name: 'Afro Puff',       emoji: '⭕' },
-  { id: 'winterHat02',  name: 'Beanie',          emoji: '🧢' },
-  { id: 'hat',          name: 'Cap',             emoji: '🎩' },
+  { id: 'shortFlat',    name: 'Classic Short',  icon: 'scissors' as IconName },
+  { id: 'shortCurly',   name: 'Curly Fade',     icon: 'waves' as IconName },
+  { id: 'shortRound',   name: 'Crew Cut',        icon: 'scissors' as IconName },
+  { id: 'shortWaved',   name: 'Wavy Crop',       icon: 'waves' as IconName },
+  { id: 'bob',          name: 'Sleek Bob',       icon: 'smile' as IconName },
+  { id: 'bun',          name: 'Top Bun',         icon: 'cookie' as IconName },
+  { id: 'straight01',   name: 'Long Straight',   icon: 'brush' as IconName },
+  { id: 'curvy',        name: 'Wavy Flow',       icon: 'waves' as IconName },
+  { id: 'dreads01',     name: 'Dreadlocks',      icon: 'music' as IconName },
+  { id: 'fro',          name: 'Afro Puff',       icon: 'dot' as IconName },
+  { id: 'winterHat02',  name: 'Beanie',          icon: 'shirt' as IconName },
+  { id: 'hat',          name: 'Cap',             icon: 'crown' as IconName },
 ];
 
 const HAIR_COLORS = [
@@ -60,21 +63,21 @@ const HAIR_COLORS = [
 ];
 
 const ACCESSORIES = [
-  { id: 'none',           name: 'None',          emoji: '🚫' },
-  { id: 'round',          name: 'Round Glasses', emoji: '🔵' },
-  { id: 'prescription02', name: 'Modern Frames', emoji: '👓' },
-  { id: 'sunglasses',     name: 'Sunglasses',    emoji: '🕶️' },
-  { id: 'wayfarers',      name: 'Wayfarers',     emoji: '😎' },
-  { id: 'kurt',           name: 'Square Frames', emoji: '🟦' },
+  { id: 'none',           name: 'None',          icon: 'close' as IconName },
+  { id: 'round',          name: 'Round Glasses', icon: 'glasses' as IconName },
+  { id: 'prescription02', name: 'Modern Frames', icon: 'glasses' as IconName },
+  { id: 'sunglasses',     name: 'Sunglasses',    icon: 'glasses' as IconName },
+  { id: 'wayfarers',      name: 'Wayfarers',     icon: 'glasses' as IconName },
+  { id: 'kurt',           name: 'Square Frames', icon: 'glasses' as IconName },
 ];
 
 const CLOTHING_OPTIONS = [
-  { id: 'hoodie',           name: 'Hoodie',       emoji: '🧥' },
-  { id: 'graphicShirt',     name: 'Graphic Tee',  emoji: '👕' },
-  { id: 'shirtCrewNeck',    name: 'Crewneck',     emoji: '👔' },
-  { id: 'blazerAndShirt',   name: 'Blazer',       emoji: '🕴️' },
-  { id: 'collarAndSweater', name: 'Sweater',      emoji: '🧶' },
-  { id: 'overall',          name: 'Overalls',     emoji: '🥼' },
+  { id: 'hoodie',           name: 'Hoodie',       icon: 'shirt' as IconName },
+  { id: 'graphicShirt',     name: 'Graphic Tee',  icon: 'shirt' as IconName },
+  { id: 'shirtCrewNeck',    name: 'Crewneck',     icon: 'shirt' as IconName },
+  { id: 'blazerAndShirt',   name: 'Blazer',       icon: 'shirt' as IconName },
+  { id: 'collarAndSweater', name: 'Sweater',      icon: 'shirt' as IconName },
+  { id: 'overall',          name: 'Overalls',     icon: 'shirt' as IconName },
 ];
 
 const CLOTHES_COLORS = [
@@ -102,20 +105,20 @@ const BG_COLORS = [
 ];
 
 const EYE_STYLES = [
-  { id: 'happy',     name: 'Happy',     emoji: '😊' },
-  { id: 'wink',      name: 'Wink',      emoji: '😉' },
-  { id: 'default',   name: 'Default',   emoji: '🙂' },
-  { id: 'surprised', name: 'Surprised', emoji: '😮' },
-  { id: 'closed',    name: 'Closed',    emoji: '😌' },
-  { id: 'hearts',    name: 'Hearts',    emoji: '😍' },
+  { id: 'happy',     name: 'Happy',     icon: 'smile' as IconName },
+  { id: 'wink',      name: 'Wink',      icon: 'eye' as IconName },
+  { id: 'default',   name: 'Default',   icon: 'smile' as IconName },
+  { id: 'surprised', name: 'Surprised', icon: 'meh' as IconName },
+  { id: 'closed',    name: 'Closed',    icon: 'meh' as IconName },
+  { id: 'hearts',    name: 'Hearts',    icon: 'heart' as IconName },
 ];
 
 const MOUTH_STYLES = [
-  { id: 'smile',   name: 'Smile',   emoji: '😁' },
-  { id: 'twinkle', name: 'Twinkle', emoji: '✨' },
-  { id: 'default', name: 'Calm',    emoji: '😐' },
-  { id: 'serious', name: 'Serious', emoji: '😑' },
-  { id: 'tongue',  name: 'Tongue',  emoji: '😛' },
+  { id: 'smile',   name: 'Smile',   icon: 'laugh' as IconName },
+  { id: 'twinkle', name: 'Twinkle', icon: 'sparkles' as IconName },
+  { id: 'default', name: 'Calm',    icon: 'meh' as IconName },
+  { id: 'serious', name: 'Serious', icon: 'meh' as IconName },
+  { id: 'tongue',  name: 'Tongue',  icon: 'laugh' as IconName },
 ];
 
 const CHARACTER_PRESETS: AvatarConfig[] = [
@@ -181,6 +184,27 @@ function parseAvatarUrl(url: string): AvatarConfig | null {
   }
 }
 
+const PREMIUM_STYLE_NAMES: Record<string, string> = {
+  adventurer: 'Adventurer', lorelei: 'Lorelei', notionists: 'Sketch', personas: 'Personas', micah: 'Micah', 'big-smile': 'Big Smile', bottts: 'Robots', miniavs: 'Minis'
+};
+
+function buildPremiumUrl(style: string, seed: string, bg: string): string {
+  const p = new URLSearchParams({ seed, backgroundColor: bg, radius: '20' });
+  return `https://api.dicebear.com/7.x/${style}/svg?${p.toString()}`;
+}
+
+/** Style/seed/background of an existing premium DiceBear URL, so the choice persists. */
+function parsePremiumUrl(url: string): { style: string; seed: string; bg: string } | null {
+  if (!isPremiumAvatarUrl(url)) return null;
+  try {
+    const u = new URL(url);
+    const style = u.pathname.split('/')[2];
+    return { style, seed: u.searchParams.get('seed') || 'watchfan', bg: u.searchParams.get('backgroundColor') || 'd2281e' };
+  } catch {
+    return null;
+  }
+}
+
 const DEFAULT_CONFIG: AvatarConfig = {
   seed: 'watchfan',
   skinColor: 'f8d25c',
@@ -195,10 +219,10 @@ const DEFAULT_CONFIG: AvatarConfig = {
 };
 
 // ─── Small reusable section heading ──────────────────────────────────────────
-function SectionHeading({ emoji, label }: { emoji: string; label: string }) {
+function SectionHeading({ icon, label }: { icon: IconName; label: string }) {
   return (
     <div className="flex items-center gap-1.5 mb-2">
-      <span className="text-sm">{emoji}</span>
+      <AppIcon name={icon} className="w-4 h-4" />
       <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{label}</h4>
     </div>
   );
@@ -217,7 +241,11 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
     };
   });
 
-  const avatarUrl = useMemo(() => buildAvatarUrl(config), [config]);
+  const membership = useMyMembership();
+  const canUsePremium = Boolean(membership?.limits.premiumAvatars);
+  const [premium, setPremium] = useState<{ style: string; seed: string; bg: string } | null>(() => parsePremiumUrl(value));
+  const avatarUrl = useMemo(() => (premium ? buildPremiumUrl(premium.style, premium.seed, premium.bg) : buildAvatarUrl(config)), [config, premium]);
+  const previewSeed = premium?.seed || config.seed || displayName || 'watchfan';
 
   // Sync to parent on every change
   React.useEffect(() => {
@@ -225,10 +253,12 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
   }, [avatarUrl, onChange]);
 
   const update = useCallback(<K extends keyof AvatarConfig>(key: K, val: AvatarConfig[K]) => {
+    setPremium(null);
     setConfig(prev => ({ ...prev, [key]: val }));
   }, []);
 
   const handleRandomize = () => {
+    setPremium(null);
     const rand = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
     setConfig({
       seed: `watch_${Math.random().toString(36).substring(2, 7)}`,
@@ -273,7 +303,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
         {/* Name + badge */}
         <div className="text-center">
           <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#d2281e]/10 text-[#d2281e] text-[9px] font-black uppercase tracking-wider mb-1">
-            ✨ Your Bitmoji
+            <AppIcon name="sparkles" className="w-3 h-3" /> Your Bitmoji
           </div>
           <p className="text-sm font-black text-zinc-900 dark:text-white leading-tight">
             {displayName ? `${displayName}'s Avatar` : 'Your Avatar'}
@@ -283,7 +313,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Character presets */}
         <div className="w-full">
-          <SectionHeading emoji="🧑" label="Start From" />
+          <SectionHeading icon="users" label="Start From" />
           <div className="grid grid-cols-4 gap-1.5">
             {CHARACTER_PRESETS.map(preset => {
               const presetUrl = buildAvatarUrl(preset);
@@ -292,7 +322,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                 <button
                   key={preset.seed}
                   type="button"
-                  onClick={() => setConfig({ ...preset })}
+                  onClick={() => { setPremium(null); setConfig({ ...preset }); }}
                   className={`relative rounded-xl overflow-hidden border-2 transition-all active:scale-95 ${
                     isSelected
                       ? 'border-[#d2281e] ring-2 ring-[#d2281e]/30 scale-105 shadow-md'
@@ -319,9 +349,66 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
       {/* ── RIGHT: All Customization Panels ─────────────────────────────── */}
       <div className="flex-1 overflow-y-auto space-y-5 pr-1" style={{ maxHeight: '68vh' }}>
 
+        {/* Premium styles (Watch+) */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <SectionHeading icon="sparkles" label="Premium Styles" />
+            {!canUsePremium && (
+              <a href="/pricing" className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 hover:bg-amber-500/25">Unlock with Watch+</a>
+            )}
+          </div>
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+            <button
+              type="button"
+              onClick={() => setPremium(null)}
+              className={`rounded-xl border-2 p-1 text-[9px] font-bold transition ${!premium ? 'border-[#d2281e] bg-[#d2281e]/10 text-[#d2281e]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-400'}`}
+            >
+              <img src={buildAvatarUrl(config)} alt="" className="w-full aspect-square rounded-lg object-cover" loading="lazy" />
+              Classic
+            </button>
+            {PREMIUM_AVATAR_STYLES.map((style) => {
+              const selected = premium?.style === style;
+              const url = buildPremiumUrl(style, previewSeed, premium?.bg || config.bgColor);
+              return canUsePremium ? (
+                <button
+                  key={style}
+                  type="button"
+                  onClick={() => setPremium({ style, seed: previewSeed, bg: premium?.bg || config.bgColor })}
+                  className={`rounded-xl border-2 p-1 text-[9px] font-bold transition ${selected ? 'border-[#d2281e] bg-[#d2281e]/10 text-[#d2281e]' : 'border-zinc-200 text-zinc-500 hover:border-zinc-400'}`}
+                >
+                  <img src={url} alt="" className="w-full aspect-square rounded-lg object-cover" loading="lazy" />
+                  {PREMIUM_STYLE_NAMES[style] || style}
+                </button>
+              ) : (
+                <a key={style} href="/pricing" className="relative rounded-xl border-2 border-zinc-200 p-1 text-[9px] font-bold text-zinc-400 block" title="Watch+ only">
+                  <img src={url} alt="" className="w-full aspect-square rounded-lg object-cover opacity-50" loading="lazy" />
+                  <span className="absolute inset-x-1 top-1 aspect-square rounded-lg flex items-center justify-center bg-black/35 text-white"><Lock className="w-4 h-4" aria-label="Watch+ only" /></span>
+                  {PREMIUM_STYLE_NAMES[style] || style}
+                </a>
+              );
+            })}
+          </div>
+          {canUsePremium && premium && (
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPremium({ ...premium, seed: `watch_${Math.random().toString(36).substring(2, 7)}` })}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-100 hover:bg-zinc-200 text-[11px] font-bold text-zinc-700"
+              >
+                <RefreshCw className="w-3 h-3" /> New look
+              </button>
+              <div className="flex gap-1">
+                {BG_COLORS.slice(0, 8).map((c) => (
+                  <button key={c.id} type="button" aria-label={`Background ${c.name}`} onClick={() => setPremium({ ...premium, bg: c.id })} className={`w-5 h-5 rounded-full border-2 ${premium.bg === c.id ? 'border-zinc-900' : 'border-white'} shadow`} style={{ backgroundColor: c.hex }} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Skin Tone */}
         <div>
-          <SectionHeading emoji="🎨" label="Skin Tone" />
+          <SectionHeading icon="palette" label="Skin Tone" />
           <div className="grid grid-cols-6 gap-2">
             {SKIN_TONES.map(tone => (
               <button
@@ -349,7 +436,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Hair Style */}
         <div>
-          <SectionHeading emoji="💇" label="Hair Style" />
+          <SectionHeading icon="scissors" label="Hair Style" />
           <div className="grid grid-cols-2 gap-1.5">
             {HAIR_STYLES.map(h => (
               <button
@@ -362,7 +449,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                     : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50 text-zinc-700'
                 }`}
               >
-                <span className="text-sm">{h.emoji}</span>
+                <AppIcon name={h.icon} className="w-4 h-4" />
                 <span className="text-[10px] font-bold flex-1">{h.name}</span>
                 {config.top === h.id && <Check className="w-3 h-3 shrink-0 text-[#d2281e]" />}
               </button>
@@ -372,7 +459,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Hair Color */}
         <div>
-          <SectionHeading emoji="🎀" label="Hair Color" />
+          <SectionHeading icon="brush" label="Hair Color" />
           <div className="grid grid-cols-8 gap-2">
             {HAIR_COLORS.map(color => (
               <button
@@ -400,7 +487,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Eyes */}
         <div>
-          <SectionHeading emoji="👁️" label="Eye Expression" />
+          <SectionHeading icon="eye" label="Eye Expression" />
           <div className="grid grid-cols-3 gap-2">
             {EYE_STYLES.map(e => (
               <button
@@ -413,7 +500,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                     : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
                 }`}
               >
-                <span className="text-xl">{e.emoji}</span>
+                <AppIcon name={e.icon} className="w-5 h-5" />
                 <span className="text-[9px] font-bold text-zinc-600">{e.name}</span>
               </button>
             ))}
@@ -422,7 +509,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Mouth */}
         <div>
-          <SectionHeading emoji="😊" label="Expression" />
+          <SectionHeading icon="smile" label="Expression" />
           <div className="grid grid-cols-5 gap-2">
             {MOUTH_STYLES.map(m => (
               <button
@@ -435,7 +522,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                     : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50'
                 }`}
               >
-                <span className="text-xl">{m.emoji}</span>
+                <AppIcon name={m.icon} className="w-5 h-5" />
                 <span className="text-[9px] font-bold text-zinc-600">{m.name}</span>
               </button>
             ))}
@@ -444,7 +531,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Glasses */}
         <div>
-          <SectionHeading emoji="👓" label="Eyewear" />
+          <SectionHeading icon="glasses" label="Eyewear" />
           <div className="grid grid-cols-2 gap-1.5">
             {ACCESSORIES.map(acc => (
               <button
@@ -457,7 +544,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                     : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50 text-zinc-700'
                 }`}
               >
-                <span className="text-sm">{acc.emoji}</span>
+                <AppIcon name={acc.icon} className="w-4 h-4" />
                 <span className="text-[10px] font-bold flex-1">{acc.name}</span>
                 {config.accessories === acc.id && <Check className="w-3 h-3 shrink-0 text-[#d2281e]" />}
               </button>
@@ -467,7 +554,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Outfit */}
         <div>
-          <SectionHeading emoji="👕" label="Outfit" />
+          <SectionHeading icon="shirt" label="Outfit" />
           <div className="grid grid-cols-2 gap-1.5">
             {CLOTHING_OPTIONS.map(c => (
               <button
@@ -480,7 +567,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
                     : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50 text-zinc-700'
                 }`}
               >
-                <span className="text-sm">{c.emoji}</span>
+                <AppIcon name={c.icon} className="w-4 h-4" />
                 <span className="text-[10px] font-bold flex-1">{c.name}</span>
                 {config.clothing === c.id && <Check className="w-3 h-3 shrink-0 text-[#d2281e]" />}
               </button>
@@ -490,7 +577,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Outfit Color */}
         <div>
-          <SectionHeading emoji="🎨" label="Outfit Color" />
+          <SectionHeading icon="palette" label="Outfit Color" />
           <div className="grid grid-cols-5 gap-2">
             {CLOTHES_COLORS.map(c => (
               <button
@@ -518,7 +605,7 @@ export function AvatarStudio({ displayName, value, onChange }: AvatarStudioProps
 
         {/* Background */}
         <div>
-          <SectionHeading emoji="🌈" label="Background" />
+          <SectionHeading icon="sparkles" label="Background" />
           <div className="grid grid-cols-8 gap-2">
             {BG_COLORS.map(bg => (
               <button
