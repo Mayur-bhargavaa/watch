@@ -33,7 +33,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Board Game',
     players: '2-4 Players',
     icon: 'dice',
-    artwork: 'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=600&h=400&fit=crop&q=80',
+    artwork: '/images/card-ludo-dice.png',
     description: 'Roll the dice, race your 4 tokens across the board, land on safe stars, and send opponent tokens back to base.'
   },
   {
@@ -45,7 +45,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Strategy Arcade',
     players: '2 Players',
     icon: 'dot',
-    artwork: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&h=400&fit=crop&q=80',
+    artwork: '/images/card-four-in-row.png',
     description: 'Drop red and yellow discs into the 7x6 arcade grid. Connect 4 horizontally, vertically, or diagonally before your rival.'
   },
   {
@@ -57,7 +57,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Strategy Arcade',
     players: '2 Players',
     icon: 'close',
-    artwork: 'https://images.unsplash.com/photo-1668901382969-8c73e450a1f5?w=600&h=400&fit=crop&q=80',
+    artwork: '/images/card-tictactoe.png',
     description: 'Fast-paced 3x3 tactical duel. Place Xs and Os, block opponent lines, and claim victory with live audio/video reactions.'
   },
   {
@@ -81,7 +81,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Social Party',
     players: '2–20 Players',
     icon: 'ticket',
-    artwork: '/images/card-bingo-duel.png',
+    artwork: '/images/card-tambola.png',
     description: 'Traditional 90-ball Housie with real-time automatic calling, synchronized 3x9 tickets, and multi-condition claims.'
   },
   {
@@ -93,7 +93,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Live Sketch',
     players: '2 Players',
     icon: 'palette',
-    artwork: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&h=400&fit=crop&q=80',
+    artwork: '/images/card-doodle-duel.png',
     description: 'One player sketches a secret word while the other guesses in real time, then you switch sides.'
   },
   {
@@ -105,7 +105,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Classic Strategy',
     players: '2 Players',
     icon: 'crown',
-    artwork: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=600&h=400&fit=crop&q=80',
+    artwork: '/images/card-chess-arena.png',
     description: 'Classic chess with live move highlighting, turn clocks, checkmate validation, and party spectating.'
   },
   {
@@ -117,7 +117,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Social Deduction',
     players: '4-8 Players',
     icon: 'ghost',
-    artwork: '/images/card-cinema-trivia.png',
+    artwork: '/images/card-imposter.png',
     description: 'Everyone gets the secret word except one player. Give one-word clues, discuss and vote out the imposter. VIP hosts the room; anyone can join.',
     tier: 'plus'
   },
@@ -130,7 +130,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Movie Puzzle',
     players: '2-8 Players',
     icon: 'popcorn',
-    artwork: '/images/card-cinema-trivia.png',
+    artwork: '/images/card-emoji-charades.png',
     description: 'Race your friends to guess a movie or show from a string of emoji. Hints appear as the clock runs. VIP hosts the room; anyone can join.',
     tier: 'plus'
   },
@@ -143,7 +143,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Social Deduction',
     players: '5-10 Players',
     icon: 'skull',
-    artwork: '/images/card-chess-arena.png',
+    artwork: '/images/card-mafia.png',
     description: 'Mafia, Doctor, Detective and Villagers. The mafia strike at night, the town votes by day. VIP hosts the room; anyone can join.',
     tier: 'plus'
   },
@@ -156,7 +156,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Live Quiz',
     players: 'Up to 30 Players',
     icon: 'trophy',
-    artwork: '/images/card-cinema-trivia.png',
+    artwork: '/images/card-quiz-show.png',
     description: 'Write your own questions, run them live with buzzers and a leaderboard. The Creator Pass hosts the quiz; anyone can join.',
     tier: 'creator'
   },
@@ -169,7 +169,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Mystery Party',
     players: '6-12 Players',
     icon: 'search',
-    artwork: '/images/card-chess-arena.png',
+    artwork: '/images/card-murder-mystery.png',
     description: 'Everyone is a suspect. Trade clues, whisper and bluff, then accuse the murderer. The Creator Pass hosts the room; anyone can join.',
     tier: 'creator'
   },
@@ -182,7 +182,7 @@ export const GAMES_CATALOG: GameItem[] = [
     category: 'Community Event',
     players: '4-32 Players',
     icon: 'trophy',
-    artwork: '/images/card-chess-arena.png',
+    artwork: '/images/card-tournament.png',
     description: 'Run a bracket of 1v1 matches with seeding, byes and a champion screen. The Creator Pass organises the tournament; anyone can join and play.',
     tier: 'creator'
   }

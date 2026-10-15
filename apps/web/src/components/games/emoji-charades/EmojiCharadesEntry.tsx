@@ -51,8 +51,8 @@ export const EmojiCharadesEntry: React.FC = () => {
     <div className="mx-auto grid w-full max-w-4xl gap-4 md:grid-cols-2" data-testid="emoji-charades-entry">
       <div className="rounded-3xl border border-white/60 bg-white/80 p-6 shadow-xl backdrop-blur dark:border-white/10 dark:bg-[#121629]/80 md:col-span-2">
         <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-[#ff2b70] text-white shadow">
-            <AppIcon name="popcorn" className="h-7 w-7" />
+          <div className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600/20 to-[#ff2b70]/20 p-1.5 shadow-inner">
+            <img src="/images/card-emoji-charades.png" alt="Emoji Charades" className="h-full w-full object-contain drop-shadow-md" />
           </div>
           <div className="min-w-0">
             <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black text-[#16132b] dark:text-white sm:text-3xl">

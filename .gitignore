@@ -13,5 +13,7 @@ coverage/
 *.db-shm
 *.tsbuildinfo
 scratch/
-*.pdf.next-e2e/
+*.pdf
+.next-e2e/
+.next-prod/
 .claude/
