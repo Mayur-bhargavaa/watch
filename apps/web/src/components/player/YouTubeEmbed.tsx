@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, memo } from 'react';
 import { RoomPlaybackState } from '@synccinema/common';
-import { Zap } from 'lucide-react';
+import { Zap, AlertCircle } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -31,11 +31,22 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [isReady, setIsReady] = useState(false);
+  const [embedError, setEmbedError] = useState<number | null>(null);
   const [syncBadge, setSyncBadge] = useState<{ isCatchingUp: boolean; text: string } | null>(null);
   const lastHardSeekTimeRef = useRef<number>(0);
   const isInternalUpdateRef = useRef<boolean>(false);
 
-  // 1. Load YouTube IFrame Player API script and initialize
+  // Keep references to incoming callbacks so useEffect doesn't tear down and re-create the YouTube iframe
+  const getAuthPosRef = useRef(getAuthoritativePosition);
+  getAuthPosRef.current = getAuthoritativePosition;
+
+  const onHostCommandRef = useRef(onHostCommand);
+  onHostCommandRef.current = onHostCommand;
+
+  const playbackStateRef = useRef(playbackState);
+  playbackStateRef.current = playbackState;
+
+  // 1. Load YouTube IFrame Player API script and initialize ONCE per videoId
   useEffect(() => {
     let isCancelled = false;
 
@@ -67,13 +78,15 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
             controls: isHost ? 1 : 0, // participants use social synchronized controls
             disablekb: isHost ? 0 : 1,
             modestbranding: 1,
-            rel: 0
+            rel: 0,
+            enablejsapi: 1,
+            origin: typeof window !== 'undefined' ? window.location.origin : undefined
           },
           events: {
             onReady: (event: any) => {
               if (isCancelled) return;
               setIsReady(true);
-              const authPos = getAuthoritativePosition();
+              const authPos = getAuthPosRef.current ? getAuthPosRef.current() : 0;
               if (authPos > 0 && typeof event?.target?.seekTo === 'function') {
                 isInternalUpdateRef.current = true;
                 event.target.seekTo(authPos, true);
@@ -81,7 +94,7 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
                   isInternalUpdateRef.current = false;
                 }, 400);
               }
-              if (playbackState.state === 'PLAYING' && typeof event?.target?.playVideo === 'function') {
+              if (playbackStateRef.current?.state === 'PLAYING' && typeof event?.target?.playVideo === 'function') {
                 event.target.playVideo();
               }
             },
@@ -95,10 +108,15 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
               const pausedState = window.YT?.PlayerState?.PAUSED ?? 2;
 
               if (event.data === playingState) {
-                onHostCommand('PLAY', currentTime);
+                onHostCommandRef.current?.('PLAY', currentTime);
               } else if (event.data === pausedState) {
-                onHostCommand('PAUSE', currentTime);
+                onHostCommandRef.current?.('PAUSE', currentTime);
               }
+            },
+            onError: (event: any) => {
+              if (isCancelled) return;
+              console.warn('YouTube Player error code:', event.data);
+              setEmbedError(event.data);
             }
           }
         });
@@ -133,7 +151,7 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
         containerRef.current.innerHTML = '';
       }
     };
-  }, [videoId, isHost, onHostCommand]);
+  }, [videoId, isHost]);
 
   // 2. Play/Pause state synchronization
   useEffect(() => {
@@ -263,6 +281,29 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
   return (
     <div className="relative w-full h-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-cinema-border/50">
       <div ref={containerRef} className="w-full h-full" />
+
+      {/* YouTube Restricted / Video Unavailable Error Overlay */}
+      {embedError && (
+        <div className="absolute inset-0 z-40 bg-[#0f1118]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center select-none animate-fadeIn">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3 shadow-lg">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h4 className="text-sm sm:text-base font-bold text-white tracking-tight">
+            YouTube Video Unavailable
+          </h4>
+          <p className="text-[11px] sm:text-xs text-zinc-400 max-w-sm mt-1.5 leading-relaxed">
+            This YouTube video has restricted playback or was removed (error code {embedError}). You can choose a verified movie from the Free Movies collection or stream a direct video URL.
+          </p>
+          <div className="mt-4 flex items-center gap-2">
+            <a
+              href="/discover"
+              className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition cursor-pointer"
+            >
+              Browse Free Movies
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Smart Sync Catch-up Indicator Badge */}
       {syncBadge && (

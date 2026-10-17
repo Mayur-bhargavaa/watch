@@ -6,6 +6,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation';
 import {
   WifiOff,
+  Clapperboard,
   Crown,
   LogOut,
   PhoneOff,
@@ -45,6 +46,7 @@ import { CinemaPlayer } from '../../../components/player/CinemaPlayer';
 import { FloatingReactionsCanvas } from '../../../components/social/FloatingReactionsCanvas';
 import { VideoGrid } from '../../../components/voice/VideoGrid';
 import { ContextualChat } from '../../../components/chat/ContextualChat';
+import { PartyQueuePanel } from '../../../components/room/PartyQueuePanel';
 import { GameLounge } from '../../../components/games/GameLounge';
 import { RoomMiniGameDrawer } from '../../../components/games/room/RoomMiniGameDrawer';
 import { DynamicThemeEffects } from '../../../components/theme/DynamicThemeEffects';
@@ -313,6 +315,9 @@ export default function RoomPage() {
     sendCountdownStart,
     registerCountdownListener,
     sendRoomTheme,
+    titleState,
+    sendTitleAction,
+    getAuthoritativeServerTime,
     leaveRoom,
     endRoomForAll
   } = useRoomSocket(slug);
@@ -378,7 +383,7 @@ export default function RoomPage() {
   const [browserUrl, setBrowserUrl] = useState('https://watch.stitchbyte.in');
   const [countdownActive, setCountdownActive] = useState(false);
   const [sideSection, setSideSection] = useState<'chat' | 'games'>('chat');
-  const [activeSideTab, setActiveSideTab] = useState<'chat' | 'games' | 'call' | 'players'>('chat');
+  const [activeSideTab, setActiveSideTab] = useState<'chat' | 'games' | 'call' | 'players' | 'queue'>('chat');
   const [activeMiniGame, setActiveMiniGame] = useState<'tictactoe' | 'connect4' | null>(null);
 
   const { setActiveParty, leaveParty } = useWatchParty();
@@ -1354,6 +1359,8 @@ export default function RoomPage() {
                     ? 'Party Games'
                     : activeSideTab === 'call'
                     ? 'In-Game Call'
+                    : activeSideTab === 'queue'
+                    ? 'Party Queue'
                     : 'Players'}
                 </span>
               </div>
@@ -1420,6 +1427,20 @@ export default function RoomPage() {
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>Players</span>
+              </button>
+
+              <button
+                onClick={() => setActiveSideTab('queue')}
+                aria-label="Party queue"
+                className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 relative ${
+                  activeSideTab === 'queue'
+                    ? 'text-rose-300 font-extrabold after:absolute after:bottom-[-9px] after:left-1/4 after:right-1/4 after:h-0.5 after:bg-rose-400'
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+              >
+                <Clapperboard className="w-3.5 h-3.5" />
+                <span>Queue</span>
+                {(titleState.queue.length > 0 || titleState.selected) && <span className="ml-0.5 min-w-4 px-1 rounded-full text-[9px] font-bold bg-[#ee1d49] text-white">{titleState.queue.length || 1}</span>}
               </button>
             </div>
 
@@ -1633,6 +1654,18 @@ export default function RoomPage() {
             )}
 
             {/* Tab 4: Players Tab */}
+            {activeSideTab === 'queue' && (
+              <PartyQueuePanel
+                roomSlug={slug}
+                state={titleState}
+                myUserId={myUserId}
+                isHost={myRole === 'HOST'}
+                memberCount={activeMembers.length}
+                serverNow={getAuthoritativeServerTime}
+                send={sendTitleAction}
+              />
+            )}
+
             {activeSideTab === 'players' && (
               <div className="flex-1 overflow-y-auto space-y-3 py-3 pr-1 text-xs">
                 <div className="flex items-center justify-between pb-2 border-b border-white/5">

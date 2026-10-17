@@ -29,6 +29,10 @@ import { TIER_INFO, tierAtLeast, BILLING_CURRENCIES, isPremiumAvatarUrl, type Me
 import * as billing from './services/billing.js';
 import { COMING_SOON_GAMES, isComingSoonGame } from './games/comingSoon.js';
 import { runGameLaunchJob } from './services/gameLaunch.js';
+import { registerCatalogRoutes, roomTitleApi } from './routes/catalog.js';
+import { CatalogService } from './services/catalog/service.js';
+import { MongoWatchlistStore } from './services/catalog/watchlist.js';
+const cineverseCatalog = new CatalogService(process.env);
 
 function resolveGameType(raw?: string): GameType {
   // Exact ids / explicit aliases only (GR-32). A room-code prefix ("TIC-AB12CD34") is accepted too. Empty input means Ludo;
@@ -113,6 +117,9 @@ export async function createServer(dbPath = './synccinema.db') {
 
   billing.assertBillingConfig(); // fail fast: mock refused in production, live needs its provider secrets
 
+  if (IS_PROD && process.env.MAIL_TRANSPORT === 'memory') {
+    throw new Error('MAIL_TRANSPORT=memory is a test switch and silently drops every email: refused in production.');
+  }
   if (IS_PROD && !mailer.isConfigured()) {
     throw new Error('Mail is not configured: set SMTP_HOST/SMTP_USER/SMTP_PASS (or SMTP_URL). Signup and password reset need it.');
   }
@@ -1903,6 +1910,10 @@ export async function createServer(dbPath = './synccinema.db') {
     return { success: true, activeDevice: activeSession };
   });
 
+  // --- Cineverse (movie / TV discovery, watchlist, party queue): see CINEVERSE.md -------------------------------------
+  await registerCatalogRoutes(app, { catalog: cineverseCatalog, watchlist: new MongoWatchlistStore(() => mongoDb.watchlistCol), rooms: roomTitleApi(syncManager) });
+  syncManager.setTitleLinkResolver((titleKey, providerId, region) => cineverseCatalog.resolveDestinationUrl(titleKey, providerId, region));
+
   // --- Billing / subscriptions -------------------------------------------------------------------------------
   // Tiers are derived ONLY from the stored subscription (services/billing.ts computeEntitlement). Payments happen on
   // Razorpay / Stripe hosted pages; this server never sees card data. Webhooks are public but HMAC-verified on the raw
@@ -2143,6 +2154,99 @@ export async function createServer(dbPath = './synccinema.db') {
     return shaped;
   };
 
+  const sendInviteeEmails = async (plan: any, host: { displayName: string }, invitees: any[]) => {
+    if (!invitees.length) return;
+    const planUrl = `${WEB_BASE_URL}/plans/${plan.id || plan._id}`;
+    const formattedDate = formatPlanDate(plan.date);
+    const inviteeUsers = await mongoDb.getUsersByIds(invitees.map((i: any) => i.userId));
+
+    for (const friend of inviteeUsers) {
+      if (!friend.email) continue;
+      await mailer.send({
+        to: friend.email,
+        subject: `${host.displayName} invited you to a Watch Party: "${plan.title}"`,
+        text: `Hi ${friend.displayName},\n\n${host.displayName} invited you to join their Watch Party: "${plan.title}"!\n\nDate: ${formattedDate}\nTime: ${plan.time} (${plan.timezone})\n\nRSVP and view the party here:\n${planUrl}\n\nWe will also remind you 4 hours and 30 minutes before the party begins.\n\nSee you there!\nWatch Party Team`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background: #0f1015; color: #f1f5f9; border-radius: 16px;">
+            <h1 style="color: #ff2b70; font-size: 22px; margin-top: 0;">You're Invited to a Watch Party!</h1>
+            <p>Hi <strong>${friend.displayName}</strong>,</p>
+            <p><strong>${host.displayName}</strong> has invited you to join their Watch Party <strong>"${plan.title}"</strong>.</p>
+            <div style="background: #181922; border: 1px solid #2a2b36; border-radius: 12px; padding: 16px; margin: 20px 0;">
+              <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${formattedDate}</p>
+              <p style="margin: 0 0 8px 0;"><strong>Time:</strong> ${plan.time} (${plan.timezone})</p>
+              <p style="margin: 0;"><strong>Host:</strong> ${host.displayName}</p>
+            </div>
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${planUrl}" style="background: #ff2b70; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; display: inline-block;">RSVP & Join Party</a>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px;">We'll automatically send reminder notifications 4 hours and 30 minutes before the party starts.</p>
+          </div>
+        `
+      }).catch((err) => app.log.warn({ err, friendId: friend.id }, 'Failed to send invitee email'));
+    }
+  };
+
+  const sendHostConfirmationEmail = async (plan: any, host: User, inviteesCount: number) => {
+    if (!host.email) return;
+    const planUrl = `${WEB_BASE_URL}/plans/${plan.id || plan._id}`;
+    const formattedDate = formatPlanDate(plan.date);
+
+    await mailer.send({
+      to: host.email,
+      subject: `Your Watch Party "${plan.title}" is scheduled!`,
+      text: `Hi ${host.displayName},\n\nYour Watch Party "${plan.title}" has been successfully scheduled for ${formattedDate} at ${plan.time} (${plan.timezone}).\n\n${inviteesCount > 0 ? `You invited ${inviteesCount} friend(s).\n\n` : ''}View your party and manage details:\n${planUrl}\n\nWe will send automated reminders 4 hours and 30 minutes before showtime.\n\nEnjoy the show!\nWatch Party Team`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background: #0f1015; color: #f1f5f9; border-radius: 16px;">
+          <h1 style="color: #ff2b70; font-size: 22px; margin-top: 0;">Watch Party Scheduled!</h1>
+          <p>Hi <strong>${host.displayName}</strong>,</p>
+          <p>Your Watch Party <strong>"${plan.title}"</strong> has been successfully scheduled.</p>
+          <div style="background: #181922; border: 1px solid #2a2b36; border-radius: 12px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${formattedDate}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Time:</strong> ${plan.time} (${plan.timezone})</p>
+            ${inviteesCount > 0 ? `<p style="margin: 0;"><strong>Invited Friends:</strong> ${inviteesCount}</p>` : ''}
+          </div>
+          <div style="text-align: center; margin: 28px 0;">
+            <a href="${planUrl}" style="background: #ff2b70; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; display: inline-block;">View Watch Party</a>
+          </div>
+          <p style="color: #94a3b8; font-size: 13px;">We'll automatically send reminder notifications 4 hours and 30 minutes before your party begins.</p>
+        </div>
+      `
+    }).catch((err) => app.log.warn({ err }, 'Failed to send host confirmation email'));
+  };
+
+  const sendMilestoneEmails = async (plan: any, attendees: any[], milestone: '4h' | '30m', minutesLeft: number) => {
+    const planUrl = `${WEB_BASE_URL}/plans/${plan.id || plan._id}`;
+    const users = await mongoDb.getUsersByIds(attendees.map((a: any) => a.userId));
+    const timeLabel = milestone === '4h' ? 'in 4 hours' : 'in 30 minutes';
+    const subject = milestone === '4h'
+      ? `4 Hours Left: Watch Party "${plan.title}"`
+      : `30 Minutes Left: Watch Party "${plan.title}" starts soon!`;
+
+    for (const u of users) {
+      if (!u.email) continue;
+      await mailer.send({
+        to: u.email,
+        subject,
+        text: `Hi ${u.displayName},\n\nJust a reminder that your Watch Party "${plan.title}" starts ${timeLabel} at ${plan.time} (${plan.timezone})!\n\nOpen the room here:\n${planUrl}\n\nEnjoy the party!\nWatch Party Team`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background: #0f1015; color: #f1f5f9; border-radius: 16px;">
+            <h1 style="color: #ff2b70; font-size: 22px; margin-top: 0;">${milestone === '4h' ? '4 Hours Until Showtime!' : '30 Minutes Until Showtime!'}</h1>
+            <p>Hi <strong>${u.displayName}</strong>,</p>
+            <p>Your Watch Party <strong>"${plan.title}"</strong> is starting <strong>${timeLabel}</strong>.</p>
+            <div style="background: #181922; border: 1px solid #2a2b36; border-radius: 12px; padding: 16px; margin: 20px 0;">
+              <p style="margin: 0 0 8px 0;"><strong>Event:</strong> ${plan.title}</p>
+              <p style="margin: 0;"><strong>Start Time:</strong> ${plan.time} (${plan.timezone})</p>
+            </div>
+            <div style="text-align: center; margin: 28px 0;">
+              <a href="${planUrl}" style="background: #ff2b70; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: bold; display: inline-block;">Open Watch Party Room</a>
+            </div>
+            <p style="color: #94a3b8; font-size: 13px;">Get your snacks ready and join your friends!</p>
+          </div>
+        `
+      }).catch((err) => app.log.warn({ err, userId: u.id }, `Failed to send ${milestone} milestone email`));
+    }
+  };
+
   app.get('/api/plans', async (request) => {
     const me = (request.user as any).id as string;
     const plans = await mongoDb.getPlansForUser(me);
@@ -2205,6 +2309,7 @@ export async function createServer(dbPath = './synccinema.db') {
     };
     await mongoDb.createPlan(doc);
 
+    void sendHostConfirmationEmail(doc, user, invitees.length);
     if (invitees.length) {
       notifyPlanMembers(invitees.map((i) => i.userId), {
         id,
@@ -2212,6 +2317,7 @@ export async function createServer(dbPath = './synccinema.db') {
         body: `${input.title}: ${formatPlanDate(input.date)}, ${input.time}`,
         link: `/plans/${id}`
       });
+      void sendInviteeEmails(doc, user, invitees);
     }
     return { success: true, plan: await presentPlanT(doc, user.id) };
   });
@@ -2307,6 +2413,8 @@ export async function createServer(dbPath = './synccinema.db') {
     for (const inv of invitees) if (await mongoDb.addPlanParticipant(id, inv, MAX_PARTICIPANTS)) added.push(inv.userId);
     if (added.length) {
       notifyPlanMembers(added, { id, title: `${user.displayName} invited you`, body: `${plan.title}: ${formatPlanDate(plan.date)}, ${plan.time}`, link: `/plans/${id}` });
+      const newlyAdded = invitees.filter((inv) => added.includes(inv.userId));
+      void sendInviteeEmails(plan, user, newlyAdded);
     }
     return { success: true, invited: added.length, plan: await presentPlanT(await mongoDb.getPlanById(id), user.id) };
   });
@@ -2394,6 +2502,45 @@ export async function createServer(dbPath = './synccinema.db') {
       const minutes = Math.max(1, Math.round((plan.startsAt - now) / 60_000));
       const when = minutes >= 90 ? `in ${Math.round(minutes / 60)} hours` : `in ${minutes} min`;
       notifyPlanMembers(who, { id: plan.id || plan._id, title: `${plan.title} starts ${when}`, body: `${plan.time} (${plan.timezone})`, link: `/plans/${plan.id || plan._id}` });
+    }
+
+    // Automated milestone reminders (4 hours and 30 minutes before showtime)
+    for (const plan of await mongoDb.getUpcomingPlansForMilestones(now)) {
+      if (!plan.startsAt) continue;
+      const minutesLeft = Math.round((plan.startsAt - now) / 60_000);
+      const planId = plan.id || plan._id;
+      const attendees = (plan.participants || []).filter((p: any) => p.status !== 'CANT_GO');
+      const attendeeIds = attendees.map((p: any) => p.userId);
+
+      // 4 hours left: 35 min < minutesLeft <= 245 min (around 4 hours)
+      if (minutesLeft <= 245 && minutesLeft > 35) {
+        if (await mongoDb.claimPlanMilestoneReminder(plan._id, '4h')) {
+          notifyPlanMembers(attendeeIds, {
+            id: planId,
+            title: `4 Hours Left: Watch Party "${plan.title}"`,
+            body: `${plan.time} (${plan.timezone}) - Starts soon!`,
+            link: `/plans/${planId}`
+          });
+          void sendMilestoneEmails(plan, attendees, '4h', minutesLeft).catch((err) =>
+            app.log.warn({ err, planId }, 'Failed to send 4h milestone emails')
+          );
+        }
+      }
+
+      // 30 minutes left: 0 < minutesLeft <= 35 min
+      if (minutesLeft <= 35 && minutesLeft > 0) {
+        if (await mongoDb.claimPlanMilestoneReminder(plan._id, '30m')) {
+          notifyPlanMembers(attendeeIds, {
+            id: planId,
+            title: `30 Minutes Left: Watch Party "${plan.title}"`,
+            body: `${plan.time} (${plan.timezone}) - Grab your popcorn!`,
+            link: `/plans/${planId}`
+          });
+          void sendMilestoneEmails(plan, attendees, '30m', minutesLeft).catch((err) =>
+            app.log.warn({ err, planId }, 'Failed to send 30m milestone emails')
+          );
+        }
+      }
     }
     for (const plan of await mongoDb.getFinishedRecurringPlans(now)) {
       let date = plan.date as string;

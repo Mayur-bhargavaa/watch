@@ -1,48 +1,33 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Menu,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  Play,
-  Plus,
-  Users,
-  X
-} from 'lucide-react';
+import { Menu, ChevronLeft, ChevronRight, Search, Users, X } from 'lucide-react';
 import { useMyMembership } from '../membership/useMyMembership';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { WatchlistNotice } from '../watchlist/WatchlistNotice';
+import { HeaderSearch } from './HeaderSearch';
 import { getStoredSession, createPartyRoom } from '../../lib/api';
-
-function extractYouTubeId(urlOrId: string): string | null {
-  if (!urlOrId) return null;
-  const trimmed = urlOrId.trim();
-  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
-    return trimmed;
-  }
-  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([\w-]{11})/);
-  return match ? match[1] : null;
-}
 
 export interface AppHeaderProps {
   onOpenMobileSidebar?: () => void;
   searchPlaceholder?: string;
-  searchQuery?: string;
-  onSearchChange?: (val: string) => void;
-  onSearchSubmit?: (e: React.FormEvent) => void;
   backHref?: string;
-  onCreateRoom?: () => void;
+  /**
+   * Replaces the default "create an instant room" flow of the + button and of a pasted YouTube link (a page can show
+   * its own create-room dialog). It receives the video when one was pasted.
+   */
+  onCreateRoom?: (opts?: { title?: string; sourceUrl?: string }) => void;
   rightContent?: React.ReactNode;
 }
 
+/**
+ * The one header of the app. It owns THE search box (HeaderSearch): a pasted YouTube link starts a party, a room code
+ * opens the room, anything else gives live suggestions (movies and shows, games) and Enter opens /discover?q=.
+ */
 export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenMobileSidebar,
-  searchPlaceholder = 'Paste YouTube link / ID or room code...',
-  searchQuery: externalQuery,
-  onSearchChange: externalOnChange,
-  onSearchSubmit: externalOnSubmit,
+  searchPlaceholder = 'Search or paste a YouTube link / room code',
   backHref,
   onCreateRoom,
   rightContent
@@ -50,24 +35,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const router = useRouter();
   const myMembership = useMyMembership();
 
-  const [localQuery, setLocalQuery] = useState('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const query = externalQuery !== undefined ? externalQuery : localQuery;
-  const handleQueryChange = (val: string) => {
-    if (externalOnChange) {
-      externalOnChange(val);
-    } else {
-      setLocalQuery(val);
-    }
-  };
-
-  const detectedYtId = useMemo(() => extractYouTubeId(query), [query]);
+  // Escape closes the mobile search sheet
+  useEffect(() => {
+    if (!isMobileSearchOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setIsMobileSearchOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isMobileSearchOpen]);
 
   const handleDefaultCreateRoom = async (ytId?: string) => {
     if (onCreateRoom) {
-      onCreateRoom();
+      onCreateRoom(ytId ? { title: `YouTube Party (${ytId})`, sourceUrl: `https://www.youtube.com/watch?v=${ytId}` } : undefined);
       return;
     }
 
@@ -100,32 +81,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (externalOnSubmit) {
-      externalOnSubmit(e);
-      return;
-    }
-
-    const trimmed = query.trim();
-    if (!trimmed) return;
-
-    if (detectedYtId) {
-      void handleDefaultCreateRoom(detectedYtId);
-      return;
-    }
-
-    // Check if it's a room link or code
-    const clean = trimmed.replace(/^.*\/room\//, '').trim();
-    if (clean.length > 2 && !clean.includes(' ')) {
-      router.push(`/room/${clean}`);
-      return;
-    }
-
-    // Default search fallback
-    router.push(`/dashboard?search=${encodeURIComponent(trimmed)}`);
-  };
-
   const handleBack = () => {
     if (backHref) {
       router.push(backHref);
@@ -136,83 +91,41 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   };
 
+  const navBtn = 'flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 active:scale-95 dark:border-white/10 dark:bg-[#14151b] dark:text-zinc-300 dark:hover:bg-[#1c1d25] cursor-pointer';
+
   return (
     <>
       {/* Top Header Bar */}
-      <div className="relative flex items-center justify-center gap-2 sm:gap-3 w-full">
+      <div className="relative flex w-full items-center justify-center gap-2 sm:gap-3">
         {/* Mobile Menu & Back & Forward Controls */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0 sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2">
+        <div className="flex shrink-0 items-center space-x-1.5 sm:absolute sm:left-0 sm:top-1/2 sm:-translate-y-1/2 sm:space-x-2">
           {onOpenMobileSidebar && (
             <button
               type="button"
               onClick={onOpenMobileSidebar}
-              className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer active:scale-95 transition"
+              className="cursor-pointer rounded-xl p-2 text-slate-600 transition hover:bg-slate-100 active:scale-95 dark:text-zinc-300 dark:hover:bg-white/10 lg:hidden"
               title="Open Menu"
               aria-label="Open Menu"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleBack}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] flex items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none cursor-pointer active:scale-95"
-            title="Back"
-            aria-label="Go back"
-          >
-            <ChevronLeft className="w-4 h-4" />
+          <button type="button" onClick={handleBack} className={`${navBtn} h-8 w-8 sm:h-9 sm:w-9`} title="Back" aria-label="Go back">
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            onClick={() => router.forward()}
-            className="hidden sm:flex w-9 h-9 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.06] items-center justify-center text-slate-600 dark:text-zinc-300 transition shadow-sm dark:shadow-none cursor-pointer active:scale-95"
-            title="Forward"
-            aria-label="Go forward"
-          >
-            <ChevronRight className="w-4 h-4" />
+          <button type="button" onClick={() => router.forward()} className={`${navBtn} hidden h-9 w-9 sm:flex`} title="Forward" aria-label="Go forward">
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
-        {/* Desktop/Tablet Real YouTube URL Importer & Room Search Bar */}
-        <form
-          onSubmit={handleSubmit}
-          className="hidden sm:flex w-64 md:w-80 lg:w-96 items-center bg-white dark:bg-[#1b1c24] border border-slate-200 dark:border-white/[0.08] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs text-slate-900 dark:text-white focus-within:border-rose-500/80 transition shadow-sm dark:shadow-inner relative shrink-0"
-        >
-          <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 dark:text-zinc-400 shrink-0 mr-2" />
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={query}
-            onChange={(e) => handleQueryChange(e.target.value)}
-            className="bg-transparent border-none outline-none w-full text-[11px] sm:text-xs placeholder-slate-400 dark:placeholder-zinc-500 text-slate-900 dark:text-white font-mono truncate"
-          />
-
-          {detectedYtId ? (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="ml-2 px-2.5 sm:px-3 py-1 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-bold text-[10px] shrink-0 transition flex items-center space-x-1 shadow-md shadow-rose-600/30 cursor-pointer disabled:opacity-50"
-            >
-              <Play className="w-3 h-3 fill-current" />
-              <span className="hidden xs:inline">Launch</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => handleDefaultCreateRoom()}
-              title="Create Instant Watch Party"
-              className="text-slate-400 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white p-1 ml-1 transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          )}
-        </form>
+        {/* Desktop/Tablet: the single search box */}
+        <HeaderSearch variant="bar" placeholder={searchPlaceholder} busy={isSubmitting} onLaunchVideo={(id) => void handleDefaultCreateRoom(id)} />
 
         {/* Actions placed directly NEXT TO SEARCH on desktop (leaving the right side empty) */}
-        <div className="hidden sm:flex items-center space-x-2 shrink-0">
+        <div className="hidden shrink-0 items-center space-x-2 sm:flex">
           {/* Live Room Limit Indicator */}
-          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-[11px] text-slate-600 dark:text-zinc-300 shadow-sm dark:shadow-none">
-            <Users className="w-3.5 h-3.5 text-rose-500" />
+          <div className="flex items-center space-x-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] text-slate-600 dark:border-white/10 dark:bg-[#14151b] dark:text-zinc-300">
+            <Users className="h-3.5 w-3.5 text-[#ee1d49]" aria-hidden="true" />
             <span>Up to {myMembership?.limits.roomCapacity ?? 6} per room</span>
           </div>
 
@@ -223,111 +136,39 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
 
         {/* Mobile-Only Action Cluster (sm:hidden) */}
-        <div className="sm:hidden flex items-center space-x-2 ml-auto shrink-0">
-          <button
-            type="button"
-            onClick={() => setIsMobileSearchOpen(true)}
-            className="p-2 rounded-full bg-white dark:bg-[#1b1c24] hover:bg-slate-100 dark:hover:bg-[#242531] border border-slate-200 dark:border-white/[0.08] text-slate-600 dark:text-zinc-300 transition shadow-sm active:scale-95 cursor-pointer"
-            title="Search or Import Video"
-            aria-label="Search"
-          >
-            <Search className="w-4 h-4 text-slate-500 dark:text-zinc-300" />
+        <div className="ml-auto flex shrink-0 items-center space-x-2 sm:hidden">
+          <button type="button" onClick={() => setIsMobileSearchOpen(true)} className={`${navBtn} p-2`} title="Search" aria-label="Search">
+            <Search className="h-4 w-4" aria-hidden="true" />
           </button>
           <NotificationBell />
           {rightContent}
         </div>
       </div>
 
-      {/* Mobile Search Modal Overlay */}
+      {/* Mobile Search Sheet */}
       {isMobileSearchOpen && (
-        <div className="sm:hidden fixed inset-0 z-[250] flex flex-col justify-start">
-          <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity animate-in fade-in"
-            onClick={() => setIsMobileSearchOpen(false)}
-          />
+        <div className="fixed inset-0 z-[250] flex flex-col justify-start sm:hidden" role="dialog" aria-modal="true" aria-label="Search">
+          <div className="fixed inset-0 bg-black/60" onClick={() => setIsMobileSearchOpen(false)} />
 
-          <div className="relative z-10 w-full bg-white dark:bg-[#161722] border-b border-slate-200 dark:border-white/10 px-4 pt-4 pb-5 shadow-2xl animate-in slide-in-from-top-4 duration-200 rounded-b-3xl">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center">
-                  <Search className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-bold text-slate-900 dark:text-white">
-                  Search or Import
-                </span>
-              </div>
+          <div className="relative z-10 w-full rounded-b-2xl border-b border-slate-200 bg-white px-4 pb-4 pt-4 dark:border-white/10 dark:bg-[#14151b]">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">Search</span>
               <button
                 type="button"
                 onClick={() => setIsMobileSearchOpen(false)}
-                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-zinc-400 cursor-pointer transition"
+                className="cursor-pointer rounded-full p-1.5 text-slate-500 transition hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-white/10"
                 title="Close search"
+                aria-label="Close search"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-
-            <form
-              onSubmit={(e) => {
-                handleSubmit(e);
-                setIsMobileSearchOpen(false);
-              }}
-              className="space-y-3"
-            >
-              <div className="flex items-center bg-slate-100 dark:bg-[#1e1f2c] border border-slate-300 dark:border-white/15 px-3 py-2.5 rounded-2xl text-xs text-slate-900 dark:text-white focus-within:border-rose-500 transition shadow-inner">
-                <Search className="w-4 h-4 text-slate-400 dark:text-zinc-400 shrink-0 mr-2" />
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder={searchPlaceholder}
-                  value={query}
-                  onChange={(e) => handleQueryChange(e.target.value)}
-                  className="bg-transparent border-none outline-none w-full text-xs placeholder-slate-400 dark:placeholder-zinc-500 text-slate-900 dark:text-white font-mono"
-                />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => handleQueryChange('')}
-                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white shrink-0 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-[10.5px] text-slate-500 dark:text-zinc-400 truncate">
-                  {detectedYtId ? (
-                    <span className="text-emerald-500 font-medium">✓ Valid YouTube Video found</span>
-                  ) : (
-                    <span>Paste any video link or type a room code</span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMobileSearchOpen(false);
-                      void handleDefaultCreateRoom();
-                    }}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-600 dark:text-zinc-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition"
-                  >
-                    New Room
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!query.trim() || isSubmitting}
-                    className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-rose-600/30 cursor-pointer"
-                  >
-                    {detectedYtId && <Play className="w-3 h-3 fill-current" />}
-                    <span>{detectedYtId ? 'Launch' : 'Go'}</span>
-                  </button>
-                </div>
-              </div>
-            </form>
+            <HeaderSearch variant="sheet" autoFocus placeholder={searchPlaceholder} busy={isSubmitting} onLaunchVideo={(id) => void handleDefaultCreateRoom(id)} onDone={() => setIsMobileSearchOpen(false)} />
           </div>
         </div>
       )}
+
+      <WatchlistNotice />
     </>
   );
 };

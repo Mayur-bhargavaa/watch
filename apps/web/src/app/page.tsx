@@ -24,6 +24,11 @@ import {
 } from 'lucide-react';
 import { AppIcon, type IconName } from '../components/ui/AppIcon';
 import { getStoredSession, clearStoredSession, UserSession } from '../lib/api';
+import { liveGames } from '../lib/gamesHub';
+import { RevealOnScroll } from '../components/landing/RevealOnScroll';
+
+/** The real number of playable games in the hub (counted from the games catalogue, never typed by hand). */
+const GAME_COUNT = liveGames().length;
 
 export default function LandingPage() {
   const router = useRouter();
@@ -38,9 +43,9 @@ export default function LandingPage() {
   useEffect(() => {
     const stored = getStoredSession();
     if (stored && !stored.user.isAnonymous) {
-      // User is logged in: ALWAYS redirect directly to dashboard with any query params
+      // User is logged in: ALWAYS redirect directly to homepage (discover) with any query params
       const search = typeof window !== 'undefined' ? window.location.search : '';
-      router.replace(`/dashboard${search}`);
+      router.replace(`/discover${search}`);
       return;
     }
     setSession(stored);
@@ -50,7 +55,7 @@ export default function LandingPage() {
     const current = getStoredSession();
     const search = typeof window !== 'undefined' ? window.location.search : '';
     if (current && !current.user.isAnonymous) {
-      router.push(`/dashboard${search}`);
+      router.push(`/discover${search}`);
     } else {
       router.push('/login?tab=signup');
     }
@@ -92,9 +97,9 @@ export default function LandingPage() {
       caption: 'Private Room is ready. Secure invite link generated.'
     },
     {
-      title: '2. Pick a Video or Instant Game',
-      subtitle: 'YouTube, Movies, Ludo, Four-in-a-Row',
-      desc: 'Paste any YouTube link you want to binge, or launch high-stakes 2-player games like Cottagecore Ludo and Four-in-a-Row directly in the room.',
+      title: '2. Pick a Video, a Title or a Game',
+      subtitle: 'YouTube, Discover, Ludo, Four-in-a-Row',
+      desc: `Paste any YouTube link you want to binge, or find a movie or show in Discover and propose it to the room. Prefer to play? Launch one of ${GAME_COUNT} games, from Ludo and Four-in-a-Row to Chess, Imposter and Mafia Night.`,
       badge: 'Video + Games Together',
       image: 'https://img.youtube.com/vi/zSWdZVtXT7E/maxresdefault.jpg',
       caption: 'Stream 4K YouTube in sync or roll the dice in 3D Ludo.'
@@ -128,7 +133,7 @@ export default function LandingPage() {
   // Gallery cards of Shows & Games
   const catalogCards = [
     { title: 'Stranger Things', type: 'Sci-Fi Series', tag: 'Streaming', img: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=500&auto=format&fit=crop&q=80', isGame: false },
-    { title: 'Cottagecore Ludo 3D', type: '2-Player Board Game', tag: 'Instant Game', img: 'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=500&auto=format&fit=crop&q=80', isGame: true },
+    { title: 'Cottagecore Ludo 3D', type: '2-4 Player Board Game', tag: 'Instant Game', img: 'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=500&auto=format&fit=crop&q=80', isGame: true },
     { title: 'Interstellar (4K)', type: 'Cinema Masterpiece', tag: 'Streaming', img: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&auto=format&fit=crop&q=80', isGame: false },
     { title: 'Four in a Row Duel', type: 'Connect 4 Strategy', tag: 'Instant Game', img: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?w=500&auto=format&fit=crop&q=80', isGame: true },
     { title: 'Anime & Demon Slayer', type: 'Animation Party', tag: 'Streaming', img: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&auto=format&fit=crop&q=80', isGame: false },
@@ -138,15 +143,15 @@ export default function LandingPage() {
   const faqs = [
     {
       q: 'What is Watch? Is it completely free to use?',
-      a: 'Watch is 100% free! It is the modern social entertainment platform designed for couples and friends. You can stream videos in exact sub-second sync, talk on live face-to-face video call, and play 2-player games like Cottagecore Ludo and Four-in-a-Row together in one room. No subscriptions or hidden fees.'
+      a: 'Watch is free to start. The free Standard Pass lets you stream in sync, talk on live video, chat, save movies and shows to your watchlist and play the classic games. The optional VIP Pass (Watch+) adds rooms of up to 10 people, premium themes, avatars and reaction packs, full recaps, and hosting for Imposter, Emoji Charades and Mafia Night. The Creator Pass (rooms of 12, plus hosting Quiz Show Studio, Murder Mystery Night and Tournament Arena) is on a waitlist. Anyone can join a friend\'s game whatever their pass. See the Pricing page for details.'
     },
     {
       q: 'Do I or my friend need to download a browser extension like Teleparty?',
       a: 'No! Unlike Teleparty which forces you to install desktop Chrome extensions, Watch requires ZERO downloads and zero extensions. It runs natively right inside Safari, Chrome, Edge, Brave, or Firefox on iPhones, Android phones, Macs, and Windows PCs.'
     },
     {
-      q: 'How do the 2-player games work during a watch party?',
-      a: 'You can launch games right from your room or directly from the Games lobby. Both Ludo and Four-in-a-Row feature real-time WebSocket communication, 3D ceramic animal gotis (Teddy Bears vs Frogs), instant rematch buttons, turn nudges, and keep your live camera feed active above the board.'
+      q: 'How do the games work during a watch party?',
+      a: `Watch has ${GAME_COUNT} live games: Ludo, Tic-Tac-Toe, Four in a Row, Bingo Duel, Tambola, Doodle Duel, Chess, Imposter, Emoji Charades, Mafia Night, Quiz Show Studio, Murder Mystery Night and Tournament Arena. Launch one from the Games lobby, then share the room code or invite a friend. Games run in real time over WebSockets with instant rematches, and you can keep your camera on while you play.`
     },
     {
       q: 'Can strangers or search engines find our room?',
@@ -154,7 +159,7 @@ export default function LandingPage() {
     },
     {
       q: 'Are the game opponents real people or computer bots?',
-      a: 'We operate on a strict Zero-Bots Policy. Every match of Ludo and Four-in-a-Row is played against a real human friend or partner in real time.'
+      a: 'We operate on a strict Zero-Bots Policy. Every match is played against real people, friends or your partner, in real time.'
     },
     {
       q: 'How do I link with my partner?',
@@ -163,7 +168,8 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900 flex flex-col selection:bg-[#d2281e] selection:text-white font-sans antialiased overflow-x-hidden w-full max-w-full">
+    <div data-landing-root className="min-h-screen bg-white text-zinc-900 flex flex-col selection:bg-[#d2281e] selection:text-white font-sans antialiased overflow-x-hidden w-full max-w-full">
+      <RevealOnScroll />
 
       {/* ===================================================================== */}
       {/* 1. TOP NAVBAR (Pure #d2281e Theme & Responsive Buttons in a Row)      */}
@@ -207,12 +213,12 @@ export default function LandingPage() {
                 <button
                   onClick={() => {
                     const search = typeof window !== 'undefined' ? window.location.search : '';
-                    router.push(`/dashboard${search}`);
+                    router.push(`/discover${search}`);
                   }}
                   className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-[#d2281e] hover:bg-[#b82017] text-xs font-black text-white rounded-xl shadow-md shadow-[#d2281e]/25 transition active:scale-95 flex items-center space-x-1 sm:space-x-1.5 whitespace-nowrap"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Dashboard</span>
+                  <span>Home</span>
                 </button>
                 <button
                   onClick={() => { clearStoredSession(); setSession(null); }}
@@ -502,7 +508,7 @@ export default function LandingPage() {
             </p>
 
             <p className="text-xs sm:text-sm text-zinc-500 leading-relaxed">
-              Watch synchronizes video playback with sub-second accuracy, adds in-room face-to-face video calls, real-time group chat with cute stickers, and live 2-player games like Cottagecore Ludo and Four-in-a-Row.
+              Watch synchronizes video playback with sub-second accuracy, adds in-room face-to-face video calls and real-time group chat with cute stickers. Find something to watch in Discover, save it to your one watchlist, and play any of {GAME_COUNT} live games, from Ludo and Four-in-a-Row to Chess, Imposter and Mafia Night.
             </p>
 
             {/* Action Buttons: STRICTLY IN A ROW ON ALL SCREEN SIZES */}
@@ -528,7 +534,7 @@ export default function LandingPage() {
             {/* Key Differentiator Notice (No Extension Needed!) */}
             <div className="text-[11px] sm:text-xs text-zinc-500 flex items-center gap-1.5 pt-1">
               <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
-              <span>*100% Free · No Chrome extension required · Runs natively on iOS, Android & PC</span>
+              <span>Free to start · No Chrome extension required · Runs natively on iOS, Android & PC</span>
             </div>
           </div>
         </div>
@@ -584,19 +590,23 @@ export default function LandingPage() {
           {/* Left Text Column */}
           <div className="lg:col-span-5 text-left space-y-3.5 sm:space-y-5">
             <span className="text-xs font-bold text-[#d2281e] uppercase tracking-wider">
-              MILLIONS OF SHOWS, MOVIES & MATCHES
+              DISCOVER, SAVE, WATCH TOGETHER
             </span>
             <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight leading-tight">
               Watch right on your favorite streams & play instant games
             </h2>
             <p className="text-sm sm:text-base text-zinc-600 leading-relaxed">
-              Create watch parties in seconds for YouTube clips, music livestreams, film trailers, anime series, or jump right into high-stakes 2-player matches of 3D Ludo and Connect 4 without ever switching applications.
+              Browse movies and shows in Discover, save them to one private watchlist that follows your account, and start a watch party or propose a title to your room. Or create parties in seconds for YouTube clips and links, or jump into any of {GAME_COUNT} games without switching applications.
             </p>
 
             <div className="space-y-2 sm:space-y-3 pt-1">
               <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700">
                 <CheckCircle2 className="w-4 h-4 text-[#d2281e] shrink-0" />
                 <span>Exact same-second video sync with Cristian NTP engine</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700">
+                <CheckCircle2 className="w-4 h-4 text-[#d2281e] shrink-0" />
+                <span>One watchlist for titles and links, private to your account</span>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-zinc-700">
                 <CheckCircle2 className="w-4 h-4 text-[#d2281e] shrink-0" />
@@ -996,7 +1006,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===================================================================== */}
-      {/* 7. DEDICATED GAMES SPOTLIGHT (Ludo & Four-in-a-Row Duels)              */}
+      {/* 7. DEDICATED GAMES SPOTLIGHT (Ludo & Four-in-a-Row featured; every live game listed)              */}
       {/* ===================================================================== */}
       <section id="games" className="relative z-10 px-4 sm:px-8 py-12 sm:py-20 border-y border-zinc-200 bg-zinc-50 w-full overflow-hidden">
         <div className="max-w-6xl mx-auto text-center">
@@ -1004,10 +1014,10 @@ export default function LandingPage() {
             STRICT ZERO-BOTS POLICY • 100% HUMAN DUELS
           </span>
           <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black text-zinc-950 tracking-tight mt-1 sm:mt-2 mb-3 sm:mb-4">
-            Play 2-Player Games with Live Video Call
+            Play {GAME_COUNT} Games with Live Video Call
           </h2>
           <p className="text-xs sm:text-sm text-zinc-500 max-w-xl mx-auto mb-6 sm:mb-12">
-            No fake bots, no boring computerized moves. Play real strategic duels face-to-face on live camera.
+            No fake bots, no boring computerized moves. From two-player duels to party games for a whole group, face-to-face on live camera.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 text-left">
@@ -1021,7 +1031,7 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2"><AppIcon name="paw" className="w-9 h-9 sm:w-11 sm:h-11" /><AppIcon name="turtle" className="w-9 h-9 sm:w-11 sm:h-11" /></span>
                   <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">
-                    2-Player Classic
+                    2-4 Player Classic
                   </span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-[#d2281e] transition-colors">
@@ -1037,7 +1047,7 @@ export default function LandingPage() {
                   <span>Start Ludo Duel</span>
                   <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </span>
-                <span className="text-[10px] text-zinc-500 font-bold">2 Players · Live Call</span>
+                <span className="text-[10px] text-zinc-500 font-bold">2-4 Players · Live Call</span>
               </div>
             </div>
 
@@ -1070,6 +1080,15 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+
+          <ul className="mt-6 sm:mt-8 flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-zinc-700" aria-label="All games">
+            {liveGames().map((g) => (
+              <li key={g.id} className="px-3 py-1 rounded-full bg-white border border-zinc-200">{g.title}</li>
+            ))}
+          </ul>
+          <p className="mt-3 text-[11px] text-zinc-500 max-w-2xl mx-auto">
+            Anyone can join a friend&apos;s game. Hosting Imposter, Emoji Charades and Mafia Night needs a VIP Pass; hosting Quiz Show Studio, Murder Mystery Night and Tournament Arena needs a Creator Pass (waitlist). <a href="/pricing" className="underline font-bold text-zinc-700">See Pricing</a>.
+          </p>
         </div>
       </section>
 
@@ -1171,7 +1190,7 @@ export default function LandingPage() {
               </span>
             </div>
             <span className="text-zinc-300">|</span>
-            <span className="text-zinc-500">Stream in sync & play 2-player games online</span>
+            <span className="text-zinc-500">Stream in sync & play party and duel games online</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-[11px] font-semibold text-zinc-600">

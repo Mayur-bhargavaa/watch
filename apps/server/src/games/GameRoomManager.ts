@@ -5268,6 +5268,10 @@ export class GameRoomManager {
       this.rematchVotes.delete(roomId);
       this.roomGameCounts.delete(roomId);
       this.roomGameTypes.delete(roomId);
+      this.imposterRounds.delete(roomId);
+      this.emojiCharadesRounds.delete(roomId);
+      this.bingoConfigs.delete(roomId);
+      this.chessConfigs.delete(roomId);
     }
   }
 

@@ -4,6 +4,7 @@ export interface Mail {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 }
 
 /**
@@ -80,7 +81,8 @@ class Mailer {
         // Replies go to a real, monitored mailbox (the sending address is send-only)
         replyTo: process.env.MAIL_REPLY_TO || undefined,
         subject: mail.subject,
-        text: mail.text
+        text: mail.text,
+        html: mail.html
       });
       return String(info.response || '').slice(0, 80);
     }

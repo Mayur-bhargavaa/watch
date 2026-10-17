@@ -240,7 +240,6 @@ function ProfileContent() {
   const [saving, setSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
 
   // Partner Sync Code / Username Change State (3 times in 90 days limit)
@@ -512,12 +511,6 @@ function ProfileContent() {
     router.push('/');
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    router.push(`/dashboard`);
-  };
-
   if (loading || !session) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-[#111217] flex flex-col items-center justify-center space-y-4 text-slate-900 dark:text-white">
@@ -549,9 +542,6 @@ function ProfileContent() {
         {/* Top Header Bar */}
         <AppHeader
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onSearchSubmit={handleSearchSubmit}
         />
 
         {/* ========================================================================= */}

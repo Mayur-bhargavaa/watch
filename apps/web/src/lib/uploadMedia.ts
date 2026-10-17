@@ -1,3 +1,4 @@
+import { authHeaders } from "./api";
 /**
  * Uploads or encodes an image for permanent storage in Watch Chat.
  * Supports Cloudinary unsigned upload, /api/upload endpoint, and high-quality canvas compression fallback.
@@ -76,6 +77,8 @@ export async function uploadChatImage(file: File): Promise<string> {
     formData.append('file', file);
     const res = await fetch('/api/upload', {
       method: 'POST',
+      headers: authHeaders(), // the upload route only accepts a signed-in account
+      credentials: 'include',
       body: formData,
     });
     if (res.ok) {

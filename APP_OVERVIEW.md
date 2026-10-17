@@ -23,15 +23,16 @@ The project is built as a modular TypeScript monorepo:
 ```
 watch_party/
 ├── apps/
-│   ├── web/                     # Next.js 14 (App Router) + React 19 + Tailwind CSS Frontend
+│   ├── web/                     # Next.js 16 (App Router) + React 18 + Tailwind CSS Frontend
 │   │   ├── src/app/             # Pages: Landing (/), Cinema Rooms (/room/[slug]), Games (/games/*), Profile, Friends
 │   │   ├── src/components/      # PixelPerfectTheater, CinemaPlayer, VoiceChat, Ludo, Connect4, TicTacToe
 │   │   └── src/hooks/           # useRoomSocket, useWebRTCVoice, useSyncEngine
-│   └── server/                  # Fastify + WebSocket + SQLite authoritative backend
+│   └── server/                  # Fastify 5 + WebSocket authoritative backend (MongoDB main store, node:sqlite for rooms/chat/plans/games)
 │       ├── src/index.ts         # Fastify HTTP REST APIs & WebSocket server
 │       ├── src/sync/            # RoomSyncManager (authoritative room & playback state machine)
-│       ├── src/webrtc/          # WebRTC mesh signaling for voice & video
-│       └── src/db/              # Relational database service (SQLite / PostgreSQL)
+│       ├── src/games/           # one engine per game (13 games) + GameRoomManager
+│       ├── src/services/        # billing, mailer, push, plans, catalog (Cineverse)
+│       └── src/db/              # MongoDB service + SQLite (node:sqlite) service
 ├── packages/
 │   ├── common/                  # Shared protocol schemas (Zod), models, and Cristian's sync math
 │   └── extension/               # Manifest V3 Chrome Extension for browser tab video observing
@@ -56,7 +57,7 @@ watch_party/
 * **Display Modes**:
   - Toggle between **Standard** (framed inside cinema screen), **Large**, and **IMAX** (expansive widescreen).
 * **Multiple Ambiance Themes**:
-  - 3D VIP Cinema, Candlelit Café, Neon Romance, Better Together, Watch Together, Snuggle Cinema, and Velvet Night.
+  - 8 themes in the room page: Cinema Dark, Candlelit Café, Neon Romance, Better Together, Watch Together, Snuggle Cinema, Velvet Night and Cozy Cottage (the first three are free, the other five need the VIP pass).
 
 ---
 
@@ -64,9 +65,10 @@ watch_party/
 * **NTP-Lite Clock Synchronization (Cristian's Algorithm)**:
   - Continuously calculates round-trip time (RTT) and client-server clock offset to eliminate device clock skew.
 * **3-Tier Intelligent Drift Correction**:
-  - **Tier 1 (< 150ms)**: Deadband zone — perfectly in sync, playing at native 1.0x.
-  - **Tier 2 (150ms – 1200ms)**: Soft rate nudge (±4%, 0.96x / 1.04x) — smooth alignment without stutter or buffering.
-  - **Tier 3 (> 1200ms)**: Debounced hard seek to align viewers with the host without seek loops.
+  - **Tier 1 (under 250ms)**: Deadband zone — treated as in sync, native 1.0x (rate restored once drift is under 100ms).
+  - **Tier 2 (250ms – 1000ms)**: Soft rate nudge (±5%, 0.95x / 1.05x) — smooth alignment without stutter or buffering.
+  - **Tier 3 (over 1000ms)**: Hard seek, debounced by a 1500ms cooldown to avoid seek loops.
+  - Values: `SYNC_THRESHOLDS` in `packages/common/src/sync.ts`.
 * **Authoritative Host State**:
   - Host controls play, pause, seek, and URL changes with monotonic version sequence numbers.
 
@@ -88,11 +90,9 @@ watch_party/
 ---
 
 ### 🎮 D. Real-Time Multiplayer Party Games Arcade
-Built-in games playable directly with room members or selected friends:
-1. **Ludo Party**: Full 4-player turn-based board game with animated dice rolls, pawn captures, safe zones, and live video feeds.
-2. **Four-in-a-Row (Connect 4)**: Classic vertical disc-dropping strategy duel.
-3. **Tic-Tac-Toe**: Fast-paced 3D glass board with romantic partner selection and turn indicators.
-4. **Partner & Friend Ping System**: Instant invites, watch streaks, and lighthearted playful roasts.
+13 games, all server-authoritative: Ludo, Tic-Tac-Toe, Four in a Row, Bingo Duel, Tambola, Doodle Duel, Chess (open to everyone); Imposter, Emoji Charades, Mafia Night (hosting needs a VIP pass); Quiz Show Studio, Murder Mystery Night, Tournament Arena (hosting needs a Creator pass). Friends can spectate games in progress. Per-game details: `GAMES_BUGS.md`; passes: `BILLING.md`.
+
+Also built: friends, streaks and partner mode, plans/events, notifications with Web Push, Discover (movie and TV catalog, the Home page) with one unified watchlist and one header search (`CINEVERSE.md`).
 
 ---
 
@@ -109,10 +109,9 @@ Watch operates as a pure **social synchronization and communication layer**:
 
 - **Local Development**:
   ```bash
-  pnpm dev:server   # Starts Fastify backend on port 4000
-  pnpm dev:web      # Starts Next.js frontend on port 3000
+  npm run dev:server   # Starts Fastify backend on port 4000
+  npm run dev:web      # Starts Next.js frontend on port 3000
   ```
 - **Production Server**:
-  - Hosted on Oracle Cloud (`ubuntu@92.4.81.40`).
-  - Served through Nginx reverse proxy with SSL (`https://watch.stitchbyte.in`).
-  - Managed via PM2 (`watch-web` and `watch-server`).
+  - Served through an Nginx reverse proxy with SSL (the proxy config is not in this repo); the server and web app run under PM2 (`watch-server`, `watch-web`; see `ecosystem.config.cjs`, web on port 3005).
+  - Deployment checklist and security notes: `SECURITY.md`.

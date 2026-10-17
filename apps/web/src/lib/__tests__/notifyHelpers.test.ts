@@ -76,3 +76,10 @@ test('only allows in-app links and scopes storage per user', () => {
   assert.equal(notificationStorageKey(null), null);
   assert.notEqual(notificationStorageKey('u1'), notificationStorageKey('u2'));
 });
+
+test('safeInternalLink rejects backslash and control-character open-redirect tricks', () => {
+  assert.equal(safeInternalLink('/\\evil.example', '/discover'), '/discover');
+  assert.equal(safeInternalLink('/\t/evil.example', '/discover'), '/discover');
+  assert.equal(safeInternalLink('javascript:alert(1)', '/discover'), '/discover');
+  assert.equal(safeInternalLink('/room/abc?x=1', '/discover'), '/room/abc?x=1');
+});

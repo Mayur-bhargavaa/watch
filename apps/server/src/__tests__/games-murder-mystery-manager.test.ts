@@ -450,6 +450,9 @@ test('MURDER manager: fewer than 4 seated players abort cleanly; the room is fin
   t.socks.f.msg('game:leave');
   assert.equal(t.state().phase, 'CLUE_ROUND', '4 seated players keep playing');
   const stay = t.ids.filter(i => i !== 'e' && i !== 'f' && i !== 'd');
+  // The murderer legitimately holds the method in their OWN earlier frames (card.method), so only frames sent after the abort are
+  // compared for everybody; players who are not the murderer must never have seen it at all.
+  const before = Object.fromEntries(stay.map(id => [id, t.socks[id].sent.length]));
   t.socks.d.msg('game:leave');
   assert.equal(t.state().phase, 'ABORTED');
   assert.equal(t.get().status, 'FINISHED');
@@ -460,8 +463,13 @@ test('MURDER manager: fewer than 4 seated players abort cleanly; the room is fin
     assert.match(v.statusMessage, /few|enough/i);
     assert.equal(v.result, null);
     assert.equal(v.me, null);
-    assert.ok(!t.socks[id].text().includes(c.solution.method), `${id} saw the method`);
-    assert.ok(!t.socks[id].text().includes('"isMurderer":true'));
+    const after = JSON.stringify(t.socks[id].sent.slice(before[id]));
+    assert.ok(!after.includes(c.solution.method), `${id} saw the method after the abort`);
+    assert.ok(!after.includes('"isMurderer":true'));
+    if (id !== t.murderer) {
+      assert.ok(!t.socks[id].text().includes(c.solution.method), `${id} saw the method`);
+      assert.ok(!t.socks[id].text().includes('"isMurderer":true'));
+    }
   }
   t.socks[stay[0]].msg('murder-mystery:ready');
   assert.ok(t.socks[stay[0]].errors().length > 0);

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { TitleRoomState } from './catalog.js';
 import { Room, RoomMember, RoomPlaybackState, Reaction, ChatMessage, MediaItem, Role } from './types.js';
 
 // Base WebSocket envelope
@@ -98,6 +99,8 @@ export interface RoomStateSnapshotPayload {
   recentChat: ChatMessage[];
   recentReactions: Reaction[];
   activeScreenPresenter?: { userId: string; displayName: string } | null;
+  /** Cineverse party queue + confirmed title (full state, so reconnects never miss it) */
+  titleState?: TitleRoomState;
 }
 
 export interface PlaybackUpdatePayload {

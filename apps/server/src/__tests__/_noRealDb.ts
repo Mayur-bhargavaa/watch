@@ -8,4 +8,5 @@ process.env.MONGODB_URI = 'mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=300&c
 process.env.IMPOSTER_TEST_MIN_PLAYERS = '';
 process.env.MAFIA_TEST_MIN_PLAYERS = '';
 process.env.MURDER_TEST_MIN_PLAYERS = '';
+process.env.TOURNAMENT_TEST_MIN_PLAYERS = '';
 export {};

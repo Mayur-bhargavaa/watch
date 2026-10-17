@@ -1,4 +1,57 @@
-# Games bug report (7 games + shared room layer)
+# Games: current status, then the historical bug report
+
+## Current status (13 games)
+
+The audit below covers the first seven games (October 2026 review and fixes). Six more games were added afterwards. This section describes what exists NOW, verified against `apps/server/src/games/GameDefinitions.ts`, `apps/web/src/lib/gamesHub.ts` and the engines in `apps/server/src/games/`. The six newer games have their own unit tests (`games-<name>.test.ts` and `games-<name>-manager.test.ts` in `apps/server/src/__tests__/`) and live security tests, but have NOT had a line-by-line bug audit like the first seven.
+
+| Game | Route | Players | Host pass | Rules in one line |
+|---|---|---|---|---|
+| Ludo Party | `/games/ludo` | 2-4 (options 2, 3, 4) | any | Roll, move four tokens round the board, capture, first to bring all home wins; 45 s turn timer auto-plays an idle seat |
+| Tic Tac Toe | `/games/tic-tac-toe` | 2 | any | Three in a line on a 3x3 board; starting side alternates on rematch |
+| Four in a Row | `/games/four-in-a-row` | 2 | any | Drop discs into columns, four in a line wins |
+| Bingo Duel | `/games/bingo` | 2 | any | 1-25 on a 5x5 card, turn-based number picks, complete the pattern first; idle turn auto-picked after 45 s |
+| Tambola | `/games/tambola` | 2-20 | any | 90-ball housie with tickets, numbers drawn by the server, players send claims that the server validates |
+| Doodle Duel | `/games/doodle-duel` | 2 | any | One draws a server-offered word, the other guesses, then switch; the secret word goes only to the drawer |
+| Chess | `/games/chess` | 2 | any | Standard rules (chess.js) with a server-kept clock; the clock keeps running during a disconnect grace (intended) |
+| Imposter | `/games/imposter` | 4-8 | VIP+ | Everyone but one secret imposter sees the word; 2 clue rounds (3 or 5 game rounds), discuss, vote the imposter out; clue max 24 characters |
+| Emoji Charades | `/games/emoji-charades` | 2-8 | VIP+ | Race to guess a movie or show from emoji; 60 s per puzzle, hints at 20 s and 40 s; 3 or 5 rounds; at most 12 wrong guesses per round; mode is `race` only |
+| Mafia Night | `/games/mafia` | 5-10 | VIP+ | Night and day cycle; hidden Mafia (1 for 5-6 players, 2 for 7-8, 3 for 9-10), 1 Doctor, 1 Detective, rest Villagers; night actions, dawn, discussion, vote (or skip) |
+| Quiz Show Studio | `/games/quiz-show` | quiz master plus 1-30 | Creator | Host writes up to 40 questions (multiple choice, 2-4 options, or buzzer); 10/20/30 s limits, 100/200/300 points, streak bonus +10 (max +50), buzzer wrong-answer penalty half the points, live leaderboard |
+| Murder Mystery Night | `/games/murder-mystery` | 6-12 (host plays) | Creator | Scripted whodunit: character reveal (15 s), 4 clue rounds of 90 s with private clues, up to 5 whispers per round and a limited number of public clue reveals, accusation (60 s), result |
+| Tournament Arena | `/games/tournament` | organiser plus 4-32 | Creator | Single-elimination bracket of 1v1 matches in Tic Tac Toe (default), Four in a Row or Chess; every match is a real private game room created by the server; 120 s window to open a match, host can resolve stuck or no-show matches |
+
+Common behaviour (all in `GameRoomManager.ts` and `index.ts`):
+
+* Pass gating: only HOSTING is gated (`requiredHostTier`). Imposter, Emoji Charades and Mafia Night need a VIP host; Quiz Show Studio, Murder Mystery Night and Tournament Arena need a Creator host. Both room-creation paths answer `403 UPGRADE_REQUIRED` for a lower pass. Anyone can join with a room code or friend invite. See `BILLING.md`.
+* Partner mode (a 2-person room for two paired partners): the seven classic games only (`supportsPartnerMode`). The six newer games are invite-by-code or friends only.
+* Public matchmaking (`POST /api/games/matchmake`): the seven classic games only (`supportsPublicMatchmaking`). The six newer games have none.
+* Spectating: an accepted friend of a player can watch a game that is in progress (`?spectate=1` on `/ws/games/:code`), read-only, at most 10 per room (`GAME_MAX_SPECTATORS`), joins rate limited. Spectators never take a seat or vote and receive the same redacted view as any non-player (in Mafia Night only the town channel).
+* Disconnects: 45 s grace while playing, 10 s in a lobby (`GAME_DISCONNECT_GRACE_MS`, `GAME_LOBBY_GRACE_MS`).
+* All rules and hidden information (words, roles, answers) live on the server; clients receive redacted views.
+* "Notify me" for coming-soon games exists, but `UPCOMING_GAMES` is empty today, so the hub shows no coming-soon section.
+
+Test-only switches (development only; full list and wording in `BILLING.md` and the README env table):
+
+| Game | Switch | Effect |
+|---|---|---|
+| Imposter | `IMPOSTER_TEST_MIN_PLAYERS=2` or `3` | lobby can start with fewer than 4; ignored in production |
+| Mafia Night | `MAFIA_TEST_MIN_PLAYERS=2..5` | lobby can start with fewer than 5; ignored in production |
+| Murder Mystery Night | `MURDER_TEST_MIN_PLAYERS=2..6` | lobby can start with fewer than 6 (2 players = murderer plus one other); ignored in production |
+| Tournament Arena | `TOURNAMENT_TEST_MIN_PLAYERS=2..4` | 2 players = one final match; ignored in production |
+| several | `*_REVEAL_MS`, `*_RESULT_MS`, `MAFIA_DAWN_MS`, `QUIZ_INTRO_MS`, `EMOJI_CHARADES_*_MS` | shorten phases for tests (minimum 100 ms); NOT ignored in production, so never set them there |
+| Ludo | `LUDO_TURN_TIMEOUT_MS=0` | turns the idle-turn auto-play off |
+
+Known limitations:
+
+* Unverified: how running games behave across a server restart (live game state is held by `GameRoomManager` in memory; this was not tested).
+* The six newer games have not been through a full line-by-line audit; their engines are covered by unit tests and the dynamic security suite only.
+* Games were never played through to the end in a real browser by the automated checks (the browser smoke test only loaded the pages), so UI polish and timing issues can still exist.
+* Voice and video calls use public Google STUN servers only (`apps/web/src/context/CallContext.tsx`); there is no TURN relay, so calls can fail on strict NATs (see `SECURITY.md`).
+* Quiz Show Studio room capacity is 31 (host plus 30) and Tournament Arena 33 (organiser plus 32) in `GameDefinitions`.
+
+---
+
+# Historical report: games bug audit (first 7 games + shared room layer)
 
 Date: 2026-10-14 (review), 2026-10-15 (fixes). **Status: all 175 findings are closed (174 fixed, 1 kept on purpose as intended design).** The report text further down is the original review, kept unchanged so each finding's description and reproduction are still available.
 
@@ -1282,3 +1335,6 @@ Known limitations: camera and microphone are peer-to-peer streams (WebRTC) the s
 
 ## Quiz Show Studio (Creator party game, host + 1 to 30 players)
 Known limitations: the correct answer is never sent to a player or spectator before the reveal, but a buzzer answer is spoken out loud and camera / microphone are peer-to-peer streams (WebRTC) the server cannot police, so players who are on a call together can still hear each other. Typed buzzer answers are shown to the host and the answering player only, and the answering player cannot chat while their 15 s window is open. A buzzer window that runs out locks the player out without the 50 % penalty (only a host-judged Wrong costs points). A multiple choice question reveals as soon as every connected player answered (the host does not have to press Reveal now). The tie-break "total answer milliseconds" adds up the time of the correct answers only. The quiz master cannot be handed over: if the host leaves the lobby the room closes, and if they leave a running quiz it ends (ABORTED) and nobody else can continue it. Quiz hosting needs no test switch: host + 1 player (2 people, two browsers) is enough.
+
+## Tournament Arena (Creator game, organiser + 4 to 32 players)
+Known limitations: single elimination only; the match games are Tic Tac Toe, Four in a Row and Chess (Bingo Duel and Doodle Duel are not offered); best of 3 applies to the Final only. A drawn game is replayed in a new room at most twice, then the higher seed advances. A player has 120 s to open a match room; a player who leaves the tournament forfeits every remaining match; the organiser can advance a player only for a match older than 10 minutes or after a nobody-showed-up window (logged publicly). A disconnect from the tournament page is not a departure (players leave it to play). Chess matches use the default clock and can be longer than the 10 minute "stuck" threshold, so the organiser may advance a player in a long chess game by design. Camera and microphone are peer-to-peer streams the server cannot police. Nothing visual was checked in a browser when this was written.

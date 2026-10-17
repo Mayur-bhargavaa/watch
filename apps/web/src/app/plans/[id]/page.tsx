@@ -16,11 +16,13 @@ import {
   CalendarCheck,
   UserPlus,
   LogOut,
-  Trash2
+  Trash2,
+  Clapperboard,
+  Loader2
 } from 'lucide-react';
 import { formatPlanDate, formatTime12, parseTimeOfDay, REMINDER_MINUTES } from '@synccinema/common';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
-import { getStoredSession, UserSession, getFriendsWithStreaks } from '../../../lib/api';
+import { getStoredSession, UserSession, getFriendsWithStreaks, createPartyRoom } from '../../../lib/api';
 import { Plan, PlanPreview, RSVPStatus, PlanActivity } from '../../../types/plans';
 import {
   getPlan,
@@ -70,6 +72,7 @@ export default function PlanDetailPage() {
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
+  const [enteringActivityId, setEnteringActivityId] = useState<string | null>(null);
 
   const [showAddStepModal, setShowAddStepModal] = useState(false);
   const [newStepType, setNewStepType] = useState<'movie' | 'game' | 'hangout'>('game');
@@ -250,18 +253,84 @@ export default function PlanDetailPage() {
       showError(new Error('Pick a valid time for this step.'));
       return;
     }
+    const planRoomCode = `plan-${plan.id.replace(/[^a-zA-Z0-9]/g, '').slice(-10).toLowerCase()}`;
     const newActivity: PlanActivity = {
       id: `act-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       type: newStepType,
       time: newStepTime ? formatTime12(newStepTime) : plan.time,
       title: newStepTitle.trim(),
       actionLabel: newStepType === 'movie' ? 'Enter Cinema' : newStepType === 'game' ? 'Play Together' : 'Join Chat',
-      actionUrl: newStepType === 'game' ? '/games/ludo' : '/rooms'
+      actionUrl: newStepType === 'game' ? '/games/ludo' : `/room/${planRoomCode}`
     };
     await perform(() => updatePlan(plan.id, { activities: [...plan.activities, newActivity] }));
     setShowAddStepModal(false);
     setNewStepTitle('');
     setNewStepTime('');
+  };
+
+  const handleOpenActivity = async (act: PlanActivity) => {
+    // 1. Direct room URL
+    if (act.actionUrl && act.actionUrl.startsWith('/room/')) {
+      router.push(act.actionUrl);
+      return;
+    }
+
+    // 2. Direct game URL
+    if (act.actionUrl && act.actionUrl.startsWith('/games/')) {
+      router.push(act.actionUrl);
+      return;
+    }
+
+    // 3. Cinema / Movie step or Enter Cinema action: go directly to room with correct code
+    if (
+      act.type === 'movie' ||
+      act.actionLabel === 'Enter Cinema' ||
+      !act.actionUrl ||
+      act.actionUrl === '/rooms' ||
+      act.actionUrl.startsWith('/rooms')
+    ) {
+      setEnteringActivityId(act.id);
+      const s = session || getStoredSession();
+      if (!s?.token) {
+        router.push(`/login?redirect=/plans/${plan?.id}`);
+        return;
+      }
+
+      // Unique deterministic room code for this plan
+      const planRoomCode = `plan-${(plan?.id || 'room').replace(/[^a-zA-Z0-9]/g, '').slice(-10).toLowerCase()}`;
+      try {
+        const videoUrl =
+          act.movieDetails?.sourceUrl ||
+          (act.actionUrl?.includes('?watch=') ? decodeURIComponent(act.actionUrl.split('?watch=')[1]) : undefined);
+
+        const res = await createPartyRoom({
+          roomCode: planRoomCode,
+          title: plan?.title || act.title,
+          mediaTitle: act.title,
+          sourceUrl: videoUrl,
+          activityMode: 'CINEMA',
+          token: s.token
+        });
+
+        const targetCode = res?.room?.slug || planRoomCode;
+        if (isHost && plan && (!act.actionUrl || !act.actionUrl.startsWith('/room/'))) {
+          const updatedActivities = (plan.activities || []).map((a) =>
+            a.id === act.id ? { ...a, actionUrl: `/room/${targetCode}` } : a
+          );
+          void updatePlan(plan.id, { activities: updatedActivities }).catch(() => {});
+        }
+        router.push(`/room/${targetCode}`);
+      } catch {
+        // If room is already active/exists, enter directly!
+        router.push(`/room/${planRoomCode}`);
+      } finally {
+        setEnteringActivityId(null);
+      }
+      return;
+    }
+
+    // Fallback
+    router.push(safeActionUrl(act.actionUrl));
   };
 
   const shell = (children: React.ReactNode) => (
@@ -355,6 +424,10 @@ export default function PlanDetailPage() {
     { status: 'MAYBE', label: 'Maybe', on: 'bg-amber-500 text-white' },
     { status: 'CANT_GO', label: "Can't go", on: 'bg-rose-500 text-white' }
   ];
+
+  const primaryCinemaActivity =
+    (plan?.activities || []).find((a) => a.type === 'movie' || a.actionLabel === 'Enter Cinema') ||
+    (plan?.type === 'movie' && plan?.activities?.[0] ? plan.activities[0] : null);
 
   return (
     <div className="h-screen bg-slate-50 dark:bg-[#0d0a14] text-slate-900 dark:text-white flex overflow-hidden">
@@ -472,8 +545,23 @@ export default function PlanDetailPage() {
             {!plan.isPast && myStatus === 'INVITED' && <span className="text-xs text-slate-500 dark:text-zinc-400">Let {hostName} know if you&apos;re coming.</span>}
 
             <div className="ml-auto flex items-center gap-1.5 flex-wrap">
+              {primaryCinemaActivity && !plan.isPast && (
+                <button
+                  type="button"
+                  onClick={() => void handleOpenActivity(primaryCinemaActivity)}
+                  disabled={enteringActivityId !== null}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-60"
+                >
+                  {enteringActivityId === primaryCinemaActivity.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Clapperboard className="w-3.5 h-3.5" />
+                  )}
+                  <span>Enter Cinema</span>
+                </button>
+              )}
               {isHost && !plan.isPast && (
-                <button type="button" onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-xs font-bold transition cursor-pointer">
+                <button type="button" onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-[#ee1d49] hover:text-white text-xs font-bold transition cursor-pointer">
                   <Plus className="w-3.5 h-3.5" /> Invite
                 </button>
               )}
@@ -530,10 +618,19 @@ export default function PlanDetailPage() {
                           {[act.time, act.subtitle || act.type].filter(Boolean).join(' · ')}
                         </div>
                       </div>
-                      <Link href={safeActionUrl(act.actionUrl)} className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-[#ee1d49] hover:text-white text-xs font-bold transition">
-                        <span>{act.actionLabel || 'Open'}</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </Link>
+                      <button
+                        type="button"
+                        disabled={enteringActivityId === act.id}
+                        onClick={() => void handleOpenActivity(act)}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#ee1d49] hover:bg-[#ff2b5e] text-white text-xs font-bold transition cursor-pointer disabled:opacity-60 shadow-xs"
+                      >
+                        {enteringActivityId === act.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Clapperboard className="w-3 h-3" />
+                        )}
+                        <span>{act.actionLabel || 'Enter Cinema'}</span>
+                      </button>
                     </li>
                   ))}
                 </ol>

@@ -363,7 +363,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
         }
       }
     }
-  }, [room?.status, room?.players, myUserId, isSpectator]);
+  }, [room?.status, room?.gameType, room?.players, myUserId, isSpectator]);
 
   const detachSocket = useCallback(() => {
     const old = socketRef.current;

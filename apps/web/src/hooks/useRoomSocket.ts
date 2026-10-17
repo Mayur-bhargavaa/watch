@@ -12,7 +12,9 @@ import {
   WSMessage,
   ClockSyncSample,
   aggregateClockOffset,
-  calculateAuthoritativePosition
+  calculateAuthoritativePosition,
+  EMPTY_TITLE_STATE,
+  type TitleRoomState
 } from '@synccinema/common';
 import { API_BASE, WS_BASE, getStoredSession, ensureSession, authHeaders, getWsTicket } from '../lib/api';
 
@@ -29,6 +31,8 @@ export interface RoomSocketState {
   myUserId: string;
   error: string | null;
   typingUsers: string[];
+  /** Cineverse party queue + selected title (full authoritative state from the server) */
+  titleState: TitleRoomState;
 }
 
 export function useRoomSocket(slug: string) {
@@ -44,7 +48,8 @@ export function useRoomSocket(slug: string) {
     screenPresenter: null,
     myUserId: '',
     error: null,
-    typingUsers: []
+    typingUsers: [],
+    titleState: EMPTY_TITLE_STATE
   });
 
   const signalListenersRef = useRef<Set<(fromUserId: string, signal: any) => void>>(new Set());
@@ -197,6 +202,11 @@ export function useRoomSocket(slug: string) {
     send('room:theme', { themeId });
   }, [send]);
 
+  /** Party queue messages: room:title_propose | vote | confirm | ready | clear (server validates role and membership) */
+  const sendTitleAction = useCallback((type: string, payload: Record<string, unknown>) => {
+    send(type, payload);
+  }, [send]);
+
   const registerCountdownListener = useCallback((listener: () => void) => {
     countdownListenersRef.current.add(listener);
     return () => {
@@ -328,8 +338,16 @@ export function useRoomSocket(slug: string) {
               myUserId: payload.myUserId || s.myUserId,
               chatMessages: payload.recentChat || [],
               latestReactions: payload.recentReactions || [],
-              screenPresenter: payload.activeScreenPresenter || null
+              screenPresenter: payload.activeScreenPresenter || null,
+              titleState: payload.titleState || s.titleState
             }));
+            break;
+          }
+
+          case 'room:title_state': {
+            const next = msg.payload?.state as TitleRoomState | undefined;
+            // out-of-order or late frames never overwrite newer state
+            if (next && typeof next.version === 'number') setState(s => (next.version >= s.titleState.version ? { ...s, titleState: next } : s));
             break;
           }
 
@@ -727,6 +745,7 @@ export function useRoomSocket(slug: string) {
     sendCountdownStart,
     registerCountdownListener,
     sendRoomTheme,
+    sendTitleAction,
     leaveRoom,
     endRoomForAll
   };

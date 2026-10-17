@@ -20,12 +20,16 @@ import {
   TIER_INFO,
   isPremiumTheme,
   isPremiumReaction,
+  EMPTY_TITLE_STATE,
+  normalizeRegion,
+  type TitleRoomState,
   type MembershipTier
 } from '@synccinema/common';
 import { DatabaseService } from '../db/database.js';
 import { mongoLogger } from '../services/mongoLogger.js';
 import { SocketGuard } from '../util/socketGuard.js';
 import { ROOM_PAYLOAD_SCHEMAS } from './schemas.js';
+import { applyTitleAction, type TitleAction, type TitleApplyResult } from './titleQueue.js';
 
 export interface ConnectedClient {
   socket: WebSocket;
@@ -71,6 +75,10 @@ export class RoomSyncManager {
   // roomId -> userIds the host admitted into a PRIVATE room
   private admitted = new Map<string, Set<string>>();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  // roomId -> Cineverse party queue + confirmed title (in memory like the other live room state; see CINEVERSE.md)
+  private titleStates = new Map<string, TitleRoomState>();
+  /** Looks up a provider link in the catalog service. Titles never get a link that did not come from there. */
+  private titleLinkResolver: ((titleKey: string, providerId: string, region: string) => Promise<string | null>) | null = null;
 
   constructor(db: DatabaseService) {
     this.db = db;
@@ -99,6 +107,73 @@ export class RoomSyncManager {
       }
     }, 15000);
     this.heartbeatInterval.unref();
+  }
+
+  setTitleLinkResolver(fn: (titleKey: string, providerId: string, region: string) => Promise<string | null>): void {
+    this.titleLinkResolver = fn;
+  }
+
+  getTitleState(roomId: string): TitleRoomState {
+    return this.titleStates.get(roomId) ?? EMPTY_TITLE_STATE;
+  }
+
+  /**
+   * Cineverse party queue: the single entry point for WebSocket messages AND the REST fallback, so both paths
+   * share the same membership, role, stale-version and size rules. Never issues playback commands.
+   */
+  async applyTitleAction(room: Room, actor: { userId: string; displayName: string; isHost: boolean; isMember: boolean }, action: TitleAction): Promise<TitleApplyResult> {
+    let destinationUrl: string | null = null;
+    if (action.type === 'room:title_confirm' && actor.isHost && actor.isMember) {
+      const provider = action.payload?.provider ?? this.getTitleState(room.id).queue.find((q) => q.titleKey === action.payload?.titleKey)?.provider;
+      if (provider && this.titleLinkResolver) {
+        try {
+          destinationUrl = await this.titleLinkResolver(action.payload.titleKey, provider.id, normalizeRegion(action.payload?.region));
+        } catch {
+          destinationUrl = null;
+        }
+      }
+    }
+    const current = this.getTitleState(room.id);
+    const result = applyTitleAction(current, action, actor, { now: Date.now(), destinationUrl });
+    if (result.ok && result.state !== current) {
+      this.titleStates.set(room.id, result.state);
+      this.broadcastTitleState(room.id);
+    }
+    return result;
+  }
+
+  private broadcastTitleState(roomId: string): void {
+    this.broadcastToRoom(roomId, { type: 'room:title_state', roomId, senderId: 'SYSTEM', timestamp: Date.now(), payload: { state: this.getTitleState(roomId), serverTime: Date.now() } });
+  }
+
+  /** REST entry: membership is checked against the room's stored members (the caller need not hold a socket). */
+  async applyTitleActionForUser(roomKey: string, user: { id: string; displayName: string }, action: TitleAction): Promise<(TitleApplyResult & { roomFound: boolean })> {
+    const room = this.getRoom(roomKey);
+    if (!room || room.endedAt) return { roomFound: false, ok: false, code: 'NOT_FOUND', message: 'Room not found', state: EMPTY_TITLE_STATE };
+    const isHost = room.hostId === user.id;
+    const isMember = isHost || this.db.isRoomMember(room.id, user.id);
+    return { roomFound: true, ...(await this.applyTitleAction(room, { userId: user.id, displayName: user.displayName, isHost, isMember }, action)) };
+  }
+
+  /** Read side for REST: members only. null = not a member / unknown room. */
+  titleStateForUser(roomKey: string, userId: string): TitleRoomState | null {
+    const room = this.getRoom(roomKey);
+    if (!room || (room.hostId !== userId && !this.db.isRoomMember(room.id, userId))) return null;
+    return this.getTitleState(room.id);
+  }
+
+  private handleTitleMessage(client: ConnectedClient, room: Room, type: string, payload: any): void {
+    void this.applyTitleAction(
+      room,
+      { userId: client.userId, displayName: client.displayName, isHost: client.role === 'HOST', isMember: !client.pending },
+      { type, payload } as TitleAction
+    ).then((res) => {
+      if (!res.ok) {
+        this.sendError(client.socket, res.code || 'TITLE_REJECTED', res.message || 'Rejected');
+        // a stale sender gets the authoritative state back so it can recover
+        if (res.code === 'STALE_TITLE_STATE') this.send(client.socket, { type: 'room:title_state', roomId: room.id, senderId: 'SYSTEM', timestamp: Date.now(), payload: { state: res.state, serverTime: Date.now() } });
+      }
+    }).catch(() => this.sendError(client.socket, 'TITLE_REJECTED', 'Could not update the party queue'));
   }
 
   close(): void {
@@ -417,6 +492,7 @@ export class RoomSyncManager {
       this.roomClients.delete(room.id);
     }
     this.activeScreenPresenters.delete(room.id);
+    this.titleStates.delete(room.id);
     this.admitted.delete(room.id);
     this.activeRooms.delete(room.id);
     this.activeRooms.delete(room.slug);
@@ -530,6 +606,14 @@ export class RoomSyncManager {
 
       case 'room:theme':
         this.handleRoomTheme(client, room, msg.payload);
+        break;
+
+      case 'room:title_propose':
+      case 'room:title_vote':
+      case 'room:title_confirm':
+      case 'room:title_ready':
+      case 'room:title_clear':
+        this.handleTitleMessage(client, room, msg.type, msg.payload);
         break;
 
       default:
@@ -994,7 +1078,8 @@ export class RoomSyncManager {
         serverTimestamp: Date.now(),
         recentChat,
         recentReactions,
-        activeScreenPresenter: this.activeScreenPresenters.get(room.id) || null
+        activeScreenPresenter: this.activeScreenPresenters.get(room.id) || null,
+        titleState: pending ? undefined : this.getTitleState(room.id)
       }
     };
     this.send(client.socket, snapshotMessage);

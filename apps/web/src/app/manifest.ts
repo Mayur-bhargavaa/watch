@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Watch — Watch Together, Play Together',
     short_name: 'Watch',
     description: 'Watch together, play games and video call in one private room.',
-    start_url: '/dashboard',
+    start_url: '/discover',
     scope: '/',
     display: 'standalone',
     background_color: '#111217',

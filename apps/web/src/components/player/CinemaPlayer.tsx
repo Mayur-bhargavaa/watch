@@ -290,11 +290,18 @@ export const CinemaPlayer = memo(function CinemaPlayer({
     }
     onStartScreenShare?.();
   }, [isMobileDevice, onStartScreenShare]);
+  // Guard against double ding / double timer execution when countdownActive is pulsed
+  const countdownRunningRef = useRef(false);
+
   useEffect(() => {
     if (!countdownActive) {
       setCountdownStep(null);
+      countdownRunningRef.current = false;
       return;
     }
+
+    if (countdownRunningRef.current) return;
+    countdownRunningRef.current = true;
 
     setCountdownStep(3);
     playCountdownTone(440);
@@ -316,6 +323,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
 
     const stepEnd = setTimeout(() => {
       setCountdownStep(null);
+      countdownRunningRef.current = false;
       if (onCountdownFinished) onCountdownFinished();
     }, 3800);
 
@@ -807,7 +815,6 @@ export const CinemaPlayer = memo(function CinemaPlayer({
               }}
               src={activeVideoUrl}
               playsInline
-              crossOrigin="anonymous"
               className="w-full h-full object-contain bg-black"
               onLoadedMetadata={(e) => {
                 const d = e.currentTarget.duration;
@@ -828,11 +835,25 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                 if (isHost) onHostCommand('PAUSE', 0);
               }}
             />
+            {/* Play Button Overlay if paused */}
+            {isHost && !isPlaying && countdownStep === null && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleTogglePlay();
+                }}
+                className="absolute inset-0 m-auto w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600/90 hover:bg-red-600 text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition z-10 cursor-pointer backdrop-blur-sm"
+                title="Play Movie"
+              >
+                <Play className="w-8 h-8 sm:w-10 sm:h-10 ml-1 fill-white" />
+              </button>
+            )}
           </div>
         ) : null}
 
-        {/* Hero stage when movie is not playing: Share screen to start party */}
-        {!screenStream && !isPlaying && countdownStep === null && (
+        {/* Hero stage when movie is not playing and NO video or stream is loaded */}
+        {!screenStream && !activeVideoUrl && !(media?.provider === 'youtube' && media?.providerMediaId) && !isPlaying && countdownStep === null && (
           <div className="absolute inset-0 z-20 bg-gradient-to-t from-black via-black/85 to-black/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-2.5 sm:p-6 text-center select-none animate-fadeIn overflow-y-auto">
             <div className={`w-full max-w-sm sm:max-w-md my-auto bg-[#121622]/95 border border-white/10 rounded-2xl shadow-2xl flex flex-col items-center max-h-[92vh] overflow-y-auto ${
               isMobileLandscape ? 'p-3 py-3 space-y-2' : 'p-4 sm:p-8 space-y-3 sm:space-y-5'
@@ -1003,7 +1024,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
                   {isScreenSharing ? 'Broadcasting Screen' : `${screenPresenter?.displayName || 'Host'}'s Screen`}
                 </span>
               </div>
-            ) : hasRealCustomVideo && duration > 0 ? (
+            ) : hasRealCustomVideo ? (
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleTogglePlay}

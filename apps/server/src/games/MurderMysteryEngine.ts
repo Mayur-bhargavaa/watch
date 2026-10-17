@@ -43,6 +43,7 @@ import { MURDER_CASES } from './murderMysteryCases.js';
 export type MurderRng = (maxExclusive: number) => number;
 
 const envMs = (name: string, fallback: number): number => {
+  if (process.env.NODE_ENV === 'production') return fallback; // test-only timer switches are ignored in production
   const v = Number(process.env[name]);
   return Number.isFinite(v) && v >= 100 ? Math.floor(v) : fallback;
 };

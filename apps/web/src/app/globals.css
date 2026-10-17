@@ -236,3 +236,46 @@ body {
 @media (prefers-reduced-motion: reduce) {
   [data-testid="emoji-row"] > span { animation: none !important; }
 }
+
+
+/* Landing page scroll reveal (see components/landing/RevealOnScroll.tsx). Uses the individual `translate` property so it never
+   fights Tailwind's `transform`-based hover effects, and is skipped entirely for reduced-motion visitors. */
+@media (prefers-reduced-motion: no-preference) {
+  .rv {
+    opacity: 0;
+    translate: 0 24px;
+    transition: opacity 0.7s cubic-bezier(0.22, 0.7, 0.2, 1), translate 0.7s cubic-bezier(0.22, 0.7, 0.2, 1);
+    transition-delay: var(--rv-delay, 0ms);
+  }
+  .rv.rv-in {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Landing page full-page sections (see components/landing/RevealOnScroll.tsx). Active only while `data-landing-snap` is set on <html>.
+   Every section fills the screen under the sticky header and the browser snaps to one section at a time. A section taller than the
+   screen can still be scrolled through, and phones / short windows use the gentler `proximity` mode. */
+html[data-landing-snap] {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: var(--landing-header, 64px);
+}
+@media (min-width: 1024px) and (min-height: 700px) {
+  html[data-landing-snap] {
+    scroll-snap-type: y mandatory;
+  }
+}
+html[data-landing-snap] [data-landing-root] > section {
+  min-height: calc(100dvh - var(--landing-header, 64px));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  scroll-snap-align: start;
+}
+/* children keep their own max-width and auto margins, but must still span the section (a flex column would shrink them) */
+html[data-landing-snap] [data-landing-root] > section > :not([class*="absolute"]) {
+  width: 100%;
+}
+html[data-landing-snap] [data-landing-root] > footer {
+  scroll-snap-align: end;
+}

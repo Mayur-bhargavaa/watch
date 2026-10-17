@@ -62,6 +62,26 @@ export default function RoomsPage() {
     if (s && s.token) {
       setSession(s);
       void loadRooms(s.token);
+
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const watchUrl = params.get('watch');
+        if (watchUrl) {
+          createPartyRoom({
+            title: 'Watch Party Room',
+            sourceUrl: watchUrl,
+            mediaTitle: 'Watch Party Presentation',
+            activityMode: 'CINEMA',
+            token: s.token
+          })
+            .then((data) => {
+              router.replace(`/room/${data.room.slug}`);
+            })
+            .catch((err) => {
+              console.error('Failed to auto-create room for watch URL:', err);
+            });
+        }
+      }
     } else {
       router.push('/login?redirect=/rooms');
     }

@@ -140,6 +140,12 @@ export class MongoDatabaseService {
     } catch (err) {
       console.warn('[mongo] could not create partner request / game interest indexes:', (err as Error)?.message || err);
     }
+    try {
+      await this.watchlistCol.createIndex({ userId: 1, titleKey: 1 }, { unique: true });
+      await this.watchlistCol.createIndex({ userId: 1, addedAt: -1 });
+    } catch (err) {
+      console.warn('[mongo] could not create watchlist indexes:', (err as Error)?.message || err);
+    }
   }
 
   // --- Billing (subscriptions hold provider ids only: never card data) ---------------------------------------
@@ -295,6 +301,10 @@ export class MongoDatabaseService {
   get gameInterestCol(): Collection<any> {
     return this.db!.collection('game_interest');
   }
+  /** Cineverse personal watchlist (private; one row per user + title). */
+  get watchlistCol(): Collection<any> {
+    return this.db!.collection('catalog_watchlist');
+  }
 
   // --- Partner requests (consent flow: a partner code only lets you ASK) ----------------------------------------
   async arePartners(userA: string, userB: string): Promise<boolean> {
@@ -426,6 +436,12 @@ export class MongoDatabaseService {
     const doc = await this.usersCol.findOne({ _id: id });
     if (!doc) return null;
     return this.mapUserDoc(doc);
+  }
+
+  async getUsersByIds(ids: string[]): Promise<User[]> {
+    if (!ids || ids.length === 0) return [];
+    const docs = await this.usersCol.find({ _id: { $in: ids } }).toArray();
+    return docs.map((d: any) => this.mapUserDoc(d));
   }
 
   async updateUserActiveDevice(userId: string, device: ActiveDeviceSession): Promise<void> {
@@ -1221,7 +1237,7 @@ export class MongoDatabaseService {
 
   /** Inserts a fully built plan (the route builds participants/chat/id; nothing here trusts a client). */
   async createPlan(doc: any): Promise<any> {
-    await this.plansCol.insertOne({ ...doc, _id: doc.id });
+    await this.plansCol.insertOne({ ...doc, remindersSent: doc.remindersSent || [], _id: doc.id });
     return doc;
   }
 
@@ -1312,6 +1328,25 @@ export class MongoDatabaseService {
   async claimPlanReminder(id: string): Promise<boolean> {
     const res = await this.plansCol.updateOne({ _id: id, reminderSentAt: null }, { $set: { reminderSentAt: Date.now() } });
     return res.modifiedCount === 1;
+  }
+
+  /**
+   * Atomically claims a milestone reminder ('4h', '30m') for a plan.
+   * Returns true only for the winning server instance that claimed the milestone.
+   */
+  async claimPlanMilestoneReminder(id: string, milestone: string): Promise<boolean> {
+    const res = await this.plansCol.updateOne(
+      { _id: id, remindersSent: { $ne: milestone } },
+      { $addToSet: { remindersSent: milestone } }
+    );
+    return res.modifiedCount === 1;
+  }
+
+  async getUpcomingPlansForMilestones(now: number): Promise<any[]> {
+    return this.plansCol
+      .find({ startsAt: { $gt: now, $lte: now + 5 * 3600_000 } })
+      .limit(500)
+      .toArray();
   }
 
   async getPlansWithReminderDue(now: number): Promise<any[]> {
@@ -1479,6 +1514,8 @@ export class MongoDatabaseService {
     });
     await this.partnerRequestsCol.deleteMany({ $or: [{ requesterId: userId }, { recipientId: userId }] });
     await this.gameInterestCol.deleteMany({ userId });
+    await this.watchlistCol.deleteMany({ userId });
+    await this.usernameHistoryCol.deleteMany({ userId });
   }
 
   async close(): Promise<void> {

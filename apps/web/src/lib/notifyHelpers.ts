@@ -111,7 +111,7 @@ export function shouldShowOsBanner(opts: { forced?: boolean; focused: boolean; h
 
 /** Same-origin in-app path for a notification link; anything else falls back to the dashboard. */
 export function safeInternalLink(link: string | undefined | null, fallback = '/dashboard'): string {
-  if (typeof link !== 'string' || !link.startsWith('/') || link.startsWith('//')) return fallback;
+  if (typeof link !== 'string' || !link.startsWith('/') || link.startsWith('//') || /[\\\u0000-\u001f]/.test(link)) return fallback; // '/\\host' and tab/newline tricks are read as '//host' by browsers
   return link;
 }
 

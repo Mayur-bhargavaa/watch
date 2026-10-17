@@ -23,13 +23,15 @@ import {
   Calendar
 } from 'lucide-react';
 import { loginUser, registerUser, verifyEmail, getStoredSession, requestPasswordReset, resetPassword as apiResetPassword } from '../../lib/api';
+import { safeInternalLink } from '../../lib/notifyHelpers';
 import { AvatarStudio } from '../../components/auth/AvatarStudio';
 
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'signup' ? false : true;
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  // only same-origin in-app paths: `?redirect=https://evil` / `//evil` would otherwise bounce a freshly signed-in user to another site
+  const redirectUrl = safeInternalLink(searchParams.get('redirect'), '/discover');
 
   const [isLogin, setIsLogin] = useState<boolean>(initialTab);
   const [signupStep, setSignupStep] = useState<1 | 2 | 3>(1);
