@@ -3,13 +3,15 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
+import { isValidTitleRef, type CatalogSource } from '@synccinema/common';
 import { DiscoverShell, cleanRoomParam } from '../../../../../../components/discover/Shell';
 import { TitleDetail } from '../../../../../../components/discover/TitleDetail';
 
 function Inner() {
   const p = useParams<{ source: string; mediaType: string; id: string }>();
   const roomSlug = cleanRoomParam(useSearchParams().get('room'));
-  const valid = p.source === 'tmdb' && (p.mediaType === 'movie' || p.mediaType === 'tv') && /^\d{1,10}$/.test(p.id);
+  // strict allow-list shared with the server: tmdb (movie|tv) and tvmaze (tv only), numeric id
+  const valid = isValidTitleRef(p.source, p.mediaType, p.id);
   if (!valid) {
     return (
       <div className="space-y-2">
@@ -19,7 +21,7 @@ function Inner() {
       </div>
     );
   }
-  return <TitleDetail mediaType={p.mediaType} id={p.id} roomSlug={roomSlug} />;
+  return <TitleDetail source={p.source as CatalogSource} mediaType={p.mediaType} id={p.id} roomSlug={roomSlug} />;
 }
 
 export default function TitlePage() {

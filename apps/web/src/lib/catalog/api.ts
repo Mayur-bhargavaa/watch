@@ -1,4 +1,4 @@
-import type { CatalogPage, CatalogGenre, CatalogTitle, TitleRoomState, TitleSnapshot, WatchlistItem, LinkSnapshot } from '@synccinema/common';
+import type { AvailabilityProviderName, CatalogMode, CatalogPage, CatalogGenre, CatalogTitle, TitleRoomState, TitleSnapshot, WatchlistItem, LinkSnapshot } from '@synccinema/common';
 import { API_BASE, authHeaders } from '../api';
 
 /** Client for /api/catalog/*. Secrets never live here: the server holds the provider keys. */
@@ -10,8 +10,13 @@ export class CatalogApiError extends Error {
   get notConfigured(): boolean {
     return this.code === 'CATALOG_NOT_CONFIGURED';
   }
+  /** TVmaze mode: the request needed movie data, which needs a TMDB key. */
+  get moviesNeedTmdb(): boolean {
+    return this.code === 'CATALOG_MOVIES_NEED_TMDB';
+  }
 }
-export const SETUP_MESSAGE = 'Cineverse needs a TMDB key. Add TMDB_API_KEY (or TMDB_READ_TOKEN) to apps/server/.env and restart the server. See CINEVERSE.md.';
+export const SETUP_MESSAGE = 'Cineverse needs a TMDB key. Add TMDB_API_KEY (or TMDB_READ_TOKEN) to apps/server/.env and restart the server (or set TVMAZE_ENABLED=1 for TV shows without a key). See CINEVERSE.md.';
+export const AVAILABILITY_PAUSED_MESSAGE = 'Availability data is paused for this month';
 export const AVAILABILITY_OFF_MESSAGE = 'Availability data is not enabled';
 
 async function call<T>(path: string, init: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
@@ -51,10 +56,20 @@ export interface TitleResponse {
   title: CatalogTitle;
   availabilityEnabled: boolean;
   availabilityVerified: boolean;
+  /** which provider answered (null: none) */
+  availabilityProvider?: AvailabilityProviderName | null;
+  /** the monthly quota of the limited provider is nearly used up, so availability checks are paused */
+  availabilityQuotaLow?: boolean;
 }
 export interface CatalogStatus {
   configured: boolean;
+  /** 'tmdb' (full catalog), 'tvmaze' (TV only, no TMDB key) or 'none'. Missing on older servers (= tmdb). */
+  mode?: CatalogMode;
+  movies?: boolean;
+  tv?: boolean;
   availability: boolean;
+  availabilityDetail?: { provider: AvailabilityProviderName | null; quotaLow: boolean };
+  availabilityProviders?: AvailabilityProviderName[];
   trailers: boolean;
   defaultRegion: string;
   region: string;
@@ -66,8 +81,8 @@ export const catalogApi = {
   search: (params: URLSearchParams, signal?: AbortSignal) => call<CatalogPage & { availabilityEnabled: boolean; providerFilterApplied: boolean }>(`/api/catalog/search${q(params)}`, { signal }),
   collection: (slug: string, opts: { providers?: string[]; region?: string } = {}, signal?: AbortSignal) =>
     call<CollectionResponse>(`/api/catalog/collections/${encodeURIComponent(slug)}${q({ providers: opts.providers?.join(','), region: opts.region })}`, { signal }),
-  title: (mediaType: string, id: string, signal?: AbortSignal) => call<TitleResponse>(`/api/catalog/titles/tmdb/${mediaType}/${id}`, { signal }),
-  recommendations: (mediaType: string, id: string, signal?: AbortSignal) => call<CatalogPage>(`/api/catalog/titles/tmdb/${mediaType}/${id}/recommendations`, { signal }),
+  title: (source: string, mediaType: string, id: string, signal?: AbortSignal) => call<TitleResponse>(`/api/catalog/titles/${source}/${mediaType}/${id}`, { signal }),
+  recommendations: (source: string, mediaType: string, id: string, signal?: AbortSignal) => call<CatalogPage>(`/api/catalog/titles/${source}/${mediaType}/${id}/recommendations`, { signal }),
   watchlist: (signal?: AbortSignal) => call<{ items: WatchlistItem[]; max: number }>('/api/catalog/watchlist', { signal }),
   watchlistAdd: (snap: TitleSnapshot) => call<{ ok: boolean; duplicate: boolean; titleKey?: string }>('/api/catalog/watchlist', { method: 'POST', body: snap }),
   watchlistAddLink: (link: LinkSnapshot) => call<{ ok: boolean; duplicate: boolean; titleKey: string }>('/api/catalog/watchlist', { method: 'POST', body: { kind: 'link', ...link } }),

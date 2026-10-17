@@ -4,12 +4,15 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Play, User, Loader2, Clapperboard } from 'lucide-react';
-import { tmdbImageUrl, type CatalogPage, type CatalogTitle } from '@synccinema/common';
-import { catalogApi, AVAILABILITY_OFF_MESSAGE, type TitleResponse } from '../../lib/catalog/api';
+import { tmdbImageUrl, type CatalogPage, type CatalogSource, type CatalogTitle } from '@synccinema/common';
+import { catalogApi, AVAILABILITY_OFF_MESSAGE, AVAILABILITY_PAUSED_MESSAGE, type TitleResponse } from '../../lib/catalog/api';
+import { attributionForTitle } from '../../lib/catalog/attribution';
+import { ratingChips } from '../../lib/catalog/tv';
 import { groupOffers } from '../../lib/catalog/providers';
 import { externalLinkProps } from '../../lib/catalog/externalLink';
 import { createPartyRoom, getStoredSession } from '../../lib/api';
-import { Backdrop, BTN_DARK, ErrorState, EYEBROW, FOCUS, HERO_CARD, Poster, RatingLabel, ROW_TITLE, Skeleton, SURFACE, yearOf } from './ui';
+import { Backdrop, BTN_DARK, ErrorState, EYEBROW, FOCUS, HERO_CARD, Poster, ROW_TITLE, Skeleton, SURFACE, yearOf } from './ui';
+import { NextEpisodeBadge, SeasonsSection } from './Seasons';
 import { PartyButton, WatchlistButton } from './Actions';
 import { PosterRow, SectionHeader } from './Row';
 import { Attribution } from './Attribution';
@@ -20,13 +23,17 @@ function ProviderLogo({ url, name }: { url: string | null; name: string }) {
   const [broken, setBroken] = useState(false);
   if (!url || broken) return <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200 text-xs font-bold text-slate-600 dark:bg-[#1f2029] dark:text-zinc-300" aria-hidden="true">{name.slice(0, 1)}</span>;
   // logo URL comes from the availability source and was validated (https) on the server
-  return <img src={url} alt="" width={32} height={32} loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-8 w-8 rounded object-cover" />;
+  return <img src={url} alt="" width={32} height={32} loading="lazy" decoding="async" onError={() => setBroken(true)} className="h-8 w-8 rounded bg-white object-contain p-0.5" />;
 }
 
 function Availability({ data, onStartCinema }: { data: TitleResponse; onStartCinema?: (streamUrl: string) => void }) {
   const { title } = data;
   if (!data.availabilityEnabled) return <p className="text-sm text-slate-500 dark:text-slate-400">{AVAILABILITY_OFF_MESSAGE}.</p>;
-  if (!data.availabilityVerified) return <p className="text-sm text-slate-500 dark:text-slate-400">We could not verify where to watch this in your region.</p>;
+  if (!data.availabilityVerified) {
+    // the monthly quota of the limited provider is nearly used up: say so instead of implying "not available"
+    if (data.availabilityQuotaLow) return <p className="text-sm text-slate-500 dark:text-slate-400">{AVAILABILITY_PAUSED_MESSAGE}.</p>;
+    return <p className="text-sm text-slate-500 dark:text-slate-400">We could not verify where to watch this in your region.</p>;
+  }
   const groups = groupOffers(title.providers);
   if (!groups.length) return <p className="text-sm text-slate-500 dark:text-slate-400">Not found on any service in {title.region}.</p>;
   return (
@@ -91,7 +98,7 @@ function Person({ name, role, path }: { name: string; role: string | null; path:
   );
 }
 
-export function TitleDetail({ mediaType, id, roomSlug }: { mediaType: string; id: string; roomSlug: string | null }) {
+export function TitleDetail({ source, mediaType, id, roomSlug }: { source: CatalogSource; mediaType: string; id: string; roomSlug: string | null }) {
   const router = useRouter();
   const [data, setData] = useState<TitleResponse | null>(null);
   const [recs, setRecs] = useState<CatalogPage | null>(null);
@@ -104,10 +111,10 @@ export function TitleDetail({ mediaType, id, roomSlug }: { mediaType: string; id
     setError(null);
     setData(null);
     setRecs(null);
-    catalogApi.title(mediaType, id, ctrl.signal).then(setData).catch((e) => e?.name !== 'AbortError' && setError(e));
-    catalogApi.recommendations(mediaType, id, ctrl.signal).then(setRecs).catch(() => undefined);
+    catalogApi.title(source, mediaType, id, ctrl.signal).then(setData).catch((e) => e?.name !== 'AbortError' && setError(e));
+    catalogApi.recommendations(source, mediaType, id, ctrl.signal).then(setRecs).catch(() => undefined);
     return () => ctrl.abort();
-  }, [mediaType, id, attempt]);
+  }, [source, mediaType, id, attempt]);
 
   const handleWatchFree = async (url: string) => {
     const s = getStoredSession();
@@ -166,8 +173,8 @@ export function TitleDetail({ mediaType, id, roomSlug }: { mediaType: string; id
           <div className="min-w-0 max-w-xl space-y-2 sm:space-y-3 self-end">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <span className="px-2.5 py-0.5 rounded-full bg-rose-600/90 text-white text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider shrink-0 whitespace-nowrap">{t.mediaType === 'tv' ? 'TV series' : 'Movie'}</span>
-              <RatingLabel title={t} />
-              {t.voteCount > 0 && <span className="text-[11px] sm:text-xs text-zinc-300">{t.voteCount.toLocaleString()} votes</span>}
+              {ratingChips(t).map((r) => <span key={r.source} className="inline-flex items-center rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 text-[11px] font-bold">{r.label}</span>)}
+              {t.voteCount > 0 && t.source === 'tmdb' && <span className="text-[11px] sm:text-xs text-zinc-300">{t.voteCount.toLocaleString()} votes</span>}
               {freeStream && (
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider shrink-0 whitespace-nowrap shadow-xs">
                   Free to Stream
@@ -175,6 +182,7 @@ export function TitleDetail({ mediaType, id, roomSlug }: { mediaType: string; id
               )}
             </div>
             <h1 className="text-xl sm:text-3xl md:text-4xl font-black text-white tracking-tight leading-snug sm:leading-tight">{t.title}</h1>
+            {t.mediaType === 'tv' && t.nextEpisode && <div><NextEpisodeBadge episode={t.nextEpisode} /></div>}
             {t.tagline && <p className="text-[11px] sm:text-xs md:text-sm italic text-zinc-300">{t.tagline}</p>}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-zinc-300 font-medium">
               {meta.map((m) => <span key={String(m)}>{m}</span>)}
@@ -216,7 +224,8 @@ export function TitleDetail({ mediaType, id, roomSlug }: { mediaType: string; id
         <dl className="mt-3 grid max-w-xl grid-cols-2 gap-x-6 gap-y-1 text-sm">
           {fmtDate(t.releaseDate) && (<><dt className="text-slate-500 dark:text-slate-400">{t.mediaType === 'tv' ? 'First aired' : 'Release date'}</dt><dd className="text-slate-900 dark:text-white">{fmtDate(t.releaseDate)}</dd></>)}
           {t.crew && t.crew.length > 0 && (<><dt className="text-slate-500 dark:text-slate-400">{t.crew[0].role === 'Creator' ? 'Created by' : 'Directed by'}</dt><dd className="text-slate-900 dark:text-white">{t.crew.map((c) => c.name).join(', ')}</dd></>)}
-          {t.rating !== null && (<><dt className="text-slate-500 dark:text-slate-400">Rating</dt><dd className="text-slate-900 dark:text-white">{t.ratingSource} {t.rating.toFixed(1)} / 10</dd></>)}
+          {ratingChips(t).map((r) => (<React.Fragment key={r.source}><dt className="text-slate-500 dark:text-slate-400">{r.source} rating</dt><dd className="text-slate-900 dark:text-white">{r.value.toFixed(1)} / 10</dd></React.Fragment>))}
+          {t.mediaType === 'tv' && t.tvStatus && (<><dt className="text-slate-500 dark:text-slate-400">Status</dt><dd className="text-slate-900 dark:text-white">{t.tvStatus}</dd></>)}
         </dl>
       </section>
 
@@ -224,6 +233,10 @@ export function TitleDetail({ mediaType, id, roomSlug }: { mediaType: string; id
         <h2 id="where" className={ROW_TITLE}>Where to watch <span className="font-normal text-slate-500 dark:text-slate-400">in {t.region}</span></h2>
         <div className="mt-3"><Availability data={data} onStartCinema={handleWatchFree} /></div>
       </section>
+
+      {t.mediaType === 'tv' && (t.seasonList !== undefined || t.source === 'tvmaze') && (
+        <SeasonsSection seasons={t.seasonList} nextEpisode={t.nextEpisode} today={new Date().toISOString().slice(0, 10)} />
+      )}
 
       {t.cast && t.cast.length > 0 && (
         <section aria-labelledby="cast">
@@ -240,7 +253,7 @@ export function TitleDetail({ mediaType, id, roomSlug }: { mediaType: string; id
           <PosterRow label="More like this" items={recs.results.slice(0, 20)} />
         </section>
       )}
-      <Attribution availabilityEnabled={data.availabilityEnabled} />
+      <Attribution needs={attributionForTitle(t, data.availabilityProvider)} />
     </article>
   );
 }

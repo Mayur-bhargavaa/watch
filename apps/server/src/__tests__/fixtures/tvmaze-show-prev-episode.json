@@ -1,0 +1,92 @@
+{
+ "_source": "https://api.tvmaze.com/shows/2993?embed[]=nextepisode&embed[]=previousepisode",
+ "_captured": "2026-10-17",
+ "_note": "Real TVmaze API response (CC BY-SA 4.0), trimmed.",
+ "data": {
+  "id": 2993,
+  "url": "https://www.tvmaze.com/shows/2993/stranger-things",
+  "name": "Stranger Things",
+  "type": "Scripted",
+  "language": "English",
+  "genres": [
+   "Drama",
+   "Horror",
+   "Science-Fiction"
+  ],
+  "status": "Ended",
+  "runtime": null,
+  "averageRuntime": 65,
+  "premiered": "2016-07-15",
+  "ended": "2025-12-31",
+  "officialSite": "https://www.netflix.com/title/80057281",
+  "schedule": {
+   "time": "",
+   "days": [
+    "Wednesday"
+   ]
+  },
+  "rating": {
+   "average": 8.4
+  },
+  "weight": 100,
+  "network": null,
+  "webChannel": {
+   "id": 1,
+   "name": "Netflix",
+   "country": null,
+   "officialSite": "https://www.netflix.com/"
+  },
+  "dvdCountry": null,
+  "externals": {
+   "tvrage": 48493,
+   "thetvdb": 305288,
+   "imdb": "tt4574334"
+  },
+  "image": {
+   "medium": "https://static.tvmaze.com/uploads/images/medium_portrait/595/1489169.jpg",
+   "original": "https://static.tvmaze.com/uploads/images/original_untouched/595/1489169.jpg"
+  },
+  "summary": "<p>When a young boy vanishes, a small town uncovers a mystery involving secret experiments, terrifying supernatural forces and one strange little girl.</p>",
+  "updated": 1767306162,
+  "_links": {
+   "self": {
+    "href": "https://api.tvmaze.com/shows/2993"
+   },
+   "previousepisode": {
+    "href": "https://api.tvmaze.com/episodes/3046158",
+    "name": "Chapter Eight: The Rightside Up"
+   }
+  },
+  "_embedded": {
+   "previousepisode": {
+    "id": 3046158,
+    "url": "https://www.tvmaze.com/episodes/3046158/stranger-things-5x08-chapter-eight-the-rightside-up",
+    "name": "Chapter Eight: The Rightside Up",
+    "season": 5,
+    "number": 8,
+    "type": "regular",
+    "airdate": "2025-12-31",
+    "airtime": "",
+    "airstamp": "2025-12-31T12:00:00+00:00",
+    "runtime": 128,
+    "rating": {
+     "average": 7.7
+    },
+    "image": {
+     "medium": "https://static.tvmaze.com/uploads/images/medium_landscape/606/1515128.jpg",
+     "original": "https://static.tvmaze.com/uploads/images/original_untouched/606/1515128.jpg"
+    },
+    "summary": "<p>As Vecna prepares to destroy the world as we know it, the party must put everything on the line to defeat him once and for all.</p>",
+    "_links": {
+     "self": {
+      "href": "https://api.tvmaze.com/episodes/3046158"
+     },
+     "show": {
+      "href": "https://api.tvmaze.com/shows/2993",
+      "name": "Stranger Things"
+     }
+    }
+   }
+  }
+ }
+}

@@ -301,6 +301,10 @@ export class MongoDatabaseService {
   get gameInterestCol(): Collection<any> {
     return this.db!.collection('game_interest');
   }
+  /** Cineverse availability quota counters (no personal data): _id `<provider>:<YYYY-MM>`, { provider, month, count }. */
+  get catalogQuotaCol(): Collection<any> {
+    return this.db!.collection('catalog_quota');
+  }
   /** Cineverse personal watchlist (private; one row per user + title). */
   get watchlistCol(): Collection<any> {
     return this.db!.collection('catalog_watchlist');

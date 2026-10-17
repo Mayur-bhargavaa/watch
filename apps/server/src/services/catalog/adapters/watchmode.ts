@@ -56,7 +56,7 @@ export function normalizeOffers(raw: any, region: string, sources: Map<number, S
     const prev = byKey.get(key);
     if (!prev || (!prev.destinationUrl && offer.destinationUrl)) byKey.set(key, offer);
   }
-  const order: Record<ProviderOfferType, number> = { subscription: 0, free: 1, rent: 2, buy: 3 };
+  const order: Record<ProviderOfferType, number> = { subscription: 0, free: 1, addon: 2, rent: 3, buy: 4 };
   return [...byKey.values()].sort((a, b) => order[a.type] - order[b.type] || a.name.localeCompare(b.name));
 }
 
@@ -80,6 +80,14 @@ export class WatchmodeAdapter {
   async mapTmdbId(mediaType: CatalogMediaType, tmdbId: string): Promise<number | null> {
     const field = mediaType === 'movie' ? 'tmdb_movie_id' : 'tmdb_tv_id';
     const raw: any = await this.http.getJson(this.url('/search/', { search_field: field, search_value: tmdbId }));
+    const hit = Array.isArray(raw?.title_results) ? raw.title_results[0] : null;
+    return hit && typeof hit.id === 'number' ? hit.id : null;
+  }
+
+  /** Maps an IMDb id (TVmaze titles carry one) to a Watchmode title id. */
+  async mapImdbId(imdbId: string): Promise<number | null> {
+    if (!/^tt\d{5,10}$/.test(imdbId)) return null;
+    const raw: any = await this.http.getJson(this.url('/search/', { search_field: 'imdb_id', search_value: imdbId }));
     const hit = Array.isArray(raw?.title_results) ? raw.title_results[0] : null;
     return hit && typeof hit.id === 'number' ? hit.id : null;
   }

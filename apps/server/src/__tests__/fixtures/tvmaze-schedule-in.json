@@ -1,0 +1,99 @@
+{
+ "_source": "https://api.tvmaze.com/schedule?country=IN&date=2026-10-17",
+ "_captured": "2026-10-17",
+ "_note": "Real TVmaze API response (CC BY-SA 4.0), trimmed.",
+ "data": [
+  {
+   "id": 3779016,
+   "url": "https://www.tvmaze.com/episodes/3779016/bigg-boss-20x42-day-41",
+   "name": "Day 41",
+   "season": 20,
+   "number": 42,
+   "type": "regular",
+   "airdate": "2026-10-17",
+   "airtime": "22:00",
+   "airstamp": "2026-10-17T16:30:00+00:00",
+   "runtime": 90,
+   "rating": {
+    "average": null
+   },
+   "image": null,
+   "summary": null,
+   "show": {
+    "id": 8514,
+    "url": "https://www.tvmaze.com/shows/8514/bigg-boss",
+    "name": "Bigg Boss",
+    "type": "Reality",
+    "language": "Hindi",
+    "genres": [],
+    "status": "Running",
+    "runtime": 90,
+    "averageRuntime": 71,
+    "premiered": "2010-10-03",
+    "ended": null,
+    "officialSite": "https://www.colorstv.com/shows/bigg-boss-17/",
+    "schedule": {
+     "time": "22:00",
+     "days": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+     ]
+    },
+    "rating": {
+     "average": null
+    },
+    "weight": 79,
+    "network": {
+     "id": 438,
+     "name": "Colors",
+     "country": {
+      "name": "India",
+      "code": "IN",
+      "timezone": "Asia/Kolkata"
+     },
+     "officialSite": null
+    },
+    "webChannel": null,
+    "dvdCountry": null,
+    "externals": {
+     "tvrage": null,
+     "thetvdb": 273192,
+     "imdb": "tt1281973"
+    },
+    "image": {
+     "medium": "https://static.tvmaze.com/uploads/images/medium_portrait/528/1320327.jpg",
+     "original": "https://static.tvmaze.com/uploads/images/original_untouched/528/1320327.jpg"
+    },
+    "summary": "<p>Couples and singles bank on their wit, grit and emotions as they engage in a tussle to prove their superiority over each other and gain public support to avoid eviction from the <b>Bigg Boss</b> house. Based on the reality show <i>Big Brother.</i></p>",
+    "updated": 1791872752,
+    "_links": {
+     "self": {
+      "href": "https://api.tvmaze.com/shows/8514"
+     },
+     "previousepisode": {
+      "href": "https://api.tvmaze.com/episodes/3779016",
+      "name": "Day 41"
+     },
+     "nextepisode": {
+      "href": "https://api.tvmaze.com/episodes/3779017",
+      "name": "Day 42"
+     }
+    }
+   },
+   "_links": {
+    "self": {
+     "href": "https://api.tvmaze.com/episodes/3779016"
+    },
+    "show": {
+     "href": "https://api.tvmaze.com/shows/8514",
+     "name": "Bigg Boss"
+    }
+   }
+  }
+ ]
+}

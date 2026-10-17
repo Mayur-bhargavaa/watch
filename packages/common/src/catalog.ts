@@ -9,9 +9,19 @@
  *  5. room sync capability    -> TitleCapabilities.roomSync (how far can the room coordinate it?)
  */
 
-export type CatalogSource = 'tmdb';
+/**
+ * Where a title record comes from. 'tvmaze' titles are TV only (CC BY-SA 4.0 data, attribution required).
+ * Every place that accepts a source must check it against CATALOG_SOURCES (strict allow-list, never a pattern).
+ */
+export const CATALOG_SOURCES = ['tmdb', 'tvmaze'] as const;
+export type CatalogSource = (typeof CATALOG_SOURCES)[number];
+export function isCatalogSource(v: unknown): v is CatalogSource {
+  return typeof v === 'string' && (CATALOG_SOURCES as readonly string[]).includes(v);
+}
+/** Catalog operating mode: full TMDB catalog, TV-only TVmaze catalog (no TMDB key), or not configured. */
+export type CatalogMode = 'tmdb' | 'tvmaze' | 'none';
 export type CatalogMediaType = 'movie' | 'tv';
-export type ProviderOfferType = 'subscription' | 'rent' | 'buy' | 'free';
+export type ProviderOfferType = 'subscription' | 'rent' | 'buy' | 'free' | 'addon';
 
 export interface ProviderOffer {
   /** Id in the availability source (Watchmode source id as a string). */
@@ -49,7 +59,8 @@ export interface CatalogTitle {
   genres: Array<{ id: number; name: string }>;
   runtimeMinutes: number | null;
   rating: number | null;
-  ratingSource: 'TMDB';
+  /** Source of `rating` (the primary one). Further ratings from other sources go in `ratings`. */
+  ratingSource: RatingSource;
   voteCount: number;
   /** Only filled on detail / provider requests. Empty array means "none verified", not "unavailable". */
   providers: ProviderOffer[];
@@ -67,7 +78,51 @@ export interface CatalogTitle {
   genreIds?: number[];
   /** Stream URL for free movies (e.g. YouTube full movie or direct video link) */
   freeStreamUrl?: string | null;
+  /** Every rating we hold for this title, each labelled with its source (details only). */
+  ratings?: TitleRating[];
+  /** Which sources contributed fields to this record (attribution is generated from this). Details only. */
+  sources?: CatalogSource[];
+  /** Ids in other catalogs, used to map between sources (details only). */
+  externalIds?: ExternalIds;
+  /** TV only: season blocks with episode lists, from TVmaze (details only). */
+  seasonList?: SeasonInfo[];
+  /** TV only: the next announced episode, from TVmaze (details only). */
+  nextEpisode?: EpisodeInfo | null;
+  /** TV only: "Running", "Ended", ... as reported by TVmaze. */
+  tvStatus?: string | null;
 }
+
+export type RatingSource = 'TMDB' | 'TVmaze';
+export interface TitleRating {
+  source: RatingSource;
+  value: number;
+  votes?: number;
+}
+export interface ExternalIds {
+  imdb?: string | null;
+  tvdb?: string | null;
+  tvmaze?: string | null;
+}
+export interface EpisodeInfo {
+  season: number;
+  /** Episode number inside the season (specials without a number are not listed). */
+  number: number;
+  name: string;
+  airdate: string | null;
+  runtimeMinutes: number | null;
+  /** Plain text (HTML removed on the server), at most 300 characters. */
+  summary: string | null;
+}
+export interface SeasonInfo {
+  number: number;
+  name: string | null;
+  episodeCount: number;
+  premiereDate: string | null;
+  endDate: string | null;
+  episodes: EpisodeInfo[];
+}
+/** Availability part of the status payload: names and flags only, never keys or counts. */
+export type AvailabilityProviderName = 'streamingavailability' | 'watchmode';
 
 /**
  * Deduplicate catalog titles so a movie can only show ONE time.
@@ -139,11 +194,17 @@ export function makeTitleKey(source: CatalogSource, mediaType: CatalogMediaType,
   return `${source}:${mediaType}:${sourceId}`;
 }
 
-const TITLE_KEY_RE = /^(tmdb):(movie|tv):([0-9]{1,10})$/;
+const TITLE_KEY_RE = /^(tmdb|tvmaze):(movie|tv):([0-9]{1,10})$/;
+/** Returns the parsed key, or null for unknown sources, bad ids, or `tvmaze:movie` (TVmaze has no movies). */
 export function parseTitleKey(key: unknown): { source: CatalogSource; mediaType: CatalogMediaType; sourceId: string } | null {
   if (typeof key !== 'string' || key.length > 40) return null;
   const m = TITLE_KEY_RE.exec(key);
-  return m ? { source: m[1] as CatalogSource, mediaType: m[2] as CatalogMediaType, sourceId: m[3] } : null;
+  if (!m || (m[1] === 'tvmaze' && m[2] !== 'tv')) return null;
+  return { source: m[1] as CatalogSource, mediaType: m[2] as CatalogMediaType, sourceId: m[3] };
+}
+/** Strict check of the (source, mediaType, id) trio used by routes and pages. */
+export function isValidTitleRef(source: unknown, mediaType: unknown, id: unknown): boolean {
+  return typeof id === 'string' && parseTitleKey(`${String(source)}:${String(mediaType)}:${id}`) !== null;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -158,13 +219,62 @@ const IMAGE_PATH_RE = /^\/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/;
 export function isValidImagePath(path: unknown): path is string {
   return typeof path === 'string' && path.length <= 100 && IMAGE_PATH_RE.test(path);
 }
+
+/**
+ * TVmaze images are stored in the same `posterPath` / `backdropPath` / `profilePath` fields as TMDB ones, as a compact
+ * single-segment token so the existing path validation keeps working: `/tvm-<p|b>-<dir>-<id>.<ext>`
+ *   p = portrait (served as medium_portrait or original_untouched), b = landscape/background (original_untouched only)
+ * and the real URL is rebuilt from a fixed host: https://static.tvmaze.com/uploads/images/<size>/<dir>/<id>.<ext>
+ */
+export const TVMAZE_IMAGE_HOST = 'static.tvmaze.com';
+const TVMAZE_PATH_RE = /^\/tvm-([pb])-(\d{1,6})-(\d{1,10})\.(jpg|jpeg|png|webp)$/;
+export function isTvmazeImagePath(path: unknown): path is string {
+  return typeof path === 'string' && path.length <= 40 && TVMAZE_PATH_RE.test(path);
+}
+/** Turns a TVmaze image URL into the token above. Only https + static.tvmaze.com + /uploads/images/<size>/<dir>/<id>.<ext> pass. */
+export function tvmazeImagePathFromUrl(url: unknown): string | null {
+  if (typeof url !== 'string' || url.length > 200) return null;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== 'https:' || u.hostname.toLowerCase() !== TVMAZE_IMAGE_HOST || u.username || u.password || u.port || u.search || u.hash) return null;
+  const m = /^\/uploads\/images\/(medium_portrait|original_untouched|medium_landscape)\/(\d{1,6})\/(\d{1,10})\.(jpg|jpeg|png|webp)$/.exec(u.pathname);
+  if (!m) return null;
+  return `/tvm-${m[1] === 'medium_portrait' ? 'p' : m[1] === 'medium_landscape' ? 'b' : 'p'}-${m[2]}-${m[3]}.${m[4]}`;
+}
+/** Same, for a background image (original_untouched is wide): marks the token as landscape. */
+export function tvmazeBackdropPathFromUrl(url: unknown): string | null {
+  const p = tvmazeImagePathFromUrl(url);
+  return p ? p.replace('/tvm-p-', '/tvm-b-') : null;
+}
+export function tvmazeImageUrl(path: string | null | undefined, size: TmdbImageSize): string | null {
+  if (!isTvmazeImagePath(path)) return null;
+  const m = TVMAZE_PATH_RE.exec(path)!;
+  const small = m[1] === 'p' && (size === 'w92' || size === 'w154' || size === 'w185' || size === 'w342');
+  const dir = small ? 'medium_portrait' : 'original_untouched';
+  return `https://${TVMAZE_IMAGE_HOST}/uploads/images/${dir}/${m[2]}/${m[3]}.${m[4]}`;
+}
+/** True for a TMDB path or a TVmaze token. Used wherever an image path is accepted from a client. */
+export function isCatalogImagePath(path: unknown): path is string {
+  return isValidImagePath(path) && (!path.startsWith('/tvm-') || isTvmazeImagePath(path));
+}
 export function tmdbImageUrl(path: string | null | undefined, size: TmdbImageSize): string | null {
   if (!isValidImagePath(path)) return null;
   if (!(TMDB_IMAGE_SIZES as readonly string[]).includes(size)) return null;
+  if (path.startsWith('/tvm-')) return tvmazeImageUrl(path, size); // TVmaze token: fixed host, validated pattern
   return `${TMDB_IMAGE_BASE}${size}${path}`;
 }
 const SIZE_WIDTH: Record<string, number> = { w92: 92, w154: 154, w185: 185, w342: 342, w500: 500, w780: 780, w1280: 1280 };
 export function tmdbSrcSet(path: string | null | undefined, sizes: TmdbImageSize[]): string | undefined {
+  if (isTvmazeImagePath(path)) {
+    // TVmaze has two renditions only (about 210 and 680 px wide for posters)
+    const small = tvmazeImageUrl(path, 'w185');
+    const big = tvmazeImageUrl(path, 'w500');
+    return small && big && small !== big ? `${small} 210w, ${big} 680w` : big ? `${big} 680w` : undefined;
+  }
   const parts: string[] = [];
   for (const s of sizes) {
     const u = tmdbImageUrl(path, s);
@@ -392,7 +502,7 @@ export function platformFromUrl(url: string): string {
 
 export function snapshotOf(t: Pick<CatalogTitle, 'id' | 'title' | 'posterPath' | 'releaseDate' | 'mediaType'>): TitleSnapshot {
   const y = t.releaseDate ? Number(t.releaseDate.slice(0, 4)) : NaN;
-  return { titleKey: t.id, title: t.title, posterPath: isValidImagePath(t.posterPath) ? t.posterPath : null, year: Number.isFinite(y) && y > 1800 ? y : null, mediaType: t.mediaType };
+  return { titleKey: t.id, title: t.title, posterPath: isCatalogImagePath(t.posterPath) ? t.posterPath : null, year: Number.isFinite(y) && y > 1800 ? y : null, mediaType: t.mediaType };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

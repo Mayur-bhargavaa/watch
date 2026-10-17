@@ -1,4 +1,4 @@
-import { isLinkItem, isTitleItem, normalizeLinkUrl, youtubeIdFromUrl, youtubeThumbnail, type WatchlistItem, type WatchlistLinkItem } from '@synccinema/common';
+import { isLinkItem, isTitleItem, normalizeLinkUrl, parseTitleKey, youtubeIdFromUrl, youtubeThumbnail, type WatchlistItem, type WatchlistLinkItem } from '@synccinema/common';
 
 /** Pure view helpers of the Watchlist page: tabs, counts, thumbnails, links. */
 export type WatchlistTab = 'all' | 'movie' | 'tv' | 'link';
@@ -47,8 +47,8 @@ export function linkThumbnail(item: Pick<WatchlistLinkItem, 'url' | 'thumbnail'>
 export const safeOpenUrl = (item: Pick<WatchlistLinkItem, 'url'>): string | null => normalizeLinkUrl(item.url);
 
 export const titleDetailHref = (titleKey: string): string | null => {
-  const m = /^(tmdb):(movie|tv):(\d{1,10})$/.exec(titleKey);
-  return m ? `/discover/title/${m[1]}/${m[2]}/${m[3]}` : null;
+  const k = parseTitleKey(titleKey); // strict allow-list: tmdb (movie|tv) and tvmaze (tv)
+  return k ? `/discover/title/${k.source}/${k.mediaType}/${k.sourceId}` : null;
 };
 
 /** Default title for a link added without one: "YouTube video" for YouTube links, otherwise the site name. */

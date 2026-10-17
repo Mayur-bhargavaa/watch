@@ -6,7 +6,7 @@ import type { CatalogMediaType, CatalogTitle } from '@synccinema/common';
  * "How we pick these" caption, so it must stay an honest description of the selection logic below it.
  * Genre ids: 35 Comedy, 16 Animation, 10751 Family, 53 Thriller, 9648 Mystery, 878 Science Fiction, 10765 TV Sci-Fi & Fantasy.
  */
-export type CollectionKind = 'spotlight' | 'trending' | 'discover' | 'personal' | 'platforms' | 'free';
+export type CollectionKind = 'spotlight' | 'trending' | 'discover' | 'personal' | 'platforms' | 'free' | 'tv-airing-india' | 'tv-popular';
 
 export interface CollectionQuery {
   mediaType: CatalogMediaType;
@@ -197,6 +197,23 @@ export const COLLECTIONS: CollectionDef[] = [
     eyebrow: 'Your services',
     howWePick: 'Popular titles whose availability in your region is verified on the platforms you selected.',
     kind: 'platforms',
+    limit: 20
+  },
+  // ---- TVmaze mode only (no TMDB key). With a TMDB key these two answer 404: TVmaze only enriches TMDB titles. ----
+  {
+    slug: 'airing-in-india',
+    title: 'Airing in India',
+    eyebrow: 'TV schedule',
+    howWePick: "Shows on Indian TV and web channels in TVmaze's schedule for today and the next two days (IST), best rated first, then by TVmaze popularity.",
+    kind: 'tv-airing-india',
+    limit: 20
+  },
+  {
+    slug: 'popular-tv',
+    title: 'Popular TV',
+    eyebrow: 'On air today',
+    howWePick: "Shows airing today on US TV and on global web channels, ordered by TVmaze's own popularity score (TVmaze has no popularity list, so this uses today's schedule).",
+    kind: 'tv-popular',
     limit: 20
   }
 ];

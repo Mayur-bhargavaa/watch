@@ -77,13 +77,14 @@ export function ErrorState({ error, onRetry, compact = false }: { error: unknown
   const e = error instanceof CatalogApiError ? error : null;
   const notConfigured = Boolean(e?.notConfigured);
   const message = notConfigured ? SETUP_MESSAGE : e?.message || 'Something went wrong while loading this.';
-  const Icon = notConfigured ? Settings : TriangleAlert;
+  const info = notConfigured || Boolean(e?.moviesNeedTmdb);
+  const Icon = info ? Settings : TriangleAlert;
   return (
-    <div role={notConfigured ? 'status' : 'alert'} className={`${SURFACE} rounded-2xl ${compact ? 'p-3' : 'p-4 sm:p-5'} flex items-start gap-3`}>
+    <div role={info ? 'status' : 'alert'} className={`${SURFACE} rounded-2xl ${compact ? 'p-3' : 'p-4 sm:p-5'} flex items-start gap-3`}>
       <Icon className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="text-sm text-slate-800 dark:text-slate-100">{message}</p>
-        {!notConfigured && onRetry && (
+        {!info && onRetry && (
           <button type="button" onClick={onRetry} className={`${BTN_SECONDARY} mt-3 !py-1.5`}>
             <RefreshCw className="h-4 w-4" aria-hidden="true" /> Retry
           </button>

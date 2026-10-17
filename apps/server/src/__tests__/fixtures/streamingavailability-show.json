@@ -1,0 +1,117 @@
+{
+  "_source": "https://docs.movieofthenight.com/resource/shows (Get a show: GET /shows/{id}) and the model definitions Show, StreamingOption, Service, ServiceImageSet, Price, StreamingOptionType at https://github.com/movieofthenight/ts-streaming-availability/tree/main/src/models",
+  "_captured": "2026-10-17",
+  "_note": "NOT a recorded API response. The docs page only shows a collapsed outline of the Godfather example (itemType, showType, id 82, imdbId tt0068646, tmdbId movie/238, title, releaseYear 1972, rating 87, runtime 175, imageSet, streamingOptions keyed by country), so the streamingOptions entries are built from the documented field names and types. The values (links, services) are made up for the test. No API call was ever made.",
+  "data": {
+    "itemType": "show",
+    "showType": "movie",
+    "id": "82",
+    "imdbId": "tt0068646",
+    "tmdbId": "movie/238",
+    "title": "The Godfather",
+    "overview": "Fixture overview.",
+    "releaseYear": 1972,
+    "originalTitle": "The Godfather",
+    "genres": [{ "id": "crime", "name": "Crime" }],
+    "directors": ["Francis Ford Coppola"],
+    "cast": ["Marlon Brando"],
+    "rating": 87,
+    "runtime": 175,
+    "imageSet": {},
+    "streamingOptions": {
+      "in": [
+        {
+          "service": {
+            "id": "netflix",
+            "name": "Netflix",
+            "homePage": "https://www.netflix.com/",
+            "themeColorCode": "#E50914",
+            "imageSet": {
+              "lightThemeImage": "https://media.movieofthenight.com/services/netflix/logo-light-theme.svg",
+              "darkThemeImage": "https://media.movieofthenight.com/services/netflix/logo-dark-theme.svg",
+              "whiteImage": "https://media.movieofthenight.com/services/netflix/logo-white.svg"
+            }
+          },
+          "type": "subscription",
+          "link": "https://www.netflix.com/title/60011152/",
+          "quality": "hd",
+          "audios": [],
+          "subtitles": [],
+          "expiresSoon": false,
+          "availableSince": 1700000000
+        },
+        {
+          "service": {
+            "id": "netflix",
+            "name": "Netflix",
+            "homePage": "https://www.netflix.com/",
+            "themeColorCode": "#E50914",
+            "imageSet": { "lightThemeImage": "https://media.movieofthenight.com/services/netflix/logo-light-theme.svg", "darkThemeImage": "", "whiteImage": "" }
+          },
+          "type": "subscription",
+          "link": "https://www.netflix.com/title/60011152/watch",
+          "quality": "uhd",
+          "audios": [],
+          "subtitles": [],
+          "expiresSoon": false,
+          "availableSince": 1700000000
+        },
+        {
+          "service": {
+            "id": "prime",
+            "name": "Prime Video",
+            "homePage": "https://www.primevideo.com/",
+            "themeColorCode": "#00A8E1",
+            "imageSet": { "lightThemeImage": "https://evil.example/logo.svg", "darkThemeImage": "", "whiteImage": "" }
+          },
+          "type": "rent",
+          "link": "https://www.primevideo.com/detail/0F0",
+          "price": { "amount": "149.00", "currency": "INR", "formatted": "149.00 INR" },
+          "audios": [],
+          "subtitles": [],
+          "expiresSoon": false,
+          "availableSince": 1700000000
+        },
+        {
+          "service": { "id": "hotstar", "name": "JioHotstar", "homePage": "https://www.hotstar.com/", "themeColorCode": "#000", "imageSet": {} },
+          "type": "subscription",
+          "link": "http://insecure.example.com/x",
+          "audios": [],
+          "subtitles": [],
+          "expiresSoon": false,
+          "availableSince": 1700000000
+        },
+        {
+          "service": { "id": "zee5", "name": "ZEE5", "homePage": "https://www.zee5.com/", "themeColorCode": "#000", "imageSet": {} },
+          "type": "weird",
+          "link": "https://www.zee5.com/x",
+          "audios": [],
+          "subtitles": [],
+          "expiresSoon": false,
+          "availableSince": 1700000000
+        },
+        {
+          "service": { "id": "apple", "name": "Apple TV", "homePage": "https://tv.apple.com/", "themeColorCode": "#000", "imageSet": {} },
+          "type": "addon",
+          "addon": { "id": "mubi", "name": "MUBI", "homePage": "https://mubi.com/", "themeColorCode": "#000", "imageSet": {} },
+          "link": "https://tv.apple.com/in/movie/x",
+          "audios": [],
+          "subtitles": [],
+          "expiresSoon": false,
+          "availableSince": 1700000000
+        }
+      ],
+      "us": [
+        {
+          "service": { "id": "max", "name": "Max", "homePage": "https://www.max.com/", "themeColorCode": "#000", "imageSet": {} },
+          "type": "subscription",
+          "link": "https://www.max.com/x",
+          "audios": [],
+          "subtitles": [],
+          "expiresSoon": false,
+          "availableSince": 1700000000
+        }
+      ]
+    }
+  }
+}

@@ -32,7 +32,9 @@ import { runGameLaunchJob } from './services/gameLaunch.js';
 import { registerCatalogRoutes, roomTitleApi } from './routes/catalog.js';
 import { CatalogService } from './services/catalog/service.js';
 import { MongoWatchlistStore } from './services/catalog/watchlist.js';
-const cineverseCatalog = new CatalogService(process.env);
+import { MongoQuotaStore } from './services/catalog/availabilityGuard.js';
+// the Streaming Availability monthly counter lives in Mongo (`catalog_quota`, one document per provider per UTC month)
+const cineverseCatalog = new CatalogService(process.env, { quotaStore: new MongoQuotaStore(() => mongoDb.catalogQuotaCol) });
 
 function resolveGameType(raw?: string): GameType {
   // Exact ids / explicit aliases only (GR-32). A room-code prefix ("TIC-AB12CD34") is accepted too. Empty input means Ludo;

@@ -4,18 +4,32 @@
 
 ## What is real and what is not
 
-| Works with no keys (server side) | Needs `TMDB_API_KEY` or `TMDB_READ_TOKEN` | Needs `WATCHMODE_API_KEY` |
+| Works with no keys (server side) | Needs `TMDB_API_KEY` or `TMDB_READ_TOKEN` | Needs `WATCHMODE_API_KEY` or `STREAMING_AVAILABILITY_API_KEY` |
 |---|---|---|
 | The page, navigation, the server-saved watchlist (add, remove, list), the room party queue (propose, vote, confirm, countdown, ready) | Search, filters, trending, all collections, the spotlight, the matchmaker, title pages, cast, recommendations | "Where to watch" by region, provider links, the provider filter, "Available on Your Platforms", provider boost in the matchmaker |
 
-The "Watch Free Movies" collection also has a built-in fallback that needs no key (see Collections), but the `/discover` page itself shows only the setup message while `GET /api/catalog/status` says the catalog is not configured. Without a TMDB key every data route answers `503 { "error": "Catalog is not configured", "code": "CATALOG_NOT_CONFIGURED" }` and the page shows an owner-facing setup message (never fake titles). Without a Watchmode key everything else works and availability is hidden with the note "Availability data is not enabled". `YOUTUBE_API_KEY` is optional and only finds an official trailer id.
+The "Watch Free Movies" collection also has a built-in fallback that needs no key (see Collections), but the `/discover` page itself shows only the setup message while `GET /api/catalog/status` says the catalog is not configured. With no TMDB key the catalog runs in TV-only TVmaze mode (see Modes); with `TVMAZE_ENABLED=0` too, every data route answers `503 { "error": "Catalog is not configured", "code": "CATALOG_NOT_CONFIGURED" }` and the page shows an owner-facing setup message (never fake titles). Without an availability key everything else works and availability is hidden with the note "Availability data is not enabled". `YOUTUBE_API_KEY` is optional and only finds an official trailer id.
 
 Nothing visual and no real provider response was ever seen while building this (no browser, no API keys): all provider behaviour is covered by tests with a fake `fetch` and recorded-shape fixtures.
 
+## Modes (which data source answers)
+
+The catalog picks a mode from configuration (`GET /api/catalog/status` reports it as `mode`):
+
+| Mode | When | What works |
+|---|---|---|
+| `tmdb` | a TMDB key is set | The full catalog described below. TVmaze (if `TVMAZE_ENABLED`, default on) only ENRICHES TMDB TV title pages: season and episode list, the next episode and TVmaze's rating as a second rating chip. TVmaze never adds standalone results to search or collections, and `airing-in-india` / `popular-tv` answer 404 in this mode. A TVmaze failure never breaks the TMDB response (the title is returned exactly as TMDB gave it). |
+| `tvmaze` | no TMDB key, `TVMAZE_ENABLED` not `0` | TV only, no key needed. `status` is `{ configured: true, mode: 'tvmaze', movies: false, ... }`. Search returns TVmaze shows only (no text = the popular list; `type=movie` is empty). Collections: `airing-in-india` and `popular-tv`. Title pages work for `tvmaze:tv:<id>` keys (overview, cast, seasons and episodes, next episode, TVmaze rating), as do the watchlist and the watch-party propose action. Header search works through the same endpoint. Movie-only features (every TMDB collection, the matchmaker, `titles/tmdb/...`) answer `503 { error: "Movies need a TMDB key; TV works without one", code: "CATALOG_MOVIES_NEED_TMDB" }`. Discover shows the two TV rows, the hero built from them (a TVmaze show with no wide image uses its poster as hero art) and a compact note "Movies need a TMDB API key. TV shows are powered by TVmaze." Never fake movies. |
+| `none` | no TMDB key and `TVMAZE_ENABLED=0` | The legacy behaviour: every data route answers `503 CATALOG_NOT_CONFIGURED` and the page shows the owner setup message. |
+
+A saved `tvmaze:tv:<id>` title keeps working (title page, watchlist) after a TMDB key is added later.
+
 ## Licences and quotas (read before going live)
 
+* TVmaze: no key. Data is CC BY-SA 4.0 (any purpose with credit and ShareAlike); the API allows at least 20 calls per 10 s per IP. The app credits "TV data from TVmaze.com (CC BY-SA 4.0)" (linked to tvmaze.com and the licence) whenever TVmaze data is on the page, and TVmaze-derived fields are tagged by source in the model (`source: 'tvmaze'`, `ratingSource: 'TVmaze'`, `sources: ['tmdb','tvmaze']` on merged titles). Whether a merged normalised record counts as an adaptation under ShareAlike is a legal question (see FREE_MOVIE_APIS.md).
+* Streaming Availability API (Movie of the Night): free plan 1,000 requests a month (hard cap, no overage), commercial use allowed, attribution required when its data or images are public ("Availability from Movie of the Night" is shown when that provider's data is on the page). Paid plans: $49 (25,000), $99 (100,000), $299 (1,000,000). Written from the documentation only; see "Streaming Availability" below.
 * TMDB: a free key is for non-commercial use. Commercial use needs a licence agreement with TMDB. The required attribution is shown in the /discover footer.
-* Watchmode: the free plan is small (about 1,000 calls a month at the time of writing); production use needs a paid plan. Each title needs up to 2 calls the first time (id mapping, cached 7 days; availability, cached 30 minutes), so the provider filter and the platform row cost the most. The caches and rate limits below exist to protect that quota.
+* Watchmode: the free plan is 2,500 credits a month, non-commercial only (FREE_MOVIE_APIS.md); production use needs a paid plan. Each title needs up to 2 calls the first time (id mapping, cached 7 days; availability, cached 30 minutes), so the provider filter and the platform row cost the most. The caches and rate limits below exist to protect that quota.
 * YouTube Data API: quota is per Google Cloud project (search costs 100 units per call, cached 6 hours per title).
 * Netflix, Prime Video and JioHotstar are external services. We do not use any public catalog, search, playback or login API of theirs. Availability and links come only from the licensed availability source (Watchmode). Playback capability for them is "none" and room sync is "coordinated start" only. Frame-accurate playback sync for them is NOT available and needs authorisation from each provider.
 
@@ -27,7 +41,8 @@ web /discover  ->  /api/catalog/*  (apps/server/src/routes/catalog.ts)
                 CatalogService (services/catalog/service.ts)
                   cache (TTL, stale-while-revalidate, in-flight de-dup, LRU)
                   UpstreamClient (8 s timeout, bounded retries, circuit breaker)
-                  adapters: tmdb.ts (metadata)  watchmode.ts (availability)  youtube.ts (trailer id)
+                  adapters: tmdb.ts (metadata)  tvmaze.ts (TV, no key)  watchmode.ts + streamingAvailability.ts (availability)  youtube.ts (trailer id)
+                  availabilityGuard.ts (monthly quota counter, per-user cooldown)
 Room: web Party queue panel <-> WebSocket room:title_* <-> RoomSyncManager <-> sync/titleQueue.ts (pure state machine)
 ```
 
@@ -39,9 +54,9 @@ Files: `apps/server/src/services/catalog/` (cache, upstream, adapters, collectio
 
 ## Normalised model
 
-`CatalogTitle`: `id` (`tmdb:movie:603`), `source`, `sourceId`, `mediaType` (`movie|tv`), `title`, `overview`, `posterPath`, `backdropPath`, `releaseDate`, `genres[]`, `runtimeMinutes`, `rating`, `ratingSource` (always `"TMDB"`), `voteCount`, `providers[]`, `region`, `externalUrl`, plus details-only fields (`seasons`, `episodes`, `cast` top 8, `crew` directors/creators, `tagline`, `trailerYoutubeId`). Missing or malformed upstream fields become `null` or empty, never guessed. Image paths must match `/^\/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/` and URLs are built only from `https://image.tmdb.org/t/p/` + a fixed size + the path.
+`CatalogTitle`: `id` (`tmdb:movie:603` or `tvmaze:tv:169`), `source` (`tmdb|tvmaze`, allow-list `CATALOG_SOURCES`), `sourceId`, `mediaType` (`movie|tv`; TVmaze is `tv` only), `title`, `overview`, `posterPath`, `backdropPath`, `releaseDate`, `genres[]`, `runtimeMinutes`, `rating`, `ratingSource` (`"TMDB"` or `"TVmaze"`), `voteCount`, `providers[]`, `region`, `externalUrl`, plus details-only fields (`seasons`, `episodes`, `cast` top 8, `crew` directors/creators, `tagline`, `trailerYoutubeId`). Details-only additions: `ratings[]` (`{source, value, votes?}`, one chip per source), `sources[]` (which sources contributed fields), `externalIds` (`imdb`, `tvdb`, `tvmaze`), `seasonList[]` (`{number, name, episodeCount, premiereDate, endDate, episodes[]}`, episode = `{season, number, name, airdate, runtimeMinutes, summary}`), `nextEpisode`, `tvStatus`. Missing or malformed upstream fields become `null` or empty, never guessed. Image paths must match `/^\/[A-Za-z0-9._-]+\.(jpg|jpeg|png|webp)$/` and URLs are built only from `https://image.tmdb.org/t/p/` + a fixed size + the path. TVmaze images use the same fields as a token `/tvm-<p|b>-<dir>-<id>.<ext>`; the adapter only produces one for an https `static.tvmaze.com/uploads/images/<size>/<dir>/<id>.<ext>` URL and the real URL is rebuilt from the fixed host (`tvmazeImageUrl`). TVmaze summaries are HTML: they are reduced to plain text on the server (tags, scripts and entities handled, angle brackets removed) and rendered as text nodes.
 
-`ProviderOffer`: `id`, `name`, `type` (`subscription|rent|buy|free`), `logoUrl`, `destinationUrl|null`, `verified`. An empty `providers` list means "none verified", not "unavailable"; when availability cannot be checked the field is absent and the UI says so.
+`ProviderOffer`: `id`, `name`, `type` (`subscription|rent|buy|free|addon`), `logoUrl`, `destinationUrl|null`, `verified`. An empty `providers` list means "none verified", not "unavailable"; when availability cannot be checked the field is absent and the UI says so.
 
 Region: `?region=` (allowlisted ISO alpha-2), else the CDN country headers / Accept-Language through the billing `detectCountry` helper, else `CATALOG_DEFAULT_REGION` (default `IN`).
 
@@ -49,11 +64,11 @@ Region: `?region=` (allowlisted ISO alpha-2), else the CDN country headers / Acc
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/catalog/status` | `{ configured, availability, trailers, defaultRegion, region }` (no secrets) |
+| `GET /api/catalog/status` | `{ configured, mode, movies, tv, availability (boolean), availabilityDetail: { provider, quotaLow }, availabilityProviders[], trailers, defaultRegion, region }`: booleans and provider names only, never keys, limits or counts |
 | `GET /api/catalog/search?q&type&genre&year&sort&provider&region&page` | text search or discover; `year` is `2015` or `2010-2020`; `sort` is `popularity|rating|release`; `provider` needs Watchmode |
 | `GET /api/catalog/trending?region&type` | TMDB weekly trending |
 | `GET /api/catalog/genres` | genre list (cached 24 h) |
-| `GET /api/catalog/titles/:source/:mediaType/:id` | details + verified providers |
+| `GET /api/catalog/titles/:source/:mediaType/:id` | details + verified providers (+ `availabilityProvider`, `availabilityQuotaLow`). `source` is `tmdb` or `tvmaze` (tvmaze: `tv` only), id numeric; anything else is 400 |
 | `GET /api/catalog/titles/.../providers?region` | verified providers with capabilities |
 | `GET /api/catalog/titles/.../recommendations` | TMDB recommendations |
 | `GET /api/catalog/collections/:slug?region&providers` | a curated row (below) |
@@ -61,7 +76,7 @@ Region: `?region=` (allowlisted ISO alpha-2), else the CDN country headers / Acc
 | `GET/POST /api/catalog/watchlist`, `DELETE /api/catalog/watchlist/:titleKey` (or `?titleKey=`) | the caller's private list: titles and links together (see Watchlist) |
 | `GET /api/catalog/rooms/:slug/titles`, `POST /api/catalog/rooms/:slug/titles/(propose|vote|confirm|ready|clear)` | REST twin of the room messages (members only) |
 
-Every query, param and body is validated with zod (bounded lengths, enums, integer ranges, `strict()` so unknown parameters are a 400). Errors: 400 `BAD_REQUEST`, 401, 403, 404, 409 `WATCHLIST_FULL`, 429 `RATE_LIMITED`, 502 `CATALOG_UPSTREAM`, 503 `CATALOG_NOT_CONFIGURED` / upstream breaker open.
+Every query, param and body is validated with zod (sources are an allow-list, never a pattern) (bounded lengths, enums, integer ranges, `strict()` so unknown parameters are a 400). Errors: 400 `BAD_REQUEST`, 401, 403, 404, 409 `WATCHLIST_FULL`, 429 `RATE_LIMITED`, 502 `CATALOG_UPSTREAM`, 503 `CATALOG_NOT_CONFIGURED` / `CATALOG_MOVIES_NEED_TMDB` (TVmaze mode) / upstream breaker open.
 
 ## Collections (defined once in `services/catalog/collections.ts`)
 
@@ -84,6 +99,28 @@ Each has a one-line "How we pick these" caption shown in the UI, taken from the 
 * Available on Your Platforms: trending + popular titles whose availability in the region is verified on the platforms the person picked. The endpoint still exists; the /discover page no longer shows this row, and the Matchmaker card was removed from the page too (the `POST /api/catalog/matchmaker` endpoint, its tests and the server code are kept for later).
 
 The /discover hero is a multi-banner carousel like Home (arrows, dots on mobile, thumbnails on desktop, swipe, arrow keys, no auto-advance), built in the browser from 3 titles of Trending and 3 from the Indian rows (only titles with a backdrop, de-duplicated). The signed-in user's standing Bitmoji sits behind its top-right corner, as on Home.
+
+### TVmaze collections (TVmaze mode only)
+
+* Airing in India (`airing-in-india`): `/schedule?country=IN&date=` and `/schedule/web?country=IN&date=` for today (IST) and the next two days (TVmaze lists few Indian airings a day, so one day alone is thin), shows de-duplicated, best TVmaze rating first, then TVmaze weight.
+* Popular TV (`popular-tv`): TVmaze has no popularity list (`/shows?page=` is ordered by id, 250 per page), so this takes today's `/schedule?country=US` and the global `/schedule/web`, de-duplicates the shows and orders them by TVmaze's `weight` (its own 0 to 100 popularity score), then rating. The caption says so.
+
+## TVmaze (no key)
+
+`adapters/tvmaze.ts`. Endpoints (base `https://api.tvmaze.com`, docs https://www.tvmaze.com/api): `/search/shows?q=`, `/shows/:id?embed[]=cast&embed[]=seasons&embed[]=nextepisode&embed[]=previousepisode&embed[]=images`, `/shows/:id/episodes`, `/schedule?country=&date=`, `/schedule/web?country=&date=`, `/lookup/shows?imdb=` and `?thetvdb=` (301 to the show; used to map a TMDB title through its `external_ids`, IMDb first, then TheTVDB; no mapping by name, to avoid wrong matches). Every call goes through the shared upstream client (8 s timeout, retries on 429/5xx honouring `Retry-After`, circuit breaker) behind a sliding-window token bucket (<= 15 calls per 10 s, FIFO queue of at most 200, so bursts wait instead of tripping TVmaze's limit of 20; retries are limited too) and sends `TVMAZE_USER_AGENT` (default `WatchPartyCatalog/1.0 (+https://watch.stitchbyte.in)`). Cache: show 6 h, episodes 3 h, schedule 30 min, search 5 min, id lookup 7 days, a 404 is remembered 24 h. Real response fixtures (captured 2026-10-17) live in `apps/server/src/__tests__/fixtures/tvmaze-*.json`.
+
+## Streaming Availability (Movie of the Night, key required)
+
+`adapters/streamingAvailability.ts`, written from https://docs.movieofthenight.com (no key was available: it has NEVER been called; the test fixture is shaped from the documented model, not a recorded response). `GET https://api.movieofthenight.com/v4/shows/{id}?country=in&series_granularity=show&output_language=en`, header `X-API-Key`, `{id}` = `movie/<tmdbId>`, `tv/<tmdbId>` or an IMDb id (TVmaze titles use theirs), so no id-mapping call exists. Offers come from `streamingOptions[<country>]`: `verified: true` only because the API returned the service for that country; types `subscription|free|rent|buy|addon`; the deep link is kept only if https with a real host; the logo (`lightThemeImage`) only if it is on `media.movieofthenight.com`.
+
+Quota guard (`availabilityGuard.ts`, all in tests with injected clocks):
+
+* One Mongo document per provider per UTC month in `catalog_quota` (`_id` `streamingavailability:2026-10`), bumped by an atomic conditional `$inc` (`count < stopAt`), so concurrent lookups can never pass the stop. `STREAMING_AVAILABILITY_MONTHLY_LIMIT` (default 1000); soft stop at 90% (900 calls). After that the adapter is not called ("quota low"), `status.availabilityDetail.quotaLow` is true and the title page says "Availability data is paused for this month". A new UTC month starts a new counter. If the counter cannot be read or written the API is not called.
+* Only title pages: it is used only when a signed-in user opens a title page (the route passes the user id); lists, collections, the provider filter, the matchmaker and rooms never call it (they reuse a cached answer if one exists).
+* Caching: fresh 24 h per title and country, served stale up to 7 days when the API fails or the quota is stopped, never refreshed in the background, concurrent lookups share one request.
+* Per-user cooldown (in memory): at most 1 uncached lookup per title per user per hour and 30 per user per UTC day; over that the stale or unknown state is returned.
+* 429 and 5xx: one retry only (each retry can cost quota), two consecutive failures open the circuit breaker for 60 s.
+* Provider order: `AVAILABILITY_PROVIDER_ORDER` (default `streamingavailability,watchmode`): the first configured provider whose quota is not stopped answers; failure, an unknown title or a quota stop falls through to the next. None configured: "Availability data is not enabled" as before.
 
 ## Matchmaker (deterministic, not AI; server endpoint only, the Discover page no longer shows it)
 
@@ -146,7 +183,7 @@ Discover has no search box any more, only filters (type, genre, year, sort, serv
 
 ## Env vars (apps/server/.env.example, placeholders only)
 
-`TMDB_READ_TOKEN` or `TMDB_API_KEY`, `WATCHMODE_API_KEY`, `YOUTUBE_API_KEY`, `CATALOG_DEFAULT_REGION` (default `IN`), `CATALOG_CACHE_MAX_ENTRIES` (50 to 20000, default 1000). Full environment table: README.md.
+`TMDB_READ_TOKEN` or `TMDB_API_KEY`, `WATCHMODE_API_KEY`, `STREAMING_AVAILABILITY_API_KEY`, `STREAMING_AVAILABILITY_MONTHLY_LIMIT` (default 1000), `AVAILABILITY_PROVIDER_ORDER` (default `streamingavailability,watchmode`), `TVMAZE_ENABLED` (default 1, `0` disables), `TVMAZE_USER_AGENT`, `YOUTUBE_API_KEY`, `CATALOG_DEFAULT_REGION` (default `IN`), `CATALOG_CACHE_MAX_ENTRIES` (50 to 20000, default 1000). Full environment table: README.md.
 
 ## Run locally
 
@@ -156,12 +193,16 @@ Discover has no search box any more, only filters (type, genre, year, sort, serv
 
 ## Tests
 
+* New: `catalog-tvmaze.test.ts` (real TVmaze fixtures, sanitising, image hosts, limiter, 429, modes, degraded routes, enrichment, strict sources, watchlist) and `catalog-availability.test.ts` (Streaming Availability mapping, quota counter, cooldown, provider order, stale serving, status leaks). Web: `lib/__tests__/tvmazeCatalog.test.ts`. Dynamic: SEC-209 to SEC-211 (the audit pins TVmaze off so it never calls the real API; TVmaze mode is covered by the unit tests with a fake fetch).
 * Server unit (`apps/server/src/__tests__/catalog-*.test.ts` and `free-movies.test.ts`, each starts with `import './_noRealDb.js';`, fake `fetch`, injected clock): adapters and fixtures, cache / retry / breaker / timeout, service paths (not configured, no Watchmode, regions, link validation), collections (`catalog-india.test.ts` for the Indian ones), matchmaker, title queue (pure and through `RoomSyncManager` with fake sockets), routes (auth, validation, 503, secrets, watchlist privacy / duplicates / cap, rate limits, room REST).
 * Web unit (`apps/web/src/lib/__tests__/catalogHelpers.test.ts`, `heroSlides.test.ts`): hero slide builder, carousel index math, Bitmoji url, filters to query, year parsing, debounce, search state machine, provider grouping, safe external link, image URLs, optimistic watchlist reducer, countdown helpers.
 * Dynamic security (`.claude/skills/security-audit/scripts/security-tests.ts`): SEC-200 (catalog auth, 503, 400s, no leaks), SEC-201 (watchlist privacy / ownership / duplicates), SEC-202 (party queue over WebSocket and REST), SEC-203 (link validation), SEC-204 (URL-hash duplicates, one mixed list), SEC-205 (link privacy, guests refused, key validation), SEC-206 (cap across both kinds, race), SEC-207 (old documents, GDPR deletion).
 * Server unit: `catalog-watchlist.test.ts` (link items, cap, privacy, old documents, Mongo store with a fake collection). Web unit: `unifiedWatchlist.test.ts` (input classification, suggestions, URL state, legacy migration, the watchlist store, sidebar routes).
 
 ## Known limitations
+
+* Streaming Availability was written from the docs only and never called: field names beyond the documented model, the exact `country` casing and whether the `movie/<id>` slash needs encoding are unverified until a key exists.
+* TVmaze has no votes (`voteCount` is 0), no recommendations and no search paging; show pages embed its image list only on the title page.
 
 * No friends' recommendations: there is no "recommended to friends" data in the project and none was invented. No live-room counts, popularity or friend activity is shown anywhere.
 * Provider filter and platform row verify availability title by title (bounded to 20 to 36 titles per request), so a filtered page can be short; use "Load more".

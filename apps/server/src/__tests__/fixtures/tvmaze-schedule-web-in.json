@@ -1,0 +1,6 @@
+{
+ "_source": "https://api.tvmaze.com/schedule/web?country=IN",
+ "_captured": "2026-10-17",
+ "_note": "Real TVmaze API response (CC BY-SA 4.0), trimmed. The live answer was an empty list.",
+ "data": []
+}

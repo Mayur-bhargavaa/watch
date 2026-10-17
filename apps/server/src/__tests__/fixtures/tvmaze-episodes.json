@@ -1,0 +1,94 @@
+{
+ "_source": "https://api.tvmaze.com/shows/169/episodes",
+ "_captured": "2026-10-17",
+ "_note": "Real TVmaze API response (CC BY-SA 4.0), trimmed.",
+ "data": [
+  {
+   "id": 12192,
+   "url": "https://www.tvmaze.com/episodes/12192/breaking-bad-1x01-pilot",
+   "name": "Pilot",
+   "season": 1,
+   "number": 1,
+   "type": "regular",
+   "airdate": "2008-01-20",
+   "airtime": "22:00",
+   "airstamp": "2008-01-21T03:00:00+00:00",
+   "runtime": 60,
+   "rating": {
+    "average": 8.3
+   },
+   "image": {
+    "medium": "https://static.tvmaze.com/uploads/images/medium_landscape/405/1012681.jpg",
+    "original": "https://static.tvmaze.com/uploads/images/original_untouched/405/1012681.jpg"
+   },
+   "summary": "<p>A high-school chemistry teacher (Bryan Cranston) is diagnosed with a deadly cancer, so he puts his expertise to use and teams with an ex-student (Aaron Paul) to manufacture top-grade crystal meth in hopes of providing for his family after he's gone.</p>",
+   "_links": {
+    "self": {
+     "href": "https://api.tvmaze.com/episodes/12192"
+    },
+    "show": {
+     "href": "https://api.tvmaze.com/shows/169",
+     "name": "Breaking Bad"
+    }
+   }
+  },
+  {
+   "id": 12193,
+   "url": "https://www.tvmaze.com/episodes/12193/breaking-bad-1x02-cats-in-the-bag",
+   "name": "Cat's in the Bag...",
+   "season": 1,
+   "number": 2,
+   "type": "regular",
+   "airdate": "2008-01-27",
+   "airtime": "22:00",
+   "airstamp": "2008-01-28T03:00:00+00:00",
+   "runtime": 60,
+   "rating": {
+    "average": 7.9
+   },
+   "image": {
+    "medium": "https://static.tvmaze.com/uploads/images/medium_landscape/405/1012682.jpg",
+    "original": "https://static.tvmaze.com/uploads/images/original_untouched/405/1012682.jpg"
+   },
+   "summary": "<p>After the accident in the desert, Walter and Jesse need to dispose of the unfortunate mess in their rolling lab of an RV, and Skyler begins to suspect that Walter and Jesse are involved in some mysterious goings-on.</p>",
+   "_links": {
+    "self": {
+     "href": "https://api.tvmaze.com/episodes/12193"
+    },
+    "show": {
+     "href": "https://api.tvmaze.com/shows/169",
+     "name": "Breaking Bad"
+    }
+   }
+  },
+  {
+   "id": 12194,
+   "url": "https://www.tvmaze.com/episodes/12194/breaking-bad-1x03-and-the-bags-in-the-river",
+   "name": "...and the Bag's in the River",
+   "season": 1,
+   "number": 3,
+   "type": "regular",
+   "airdate": "2008-02-10",
+   "airtime": "22:00",
+   "airstamp": "2008-02-11T03:00:00+00:00",
+   "runtime": 60,
+   "rating": {
+    "average": 8.1
+   },
+   "image": {
+    "medium": "https://static.tvmaze.com/uploads/images/medium_landscape/405/1012683.jpg",
+    "original": "https://static.tvmaze.com/uploads/images/original_untouched/405/1012683.jpg"
+   },
+   "summary": "<p>Walter and Jesse fight about the latter's drug use, so he leaves, forcing Walter to deal with their captive, Krazy-8 (Max Arciniega); Hank uses scared-straight tactics with Walter Jr. when his aunt suspects he's smoking pot; Skyler is furious when Walter stays away from home.</p>",
+   "_links": {
+    "self": {
+     "href": "https://api.tvmaze.com/episodes/12194"
+    },
+    "show": {
+     "href": "https://api.tvmaze.com/shows/169",
+     "name": "Breaking Bad"
+    }
+   }
+  }
+ ]
+}

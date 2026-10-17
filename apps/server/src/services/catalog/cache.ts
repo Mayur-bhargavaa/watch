@@ -15,10 +15,16 @@ export interface CachePolicy {
   ttlMs: number;
   /** extra time during which a stale value may be served while a refresh runs (stale-while-revalidate) */
   staleMs?: number;
+  /** a `null` result (a cached "not found") lives this long instead of ttlMs (negative caching) */
+  nullTtlMs?: number;
+  /** when a reload fails, a copy younger than this is still served (default 24 h) */
+  maxServeStaleMs?: number;
 }
 interface Entry<V> {
   value: V;
   at: number;
+  /** lifetime chosen when the value was stored (differs from the policy for cached nulls) */
+  ttlMs?: number;
 }
 
 export class TtlCache<V> {
@@ -46,32 +52,39 @@ export class TtlCache<V> {
     const staleMs = policy.staleMs ?? 0;
     if (hit) {
       const age = this.now() - hit.at;
-      if (age < policy.ttlMs) {
+      const ttl = hit.ttlMs ?? policy.ttlMs;
+      if (age < ttl) {
         this.touch(key, hit);
         return hit.value;
       }
-      if (age < policy.ttlMs + staleMs) {
+      if (age < ttl + staleMs) {
         this.touch(key, hit);
-        this.load(key, loader).catch(() => undefined); // background refresh, failure keeps the stale copy
+        this.load(key, loader, policy).catch(() => undefined); // background refresh, failure keeps the stale copy
         return hit.value;
       }
     }
     try {
-      return await this.load(key, loader);
+      return await this.load(key, loader, policy);
     } catch (err) {
-      // serve a stale copy rather than an error when the upstream is down (bounded to 24 h)
-      if (hit && this.now() - hit.at < 24 * 3600_000) return hit.value;
+      // serve a stale copy rather than an error when the upstream is down (bounded, default 24 h)
+      if (hit && this.now() - hit.at < (policy.maxServeStaleMs ?? 24 * 3600_000)) return hit.value;
       throw err;
     }
   }
 
-  private load(key: string, loader: () => Promise<V>): Promise<V> {
+  /** The stored value for a key if it is younger than `maxAgeMs`, without loading anything (used for "serve what we have"). */
+  peek(key: string, maxAgeMs: number): V | undefined {
+    const hit = this.entries.get(key);
+    return hit && this.now() - hit.at < maxAgeMs ? hit.value : undefined;
+  }
+
+  private load(key: string, loader: () => Promise<V>, policy: CachePolicy): Promise<V> {
     const running = this.inflight.get(key);
     if (running) return running;
     const p = (async () => {
       try {
         const value = await loader();
-        this.set(key, value);
+        this.set(key, value, value === null && policy.nullTtlMs !== undefined ? policy.nullTtlMs : undefined);
         return value;
       } finally {
         this.inflight.delete(key);
@@ -81,9 +94,9 @@ export class TtlCache<V> {
     return p;
   }
 
-  private set(key: string, value: V): void {
+  private set(key: string, value: V, ttlMs?: number): void {
     this.entries.delete(key);
-    this.entries.set(key, { value, at: this.now() });
+    this.entries.set(key, { value, at: this.now(), ttlMs });
     while (this.entries.size > this.max) {
       const oldest = this.entries.keys().next().value as string | undefined;
       if (oldest === undefined) break;

@@ -1,8 +1,8 @@
 import type { ProviderOffer, ProviderOfferType } from '@synccinema/common';
 
 /** Availability helpers. Offers come only from the licensed availability source; nothing is added here. */
-export const OFFER_GROUP_ORDER: ProviderOfferType[] = ['subscription', 'free', 'rent', 'buy'];
-export const OFFER_GROUP_LABEL: Record<ProviderOfferType, string> = { subscription: 'Stream', free: 'Free', rent: 'Rent', buy: 'Buy' };
+export const OFFER_GROUP_ORDER: ProviderOfferType[] = ['subscription', 'free', 'addon', 'rent', 'buy'];
+export const OFFER_GROUP_LABEL: Record<ProviderOfferType, string> = { subscription: 'Stream', free: 'Free', addon: 'With an add-on channel', rent: 'Rent', buy: 'Buy' };
 
 export interface OfferGroup {
   type: ProviderOfferType;

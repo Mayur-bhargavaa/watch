@@ -5,8 +5,13 @@ export const HERO_MAX_SLIDES = 6;
 /** A horizontal swipe has to move at least this many pixels (same threshold as Home). */
 export const SWIPE_THRESHOLD_PX = 45;
 
-/** A title can headline the hero only with a backdrop image and a name. */
-export const isHeroUsable = (t: CatalogTitle): boolean => Boolean(t.backdropPath && t.title);
+/**
+ * Artwork of a hero slide: the backdrop. TVmaze shows rarely have a wide image in list payloads, so for them the poster
+ * is used as the artwork (cropped, behind the scrims) rather than dropping the show from the hero.
+ */
+export const heroArt = (t: Pick<CatalogTitle, 'source' | 'backdropPath' | 'posterPath'>): string | null => t.backdropPath ?? (t.source === 'tvmaze' ? t.posterPath : null);
+/** A title can headline the hero only with artwork and a name. */
+export const isHeroUsable = (t: CatalogTitle): boolean => Boolean(heroArt(t) && t.title);
 
 /** Round-robin merge of several lists (first of each, then second of each, ...). Used to mix the Indian rows. */
 export function interleaveTitles(lists: CatalogTitle[][]): CatalogTitle[] {

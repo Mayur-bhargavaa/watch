@@ -3,6 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Info } from 'lucide-react';
 import { catalogApi, SETUP_MESSAGE, type CatalogStatus } from '../../lib/catalog/api';
 import { DiscoverShell, cleanRoomParam } from '../../components/discover/Shell';
 import { useSignedInSession } from '../../components/discover/useCineverse';
@@ -10,6 +11,8 @@ import { HeroSpotlight } from '../../components/discover/Hero';
 import { SearchPanel } from '../../components/discover/SearchPanel';
 import { CollectionRow } from '../../components/discover/Row';
 import { Attribution } from '../../components/discover/Attribution';
+import { attributionForDiscover } from '../../lib/catalog/attribution';
+import { TVMAZE_MODE_NOTE, discoverRows, modeOf } from '../../lib/catalog/mode';
 import { CARD, ErrorState } from '../../components/discover/ui';
 
 function DiscoverInner() {
@@ -20,6 +23,7 @@ function DiscoverInner() {
   const [status, setStatus] = useState<CatalogStatus | null>(null);
   const [statusError, setStatusError] = useState<unknown>(null);
   const onBrowsing = useCallback((b: boolean) => setBrowsing(b), []);
+  const mode = modeOf(status);
 
   useEffect(() => {
     if (!ready || !session) return;
@@ -55,24 +59,19 @@ function DiscoverInner() {
           <SearchPanel onBrowsingChange={onBrowsing} />
           {!browsing && status && (
             <>
-              <HeroSpotlight roomSlug={roomSlug} />
-              <CollectionRow slug="free-movies" />
-              <CollectionRow slug="trending" />
-              <CollectionRow slug="trending-india" />
-              <CollectionRow slug="bollywood-hits" />
-              <CollectionRow slug="because-you-watched" hideWhenEmpty />
-              <CollectionRow slug="south-indian-cinema" />
-              <CollectionRow slug="indian-series" />
-              <CollectionRow slug="hidden-gems" />
-              <CollectionRow slug="one-night-binge" />
-              <CollectionRow slug="mind-bending" />
-              <CollectionRow slug="comfort-cinema" />
-              <CollectionRow slug="critically-loved" />
+              {mode === 'tvmaze' && (
+                <p role="status" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] sm:text-xs text-slate-600 dark:border-white/[0.06] dark:bg-[#171821] dark:text-zinc-300">
+                  <Info className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+                  {TVMAZE_MODE_NOTE}
+                </p>
+              )}
+              <HeroSpotlight roomSlug={roomSlug} mode={mode} />
+              {discoverRows(mode).map((r) => <CollectionRow key={r.slug} slug={r.slug} hideWhenEmpty={r.hideWhenEmpty} />)}
             </>
           )}
         </>
       )}
-        <Attribution availabilityEnabled={Boolean(status?.availability)} />
+        <Attribution needs={attributionForDiscover(status)} />
       </div>
     </>
   );

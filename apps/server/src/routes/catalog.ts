@@ -12,9 +12,11 @@ import {
   LINK_TITLE_MAX,
   LINK_URL_MAX,
   WATCHLIST_MAX_ITEMS,
+  CATALOG_SOURCES,
   capabilitiesForProvider,
+  isValidTitleRef,
   isTitleItem,
-  isValidImagePath,
+  isCatalogImagePath,
   isWatchlistKey,
   normalizeRegion,
   parseTitleKey,
@@ -24,7 +26,7 @@ import {
 } from '@synccinema/common';
 import { KeyedLimiter } from '../util/rateLimit.js';
 import { detectCountry } from '../services/billing.js';
-import { CATALOG_NOT_CONFIGURED, CatalogNotConfiguredError, type CatalogService } from '../services/catalog/service.js';
+import { CATALOG_NOT_CONFIGURED, CatalogNotConfiguredError, MOVIES_NEED_TMDB, MoviesNeedTmdbError, type CatalogService } from '../services/catalog/service.js';
 import { UpstreamError } from '../services/catalog/upstream.js';
 import { cleanLink, cleanSnapshot, type NewWatchlistEntry, type WatchlistStore } from '../services/catalog/watchlist.js';
 import { COLLECTION_SLUGS } from '../services/catalog/collections.js';
@@ -74,7 +76,11 @@ export const recoQuerySchema = z.object({ region: regionStr.optional(), page: in
 export const collectionQuerySchema = z
   .object({ region: regionStr.optional(), providers: z.string().max(200).regex(/^[a-z0-9,]*$/).optional() })
   .strict();
-export const titleParamsSchema = z.object({ source: z.literal('tmdb'), mediaType: mediaTypeP, id: tmdbId }).strict();
+/** Allow-listed source (tmdb | tvmaze), movie|tv, numeric id; `tvmaze` has TV only. Anything else is a 400. */
+export const titleParamsSchema = z
+  .object({ source: z.enum(CATALOG_SOURCES), mediaType: mediaTypeP, id: tmdbId })
+  .strict()
+  .refine((p) => isValidTitleRef(p.source, p.mediaType, p.id), { path: ['mediaType'], message: 'Invalid title' });
 export const matchmakerBodySchema = z
   .object({
     mood: z.enum(MATCH_MOODS),
@@ -158,6 +164,7 @@ export async function registerCatalogRoutes(app: FastifyInstance, deps: CatalogR
         return await handler(request, reply, user);
       } catch (err) {
         if (err instanceof CatalogNotConfiguredError) return reply.code(503).send(CATALOG_NOT_CONFIGURED);
+        if (err instanceof MoviesNeedTmdbError) return reply.code(503).send(MOVIES_NEED_TMDB);
         if (err instanceof UpstreamError) {
           return reply.code(err.kind === 'circuit_open' ? 503 : 502).send({ error: 'The movie data provider is unavailable right now. Please retry.', code: 'CATALOG_UPSTREAM' });
         }
@@ -173,6 +180,7 @@ export async function registerCatalogRoutes(app: FastifyInstance, deps: CatalogR
     const user = await requireUser(request, reply);
     if (!user) return reply;
     cacheable(reply);
+    await catalog.refreshAvailabilityFlags();
     return { ...catalog.status(), region: region(request) };
   });
 
@@ -207,36 +215,40 @@ export async function registerCatalogRoutes(app: FastifyInstance, deps: CatalogR
   }));
 
   // ---- titles ----------------------------------------------------------------------------------------------------
-  app.get('/api/catalog/titles/:source/:mediaType/:id', read(readLimiter, async (request, reply) => {
+  app.get('/api/catalog/titles/:source/:mediaType/:id', read(readLimiter, async (request, reply, user) => {
     const p = titleParamsSchema.safeParse(request.params);
     const q = regionOnlySchema.safeParse(request.query ?? {});
     if (!p.success) return bad(reply, p.error);
     if (!q.success) return bad(reply, q.error);
     const r = region(request);
-    const title = await catalog.details(p.data.mediaType, p.data.id, r);
-    if (!title) return reply.code(404).send({ error: 'Title not found', code: 'NOT_FOUND' });
-    const offers = await catalog.providersFor(p.data.mediaType, p.data.id, r);
+    // the signed-in user's id lets the quota-limited availability provider be used (guarded by cooldowns and the monthly counter)
+    const page = await catalog.titlePage(p.data.source, p.data.mediaType, p.data.id, r, user.id);
+    if (!page) return reply.code(404).send({ error: 'Title not found', code: 'NOT_FOUND' });
+    await catalog.refreshAvailabilityFlags();
     cacheable(reply);
     return {
-      title: { ...title, providers: (offers ?? []).map((o) => ({ ...o, capabilities: capabilitiesForProvider(o.name) })) },
+      title: { ...page.title, providers: (page.offers ?? []).map((o) => ({ ...o, capabilities: capabilitiesForProvider(o.name) })) },
       availabilityEnabled: catalog.availabilityEnabled,
-      availabilityVerified: offers !== null
+      availabilityVerified: page.offers !== null,
+      availabilityProvider: page.availabilityProvider,
+      availabilityQuotaLow: catalog.status().availabilityDetail.quotaLow
     };
   }));
 
-  app.get('/api/catalog/titles/:source/:mediaType/:id/providers', read(readLimiter, async (request, reply) => {
+  app.get('/api/catalog/titles/:source/:mediaType/:id/providers', read(readLimiter, async (request, reply, user) => {
     const p = titleParamsSchema.safeParse(request.params);
     const q = regionOnlySchema.safeParse(request.query ?? {});
     if (!p.success) return bad(reply, p.error);
     if (!q.success) return bad(reply, q.error);
     const r = region(request);
-    const offers = await catalog.providersFor(p.data.mediaType, p.data.id, r);
+    const res = await catalog.providersOnly(p.data.source, p.data.mediaType, p.data.id, r, user.id);
     cacheable(reply);
     return {
       region: r,
       availabilityEnabled: catalog.availabilityEnabled,
-      verified: offers !== null,
-      providers: (offers ?? []).map((o) => ({ ...o, capabilities: capabilitiesForProvider(o.name) }))
+      verified: res.offers !== null,
+      availabilityProvider: res.provider,
+      providers: (res.offers ?? []).map((o) => ({ ...o, capabilities: capabilitiesForProvider(o.name) }))
     };
   }));
 
@@ -246,7 +258,7 @@ export async function registerCatalogRoutes(app: FastifyInstance, deps: CatalogR
     if (!p.success) return bad(reply, p.error);
     if (!q.success) return bad(reply, q.error);
     cacheable(reply);
-    return catalog.recommendations(p.data.mediaType, p.data.id, region(request), q.data.page ?? 1);
+    return catalog.recommendationsFor(p.data.source, p.data.mediaType, p.data.id, region(request), q.data.page ?? 1);
   }));
 
   // ---- collections -----------------------------------------------------------------------------------------------
@@ -260,7 +272,8 @@ export async function registerCatalogRoutes(app: FastifyInstance, deps: CatalogR
     let excludeKeys: Set<string> | undefined;
     if (slug === 'because-you-watched') {
       const items = (await watchlist.list(user.id)).filter(isTitleItem); // newest first, the caller's own list only; links have no catalog id
-      userSeeds = items.slice(0, 3).map((i) => ({ mediaType: i.mediaType, id: parseTitleKey(i.titleKey)!.sourceId }));
+      // only TMDB titles can seed TMDB recommendations (TVmaze has none); all saved titles are still excluded from the row
+      userSeeds = items.filter((i) => parseTitleKey(i.titleKey)?.source === 'tmdb').slice(0, 3).map((i) => ({ mediaType: i.mediaType, id: parseTitleKey(i.titleKey)!.sourceId }));
       excludeKeys = new Set(items.map((i) => i.titleKey));
       noStore(reply);
     } else cacheable(reply);
@@ -301,7 +314,7 @@ export async function registerCatalogRoutes(app: FastifyInstance, deps: CatalogR
       const body = watchlistBodySchema.safeParse(raw);
       if (!body.success) return bad(reply, body.error);
       const snap = cleanSnapshot(body.data);
-      if (!snap || snap.mediaType !== body.data.mediaType || (body.data.posterPath && !isValidImagePath(body.data.posterPath))) {
+      if (!snap || snap.mediaType !== body.data.mediaType || (body.data.posterPath && !isCatalogImagePath(body.data.posterPath))) {
         return reply.code(400).send({ error: 'Invalid title', code: 'BAD_REQUEST' });
       }
       entry = snap;

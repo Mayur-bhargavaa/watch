@@ -5,7 +5,7 @@ import {
   LINK_TITLE_MAX,
   WATCHLIST_MAX_ITEMS,
   hasControlChars,
-  isValidImagePath,
+  isCatalogImagePath,
   linkTitleKey,
   normalizeLinkUrl,
   parseTitleKey,
@@ -43,7 +43,7 @@ export function cleanSnapshot(input: any): TitleSnapshot | null {
   const title = typeof input.title === 'string' ? input.title.replace(/[<>]/g, '').trim().slice(0, 300) : '';
   if (!title) return null;
   const year = Number.isInteger(input.year) && input.year >= 1800 && input.year <= 2200 ? input.year : null;
-  return { titleKey: input.titleKey, title, posterPath: isValidImagePath(input.posterPath) ? input.posterPath : null, year, mediaType: key.mediaType };
+  return { titleKey: input.titleKey, title, posterPath: isCatalogImagePath(input.posterPath) ? input.posterPath : null, year, mediaType: key.mediaType };
 }
 
 const cleanText = (v: unknown, max: number): string | null => {

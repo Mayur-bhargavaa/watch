@@ -48,7 +48,7 @@ test('auth: every catalog route rejects missing, bad and anonymous tokens', asyn
 
 test('503 CATALOG_NOT_CONFIGURED on every data route when TMDB is not configured, no upstream call', async () => {
   const f = fakeFetch();
-  const { app, tok } = await build({ catalog: new CatalogService({}, { fetchFn: f.fn }) });
+  const { app, tok } = await build({ catalog: new CatalogService({ TVMAZE_ENABLED: '0' }, { fetchFn: f.fn }) });
   const body = { mood: 'funny', time: 'under90', genres: [], providers: [], mode: 'solo', seed: 's' };
   for (const [method, url, payload] of [['GET', '/api/catalog/search?q=x'], ['GET', '/api/catalog/trending'], ['GET', '/api/catalog/genres'], ['GET', '/api/catalog/titles/tmdb/movie/1'], ['GET', '/api/catalog/titles/tmdb/tv/1/providers'], ['GET', '/api/catalog/titles/tmdb/tv/1/recommendations'], ['GET', '/api/catalog/collections/trending'], ['POST', '/api/catalog/matchmaker', body]] as any[]) {
     const r = await app.inject({ method, url, headers: tok('u1'), payload });

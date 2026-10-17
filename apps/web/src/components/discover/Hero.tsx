@@ -6,7 +6,8 @@ import { ChevronLeft, ChevronRight, Info, Star } from 'lucide-react';
 import { tmdbImageUrl, type CatalogTitle } from '@synccinema/common';
 import { catalogApi, type CollectionResponse } from '../../lib/catalog/api';
 import { heroChips } from '../../lib/catalog/providers';
-import { buildHeroSlides, clampIndex, heroTag, interleaveTitles, keyDelta, stepIndex, swipeDelta } from '../../lib/catalog/heroSlides';
+import { heroSlugs, type CatalogModeName } from '../../lib/catalog/mode';
+import { buildHeroSlides, clampIndex, heroArt, heroTag, interleaveTitles, keyDelta, stepIndex, swipeDelta } from '../../lib/catalog/heroSlides';
 import { bitmojiForSession } from '../../lib/bitmoji';
 import { Backdrop, BTN_HERO, ErrorState, HERO_CARD, Skeleton, yearOf } from './ui';
 import { PartyButton, WatchlistButton } from './Actions';
@@ -15,9 +16,8 @@ import { useSignedInSession } from './useCineverse';
 
 /** Same box as Home's hero (and as the skeleton, so nothing jumps while the slides load). */
 const HERO_SIZE = 'min-h-[320px] sm:min-h-[380px] md:h-[400px]';
-const GLOBAL_SLOTS = ['trending'] as const;
-const INDIAN_SLOTS = ['trending-india', 'bollywood-hits', 'south-indian-cinema'] as const;
 const HOW_WE_PICK = "the top of this week's trending list plus the leading titles of the Indian rows below (only titles with artwork).";
+const HOW_WE_PICK_TV = 'the top of the popular TV list plus the leading shows airing in India (only shows with artwork).';
 /** Home's solid-dark-pill controls (no blur, no glow). */
 const PILL = 'bg-[#171821] border border-white/10';
 const NAV_BTN = 'rounded-full text-white/80 hover:text-white hover:bg-white/10 motion-safe:transition cursor-pointer motion-safe:active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500';
@@ -27,7 +27,7 @@ const NAV_BTN = 'rounded-full text-white/80 hover:text-white hover:bg-white/10 m
  * 3 from the Indian rows, de-duplicated, order fixed for the session). Same controls as Home: arrows, dots on mobile,
  * thumbnails on desktop, swipe. Home does not auto-advance, so neither does this.
  */
-export function HeroSpotlight({ roomSlug, headingLevel = 2 }: { roomSlug: string | null; headingLevel?: 1 | 2 }) {
+export function HeroSpotlight({ roomSlug, headingLevel = 2, mode = 'tmdb' }: { roomSlug: string | null; headingLevel?: 1 | 2; mode?: CatalogModeName }) {
   const Heading = headingLevel === 1 ? 'h1' : 'h2';
   const { session } = useSignedInSession();
   const avatar = useMemo(() => bitmojiForSession(session), [session]);
@@ -44,6 +44,7 @@ export function HeroSpotlight({ roomSlug, headingLevel = 2 }: { roomSlug: string
     setError(null);
     setSlides(undefined);
     setIndex(0);
+    const { global: GLOBAL_SLOTS, regional: INDIAN_SLOTS } = heroSlugs(mode);
     const slugs = [...GLOBAL_SLOTS, ...INDIAN_SLOTS];
     void Promise.allSettled(slugs.map((slug) => catalogApi.collection(slug, {}, ctrl.signal))).then((settled) => {
       if (cancelled) return;
@@ -56,7 +57,7 @@ export function HeroSpotlight({ roomSlug, headingLevel = 2 }: { roomSlug: string
       }
       const items = (slug: string) => bySlug.get(slug)?.items ?? [];
       setSlides(buildHeroSlides([
-        { titles: items('trending'), take: 3 },
+        { titles: GLOBAL_SLOTS.flatMap(items), take: 3 },
         { titles: interleaveTitles(INDIAN_SLOTS.map(items)), take: 3 }
       ]));
     });
@@ -64,7 +65,7 @@ export function HeroSpotlight({ roomSlug, headingLevel = 2 }: { roomSlug: string
       cancelled = true;
       ctrl.abort();
     };
-  }, [attempt]);
+  }, [attempt, mode]);
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   const count = slides?.length ?? 0;
@@ -124,7 +125,7 @@ export function HeroSpotlight({ roomSlug, headingLevel = 2 }: { roomSlug: string
       onTouchEnd={onTouchEnd}
       className={`${HERO_CARD} flex flex-col justify-end p-4 sm:p-8 md:p-10 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 ${HERO_SIZE}`}
     >
-      <Backdrop key={title.id} path={title.backdropPath} priority className="absolute inset-0 h-full w-full opacity-60" />
+      <Backdrop key={title.id} path={heroArt(title)} priority className="absolute inset-0 h-full w-full opacity-60" />
       {/* scrims (same as Home): darken the bottom and the left of the artwork so the text stays legible */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/60 to-transparent" aria-hidden="true" />
       <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/70 to-transparent" aria-hidden="true" />
@@ -155,7 +156,7 @@ export function HeroSpotlight({ roomSlug, headingLevel = 2 }: { roomSlug: string
           <PartyButton title={title} preferredRoom={roomSlug} variant="dark" />
           <WatchlistButton title={title} variant="hero" iconOnly />
         </div>
-        <p className="text-[10.5px] sm:text-[11px] text-zinc-400">How we pick these: {HOW_WE_PICK}</p>
+        <p className="text-[10.5px] sm:text-[11px] text-zinc-400">How we pick these: {mode === 'tvmaze' ? HOW_WE_PICK_TV : HOW_WE_PICK}</p>
       </div>
 
       {multiple && (
@@ -188,7 +189,7 @@ export function HeroSpotlight({ roomSlug, headingLevel = 2 }: { roomSlug: string
               <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             </button>
             {slides.map((s, idx) => {
-              const thumb = tmdbImageUrl(s.backdropPath, 'w780');
+              const thumb = tmdbImageUrl(heroArt(s), 'w780');
               return (
                 <button
                   key={s.id}

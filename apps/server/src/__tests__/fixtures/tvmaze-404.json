@@ -1,0 +1,11 @@
+{
+ "_source": "https://api.tvmaze.com/shows/99999999 (HTTP 404)",
+ "_captured": "2026-10-17",
+ "_note": "Real TVmaze API response (CC BY-SA 4.0), trimmed.",
+ "data": {
+  "name": "Not Found",
+  "message": "",
+  "code": 0,
+  "status": 404
+ }
+}

@@ -152,8 +152,13 @@ Server variables go in `apps/server/.env` (git-ignored; copy from `apps/server/.
 
 | Variable | Purpose | Required | Default |
 |---|---|---|---|
-| `TMDB_READ_TOKEN` or `TMDB_API_KEY` | TMDB metadata; without one every catalog data route answers 503 | for Discover | none |
-| `WATCHMODE_API_KEY` | where-to-watch availability | no | none |
+| `TMDB_READ_TOKEN` or `TMDB_API_KEY` | TMDB metadata (movies and the full catalog); without one Discover runs in TV-only TVmaze mode (or answers 503 when `TVMAZE_ENABLED=0`) | for movies | none |
+| `TVMAZE_ENABLED` | TVmaze (no key): TV episodes and a second rating on TMDB TV titles, and the whole TV catalog without a TMDB key; `0` disables | no | `1` |
+| `TVMAZE_USER_AGENT` | User-Agent sent to TVmaze | no | `WatchPartyCatalog/1.0 (+https://watch.stitchbyte.in)` |
+| `WATCHMODE_API_KEY` | where-to-watch availability (Watchmode) | no | none |
+| `STREAMING_AVAILABILITY_API_KEY` | where-to-watch availability (Movie of the Night, free plan 1,000 requests a month, title pages only) | no | none |
+| `STREAMING_AVAILABILITY_MONTHLY_LIMIT` | monthly request limit of that plan; calls stop at 90% | no | `1000` |
+| `AVAILABILITY_PROVIDER_ORDER` | comma list of `streamingavailability`, `watchmode`; first usable provider wins, next is the fallback | no | `streamingavailability,watchmode` |
 | `YOUTUBE_API_KEY` | official trailer id lookup | no | none |
 | `CATALOG_DEFAULT_REGION` | region when the request has none | no | `IN` |
 | `CATALOG_CACHE_MAX_ENTRIES` | in-memory cache size (50 to 20000) | no | 1000 |

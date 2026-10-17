@@ -107,6 +107,13 @@ export function normalizeTmdbTitle(raw: any, mediaTypeHint: CatalogMediaType | n
     out.seasons = num(raw.number_of_seasons);
     out.episodes = num(raw.number_of_episodes);
   }
+  if (raw.external_ids && typeof raw.external_ids === 'object') {
+    // only present on TV details (append_to_response=external_ids); used to map the title to TVmaze
+    out.externalIds = {
+      imdb: typeof raw.external_ids.imdb_id === 'string' && /^tt\d{5,10}$/.test(raw.external_ids.imdb_id) ? raw.external_ids.imdb_id : null,
+      tvdb: Number.isInteger(raw.external_ids.tvdb_id) && raw.external_ids.tvdb_id > 0 ? String(raw.external_ids.tvdb_id) : null
+    };
+  }
   if (typeof raw.tagline === 'string' && raw.tagline) out.tagline = raw.tagline.slice(0, 300);
   if (raw.credits && typeof raw.credits === 'object') {
     const cast = Array.isArray(raw.credits.cast) ? raw.credits.cast : [];
@@ -183,7 +190,7 @@ export class TmdbAdapter {
   }
 
   async details(mediaType: CatalogMediaType, id: string, region: string): Promise<CatalogTitle | null> {
-    const raw = await this.call(`/${mediaType}/${encodeURIComponent(id)}`, { append_to_response: 'credits' }).catch((e) => {
+    const raw = await this.call(`/${mediaType}/${encodeURIComponent(id)}`, { append_to_response: mediaType === 'tv' ? 'credits,external_ids' : 'credits' }).catch((e) => {
       if ((e as any)?.status === 404) return null;
       throw e;
     });

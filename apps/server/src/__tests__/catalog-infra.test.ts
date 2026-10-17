@@ -101,7 +101,7 @@ const TMDB_ENV = { TMDB_API_KEY: 'test-key-not-real' };
 
 test('not configured: every catalog call throws CatalogNotConfiguredError and nothing is fetched', async () => {
   const f = fakeFetch();
-  const s = new CatalogService({}, { fetchFn: f.fn });
+  const s = new CatalogService({ TVMAZE_ENABLED: '0' }, { fetchFn: f.fn });
   assert.equal(s.configured, false);
   await assert.rejects(s.genres(), CatalogNotConfiguredError);
   await assert.rejects(s.trending('all', 'IN'), CatalogNotConfiguredError);
