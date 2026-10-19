@@ -1912,6 +1912,18 @@ export async function createServer(dbPath = './synccinema.db') {
   app.post('/api/friends/nudge', nudgeHandler);
 
   // Active Notification Device Registration & Switcher (always for the authenticated user)
+  // "Send me a test notification": goes the real way (server -> Expo -> Google -> the phone), only to the caller's phone.
+  // Used by the app's Settings > "Check notifications" to find out which step of push is broken. 3 per minute per person.
+  const testPushLimiter = new KeyedLimiter(3, 60_000);
+  app.post('/api/notifications/test', async (request, reply) => {
+    const user = await getRequestUser(request);
+    if (testPushLimiter.hit(`testpush:${user.id}`)) return tooMany(reply);
+    const token = await mongoDb.getExpoPushToken(user.id);
+    if (!isExpoPushToken(token)) return { success: true, hasPhoneToken: false, delivered: 0 };
+    const delivered = await pushService.notifyUser(mongoDb, user.id, { title: 'Watch', body: 'Notifications are working on this phone.', tag: 'test', url: '/dashboard', only: 'phone' });
+    return { success: true, hasPhoneToken: true, delivered };
+  });
+
   app.post('/api/notifications/device-token', async (request, reply) => {
     const { id: targetUserId } = (await request.jwtVerify()) as { id: string };
 
