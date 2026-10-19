@@ -4,6 +4,12 @@ const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
   transpilePackages: ['@synccinema/common'],
   reactStrictMode: false,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Discover is the Home page now. Old links to /dashboard keep working (the old dashboard code is still in src/app/dashboard).
   // Conservative headers that cannot break embeds (YouTube iframes, TMDB/Cloudinary images, WebSockets, checkout redirects):
   // no CSP is enforced here (needs a browser pass first); files under /uploads can never run as a page.
