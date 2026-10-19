@@ -460,6 +460,16 @@ export class MongoDatabaseService {
     );
   }
 
+  /** The Expo push token of the phone with the mobile app (kept apart from `activeDevice`, which the website's presence can replace). */
+  async setExpoPushToken(userId: string, token: string | null): Promise<void> {
+    await this.usersCol.updateOne({ _id: userId }, token ? { $set: { expoPushToken: token, expoPushTokenAt: new Date().toISOString() } } : { $unset: { expoPushToken: '', expoPushTokenAt: '' } });
+  }
+
+  async getExpoPushToken(userId: string): Promise<string | null> {
+    const doc = await this.usersCol.findOne({ _id: userId }, { projection: { expoPushToken: 1 } });
+    return typeof doc?.expoPushToken === 'string' ? doc.expoPushToken : null;
+  }
+
   async getUserByEmail(email: string): Promise<{ user: User; passwordHash?: string } | null> {
     const normalized = email.trim().toLowerCase();
     const doc = await this.usersCol.findOne({ email: normalized });

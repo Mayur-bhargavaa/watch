@@ -21,7 +21,8 @@ import { hashPassword, verifyPassword, dummyVerify, validatePassword, isHashed }
 import { KeyedLimiter } from './util/rateLimit.js';
 import { str, plainText, isEmail, safeAvatar, ROOM_CODE_RE } from './util/validate.js';
 import { prepareDirectMessage } from './services/directMessage.js';
-import { pushService, parseSubscription, MAX_SUBSCRIPTIONS_PER_USER, type PushPayload } from './services/pushService.js';
+import { pushService, parseSubscription, isExpoPushToken, MAX_SUBSCRIPTIONS_PER_USER, type PushPayload } from './services/pushService.js';
+import { ActivityTracker, IS_PASSIVE_REQUEST, platformOf } from './services/activityTracker.js';
 import { publicMessage } from './util/safeError.js';
 import { createPlanSchema, updatePlanSchema, firstIssue, planSchedule, presentPlan, presentPlanPreview, isParticipant, RSVP_STATUSES, MAX_PARTICIPANTS, MAX_VOTE_OPTIONS } from './services/plans.js';
 import { z } from 'zod';
@@ -266,8 +267,13 @@ export async function createServer(dbPath = './synccinema.db') {
   const deliverLive = (userId: string, message: any): boolean =>
     presenceManager.sendToUser(userId, message) || gameRoomManager.sendToUser(userId, message) || syncManager.sendToUser(userId, message);
   /** OS-level notification for people with no open tab (only for users who subscribed to Web Push). */
+  // Website + phone app run side by side: the phone ALWAYS gets notifications; the website only while the person is using it (a
+  // recent action there), or when they have no phone app. Chat messages go to every device, unless that chat is open.
+  const activity = new ActivityTracker();
   const pushOffline = (userId: string, payload: PushPayload) => {
-    void pushService.notifyUser(mongoDb, userId, payload).catch((err) => console.warn('[push] failed:', err?.message || err));
+    if (payload.category === 'chat' && payload.chatWith && activity.isChatOpen(userId, payload.chatWith)) return; // already reading it
+    const phoneFirst = payload.category === 'chat' ? false : !activity.webActive(userId);
+    void pushService.notifyUser(mongoDb, userId, { ...payload, phoneFirst }).catch((err) => console.warn('[push] failed:', err?.message || err));
   };
   presenceManager.setOfflineNotifier(pushOffline);
   // Tournament Arena: "Your match is ready" reaches a player who is not on a game page (an in-app notification, or a push banner when offline)
@@ -921,6 +927,13 @@ export async function createServer(dbPath = './synccinema.db') {
 
   // --- Helper to extract or provision User from request ---
   async function getRequestUser(request: any): Promise<User> {
+    const user = await loadRequestUser(request);
+    // where is this person right now? (only calls that DO something count: see activityTracker.ts)
+    if (request.method !== 'GET' && request.method !== 'HEAD' && !IS_PASSIVE_REQUEST.test(String(request.url))) activity.touch(user.id, platformOf(request.headers));
+    return user;
+  }
+
+  async function loadRequestUser(request: any): Promise<User> {
     const decoded = await request.jwtVerify() as any;
     if (!decoded || decoded.isAnonymous) {
       const err: any = new Error('Authentication required');
@@ -1285,6 +1298,9 @@ export async function createServer(dbPath = './synccinema.db') {
     if (!conversationId) {
       return reply.code(400).send({ error: 'conversationId is required' });
     }
+    // fetching a conversation = having it open: its new messages need no notification
+    const viewing = extractParticipantIdsFromConvId(conversationId, user.id).otherUserId;
+    if (viewing) activity.chatViewed(user.id, viewing);
     const maxLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 100, 1), 500) : 100;
     const messages = await mongoDb.getDirectChatMessages(conversationId, user.id, {
       limit: maxLimit,
@@ -1315,8 +1331,11 @@ export async function createServer(dbPath = './synccinema.db') {
       type: 'chat:message',
       message: prepared.msg
     });
-    if (!deliveredLive) {
+    // not delivered live, and the recipient does not have this chat open (a message they are already reading needs no banner)
+    if (!deliveredLive && !activity.isChatOpen(prepared.recipientId, user.id)) {
       pushOffline(prepared.recipientId, {
+        category: 'chat',
+        chatWith: user.id,
         title: user.displayName,
         body: previewMessageText(prepared.msg.content as string, prepared.msg.type as string),
         tag: `chat:${prepared.msg.conversationId}`,
@@ -1336,6 +1355,7 @@ export async function createServer(dbPath = './synccinema.db') {
       return reply.code(400).send({ error: 'conversationId is required' });
     }
     const updatedMessages = await mongoDb.markDirectMessagesAsRead(body.conversationId, user.id);
+    if (typeof body.senderId === 'string') activity.chatViewed(user.id, body.senderId);
 
     if (typeof body.senderId === 'string' && (await mongoDb.areConnected(user.id, body.senderId))) {
       const canonicalConvId = `conv_${[user.id, body.senderId].sort().join('_')}`;
@@ -1905,6 +1925,11 @@ export async function createServer(dbPath = './synccinema.db') {
       lastActiveAt: Date.now()
     };
 
+    // the phone's Expo push token is kept on its own (the website's presence may replace `activeDevice`), and a call from the app = in use now
+    if (activeSession.deviceType === 'mobile') {
+      if (isExpoPushToken(activeSession.deviceToken)) await mongoDb.setExpoPushToken(targetUserId, activeSession.deviceToken);
+      activity.touch(targetUserId, 'app');
+    }
     await mongoDb.updateUserActiveDevice(targetUserId, activeSession);
     mirrorDevice(targetUserId, activeSession);
     await presenceManager.setActiveDevice(targetUserId, activeSession);

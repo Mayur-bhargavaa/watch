@@ -28,7 +28,7 @@ export class PresenceManager {
   private lastSeen = new Map<string, number>();
 
   // Called when a message/event could not be delivered live (user has no open socket): used for Web Push
-  private offlineNotifier: ((userId: string, payload: { title: string; body: string; tag?: string; url?: string; renotify?: boolean }) => void) | null = null;
+  private offlineNotifier: ((userId: string, payload: { title: string; body: string; tag?: string; url?: string; renotify?: boolean; category?: 'chat'; chatWith?: string }) => void) | null = null;
 
   public setOfflineNotifier(fn: PresenceManager['offlineNotifier']): void {
     this.offlineNotifier = fn;
@@ -306,6 +306,8 @@ export class PresenceManager {
           } else {
             // Recipient has no open tab: fall back to an OS-level push notification (if they enabled it)
             this.offlineNotifier?.(prepared.recipientId, {
+              category: 'chat',
+              chatWith: user.id,
               title: user.displayName,
               body: previewMessageText(finalMsg.content, finalMsg.type),
               tag: `chat:${finalMsg.conversationId}`,

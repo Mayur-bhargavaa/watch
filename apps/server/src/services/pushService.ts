@@ -10,6 +10,14 @@ export interface PushPayload {
   url?: string;
   renotify?: boolean;
   requireInteraction?: boolean;
+  /** 'chat' messages go to every device (unless the chat is open); everything else goes to the device in use. */
+  category?: 'chat';
+  /** For chat messages: the sender. If the recipient has that conversation open, no notification is sent. */
+  chatWith?: string;
+  /** Send to this one side only: browsers ('web') or the phone ('phone'). Unset = both. */
+  only?: 'web' | 'phone';
+  /** The person has the phone app: skip browsers (they are not on the website right now). Browsers are still used when there is no phone app. */
+  phoneFirst?: boolean;
 }
 
 export interface StoredSubscription {
@@ -18,6 +26,38 @@ export interface StoredSubscription {
 }
 
 type Sender = (sub: StoredSubscription, payload: string) => Promise<void>;
+
+/** A phone running the mobile app registers its Expo push token on POST /api/notifications/device-token. */
+export function isExpoPushToken(token: unknown): token is string {
+  return typeof token === 'string' && token.length <= 200 && /^Expo(nent)?PushToken\[[A-Za-z0-9_-]+\]$/.test(token);
+}
+
+export interface ExpoMessage {
+  to: string;
+  title: string;
+  body: string;
+  sound: 'default';
+  priority: 'high';
+  channelId: 'default';
+  ttl: number;
+  data: { url: string; tag?: string };
+}
+/** Returns the Expo "ticket" status per message ('ok' | 'error', plus the error code such as DeviceNotRegistered). */
+export type ExpoSender = (messages: ExpoMessage[]) => Promise<Array<{ status: string; error?: string }>>;
+
+/** Expo's push service (it forwards to Google FCM / Apple APNs). The URL is fixed: nothing user supplied is ever fetched. */
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const defaultExpoSender: ExpoSender = async (messages) => {
+  const res = await fetch(EXPO_PUSH_URL, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(messages),
+    signal: AbortSignal.timeout(8000)
+  });
+  if (!res.ok) throw new Error(`Expo push answered HTTP ${res.status}`);
+  const json = (await res.json()) as { data?: Array<{ status?: string; details?: { error?: string } }> };
+  return (json.data ?? []).map((t) => ({ status: String(t.status ?? 'error'), error: t.details?.error }));
+};
 
 /**
  * Push services we accept subscriptions for. The server POSTs to the subscription `endpoint`, so accepting arbitrary
@@ -64,6 +104,7 @@ export const MAX_SUBSCRIPTIONS_PER_USER = 10;
 
 class PushService {
   private sender: Sender | null = null;
+  private expoSender: ExpoSender = defaultExpoSender;
   private vapidPublicKey = '';
 
   /**
@@ -110,8 +151,53 @@ class PushService {
     this.vapidPublicKey = sender ? publicKey : '';
   }
 
-  /** Sends a notification to every device the user subscribed; dead subscriptions (404/410) are removed. */
+  /** Test hook: replace the Expo network sender. */
+  setExpoSenderForTests(sender: ExpoSender | null): void {
+    this.expoSender = sender ?? defaultExpoSender;
+  }
+
+  /**
+   * Sends a notification to every device the user subscribed (browsers via Web Push) AND to the phone with the mobile app
+   * (the Expo push token the app registered, stored apart from `activeDevice`). `payload.only` limits it to one side. Returns how many were delivered. Dead subscriptions / tokens are removed.
+   */
   async notifyUser(db: MongoDatabaseService, userId: string, payload: PushPayload): Promise<number> {
+    const token = payload.only === 'web' ? null : await db.getExpoPushToken(userId).catch(() => null);
+    const hasPhone = isExpoPushToken(token);
+    const skipBrowsers = payload.only === 'phone' || (payload.phoneFirst === true && hasPhone);
+    const [web, phone] = await Promise.all([
+      skipBrowsers ? 0 : this.notifyBrowsers(db, userId, payload),
+      payload.only === 'web' || !hasPhone
+        ? 0
+        : this.notifyPhone(db, userId, token, payload).catch((err) => {
+            console.warn('[push] phone delivery failed:', err?.message || err);
+            return 0;
+          })
+    ]);
+    return web + phone;
+  }
+
+  private async notifyPhone(db: MongoDatabaseService, userId: string, token: string, payload: PushPayload): Promise<number> {
+    const message: ExpoMessage = {
+      to: token,
+      title: payload.title.slice(0, 120),
+      body: payload.body.slice(0, 200),
+      sound: 'default',
+      priority: 'high',
+      channelId: 'default',
+      ttl: 60 * 60 * 24,
+      data: { url: payload.url && payload.url.startsWith('/') ? payload.url : '/dashboard', tag: payload.tag }
+    };
+    const [ticket] = await this.expoSender([message]);
+    if (ticket?.status === 'ok') return 1;
+    if (ticket?.error === 'DeviceNotRegistered') {
+      // the app was uninstalled or the token expired: forget it so we stop trying
+      await db.setExpoPushToken(userId, null).catch(() => undefined);
+    }
+    return 0;
+  }
+
+  /** Web Push to the user's browser subscriptions; dead subscriptions (404/410) are removed. */
+  private async notifyBrowsers(db: MongoDatabaseService, userId: string, payload: PushPayload): Promise<number> {
     if (!this.sender) return 0;
     const subs = await db.listPushSubscriptions(userId);
     if (subs.length === 0) return 0;
