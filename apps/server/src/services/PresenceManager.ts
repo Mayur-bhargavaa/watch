@@ -34,6 +34,21 @@ export class PresenceManager {
     this.offlineNotifier = fn;
   }
 
+  /** Rings a person who has no live socket (a push to their phone / browser). Resolves with how many devices were notified. */
+  private callNotifier: ((userId: string, payload: { title: string; body: string; callId: string; url: string; only?: 'phone' }) => Promise<number>) | null = null;
+  public setCallNotifier(fn: PresenceManager['callNotifier']): void {
+    this.callNotifier = fn;
+  }
+
+  /** A call that rang a phone with the app closed: handed over when that phone connects (the app opens from the notification). 45 s. */
+  private pendingCalls = new Map<string, { callId: string; callerId: string; message: Record<string, unknown>; at: number }>();
+  private static readonly CALL_RING_MS = 45_000;
+  private clearPendingCall(recipientId: string | undefined, callId?: string): void {
+    if (!recipientId) return;
+    const p = this.pendingCalls.get(recipientId);
+    if (p && (!callId || p.callId === callId)) this.pendingCalls.delete(recipientId);
+  }
+
   /** True when `deviceId` currently has an open presence socket for this user. */
   private deviceIsLive(userId: string, deviceId?: string): boolean {
     if (!deviceId) return false;
@@ -209,6 +224,18 @@ export class PresenceManager {
         })
       );
     } catch (e) {}
+
+    // a call that rang this person's phone while the app was closed: hand it over now that the app is open
+    const pending = this.pendingCalls.get(user.id);
+    if (pending) {
+      if (Date.now() - pending.at < PresenceManager.CALL_RING_MS) {
+        try {
+          ws.send(JSON.stringify(pending.message));
+        } catch (e) {}
+      } else {
+        this.pendingCalls.delete(user.id);
+      }
+    }
 
     // Broadcast that this user is now ONLINE to all other active connected users
     void this.broadcastToRelated(user.id, {
@@ -405,44 +432,46 @@ export class PresenceManager {
 
         // --- Real-Time Call Signaling (Voice & Video) ---
         if (msg.type === 'call:invite') {
-          const { callId, recipientId, callType, callerName, callerAvatar } = msg;
+          const { callId, recipientId, callType } = msg;
           if (!recipientId) return;
 
-          const isOnline = this.isUserOnline(recipientId);
-          if (!isOnline) {
-            ws.send(
-              JSON.stringify({
-                type: 'call:ended',
-                callId,
-                recipientId,
-                reason: 'offline'
-              })
-            );
-            return;
-          }
-
-          // Route incoming call alert to recipient's active socket(s)
-          this.sendToUser(recipientId, {
+          const incoming = {
             type: 'call:incoming',
             callId,
             callerId: user.id,
             callerName: user.displayName || 'User', // never trust a client-supplied caller identity
             callerAvatar: user.avatarUrl,
             callType: callType || 'voice'
-          });
+          };
 
-          // Confirm to caller that recipient device is ringing
-          ws.send(
-            JSON.stringify({
-              type: 'call:ringing',
-              callId,
-              recipientId
-            })
-          );
+          const online = this.isUserOnline(recipientId);
+          // The phone rings by push unless its app is open right now (a browser being open does not reach the phone).
+          // The app, opened from the push, collects the call when it connects.
+          const rung = !this.hasLiveMobile(recipientId) && callId && this.callNotifier
+            ? await this.callNotifier(recipientId, {
+                title: `${user.displayName || 'Someone'} is calling`,
+                body: callType === 'video' ? 'Incoming video call on Watch' : 'Incoming voice call on Watch',
+                callId,
+                url: `/chat?userId=${encodeURIComponent(user.id)}&call=${encodeURIComponent(callId)}`,
+                only: online ? 'phone' : undefined
+              }).catch(() => 0)
+            : 0;
+          if (!online && !rung) {
+            ws.send(JSON.stringify({ type: 'call:ended', callId, recipientId, reason: 'offline' }));
+            return;
+          }
+          if (rung) {
+            this.pendingCalls.set(recipientId, { callId, callerId: user.id, message: incoming, at: Date.now() });
+            setTimeout(() => this.clearPendingCall(recipientId, callId), PresenceManager.CALL_RING_MS + 1000);
+          }
+          // browsers / app that are connected right now ring live
+          if (online) this.sendToUser(recipientId, incoming);
+          ws.send(JSON.stringify({ type: 'call:ringing', callId, recipientId }));
         }
 
         if (msg.type === 'call:accept') {
           const { callId, callerId } = msg;
+          this.clearPendingCall(user.id, callId);
           if (callerId) {
             this.sendToUser(callerId, {
               type: 'call:accepted',
@@ -456,6 +485,7 @@ export class PresenceManager {
 
         if (msg.type === 'call:reject') {
           const { callId, callerId, reason } = msg;
+          this.clearPendingCall(user.id, callId);
           if (callerId) {
             this.sendToUser(callerId, {
               type: 'call:ended',
@@ -468,6 +498,7 @@ export class PresenceManager {
 
         if (msg.type === 'call:end') {
           const { callId, targetUserId, reason } = msg;
+          this.clearPendingCall(targetUserId, callId); // the caller hung up before a phone with the app closed picked up
           if (targetUserId) {
             this.sendToUser(targetUserId, {
               type: 'call:ended',
@@ -537,6 +568,14 @@ export class PresenceManager {
   /**
    * Checks if user is currently online (has open socket or sent heartbeat in last 25s)
    */
+  /** True when the phone app has a live presence socket (it only keeps one while it is open). */
+  public hasLiveMobile(userId: string): boolean {
+    for (const s of this.userSockets.get(userId) ?? []) {
+      if (s.readyState === 1 && this.socketInfo.get(s)?.deviceType === 'mobile') return true;
+    }
+    return false;
+  }
+
   public isUserOnline(userId: string): boolean {
     const sockets = this.userSockets.get(userId);
     if (sockets && sockets.size > 0) {

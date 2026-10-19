@@ -89,3 +89,13 @@ test('phoneFirst: the phone always gets it, browsers only when the person has no
   pushService.setSenderForTests(null);
   pushService.setExpoSenderForTests(null);
 });
+
+test('a call push uses the loud "calls" channel and expires after 45 seconds', async () => {
+  const sent: ExpoMessage[] = [];
+  pushService.setExpoSenderForTests(async (m) => { sent.push(...m); return [{ status: 'ok' }]; });
+  await pushService.notifyUser(fakeDb(TOKEN), 'u1', { title: 'Amy is calling', body: 'Incoming voice call', tag: 'call:c1', url: '/chat?userId=amy&call=c1', category: 'call', phoneFirst: false });
+  assert.equal(sent[0].channelId, 'calls');
+  assert.equal(sent[0].ttl, 45);
+  assert.equal(sent[0].data.type, 'call');
+  pushService.setExpoSenderForTests(null);
+});

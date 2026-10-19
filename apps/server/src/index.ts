@@ -278,6 +278,10 @@ export async function createServer(dbPath = './synccinema.db') {
     void pushService.notifyUser(mongoDb, userId, { ...payload, phoneFirst }).catch((err) => console.warn('[push] failed:', err?.message || err));
   };
   presenceManager.setOfflineNotifier(pushOffline);
+  // An incoming call for someone with no open connection: a loud push to their phone (and browser), so the app can be opened to answer.
+  presenceManager.setCallNotifier((userId, p) =>
+    pushService.notifyUser(mongoDb, userId, { title: p.title, body: p.body, tag: `call:${p.callId}`, url: p.url, category: 'call', renotify: true, phoneFirst: false, only: p.only })
+  );
   // Tournament Arena: "Your match is ready" reaches a player who is not on a game page (an in-app notification, or a push banner when offline)
   gameRoomManager.setTournamentNotifier((userId, notice) => {
     const link = `${getGameBasePath(notice.gameType)}?room=${encodeURIComponent(notice.roomCode)}`;

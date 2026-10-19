@@ -78,7 +78,11 @@ export function summariseChats(items: IncomingChat[]): ChatSummary | null {
 export function createChatBatcher(
   onFlush: (items: IncomingChat[]) => void,
   windowMs = 700,
-  timers: { set: typeof setTimeout; clear: typeof clearTimeout } = { set: setTimeout, clear: clearTimeout }
+  // wrapped in arrow functions: a bare `setTimeout` called as `timers.set(...)` runs with `this` = this object, and browsers then throw "Illegal invocation"
+  timers: { set: typeof setTimeout; clear: typeof clearTimeout } = {
+    set: ((fn: () => void, ms?: number) => setTimeout(fn, ms)) as typeof setTimeout,
+    clear: ((handle?: ReturnType<typeof setTimeout>) => clearTimeout(handle)) as typeof clearTimeout
+  }
 ) {
   let items: IncomingChat[] = [];
   let handle: ReturnType<typeof setTimeout> | null = null;

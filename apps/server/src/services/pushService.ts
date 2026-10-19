@@ -11,7 +11,7 @@ export interface PushPayload {
   renotify?: boolean;
   requireInteraction?: boolean;
   /** 'chat' messages go to every device (unless the chat is open); everything else goes to the device in use. */
-  category?: 'chat';
+  category?: 'chat' | 'call';
   /** The same event reaching the server twice (e.g. a chat message over WebSocket and HTTP) must notify once: give both the same key. */
   dedupeKey?: string;
   /** For chat messages: the sender. If the recipient has that conversation open, no notification is sent. */
@@ -40,9 +40,9 @@ export interface ExpoMessage {
   body: string;
   sound: 'default';
   priority: 'high';
-  channelId: 'default';
+  channelId: 'default' | 'calls';
   ttl: number;
-  data: { url: string; tag?: string };
+  data: { url: string; tag?: string; type?: 'call' };
 }
 /** Returns the Expo "ticket" status per message ('ok' | 'error', plus the error code such as DeviceNotRegistered). */
 export type ExpoSender = (messages: ExpoMessage[]) => Promise<Array<{ status: string; error?: string }>>;
@@ -185,9 +185,10 @@ class PushService {
       body: payload.body.slice(0, 200),
       sound: 'default',
       priority: 'high',
-      channelId: 'default',
-      ttl: 60 * 60 * 24,
-      data: { url: payload.url && payload.url.startsWith('/') ? payload.url : '/dashboard', tag: payload.tag }
+      // a call rings: its own loud channel, and it is worthless after 45 s
+      channelId: payload.category === 'call' ? 'calls' : 'default',
+      ttl: payload.category === 'call' ? 45 : 60 * 60 * 24,
+      data: { url: payload.url && payload.url.startsWith('/') ? payload.url : '/dashboard', tag: payload.tag, ...(payload.category === 'call' ? { type: 'call' as const } : {}) }
     };
     const [ticket] = await this.expoSender([message]);
     if (ticket?.status === 'ok') return 1;
@@ -209,7 +210,7 @@ class PushService {
       tag: payload.tag,
       url: payload.url && payload.url.startsWith('/') ? payload.url : '/dashboard',
       renotify: Boolean(payload.renotify),
-      requireInteraction: Boolean(payload.requireInteraction)
+      requireInteraction: Boolean(payload.requireInteraction) || payload.category === 'call'
     });
     let delivered = 0;
     await Promise.all(
