@@ -56,3 +56,22 @@ export const platformOf = (headers: Record<string, unknown>): Platform => (Strin
 
 /** Calls that only read or only keep a session alive: they say nothing about where the person is. */
 export const IS_PASSIVE_REQUEST = /^\/api\/(chat\/read|auth\/(ws-ticket|session)|presence|notifications\/(subscribe|unsubscribe))\b/;
+
+/**
+ * "Has this exact event already been announced?" The website sends every chat message twice (over its WebSocket AND over HTTP,
+ * with the same message id) and the server handles both. Browsers hid the duplicate (same `tag` replaces the banner); a phone push
+ * has no such replacement, so the notification would show twice. `firstTime(key)` is true once per key within the window.
+ */
+export class RecentKeys {
+  private seen = new Map<string, number>();
+  constructor(private ttlMs = 60_000, private now: () => number = Date.now) {}
+
+  firstTime(key: string): boolean {
+    const t = this.now();
+    if (this.seen.size > MAX_ENTRIES) for (const [k, at] of this.seen) if (t - at > this.ttlMs) this.seen.delete(k);
+    const at = this.seen.get(key);
+    if (at !== undefined && t - at <= this.ttlMs) return false;
+    this.seen.set(key, t);
+    return true;
+  }
+}

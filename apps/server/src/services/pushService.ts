@@ -12,6 +12,8 @@ export interface PushPayload {
   requireInteraction?: boolean;
   /** 'chat' messages go to every device (unless the chat is open); everything else goes to the device in use. */
   category?: 'chat';
+  /** The same event reaching the server twice (e.g. a chat message over WebSocket and HTTP) must notify once: give both the same key. */
+  dedupeKey?: string;
   /** For chat messages: the sender. If the recipient has that conversation open, no notification is sent. */
   chatWith?: string;
   /** Send to this one side only: browsers ('web') or the phone ('phone'). Unset = both. */

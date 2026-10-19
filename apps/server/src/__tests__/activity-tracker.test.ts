@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ActivityTracker, IS_PASSIVE_REQUEST, WEB_ACTIVE_WINDOW_MS, CHAT_OPEN_WINDOW_MS, platformOf } from '../services/activityTracker.js';
+import { ActivityTracker, RecentKeys, IS_PASSIVE_REQUEST, WEB_ACTIVE_WINDOW_MS, CHAT_OPEN_WINDOW_MS, platformOf } from '../services/activityTracker.js';
 
 test('the website counts as in use only after the person DID something there, and only for 15 minutes', () => {
   let t = 1_000_000;
@@ -38,4 +38,15 @@ test('website calls are recognised by their cookie-session header, app calls are
 test('reads and keep-alive calls do not count as doing something', () => {
   for (const url of ['/api/chat/read', '/api/auth/ws-ticket', '/api/auth/session', '/api/presence/heartbeat', '/api/notifications/subscribe']) assert.equal(IS_PASSIVE_REQUEST.test(url), true, url);
   for (const url of ['/api/chat/messages', '/api/games/rooms', '/api/friends/add', '/api/plans']) assert.equal(IS_PASSIVE_REQUEST.test(url), false, url);
+});
+
+test('the same event is announced once: a chat message that arrives over the socket AND over HTTP notifies once', () => {
+  let t = 1000;
+  const r = new RecentKeys(60_000, () => t);
+  assert.equal(r.firstTime('u1|chat:msg_1'), true);
+  assert.equal(r.firstTime('u1|chat:msg_1'), false); // the HTTP copy of the same message
+  assert.equal(r.firstTime('u2|chat:msg_1'), true); // another person
+  assert.equal(r.firstTime('u1|chat:msg_2'), true); // another message
+  t += 60_001;
+  assert.equal(r.firstTime('u1|chat:msg_1'), true); // a minute later it is news again
 });

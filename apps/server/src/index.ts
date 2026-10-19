@@ -22,7 +22,7 @@ import { KeyedLimiter } from './util/rateLimit.js';
 import { str, plainText, isEmail, safeAvatar, ROOM_CODE_RE } from './util/validate.js';
 import { prepareDirectMessage } from './services/directMessage.js';
 import { pushService, parseSubscription, isExpoPushToken, MAX_SUBSCRIPTIONS_PER_USER, type PushPayload } from './services/pushService.js';
-import { ActivityTracker, IS_PASSIVE_REQUEST, platformOf } from './services/activityTracker.js';
+import { ActivityTracker, IS_PASSIVE_REQUEST, RecentKeys, platformOf } from './services/activityTracker.js';
 import { publicMessage } from './util/safeError.js';
 import { createPlanSchema, updatePlanSchema, firstIssue, planSchedule, presentPlan, presentPlanPreview, isParticipant, RSVP_STATUSES, MAX_PARTICIPANTS, MAX_VOTE_OPTIONS } from './services/plans.js';
 import { z } from 'zod';
@@ -270,7 +270,9 @@ export async function createServer(dbPath = './synccinema.db') {
   // Website + phone app run side by side: the phone ALWAYS gets notifications; the website only while the person is using it (a
   // recent action there), or when they have no phone app. Chat messages go to every device, unless that chat is open.
   const activity = new ActivityTracker();
+  const announced = new RecentKeys();
   const pushOffline = (userId: string, payload: PushPayload) => {
+    if (payload.dedupeKey && !announced.firstTime(`${userId}|${payload.dedupeKey}`)) return; // the same event arrived twice (e.g. a chat message over WebSocket and HTTP)
     if (payload.category === 'chat' && payload.chatWith && activity.isChatOpen(userId, payload.chatWith)) return; // already reading it
     const phoneFirst = payload.category === 'chat' ? false : !activity.webActive(userId);
     void pushService.notifyUser(mongoDb, userId, { ...payload, phoneFirst }).catch((err) => console.warn('[push] failed:', err?.message || err));
@@ -1336,6 +1338,7 @@ export async function createServer(dbPath = './synccinema.db') {
       pushOffline(prepared.recipientId, {
         category: 'chat',
         chatWith: user.id,
+        dedupeKey: `chat:${prepared.msg.id}`,
         title: user.displayName,
         body: previewMessageText(prepared.msg.content as string, prepared.msg.type as string),
         tag: `chat:${prepared.msg.conversationId}`,
