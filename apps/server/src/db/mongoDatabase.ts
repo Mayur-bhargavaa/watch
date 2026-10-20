@@ -787,10 +787,15 @@ export class MongoDatabaseService {
       metadata: msg.metadata || null,
       replyTo: msg.replyTo || null,
       status: msg.status || 'sent',
-      isDeleted: false,
       createdAt: msg.createdAt || new Date().toISOString()
     };
-    await this.directMessagesCol.updateOne({ _id: msg.id }, { $set: doc }, { upsert: true });
+    // isDeleted is only set when the message is first stored: a retried send must never bring a deleted message back
+    await this.directMessagesCol.updateOne({ _id: msg.id }, { $set: doc, $setOnInsert: { isDeleted: false } }, { upsert: true });
+  }
+
+  /** Edit / delete / pin: changes only the given fields of one stored message. */
+  async updateDirectMessage(messageId: string, fields: Record<string, unknown>): Promise<void> {
+    await this.directMessagesCol.updateOne({ _id: messageId }, { $set: fields });
   }
 
   async getDirectChatMessages(
@@ -858,6 +863,8 @@ export class MongoDatabaseService {
       metadata: d.metadata,
       replyTo: d.replyTo,
       status: d.status || 'sent',
+      ...(d.editedAt ? { editedAt: d.editedAt } : {}),
+      ...(d.isPinned ? { isPinned: true } : {}),
       createdAt: d.createdAt
     }));
   }

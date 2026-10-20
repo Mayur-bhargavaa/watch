@@ -21,6 +21,7 @@ import { hashPassword, verifyPassword, dummyVerify, validatePassword, isHashed }
 import { KeyedLimiter } from './util/rateLimit.js';
 import { str, plainText, isEmail, safeAvatar, ROOM_CODE_RE } from './util/validate.js';
 import { prepareDirectMessage } from './services/directMessage.js';
+import { prepareDelete, prepareEdit, preparePin, validMessageId } from './services/messageActions.js';
 import { pushService, parseSubscription, isExpoPushToken, MAX_SUBSCRIPTIONS_PER_USER, type PushPayload } from './services/pushService.js';
 import { ActivityTracker, IS_PASSIVE_REQUEST, RecentKeys, platformOf } from './services/activityTracker.js';
 import { publicMessage } from './util/safeError.js';
@@ -1352,6 +1353,44 @@ export async function createServer(dbPath = './synccinema.db') {
     }
 
     return { success: true, message: prepared.msg };
+  });
+
+  // Edit / delete-for-everyone / pin. (The website only does these on its own device; these routes are what the phone app uses.)
+  const tellChatPeers = (ids: string[], payload: object) => { for (const id of new Set(ids.filter(Boolean))) presenceManager.sendToUser(id, payload); };
+  app.patch('/api/chat/messages/:id', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const { id } = request.params as { id: string };
+    if (!validMessageId(id)) return reply.code(400).send({ error: 'Invalid message id' });
+    const existing = await mongoDb.getDirectMessageById(id);
+    const r = prepareEdit(existing, user.id, (request.body as { content?: unknown } | undefined)?.content);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    await mongoDb.updateDirectMessage(id, { content: r.value.content, editedAt: r.value.editedAt });
+    const message = { ...existing, id, content: r.value.content, editedAt: r.value.editedAt };
+    tellChatPeers([existing.recipientId, user.id], { type: 'chat:message_updated', message });
+    return { success: true, message };
+  });
+  app.delete('/api/chat/messages/:id', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const { id } = request.params as { id: string };
+    if (!validMessageId(id)) return reply.code(400).send({ error: 'Invalid message id' });
+    const existing = await mongoDb.getDirectMessageById(id);
+    const r = prepareDelete(existing, user.id);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    await mongoDb.updateDirectMessage(id, { isDeleted: true });
+    tellChatPeers([r.value.recipientId, user.id], { type: 'chat:message_deleted', messageId: id, conversationId: existing.conversationId });
+    return { success: true };
+  });
+  app.post('/api/chat/messages/:id/pin', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const { id } = request.params as { id: string };
+    if (!validMessageId(id)) return reply.code(400).send({ error: 'Invalid message id' });
+    const existing = await mongoDb.getDirectMessageById(id);
+    const r = preparePin(existing, user.id);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    await mongoDb.updateDirectMessage(id, { isPinned: r.value.isPinned });
+    const message = { ...existing, id, isPinned: r.value.isPinned };
+    tellChatPeers([r.value.otherId, user.id], { type: 'chat:message_updated', message });
+    return { success: true, isPinned: r.value.isPinned };
   });
 
   app.post('/api/chat/read', async (request, reply) => {
