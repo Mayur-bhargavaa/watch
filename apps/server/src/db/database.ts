@@ -832,6 +832,16 @@ export class DatabaseService {
     this.db.prepare(`UPDATE rooms SET ended_at = ? WHERE id = ?`).run(new Date().toISOString(), roomId);
   }
 
+  /** Removes a room for good (its members, chat, reactions and playback history go with it). */
+  deleteRoom(roomId: string): void {
+    this.db.prepare(`DELETE FROM playback_states WHERE room_id = ?`).run(roomId);
+    this.db.prepare(`DELETE FROM playback_events WHERE room_id = ?`).run(roomId);
+    this.db.prepare(`DELETE FROM reactions WHERE room_id = ?`).run(roomId);
+    this.db.prepare(`DELETE FROM chat_messages WHERE room_id = ?`).run(roomId);
+    this.db.prepare(`DELETE FROM room_members WHERE room_id = ?`).run(roomId);
+    this.db.prepare(`DELETE FROM rooms WHERE id = ?`).run(roomId);
+  }
+
   getRoomsByHost(userId: string): Room[] {
     const rows = this.db.prepare(`SELECT * FROM rooms WHERE host_id = ? ORDER BY created_at DESC LIMIT 20`).all(userId) as any[];
     return rows.map(row => {

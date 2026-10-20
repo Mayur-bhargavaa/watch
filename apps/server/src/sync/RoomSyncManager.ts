@@ -462,11 +462,25 @@ export class RoomSyncManager {
       return;
     }
 
+    this.finishRoom(room, client.userId);
+  }
+
+  /** The host ends and removes a room from outside the room's own socket (HTTP). */
+  public closeRoomAsHost(slugOrId: string, userId: string): 'ok' | 'not_found' | 'forbidden' {
+    const room = this.getRoom(slugOrId);
+    if (!room) return 'not_found';
+    if (room.hostId !== userId) return 'forbidden';
+    this.finishRoom(room, userId);
+    return 'ok';
+  }
+
+  /** Tells everyone the party is over, closes their sockets and forgets the room. */
+  private finishRoom(room: Room, senderId: string): void {
     // Broadcast room:ended to everyone in the room
     this.broadcastToRoom(room.id, {
       type: 'room:ended',
       roomId: room.id,
-      senderId: client.userId,
+      senderId,
       timestamp: Date.now(),
       payload: {
         reason: 'HOST_ENDED',

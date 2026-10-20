@@ -851,6 +851,18 @@ export async function createServer(dbPath = './synccinema.db') {
   const canSeeRoomInternals = (room: { id: string; hostId: string; privacy: string }, userId: string) =>
     room.privacy !== 'PRIVATE' || room.hostId === userId || db.isRoomMember(room.id, userId);
 
+  // The host ends a room (everyone inside is sent out) and removes it from "My rooms".
+  app.delete('/api/rooms/:slug', async (request, reply) => {
+    const { slug } = request.params as { slug: string };
+    const me = (request.user as any).id as string;
+    const room = syncManager.getRoom(slug) ?? db.getRoomBySlug(slug);
+    if (!room) return reply.code(404).send({ error: 'Room not found' });
+    if (room.hostId !== me) return reply.code(403).send({ error: 'Only the host can delete this room.' });
+    syncManager.closeRoomAsHost(room.id, me);
+    db.deleteRoom(room.id);
+    return { success: true };
+  });
+
   app.get('/api/rooms/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string };
     const me = (request.user as any).id as string;
