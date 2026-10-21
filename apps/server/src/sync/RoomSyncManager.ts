@@ -29,6 +29,7 @@ import { DatabaseService } from '../db/database.js';
 import { mongoLogger } from '../services/mongoLogger.js';
 import { SocketGuard } from '../util/socketGuard.js';
 import { ROOM_PAYLOAD_SCHEMAS } from './schemas.js';
+import { cleanCheckin, mayRelayScreenSignal, mayStartScreenShare, screenLog } from './screenRules.js';
 import { applyTitleAction, type TitleAction, type TitleApplyResult } from './titleQueue.js';
 
 export interface ConnectedClient {
@@ -412,6 +413,7 @@ export class RoomSyncManager {
     const activePresenter = this.activeScreenPresenters.get(room.id);
     if (activePresenter && activePresenter.userId === client.userId) {
       this.activeScreenPresenters.delete(room.id);
+      console.info(screenLog('stopped', { room: room.id, presenter: client.userId, reason: 'disconnect' }));
       this.broadcastToRoom(room.id, {
         type: 'screen:state',
         roomId: room.id,
@@ -607,6 +609,20 @@ export class RoomSyncManager {
       case 'game:action':
         this.handleGameAction(client, room, msg.payload);
         break;
+
+      case 'ott:checkin': {
+        // "I am at 12:34 of the show": everyone sees it, so people watching on their own streaming accounts can line up
+        const checkin = cleanCheckin(msg.payload);
+        if (!checkin) break;
+        this.broadcastToRoom(room.id, {
+          type: 'ott:checkin',
+          roomId: room.id,
+          senderId: client.userId,
+          timestamp: Date.now(),
+          payload: { userId: client.userId, displayName: client.displayName, ...checkin }
+        });
+        break;
+      }
 
       case 'countdown:start':
         this.broadcastToRoom(room.id, {
@@ -918,6 +934,13 @@ export class RoomSyncManager {
 
     this.db.updateRoomHost(room.id, targetClient.userId);
     this.db.updateMemberRole(room.id, client.userId, 'PARTICIPANT');
+    // the old host can no longer present: their share ends so nobody keeps watching a stale stage
+    const presenting = this.activeScreenPresenters.get(room.id);
+    if (presenting && presenting.userId !== targetClient.userId) {
+      this.activeScreenPresenters.delete(room.id);
+      console.info(screenLog('stopped', { room: room.id, presenter: presenting.userId, reason: 'host_transfer' }));
+      this.broadcastToRoom(room.id, { type: 'screen:state', roomId: room.id, senderId: presenting.userId, timestamp: Date.now(), payload: { isSharing: false, presenterId: null, presenterName: null } });
+    }
     this.db.updateMemberRole(room.id, targetClient.userId, 'HOST');
 
     this.broadcastToRoom(room.id, {
@@ -940,6 +963,11 @@ export class RoomSyncManager {
   ): void {
     const target = this.userClients.get(payload.targetUserId);
     if (!target || target.roomId !== room.id) {
+      return;
+    }
+    if (!mayRelayScreenSignal(payload.signal as any, this.activeScreenPresenters.get(room.id)?.userId, client.userId, target.userId)) {
+      console.warn(screenLog('signal_refused', { room: room.id, from: client.userId, to: target.userId, kind: String((payload.signal as any)?.type ?? '') }));
+      this.sendError(client.socket, 'FORBIDDEN', 'Only the presenter can send screen-share signals.');
       return;
     }
 
@@ -1005,16 +1033,26 @@ export class RoomSyncManager {
     room: Room,
     payload: { isSharing: boolean; presenterName?: string }
   ): void {
+    const current = this.activeScreenPresenters.get(room.id);
     if (payload.isSharing) {
-      this.activeScreenPresenters.set(room.id, {
-        userId: client.userId,
-        displayName: client.displayName
-      });
-    } else {
-      const curr = this.activeScreenPresenters.get(room.id);
-      if (curr && curr.userId === client.userId) {
-        this.activeScreenPresenters.delete(room.id);
+      if (!mayStartScreenShare(client.role)) {
+        console.warn(screenLog('start_refused', { room: room.id, user: client.userId, role: client.role, reason: 'not_host' }));
+        this.sendError(client.socket, 'FORBIDDEN', 'Only the host can share a screen to the room.');
+        return;
       }
+      // one presenter at a time: a second start while someone else is sharing is refused (the first one keeps the stage)
+      if (current && current.userId !== client.userId && this.userClients.get(current.userId)?.roomId === room.id) {
+        console.warn(screenLog('start_refused', { room: room.id, user: client.userId, reason: 'busy' }));
+        this.sendError(client.socket, 'SCREEN_BUSY', 'Someone is already sharing their screen.');
+        return;
+      }
+      this.activeScreenPresenters.set(room.id, { userId: client.userId, displayName: client.displayName });
+      console.info(screenLog('started', { room: room.id, presenter: client.userId, viewers: Math.max(0, (this.roomClients.get(room.id)?.size ?? 1) - 1) }));
+    } else {
+      // only the presenter can end a share: anybody else saying "stopped" must not close the stage for the room
+      if (!current || current.userId !== client.userId) return;
+      this.activeScreenPresenters.delete(room.id);
+      console.info(screenLog('stopped', { room: room.id, presenter: client.userId, reason: 'presenter' }));
     }
 
     this.broadcastToRoom(room.id, {
