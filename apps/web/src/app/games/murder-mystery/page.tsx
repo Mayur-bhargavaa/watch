@@ -276,6 +276,8 @@ function MurderRoom({ roomCode, spectate }: { roomCode: string; spectate: boolea
       onClose={() => setFriendsOpen(false)}
       token={session?.token}
       gameTitle="Murder Mystery Night"
+      inviteMode
+      shareText="Join my Murder Mystery Night room!"
       onSelectFriend={(f) => void invite(f)}
     />
   );

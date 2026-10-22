@@ -201,6 +201,8 @@ function EmojiCharadesRoom({ roomCode, spectate }: { roomCode: string; spectate:
         onClose={() => setFriendsOpen(false)}
         token={session?.token}
         gameTitle="Emoji Charades"
+        inviteMode
+        shareText="Join my Emoji Charades room!"
         onSelectFriend={(f) => void invite(f)}
       />
       {toast && (

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Palette,
@@ -35,6 +35,8 @@ import { ChatPanel } from '../../doodle/waiting/ChatPanel';
 import { useTheme } from '../../../../context/ThemeContext';
 import { VideoGrid, type ParticipantStream } from '../../../voice/VideoGrid';
 import { TournamentMatchBanner } from '../TournamentMatchBanner';
+import { GameFriendSelectorDrawer } from '../../GameFriendSelectorDrawer';
+import { getStoredSession, pingPartner, type FriendWithStreak } from '../../../../lib/api';
 
 export type GameId =
   | 'doodle-duel'
@@ -496,6 +498,9 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
   const [isMyReady, setIsMyReady] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  const [inviteNote, setInviteNote] = useState<string | null>(null);
+  const session = useMemo(() => (typeof window === 'undefined' ? null : getStoredSession()), []);
 
   const preset = GAME_PRESETS[gameType] || GAME_PRESETS['doodle-duel'];
   const Icon = preset.icon;
@@ -559,6 +564,18 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
+
+  // Friends are invited through chat (the same invite the Friends page sends); the group lobbies bring their own picker.
+  const inviteFriend = async (friend: FriendWithStreak) => {
+    try {
+      await pingPartner({ targetCode: friend.friendUser.partnerCode, roomCode: room.roomCode, gameType, customMessage: `Join my ${preset.name} room!` });
+      setInviteNote(`Invite sent to ${friend.friendUser.displayName}`);
+    } catch (e: any) {
+      setInviteNote(e?.message || 'Could not send the invite');
+    }
+    setTimeout(() => setInviteNote(null), 3000);
+  };
+  const openInvite = groupLobby?.onInviteFriends ?? (session?.token ? () => setFriendsOpen(true) : handleShareLink);
 
   return (
     <div className={solid ? "relative min-h-screen min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto transition-colors bg-[#f7f8fa] dark:bg-[#0c0d12] text-zinc-900 dark:text-white select-none" : "relative min-h-screen min-h-[100dvh] w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto transition-colors bg-[#fdf8f6] dark:bg-[#0c0f1d] text-slate-800 dark:text-white select-none"}>
@@ -876,17 +893,17 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
 
               <button
                 type="button"
-                onClick={handleShareLink}
+                onClick={openInvite}
                 className={solid ? "w-full sm:w-auto flex items-center justify-center gap-1.5 h-9 px-4 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-semibold transition-colors cursor-pointer" : "w-full sm:w-auto flex items-center justify-center gap-1.5 py-2 px-5 rounded-xl bg-gradient-to-r from-[#ff2b70] to-[#f43f5e] hover:from-[#e11d48] text-white text-xs font-black shadow-xs transition active:scale-95 cursor-pointer"}
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>{copiedLink ? 'Link Copied!' : 'Share Link'}</span>
+                <span>{copiedLink ? 'Link Copied!' : (groupLobby || session?.token) ? 'Invite' : 'Share Link'}</span>
               </button>
             </div>
 
             {/* Invite a Friend Pill Card */}
             <div
-              onClick={groupLobby?.onInviteFriends ?? handleShareLink}
+              onClick={openInvite}
               className={solid ? "w-full max-w-md mx-auto rounded-2xl p-2 pl-3 bg-white dark:bg-[#14151b] border border-zinc-200 dark:border-white/10 flex items-center justify-between gap-3 cursor-pointer hover:border-zinc-300 dark:hover:border-white/20 transition-colors select-none" : "w-full max-w-md mx-auto rounded-full p-2 sm:p-2.5 pl-3.5 sm:pl-4 bg-white/80 dark:bg-[#121629]/80 border border-white/70 dark:border-white/10 shadow-[0_4px_20px_rgba(255,43,112,0.05)] backdrop-blur-xl flex items-center justify-between gap-3 cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all active:scale-[0.99] select-none"}
             >
               <div className="flex items-center gap-2.5 min-w-0">
@@ -908,6 +925,18 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
             </div>
           </div>
         </main>
+        <GameFriendSelectorDrawer
+          isOpen={friendsOpen}
+          onClose={() => setFriendsOpen(false)}
+          token={session?.token}
+          gameTitle={preset.name}
+          inviteMode
+          onSelectFriend={(f) => void inviteFriend(f)}
+          onInviteOutside={handleShareLink}
+        />
+        {inviteNote && (
+          <div role="status" className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-black/85 px-4 py-2 text-xs font-semibold text-white shadow-lg">{inviteNote}</div>
+        )}
 
         {groupLobby?.lobbyPanel && <section className="mx-auto w-full max-w-5xl select-text">{groupLobby.lobbyPanel}</section>}
 

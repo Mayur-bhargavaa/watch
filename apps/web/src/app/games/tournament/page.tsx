@@ -299,6 +299,8 @@ function TournamentRoom({ roomCode, spectate }: { roomCode: string; spectate: bo
       onClose={() => setFriendsOpen(false)}
       token={session?.token}
       gameTitle="Tournament Arena"
+      inviteMode
+      shareText="Join my Tournament Arena room!"
       onSelectFriend={(f) => void invite(f)}
     />
   );

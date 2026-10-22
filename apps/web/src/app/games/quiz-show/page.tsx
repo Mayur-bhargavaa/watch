@@ -283,6 +283,8 @@ function QuizRoom({ roomCode, spectate }: { roomCode: string; spectate: boolean 
       onClose={() => setFriendsOpen(false)}
       token={session?.token}
       gameTitle="Quiz Show Studio"
+      inviteMode
+      shareText="Join my Quiz Show Studio room!"
       onSelectFriend={(f) => void invite(f)}
     />
   );

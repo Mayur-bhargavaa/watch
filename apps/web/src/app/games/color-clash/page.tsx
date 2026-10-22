@@ -83,6 +83,16 @@ function ClashRoom({ roomCode, spectate }: { roomCode: string; spectate: boolean
     sendLeave();
     router.push('/games');
   };
+  const shareOutside = () => {
+    if (!room) return;
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({ title: 'Join my Color Clash table!', text: `Play Color Clash with me! Room Code: ${room.roomCode}`, url }).catch(() => {});
+      return;
+    }
+    void navigator.clipboard.writeText(url);
+    setToast('Link copied');
+  };
   const invite = async (friend: FriendWithStreak) => {
     if (!room) return;
     try {
@@ -137,7 +147,7 @@ function ClashRoom({ roomCode, spectate }: { roomCode: string; spectate: boolean
   const waiting = room.status === 'WAITING' || !state;
   const reconnecting = connectionStatus === 'RECONNECTING';
   const friendDrawer = (
-    <GameFriendSelectorDrawer isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} token={session?.token} gameTitle="Color Clash" onSelectFriend={(f) => void invite(f)} />
+    <GameFriendSelectorDrawer isOpen={friendsOpen} onClose={() => setFriendsOpen(false)} token={session?.token} gameTitle="Color Clash" inviteMode onSelectFriend={(f) => void invite(f)} onInviteOutside={shareOutside} />
   );
   const toastEl = toast ? <div role="status" className="fixed bottom-5 left-1/2 z-[120] -translate-x-1/2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-medium text-white">{toast}</div> : null;
   const reconnectBanner = reconnecting ? <p className="mx-auto mb-2 w-full max-w-3xl rounded-xl border border-amber-300/40 bg-amber-500/15 px-3 py-2 text-center text-xs font-semibold text-amber-200">Reconnecting to the table…</p> : null;

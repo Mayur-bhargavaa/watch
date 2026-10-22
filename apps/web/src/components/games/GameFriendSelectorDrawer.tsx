@@ -10,7 +10,8 @@ import {
   Play,
   UserPlus,
   RefreshCw,
-  Gamepad2
+  Gamepad2,
+  Share2
 } from 'lucide-react';
 import {
   FriendWithStreak,
@@ -39,6 +40,12 @@ export interface GameFriendSelectorDrawerProps {
   onSelectFriend: (friend: FriendWithStreak) => void;
   onPlayWithFriend?: (friend: FriendWithStreak) => void;
   onOpenAddFriend?: () => void;
+  /** invite mode: the list stays open so several friends can be invited, each row shows Invite / Sent */
+  inviteMode?: boolean;
+  /** shows an "Invite outside the app" button at the top (system share sheet / copy link) */
+  onInviteOutside?: () => void;
+  /** with inviteMode and no onInviteOutside: the outside button shares this page's link with this text */
+  shareText?: string;
 }
 
 export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> = ({
@@ -50,13 +57,25 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
   gameTitle,
   onSelectFriend,
   onPlayWithFriend,
-  onOpenAddFriend
+  onOpenAddFriend,
+  inviteMode,
+  onInviteOutside,
+  shareText
 }) => {
+  const [linkCopied, setLinkCopied] = useState(false);
+  const shareOutside = onInviteOutside ?? (inviteMode && shareText ? () => {
+    const url = window.location.href;
+    if (navigator.share) { navigator.share({ title: gameTitle, text: shareText, url }).catch(() => {}); return; }
+    void navigator.clipboard.writeText(url);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  } : undefined);
   const [friends, setFriends] = useState<FriendWithStreak[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectingFriendId, setSelectingFriendId] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<string[]>([]);
 
   // Close on Escape
   useEffect(() => {
@@ -89,6 +108,7 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
     if (isOpen && token) {
       void fetchFriends();
       setSearchQuery('');
+      setSentIds([]);
     }
   }, [isOpen, token]);
 
@@ -108,6 +128,10 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
     try {
       // Picking an opponent never re-pairs the user's partner (GR-21): the friend id is passed to the room API directly.
       onSelectFriend(friend);
+      if (inviteMode) {
+        setSentIds((ids) => (ids.includes(friend.friendUser.id) ? ids : [...ids, friend.friendUser.id]));
+        return;
+      }
       if (playImmediately && onPlayWithFriend) {
         onPlayWithFriend(friend);
       }
@@ -139,13 +163,13 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
               </div>
               <div>
                 <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                  Choose Player
+                  {inviteMode ? 'Invite friends' : 'Choose Player'}
                   <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#ee1d49]/10 text-[#ee1d49]">
                     {friends.length}
                   </span>
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Select who to play {gameTitle} with
+                  {inviteMode ? `Send a ${gameTitle} invite to your chat` : `Select who to play ${gameTitle} with`}
                 </p>
               </div>
             </div>
@@ -169,6 +193,19 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
               </button>
             </div>
           </div>
+
+          {shareOutside && (
+            <div className="px-3.5 sm:px-4 pt-3.5 shrink-0">
+              <button
+                type="button"
+                onClick={shareOutside}
+                className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-[#ee1d49] hover:bg-[#d6143c] text-white text-xs font-semibold transition active:scale-[0.99] cursor-pointer"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>{linkCopied ? 'Link copied' : 'Invite outside the app'}</span>
+              </button>
+            </div>
+          )}
 
           {/* Search bar */}
           <div className="p-3.5 sm:p-4 border-b border-zinc-100 dark:border-white/5">
@@ -328,11 +365,11 @@ export const GameFriendSelectorDrawer: React.FC<GameFriendSelectorDrawerProps> =
                           <>
                             <button
                               type="button"
-                              disabled={isSelecting}
+                              disabled={isSelecting || (inviteMode && sentIds.includes(friend.friendUser.id))}
                               onClick={() => handleSelect(friend, false)}
                               className="py-1.5 px-2 xs:px-2.5 rounded-xl border border-zinc-200 dark:border-white/10 hover:border-zinc-300 dark:hover:border-white/20 bg-white dark:bg-white/10 text-[11px] xs:text-xs font-semibold text-zinc-700 dark:text-zinc-200 transition active:scale-95 cursor-pointer disabled:opacity-50"
                             >
-                              Select
+                              {inviteMode ? (sentIds.includes(friend.friendUser.id) ? 'Sent ✓' : 'Invite') : 'Select'}
                             </button>
                             {onPlayWithFriend && (
                               <button

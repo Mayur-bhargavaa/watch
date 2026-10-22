@@ -273,6 +273,8 @@ function MafiaRoom({ roomCode, spectate }: { roomCode: string; spectate: boolean
       onClose={() => setFriendsOpen(false)}
       token={session?.token}
       gameTitle="Mafia Night"
+      inviteMode
+      shareText="Join my Mafia Night room!"
       onSelectFriend={(f) => void invite(f)}
     />
   );

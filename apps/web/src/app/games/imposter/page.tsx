@@ -275,6 +275,8 @@ function ImposterRoom({ roomCode, spectate }: { roomCode: string; spectate: bool
       onClose={() => setFriendsOpen(false)}
       token={session?.token}
       gameTitle="Imposter"
+      inviteMode
+      shareText="Join my Imposter room!"
       onSelectFriend={(f) => void invite(f)}
     />
   );
