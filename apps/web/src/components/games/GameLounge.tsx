@@ -61,6 +61,54 @@ export const GAMES_CATALOG: GameItem[] = [
     description: 'Fast-paced 3x3 tactical duel. Place Xs and Os, block opponent lines, and claim victory with live audio/video reactions.'
   },
   {
+    id: 'zero-cross',
+    title: 'ZERO CROSS',
+    subtext: 'Place, Move, Line Up 3',
+    badge: 'Live 2-Player',
+    badgeColor: 'bg-cyan-600 text-white shadow-cyan-600/30',
+    category: 'Strategy Arcade',
+    players: '2 Players',
+    icon: 'close',
+    artwork: '/images/card-zero-cross.png',
+    description: 'Each player owns 3 pieces. Place them, then slide them to any empty square and line up three first, against a server-run match clock.'
+  },
+  {
+    id: 'pen-fight',
+    title: 'PEN FIGHT',
+    subtext: 'Desk Flick Duel',
+    badge: 'Live 2-Player',
+    badgeColor: 'bg-rose-600 text-white shadow-rose-600/30',
+    category: 'Skill Arcade',
+    players: '2 Players',
+    icon: 'target',
+    artwork: '/images/card-pen-fight.png',
+    description: 'Drag back to aim, let go to flick. Knock the other pen off the school desk to win the round; first to 3 rounds wins.'
+  },
+  {
+    id: 'rock-paper-scissors',
+    title: 'ROCK PAPER SCISSORS',
+    subtext: 'Secret Picks, Big Reveal',
+    badge: 'Live 2-Player',
+    badgeColor: 'bg-amber-600 text-white shadow-amber-600/30',
+    category: 'Skill Arcade',
+    players: '2 Players',
+    icon: 'target',
+    artwork: '/images/card-rock-paper-scissors.png',
+    description: 'Lock in rock, paper or scissors in secret, then watch both reveal at once. Single round, best of 3 or best of 5.'
+  },
+  {
+    id: 'color-clash',
+    title: 'COLOR CLASH',
+    subtext: 'Card Party for 2 to 4',
+    badge: 'Live 2-4 Player',
+    badgeColor: 'bg-red-600 text-white shadow-red-600/30',
+    category: 'Card Arcade',
+    players: '2-4 Players',
+    icon: 'target',
+    artwork: '/images/card-color-clash.png',
+    description: 'Match colours or numbers, play Skip, Reverse, Draw Two and Wild cards, call Last Card and be the first to empty your hand.'
+  },
+  {
     id: 'bingo',
     title: 'BINGO DUEL',
     subtext: '1–25 Rapid Number Duel',
@@ -259,6 +307,22 @@ export const GameLounge: React.FC<GameLoungeProps> = ({
     }
     if (game.id === 'tic-tac-toe' || game.id === 'tictactoe') {
       router.push('/games/tic-tac-toe');
+      return;
+    }
+    if (game.id === 'zero-cross') {
+      router.push('/games/zero-cross');
+      return;
+    }
+    if (game.id === 'pen-fight') {
+      router.push('/games/pen-fight');
+      return;
+    }
+    if (game.id === 'rock-paper-scissors') {
+      router.push('/games/rock-paper-scissors');
+      return;
+    }
+    if (game.id === 'color-clash') {
+      router.push('/games/color-clash');
       return;
     }
     if (game.id === 'bingo') {

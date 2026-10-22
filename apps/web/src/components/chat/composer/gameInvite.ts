@@ -7,6 +7,10 @@ export const GAME_OPTIONS = [
   { id: 'chess', label: '♟️ Chess Duel' },
   { id: 'doodle-duel', label: '🎨 Doodle Duel' },
   { id: 'tic-tac-toe', label: '⭕ Tic-Tac-Toe' },
+  { id: 'zero-cross', label: '✖️ Zero Cross' },
+  { id: 'pen-fight', label: '🖊️ Pen Fight' },
+  { id: 'rock-paper-scissors', label: '✊ Rock Paper Scissors' },
+  { id: 'color-clash', label: '🃏 Color Clash' },
   { id: 'four-in-a-row', label: '🔴 Four in a Row' },
   { id: 'tambola', label: '🎟️ Tambola' }
 ] as const;
@@ -19,7 +23,7 @@ export function normalizeGameType(raw: string): string {
 }
 
 export function maxPlayersFor(gameType: string): number {
-  if (gameType === 'ludo') return 4;
+  if (gameType === 'ludo' || gameType === 'color-clash') return 4;
   if (gameType === 'tambola') return 20;
   return 2;
 }
@@ -31,6 +35,10 @@ export function roomPrefixFor(gameType: string): string {
   if (gameType.includes('bingo')) return 'BINGO';
   if (gameType.includes('chess')) return 'CHESS';
   if (gameType.includes('doodle')) return 'DOODLE';
+  if (gameType.includes('zero')) return 'ZERO';
+  if (gameType.includes('pen')) return 'PEN';
+  if (gameType.includes('rock') || gameType === 'rps') return 'RPS';
+  if (gameType.includes('clash')) return 'CLASH';
   if (gameType.includes('tic')) return 'TIC';
   if (gameType.includes('four') || gameType.includes('connect')) return 'FOUR';
   if (gameType.includes('tambola')) return 'TAMBOLA';

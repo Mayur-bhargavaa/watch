@@ -19,6 +19,10 @@ const GAME_INFO: Record<string, { label: string; iconEmoji: string; gradient: st
   'doodle-duel': { label: 'Doodle Duel', iconEmoji: '🎨', gradient: 'from-pink-500/15 to-rose-500/15 text-pink-500' },
   tictactoe: { label: 'Tic-Tac-Toe', iconEmoji: '⭕', gradient: 'from-violet-500/15 to-fuchsia-500/15 text-violet-500' },
   'tic-tac-toe': { label: 'Tic-Tac-Toe', iconEmoji: '⭕', gradient: 'from-violet-500/15 to-fuchsia-500/15 text-violet-500' },
+  'zero-cross': { label: 'Zero Cross', iconEmoji: '✖️', gradient: 'from-cyan-500/15 to-sky-500/15 text-cyan-500' },
+  'rock-paper-scissors': { label: 'Rock Paper Scissors', iconEmoji: '✊', gradient: 'from-amber-500/15 to-orange-500/15 text-amber-500' },
+  'color-clash': { label: 'Color Clash', iconEmoji: '🃏', gradient: 'from-red-500/15 to-rose-500/15 text-red-500' },
+  'pen-fight': { label: 'Pen Fight', iconEmoji: '🖊️', gradient: 'from-rose-500/15 to-red-500/15 text-rose-500' },
   connect4: { label: 'Four in a Row', iconEmoji: '🔴', gradient: 'from-blue-500/15 to-cyan-500/15 text-blue-500' },
   'four-in-a-row': { label: 'Four in a Row', iconEmoji: '🔴', gradient: 'from-blue-500/15 to-cyan-500/15 text-blue-500' },
   tambola: { label: 'Tambola Party', iconEmoji: '🎟️', gradient: 'from-teal-500/15 to-emerald-500/15 text-teal-500' }

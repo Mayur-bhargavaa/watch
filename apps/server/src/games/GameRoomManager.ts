@@ -31,11 +31,15 @@ import { GAME_DEFINITIONS, seatColorsFor, parseGameType } from './GameDefinition
 import { LudoEngine } from './LudoEngine.js';
 import { FourInARowEngine } from './FourInARowEngine.js';
 import { TicTacToeEngine } from './TicTacToeEngine.js';
+import { PenFightEngine } from './PenFightEngine.js';
+import { ZeroCrossEngine } from './ZeroCrossEngine.js';
+import { ClashEngine, secureRng, sanitizeRules as sanitizeClashRules, type ClashAction, type ClashRng, type ClashServerState } from './ClashEngine.js';
+import { DEFAULT_RPS_CONFIG, RpsEngine, isChoice, sanitizeFormat, type RpsConfig, type RpsSecret } from './RpsEngine.js';
 import { BingoEngine, DEFAULT_BINGO_CONFIG, publicStateFor as publicTambolaStateFor } from './BingoEngine.js';
 import { BingoDuelEngine, DEFAULT_BINGO_DUEL_CONFIG, publicStateFor as publicDuelStateFor } from './BingoDuelEngine.js';
 import { DoodleDuelEngine, DEFAULT_DOODLE_CONFIG, DOODLE_WORDS, doodleRateAllowed, clearDoodleRate } from './DoodleDuelEngine.js';
 import { ChessEngine, sanitizeChessConfig } from './ChessEngine.js';
-import { DEFAULT_CHESS_CONFIG, ChessGameState } from '@synccinema/common';
+import { DEFAULT_CHESS_CONFIG, ChessGameState, ZERO_CROSS_DEFAULT_DURATION, ZERO_CROSS_DURATIONS, ZeroCrossGameState, RPS_FORMATS, RPS_DEFAULT_FORMAT, RpsGameState } from '@synccinema/common';
 import { mongoDb } from '../db/mongoDatabase.js';
 import { GameRuleError } from './GameRuleError.js';
 import { ImposterEngine, imposterRateAllowed, clearImposterRate, imposterMinPlayers } from './ImposterEngine.js';
@@ -187,6 +191,20 @@ export class GameRoomManager {
   private roomEndHandler: RoomEndHandler | null = null;
   // roomId -> chosen chess config (room objects from the DB are fresh copies)
   private chessConfigs = new Map<string, any>();
+  // roomId -> Zero Cross match length chosen by the host before the game starts (null = no timer)
+  private zeroCrossConfigs = new Map<string, { durationSeconds: number | null }>();
+  // roomId -> the timer that ends a Zero Cross match when its server deadline passes
+  private zeroCrossTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  // Rock Paper Scissors: the UNREVEALED choices (server memory only, never in any state sent out), the match format picked in the lobby, and the phase timer
+  private rpsSecrets = new Map<string, RpsSecret>();
+  private rpsFormats = new Map<string, string>();
+  private rpsTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private rpsConfig: RpsConfig = { ...DEFAULT_RPS_CONFIG };
+  // Color Clash: who is ready in the lobby, the rule profile the host chose, the turn / "last card" timer, and the random source (crypto; a test can swap it)
+  private clashReady = new Map<string, Set<string>>();
+  private clashRules = new Map<string, unknown>();
+  private clashTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  public clashRng: ClashRng = secureRng;
 
   // `${roomId}:${userId}` -> live client (a user can sit in several rooms; the per-user map above is only "latest")
   private roomUserClients = new Map<string, ConnectedGameClient>();
@@ -445,7 +463,7 @@ export class GameRoomManager {
    */
   public generateRoomCode(gameType = 'LUDO'): string {
     const PREFIXES: Record<string, string> = {
-      ludo: 'LUDO', 'four-in-a-row': 'FOUR', 'tic-tac-toe': 'TIC', tambola: 'TAMBOLA',
+      ludo: 'LUDO', 'four-in-a-row': 'FOUR', 'tic-tac-toe': 'TIC', 'zero-cross': 'ZERO', 'pen-fight': 'PEN', 'rock-paper-scissors': 'RPS', 'color-clash': 'CLASH', tambola: 'TAMBOLA',
       bingo: 'BINGO', 'doodle-duel': 'DOODLE', chess: 'CHESS', imposter: 'IMPOSTER', 'emoji-charades': 'EMOJI', 'mafia-night': 'MAFIA', 'quiz-show': 'QUIZ', 'murder-mystery': 'MURDER', tournament: 'ARENA'
     };
     const resolved = parseGameType(gameType);
@@ -660,7 +678,7 @@ export class GameRoomManager {
   /** Auto-start only when the room is full AND every seat has a live socket (REST-only joiners never trigger it). */
   private shouldAutoStart(room: GameRoom): boolean {
     if (room.status !== 'WAITING') return false;
-    if (room.gameType === 'doodle-duel' || room.gameType === 'tambola' || room.gameType === 'imposter' || room.gameType === 'emoji-charades' || room.gameType === 'mafia-night' || room.gameType === 'quiz-show' || room.gameType === 'murder-mystery' || room.gameType === 'tournament') return false;
+    if (room.gameType === 'doodle-duel' || room.gameType === 'tambola' || room.gameType === 'color-clash' || room.gameType === 'imposter' || room.gameType === 'emoji-charades' || room.gameType === 'mafia-night' || room.gameType === 'quiz-show' || room.gameType === 'murder-mystery' || room.gameType === 'tournament') return false;
     if (room.players.length < room.maxPlayers) return false;
     return room.players.every(p => p.status !== 'LEFT' && Boolean(this.liveClient(room.id, p.userId)));
   }
@@ -699,6 +717,26 @@ export class GameRoomManager {
       initialState = FourInARowEngine.createInitialState(playerConfigs, this.nextBoardStartingSeat(room));
     } else if (room.gameType === 'tic-tac-toe') {
       initialState = TicTacToeEngine.createInitialState(playerConfigs, this.nextBoardStartingSeat(room));
+    } else if (room.gameType === 'zero-cross') {
+      this.stopZeroCrossTimer(room.id);
+      initialState = ZeroCrossEngine.createInitialState(playerConfigs, {
+        startingSeat: this.nextBoardStartingSeat(room),
+        durationSeconds: this.zeroCrossConfigs.get(room.id)?.durationSeconds ?? (this.zeroCrossConfigs.has(room.id) ? null : undefined),
+        now: this.clock()
+      });
+    } else if (room.gameType === 'color-clash') {
+      this.stopClashTimer(room.id);
+      // the roster is frozen here: everybody still seated plays (2 to 4), a late arrival can only watch
+      const roster = playerConfigs.filter((p) => room.players.find((x) => x.userId === p.userId)?.status !== 'LEFT');
+      initialState = ClashEngine.createMatch(roster, { now: this.clock(), rules: this.clashRules.get(room.id), rng: this.clashRng });
+      this.clashReady.delete(room.id);
+    } else if (room.gameType === 'rock-paper-scissors') {
+      this.stopRpsTimer(room.id);
+      const made = RpsEngine.createMatch(playerConfigs, { now: this.clock(), format: this.rpsFormats.get(room.id) ?? RPS_DEFAULT_FORMAT, startingSeat: this.nextBoardStartingSeat(room), cfg: this.rpsConfig });
+      this.rpsSecrets.set(room.id, made.secret);
+      initialState = made.state;
+    } else if (room.gameType === 'pen-fight') {
+      initialState = PenFightEngine.createInitialState(playerConfigs, this.nextBoardStartingSeat(room));
     } else if (room.gameType === 'bingo') {
       this.stopBingoAutoCall(room.id);
       const config = this.bingoConfigs.get(room.id) || DEFAULT_BINGO_DUEL_CONFIG;
@@ -835,6 +873,7 @@ export class GameRoomManager {
       payload: {
         room,
         gameState: initialState,
+        ...(room.gameType === 'zero-cross' || room.gameType === 'rock-paper-scissors' || room.gameType === 'color-clash' ? { serverTime: new Date(this.clock()).toISOString() } : {}),
         message: room.gameType === 'bingo'
           ? 'Bingo Duel started! Numbers calling...'
           : room.gameType === 'tambola'
@@ -870,6 +909,12 @@ export class GameRoomManager {
       this.startBingoAutoCall(room.id, 0); // turn watchdog
     } else if (room.gameType === 'chess') {
       this.startChessClock(room.id);
+    } else if (room.gameType === 'zero-cross') {
+      this.startZeroCrossTimer(room.id);
+    } else if (room.gameType === 'color-clash') {
+      this.startClashTimer(room.id);
+    } else if (room.gameType === 'rock-paper-scissors') {
+      this.startRpsTimer(room.id);
     } else if (room.gameType === 'doodle-duel') {
       this.startDoodleTimer(room.id);
       this.broadcastDoodleState(room.id);
@@ -1314,6 +1359,461 @@ export class GameRoomManager {
   }
 
   // =====================================================================
+  // COLOR CLASH (2 to 4 players, private hands, server turn clock)
+  // =====================================================================
+
+  private stopClashTimer(roomId: string): void {
+    const t = this.clashTimers.get(roomId);
+    if (t) clearTimeout(t);
+    this.clashTimers.delete(roomId);
+  }
+
+  /** the next moment the clock decides something: the turn deadline or the end of a "last card" window */
+  private startClashTimer(roomId: string): void {
+    this.stopClashTimer(roomId);
+    const room = this.db.getGameRoomById(roomId);
+    const st = room?.gameState as ClashServerState | undefined;
+    if (!room || room.gameType !== 'color-clash' || room.status !== 'PLAYING' || !st || !ClashEngine.isServerState(st) || !ClashEngine.isLive(st)) return;
+    const due = [st.deadlineAt, st.lastCardWindow?.until].filter((x): x is string => !!x).map((x) => Date.parse(x));
+    if (due.length === 0) return;
+    const wait = Math.max(0, Math.min(...due) - this.clock());
+    const t = setTimeout(() => {
+      this.clashTimers.delete(roomId);
+      this.tickClash(roomId);
+    }, Math.min(wait + 25, 2_000_000_000));
+    (t as any).unref?.();
+    this.clashTimers.set(roomId, t);
+  }
+
+  /** re-arms the clock of a persisted match (after a server restart); a turn that ran out meanwhile is settled */
+  public ensureClashTimer(roomId: string): void {
+    if (this.clashTimers.has(roomId)) return;
+    this.tickClash(roomId);
+  }
+
+  /** applies what the clock decided (a turn that ran out, a closed window), saves and announces it, and sets the next timer */
+  private tickClash(roomId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    const st = room?.gameState as ClashServerState | undefined;
+    if (!room || room.gameType !== 'color-clash' || room.status !== 'PLAYING' || !st || !ClashEngine.isServerState(st) || !ClashEngine.isLive(st)) return;
+    const step = ClashEngine.advance(st, this.clock(), this.clashRng);
+    if (step.changed) this.publishClash(room, step.state);
+    else this.startClashTimer(roomId);
+  }
+
+  /** saves a new server state and announces it: every viewer gets their OWN projection (their hand, nobody else's) */
+  private publishClash(room: GameRoom, state: ClashServerState): void {
+    const done = !ClashEngine.isLive(state);
+    if (done) {
+      this.stopClashTimer(room.id);
+      this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, new Date(this.clock()).toISOString());
+      this.db.updateGameRoomState(room.id, state, state.currentSeat, state.winnerSeat ?? undefined);
+    } else {
+      this.db.updateGameRoomState(room.id, state, state.currentSeat);
+    }
+    // `gameState` here is the full server copy: broadcast() projects it separately for each recipient
+    this.broadcast(room.id, { type: 'game:clash_state', roomId: room.id, payload: { gameState: state, event: state.lastEvent, finished: done, serverTime: new Date(this.clock()).toISOString() } });
+    if (!done) this.startClashTimer(room.id);
+  }
+
+  public handleClashReady(roomId: string, userId: string, payload: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.gameType !== 'color-clash') throw new GameRuleError('WRONG_GAME', 'This is not a Color Clash room');
+    if (room.status !== 'WAITING') throw new GameRuleError('ILLEGAL_MOVE', 'The game has already started');
+    if (!room.players.some((p) => p.userId === userId && p.status !== 'LEFT')) throw new GameRuleError('NOT_PLAYER', 'You are not in this game');
+    const ready = this.clashReady.get(roomId) ?? new Set<string>();
+    if (payload?.ready === false) ready.delete(userId); else ready.add(userId);
+    this.clashReady.set(roomId, ready);
+    this.broadcastClashLobby(roomId);
+  }
+
+  public handleClashConfig(roomId: string, userId: string, payload: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.gameType !== 'color-clash') throw new GameRuleError('WRONG_GAME', 'This is not a Color Clash room');
+    if (room.hostUserId !== userId) throw new GameRuleError('HOST_ONLY', 'Only the host can change the rules');
+    if (room.status === 'PLAYING' && room.gameState && ClashEngine.isServerState(room.gameState) && ClashEngine.isLive(room.gameState)) throw new GameRuleError('ILLEGAL_MOVE', 'The rules cannot change while a game is running');
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new GameRuleError('INVALID_INPUT', 'Malformed rules');
+    const merged = { ...sanitizeClashRules(this.clashRules.get(roomId)), ...payload };
+    this.clashRules.set(roomId, sanitizeClashRules(merged));
+    this.broadcastClashLobby(roomId);
+  }
+
+  private broadcastClashLobby(roomId: string): void {
+    this.broadcast(roomId, { type: 'game:clash_lobby', roomId, payload: { ready: [...(this.clashReady.get(roomId) ?? [])], rules: sanitizeClashRules(this.clashRules.get(roomId)) } });
+  }
+
+  /** the host starts when 2 to 4 present players have all said they are ready; the roster is frozen from then on */
+  public handleClashStart(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.gameType !== 'color-clash') throw new GameRuleError('WRONG_GAME', 'This is not a Color Clash room');
+    if (room.hostUserId !== userId) throw new GameRuleError('HOST_ONLY', 'Only the host can start the game');
+    if (room.status !== 'WAITING') throw new GameRuleError('ILLEGAL_MOVE', 'The game has already started');
+    const present = room.players.filter((p) => p.status !== 'LEFT' && this.liveClient(roomId, p.userId));
+    if (present.length < 2 || present.length > 4) throw new GameRuleError('INVALID_INPUT', 'Color Clash needs 2 to 4 connected players');
+    const ready = this.clashReady.get(roomId) ?? new Set<string>();
+    ready.add(room.hostUserId); // the host is ready by starting
+    const waiting = present.filter((p) => !ready.has(p.userId));
+    if (waiting.length > 0) throw new GameRuleError('INVALID_INPUT', `Waiting for ${waiting.map((p) => p.displayName).join(', ')} to get ready`);
+    this.startGame(room);
+  }
+
+  public handleClashAction(roomId: string, userId: string, type: ClashAction['type'], payload: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    const player = this.assertBoardPlayer(room, userId, 'color-clash');
+    if (!room) return;
+    if (!ClashEngine.isServerState(room.gameState)) throw new GameRuleError('NOT_PLAYING', 'This game was started by an older version. Leave and start a new one.');
+    if (payload !== undefined && payload !== null && (typeof payload !== 'object' || Array.isArray(payload))) throw new GameRuleError('INVALID_INPUT', 'Malformed request');
+    const body = (payload ?? {}) as Record<string, unknown>;
+    // settle anything the clock already decided, so this action is judged against the table as it really is now
+    this.tickClash(roomId);
+    const fresh = this.db.getGameRoomById(roomId);
+    if (!fresh || fresh.status !== 'PLAYING' || !ClashEngine.isServerState(fresh.gameState)) throw new GameRuleError('GAME_OVER', 'This game is over');
+    const action: ClashAction = { type };
+    if (type === 'play') {
+      if (typeof body.cardId !== 'string') throw new GameRuleError('INVALID_INPUT', 'Say which card');
+      action.cardId = body.cardId;
+      action.color = body.color;
+    }
+    if (type === 'catch') action.target = this.parseBoardInt(body.target);
+    if (body.moveId !== undefined && body.moveId !== null) {
+      if (typeof body.moveId !== 'string') throw new GameRuleError('INVALID_INPUT', 'Invalid move id');
+      action.moveId = body.moveId;
+    }
+    if (body.baseVersion !== undefined && body.baseVersion !== null) {
+      const v = this.parseBoardInt(body.baseVersion);
+      if (!Number.isInteger(v)) throw new GameRuleError('INVALID_INPUT', 'Invalid state version');
+      action.baseVersion = v;
+    }
+    let res;
+    try {
+      res = ClashEngine.apply(fresh.gameState, player.seat, action, this.clock(), this.clashRng);
+    } catch (err) {
+      if (err instanceof GameRuleError && err.code === 'STALE_STATE') this.sendToUser(userId, { type: 'game:clash_state', roomId, payload: { gameState: fresh.gameState, event: null, finished: false, resync: true, serverTime: new Date(this.clock()).toISOString() } }, roomId);
+      throw err;
+    }
+    if (res.duplicate) {
+      this.sendToUser(userId, { type: 'game:clash_state', roomId, payload: { gameState: fresh.gameState, event: null, finished: false, resync: true, serverTime: new Date(this.clock()).toISOString() } }, roomId);
+      return;
+    }
+    this.publishClash(fresh, res.state);
+  }
+
+  public handleClashCancel(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    this.assertBoardPlayer(room, userId, 'color-clash');
+    if (!room) return;
+    if (room.hostUserId !== userId) throw new GameRuleError('HOST_ONLY', 'Only the host can cancel the game');
+    if (!ClashEngine.isServerState(room.gameState)) throw new GameRuleError('NOT_PLAYING', 'This game was started by an older version.');
+    this.publishClash(room, ClashEngine.cancel(room.gameState));
+  }
+
+  // =====================================================================
+  // ROCK PAPER SCISSORS (private simultaneous choices, server phases)
+  // =====================================================================
+
+  private stopRpsTimer(roomId: string): void {
+    const t = this.rpsTimers.get(roomId);
+    if (t) clearTimeout(t);
+    this.rpsTimers.delete(roomId);
+  }
+
+  /** the timer that fires when the current phase's SERVER deadline passes */
+  private startRpsTimer(roomId: string): void {
+    this.stopRpsTimer(roomId);
+    const room = this.db.getGameRoomById(roomId);
+    const st = room?.gameState as RpsGameState | undefined;
+    if (!room || room.gameType !== 'rock-paper-scissors' || room.status !== 'PLAYING' || !st || !RpsEngine.isLive(st) || !st.deadlineAt) return;
+    const wait = Math.max(0, Date.parse(st.deadlineAt) - this.clock());
+    const t = setTimeout(() => {
+      this.rpsTimers.delete(roomId);
+      this.tickRps(roomId);
+    }, Math.min(wait + 25, 2_000_000_000));
+    (t as any).unref?.();
+    this.rpsTimers.set(roomId, t);
+  }
+
+  /** re-arms the phase timer after a server restart; a round that was being chosen loses its picks (they lived in memory) and starts its choosing time again */
+  public ensureRpsTimer(roomId: string): void {
+    if (this.rpsTimers.has(roomId)) return;
+    const room = this.db.getGameRoomById(roomId);
+    const st = room?.gameState as RpsGameState | undefined;
+    if (!room || room.gameType !== 'rock-paper-scissors' || room.status !== 'PLAYING' || !st || !RpsEngine.isLive(st)) return;
+    if (st.status === 'choosing' && (!this.rpsSecrets.has(roomId) || this.rpsSecrets.get(roomId)!.roundId !== st.roundId)) {
+      this.rpsSecrets.set(roomId, { roundId: st.roundId, picks: [null, null], locked: [false, false] });
+      const restarted: RpsGameState = { ...st, locked: [false, false], deadlineAt: new Date(this.clock() + this.rpsConfig.chooseMs).toISOString(), version: st.version + 1, statusMessage: 'Reconnected: choose now!' };
+      this.db.updateGameRoomState(room.id, restarted, restarted.currentTurnSeat);
+    }
+    this.tickRps(roomId);
+  }
+
+  /** moves the match through every phase whose deadline has passed, saves and announces it, and sets the next timer */
+  private tickRps(roomId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.gameType !== 'rock-paper-scissors' || room.status !== 'PLAYING' || !room.gameState) return;
+    const before = room.gameState as RpsGameState;
+    const step = RpsEngine.advance(before, this.rpsSecrets.get(roomId) ?? null, room.players, this.clock(), this.rpsConfig);
+    if (step.secret) this.rpsSecrets.set(roomId, step.secret); else this.rpsSecrets.delete(roomId);
+    if (step.changed) this.publishRps(room, step.state);
+    else this.startRpsTimer(roomId);
+  }
+
+  /** saves a new public state, announces it to everybody (players and spectators get the same thing), and re-arms the timer */
+  private publishRps(room: GameRoom, state: RpsGameState, extra: Record<string, unknown> = {}): void {
+    const done = !RpsEngine.isLive(state);
+    if (done) {
+      this.stopRpsTimer(room.id);
+      this.rpsSecrets.delete(room.id);
+      const winnerSeat = state.winner === 'X' ? 0 : state.winner === 'O' ? 1 : undefined;
+      this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, new Date(this.clock()).toISOString());
+      this.db.updateGameRoomState(room.id, state, state.currentTurnSeat, winnerSeat);
+    } else {
+      this.db.updateGameRoomState(room.id, state, state.currentTurnSeat);
+    }
+    this.broadcast(room.id, { type: 'game:rps_state', roomId: room.id, payload: { gameState: state, event: state.status, finished: done, serverTime: new Date(this.clock()).toISOString(), ...extra } });
+    if (!done) this.startRpsTimer(room.id);
+  }
+
+  /** what one player may know about the unrevealed round: their OWN pick and whether it is locked (never the other player's) */
+  private rpsViewFor(roomId: string, userId: string, room: GameRoom): { myPick: string | null; myLocked: boolean; format: string } {
+    const seat = room.players.find((p) => p.userId === userId)?.seat;
+    const secret = this.rpsSecrets.get(roomId);
+    const st = room.gameState as RpsGameState | undefined;
+    const mine = seat === 0 || seat === 1 ? seat : null;
+    const current = !!secret && !!st && secret.roundId === st.roundId && mine !== null;
+    return { myPick: current ? secret!.picks[mine!] : null, myLocked: current ? secret!.locked[mine!] : false, format: this.rpsFormats.get(roomId) ?? RPS_DEFAULT_FORMAT };
+  }
+
+  /** a player picks a choice (it stays private and can be changed until locked) or locks it */
+  public handleRpsChoice(client: { roomId: string; userId: string; socket: any }, kind: 'choose' | 'lock', payload: any): void {
+    const roomId = client.roomId;
+    const room = this.db.getGameRoomById(roomId);
+    const player = this.assertBoardPlayer(room, client.userId, 'rock-paper-scissors');
+    if (!room) return;
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new GameRuleError('INVALID_INPUT', 'Malformed request');
+    // settle any phase that is due first, so a late choice is judged against the round as it really is now
+    this.tickRps(roomId);
+    const fresh = this.db.getGameRoomById(roomId);
+    if (!fresh || fresh.status !== 'PLAYING' || !fresh.gameState) throw new GameRuleError('GAME_OVER', 'This match is over');
+    const state = fresh.gameState as RpsGameState;
+    const now = this.clock();
+    const secret = this.rpsSecrets.get(roomId) ?? null;
+    if (kind === 'choose') {
+      const next = RpsEngine.select(state, secret, player.seat, payload.roundId, payload.choice, now, this.rpsConfig);
+      this.rpsSecrets.set(roomId, next);
+      this.sendToUser(client.userId, { type: 'game:rps_choice_ack', roomId, payload: { roundId: state.roundId, choice: next.picks[player.seat], locked: false } }, roomId);
+      return;
+    }
+    const step = RpsEngine.lock(state, secret, player.seat, payload.roundId, payload.choice, now, this.rpsConfig);
+    if (step.secret) this.rpsSecrets.set(roomId, step.secret); else this.rpsSecrets.delete(roomId);
+    this.sendToUser(client.userId, { type: 'game:rps_choice_ack', roomId, payload: { roundId: state.roundId, choice: isChoice(payload.choice) ? payload.choice : (secret ? secret.picks[player.seat] : null), locked: true } }, roomId);
+    this.publishRps(fresh, step.state);
+  }
+
+  public handleRpsCancel(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    this.assertBoardPlayer(room, userId, 'rock-paper-scissors');
+    if (!room) return;
+    if (room.hostUserId !== userId) throw new GameRuleError('HOST_ONLY', 'Only the host can cancel the match');
+    this.publishRps(room, RpsEngine.cancel(room.gameState as RpsGameState));
+  }
+
+  /** the host picks single / best of 3 / best of 5 before the match (or before a rematch) */
+  public handleRpsConfig(roomId: string, userId: string, payload: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.gameType !== 'rock-paper-scissors') throw new GameRuleError('WRONG_GAME', 'This is not a Rock Paper Scissors room');
+    if (room.hostUserId !== userId) throw new GameRuleError('HOST_ONLY', 'Only the host can change the match format');
+    if (room.status === 'PLAYING' && room.gameState && RpsEngine.isLive(room.gameState as RpsGameState)) throw new GameRuleError('ILLEGAL_MOVE', 'The format cannot change while a match is running');
+    const raw = payload?.format;
+    if (typeof raw !== 'string' || !(RPS_FORMATS as readonly string[]).includes(raw)) throw new GameRuleError('INVALID_INPUT', 'Choose a single round, best of 3 or best of 5');
+    const format = sanitizeFormat(raw);
+    this.rpsFormats.set(roomId, format);
+    this.broadcast(roomId, { type: 'game:rps_config_updated', roomId, payload: { format } });
+  }
+
+  // =====================================================================
+  // ZERO CROSS (3 pieces each, placed and then moved; server clock, surrender)
+  // =====================================================================
+
+  private stopZeroCrossTimer(roomId: string): void {
+    const t = this.zeroCrossTimers.get(roomId);
+    if (t) clearTimeout(t);
+    this.zeroCrossTimers.delete(roomId);
+  }
+
+  /** Arms the timer that ends the match when the SERVER deadline passes (no screen is involved in keeping time). */
+  private startZeroCrossTimer(roomId: string): void {
+    this.stopZeroCrossTimer(roomId);
+    const room = this.db.getGameRoomById(roomId);
+    const st = room?.gameState as ZeroCrossGameState | undefined;
+    if (!room || room.gameType !== 'zero-cross' || room.status !== 'PLAYING' || !st || !ZeroCrossEngine.isLive(st) || !st.deadlineAt) return;
+    const wait = Math.max(0, Date.parse(st.deadlineAt) - this.clock());
+    const t = setTimeout(() => {
+      this.zeroCrossTimers.delete(roomId);
+      this.expireZeroCross(roomId);
+    }, Math.min(wait + 25, 2_000_000_000));
+    (t as any).unref?.();
+    this.zeroCrossTimers.set(roomId, t);
+  }
+
+  /** Re-arms the clock of a persisted PLAYING match after a server restart, or settles one whose time ran out while the server was down. */
+  public ensureZeroCrossTimer(roomId: string): void {
+    if (this.zeroCrossTimers.has(roomId)) return;
+    const room = this.db.getGameRoomById(roomId);
+    const st = room?.gameState as ZeroCrossGameState | undefined;
+    if (!room || room.gameType !== 'zero-cross' || room.status !== 'PLAYING' || !st || !ZeroCrossEngine.isLive(st)) return;
+    if (ZeroCrossEngine.isExpired(st, this.clock())) this.expireZeroCross(roomId);
+    else this.startZeroCrossTimer(roomId);
+  }
+
+  private expireZeroCross(roomId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    const st = room?.gameState as ZeroCrossGameState | undefined;
+    if (!room || room.gameType !== 'zero-cross' || room.status !== 'PLAYING' || !st || !ZeroCrossEngine.isLive(st)) return;
+    if (!ZeroCrossEngine.isExpired(st, this.clock())) return this.startZeroCrossTimer(roomId); // woke a little early: wait the rest
+    this.finishZeroCross(room, ZeroCrossEngine.timeout(st));
+  }
+
+  /** Saves a finished match and sends the same final state to everybody. */
+  private finishZeroCross(room: GameRoom, state: ZeroCrossGameState, extra: Record<string, unknown> = {}): void {
+    this.stopZeroCrossTimer(room.id);
+    const winnerSeat = state.winner === 'X' ? 0 : state.winner === 'O' ? 1 : undefined;
+    this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, new Date(this.clock()).toISOString());
+    this.db.updateGameRoomState(room.id, state, state.currentTurnSeat, winnerSeat);
+    this.broadcast(room.id, {
+      type: 'game:zerocross_state',
+      roomId: room.id,
+      payload: { gameState: state, finished: true, reason: state.finishReason, winnerUserId: state.winnerUserId, serverTime: new Date(this.clock()).toISOString(), ...extra }
+    });
+  }
+
+  private parseZeroCrossAction(payload: any): { kind: 'place' | 'move'; from?: number; to: number; moveId?: string | null; baseVersion?: number } {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new GameRuleError('INVALID_INPUT', 'Malformed move');
+    const kind = payload.kind;
+    if (kind !== 'place' && kind !== 'move') throw new GameRuleError('INVALID_INPUT', 'Unknown action');
+    const to = this.parseBoardInt(payload.to);
+    const from = kind === 'move' ? this.parseBoardInt(payload.from) : undefined;
+    if (!Number.isInteger(to) || (kind === 'move' && !Number.isInteger(from))) throw new GameRuleError('INVALID_INPUT', 'Invalid square');
+    const moveId = payload.moveId === undefined || payload.moveId === null ? null : payload.moveId;
+    if (moveId !== null && (typeof moveId !== 'string' || moveId.length === 0 || moveId.length > 64)) throw new GameRuleError('INVALID_INPUT', 'Invalid move id');
+    let baseVersion: number | undefined;
+    if (payload.baseVersion !== undefined && payload.baseVersion !== null) {
+      baseVersion = this.parseBoardInt(payload.baseVersion);
+      if (!Number.isInteger(baseVersion)) throw new GameRuleError('INVALID_INPUT', 'Invalid state version');
+    }
+    return { kind, from, to, moveId, baseVersion };
+  }
+
+  public handleZeroCrossAction(roomId: string, userId: string, payload: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    const player = this.assertBoardPlayer(room, userId, 'zero-cross');
+    if (!room) return;
+    if (!ZeroCrossEngine.isValidState(room.gameState)) throw new GameRuleError('NOT_PLAYING', 'This match was started by an older version. Leave and start a new Zero Cross game.');
+    const action = this.parseZeroCrossAction(payload);
+    let res;
+    try {
+      res = ZeroCrossEngine.apply(room.gameState, player.seat, action, room.players, this.clock());
+    } catch (err) {
+      // an out-of-date screen is told the latest board together with the error
+      if (err instanceof GameRuleError && err.code === 'STALE_STATE') this.sendZeroCrossState(roomId, userId, room.gameState);
+      throw err;
+    }
+    if (res.duplicate) {
+      this.sendZeroCrossState(roomId, userId, room.gameState); // a resent move: nothing changes, just answer with the current board
+      return;
+    }
+    if (res.timedOut) {
+      this.finishZeroCross(room, res.state, { rejected: { userId, reason: 'TIME_UP' } });
+      return;
+    }
+    if (res.finished) {
+      this.finishZeroCross(room, res.state);
+      return;
+    }
+    this.db.updateGameRoomState(room.id, res.state, res.state.currentTurnSeat);
+    this.broadcast(room.id, {
+      type: 'game:zerocross_state',
+      roomId: room.id,
+      payload: { gameState: res.state, finished: false, move: res.state.lastMove, serverTime: new Date(this.clock()).toISOString() }
+    });
+  }
+
+  private sendZeroCrossState(roomId: string, userId: string, state: ZeroCrossGameState): void {
+    const client = this.roomUserClients.get(`${roomId}:${userId}`);
+    try {
+      client?.socket.send(JSON.stringify({ type: 'game:zerocross_state', roomId, payload: { gameState: state, finished: !ZeroCrossEngine.isLive(state), resync: true, serverTime: new Date(this.clock()).toISOString() } }));
+    } catch { /* socket gone */ }
+  }
+
+  public handleZeroCrossSurrender(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    const player = this.assertBoardPlayer(room, userId, 'zero-cross');
+    if (!room) return;
+    if (!ZeroCrossEngine.isValidState(room.gameState)) throw new GameRuleError('NOT_PLAYING', 'This match was started by an older version. Leave and start a new Zero Cross game.');
+    const state = room.gameState as ZeroCrossGameState;
+    // the clock may already have run out: that is a draw, not a win for the player who did not give up
+    if (ZeroCrossEngine.isExpired(state, this.clock())) return this.finishZeroCross(room, ZeroCrossEngine.timeout(state));
+    this.finishZeroCross(room, ZeroCrossEngine.surrender(state, player.seat, room.players));
+  }
+
+  /** the host ends a running match (the match is cancelled, nobody wins) */
+  public handleZeroCrossCancel(roomId: string, userId: string): void {
+    const room = this.db.getGameRoomById(roomId);
+    this.assertBoardPlayer(room, userId, 'zero-cross');
+    if (!room) return;
+    if (room.hostUserId !== userId) throw new GameRuleError('HOST_ONLY', 'Only the host can cancel the match');
+    if (!ZeroCrossEngine.isValidState(room.gameState)) throw new GameRuleError('NOT_PLAYING', 'This match was started by an older version. Leave and start a new Zero Cross game.');
+    this.finishZeroCross(room, ZeroCrossEngine.cancel(room.gameState as ZeroCrossGameState));
+  }
+
+  /** the host picks the match length before the game starts (or before a rematch) */
+  public handleZeroCrossConfig(roomId: string, userId: string, payload: any): void {
+    const room = this.db.getGameRoomById(roomId);
+    if (!room || room.gameType !== 'zero-cross') throw new GameRuleError('WRONG_GAME', 'This is not a Zero Cross room');
+    if (room.hostUserId !== userId) throw new GameRuleError('HOST_ONLY', 'Only the host can change the match length');
+    if (room.status === 'PLAYING' && room.gameState && ZeroCrossEngine.isLive(room.gameState as ZeroCrossGameState)) {
+      throw new GameRuleError('ILLEGAL_MOVE', 'The match length cannot change while a match is running');
+    }
+    const raw = payload?.durationSeconds;
+    if (raw !== null && !(typeof raw === 'number' && (ZERO_CROSS_DURATIONS as readonly (number | null)[]).includes(raw))) {
+      throw new GameRuleError('INVALID_INPUT', 'Choose 3, 5 or 10 minutes, or no timer');
+    }
+    this.zeroCrossConfigs.set(roomId, { durationSeconds: raw });
+    this.broadcast(roomId, { type: 'game:zerocross_config_updated', roomId, payload: { durationSeconds: raw } });
+  }
+
+  /**
+   * Handle a Pen Fight flick: the engine plays the physics and returns the frames; every screen replays them.
+   */
+  public handlePenFightFlick(roomId: string, userId: string, angle: number, power: number): void {
+    const room = this.db.getGameRoomById(roomId);
+    const player = this.assertBoardPlayer(room, userId, 'pen-fight');
+    if (!room) return;
+
+    const result = PenFightEngine.flick(room.gameState, player.seat, angle, power, room.players);
+    const finished = result.matchOver;
+    if (finished) {
+      const now = new Date().toISOString();
+      this.db.updateGameRoomStatus(room.id, 'FINISHED', undefined, now);
+      this.db.updateGameRoomState(room.id, result.state, result.state.currentTurnSeat, result.state.winner === 'X' ? 0 : 1);
+    } else {
+      this.db.updateGameRoomState(room.id, result.state, result.state.currentTurnSeat);
+    }
+
+    this.broadcast(room.id, {
+      type: 'game:pen_flicked',
+      roomId: room.id,
+      payload: {
+        seat: player.seat,
+        displayName: player.displayName,
+        flick: result.flick,
+        roundOver: result.roundOver,
+        matchOver: result.matchOver,
+        gameState: result.state
+      }
+    });
+  }
+
+  // =====================================================================
   // BINGO DUEL & TAMBOLA GAME HANDLERS
   // =====================================================================
 
@@ -1551,7 +2051,7 @@ export class GameRoomManager {
     const room: any = this.db.getGameRoomById(roomId);
     if (!room || (room.gameType !== 'bingo' && room.gameType !== 'tambola')) return;
     if (room.hostUserId !== userId) {
-      this.bingoError(userId, roomId, 'Only the host can start the game', 'NOT_HOST');
+      this.bingoError(userId, roomId, 'Only the host can start the game', 'HOST_ONLY');
       return;
     }
     if (room.status !== 'WAITING') {
@@ -1589,7 +2089,7 @@ export class GameRoomManager {
     const { room } = ctx;
     if (!room.gameState) return;
     if (room.hostUserId !== userId) {
-      this.bingoError(userId, roomId, 'Only the host can pause or resume calling', 'NOT_HOST');
+      this.bingoError(userId, roomId, 'Only the host can pause or resume calling', 'HOST_ONLY');
       return;
     }
     if (room.gameState.phase !== 'PLAYING') {
@@ -1612,7 +2112,7 @@ export class GameRoomManager {
     const { room } = ctx;
     if (!room.gameState) return;
     if (room.hostUserId !== userId) {
-      this.bingoError(userId, roomId, 'Only the host can start the next round', 'NOT_HOST');
+      this.bingoError(userId, roomId, 'Only the host can start the next round', 'HOST_ONLY');
       return;
     }
     if (room.gameState.phase !== 'ROUND_OVER') {
@@ -1637,7 +2137,7 @@ export class GameRoomManager {
     const { room } = ctx;
     if (!room.gameState) return;
     if (room.hostUserId !== userId) {
-      this.bingoError(userId, roomId, 'Only the host can manually call numbers', 'NOT_HOST');
+      this.bingoError(userId, roomId, 'Only the host can manually call numbers', 'HOST_ONLY');
       return;
     }
     if (room.gameState.phase !== 'PLAYING') {
@@ -1860,7 +2360,7 @@ export class GameRoomManager {
     const room: any = this.db.getGameRoomById(roomId);
     if (!room || (room.gameType !== 'bingo' && room.gameType !== 'tambola')) return;
     if (room.hostUserId !== userId) {
-      this.bingoError(userId, roomId, 'Only host can update room settings', 'NOT_HOST');
+      this.bingoError(userId, roomId, 'Only host can update room settings', 'HOST_ONLY');
       return;
     }
     if (room.status !== 'WAITING') {
@@ -4358,7 +4858,11 @@ export class GameRoomManager {
           theme,
           chatHistory,
           myUserId: user.id,
-          myPlayer: myPlayer || currentRoom.players.find(p => p.userId === user.id)
+          myPlayer: myPlayer || currentRoom.players.find(p => p.userId === user.id),
+          serverTime: new Date(this.clock()).toISOString(),
+          ...(currentRoom.gameType === 'color-clash' ? { clash: { ready: [...(this.clashReady.get(roomId) ?? [])], rules: sanitizeClashRules(this.clashRules.get(roomId)) } } : {}),
+          ...(currentRoom.gameType === 'rock-paper-scissors' ? { rps: this.rpsViewFor(roomId, user.id, currentRoom) } : {}),
+          ...(currentRoom.gameType === 'zero-cross' ? { zeroCrossConfig: this.zeroCrossConfigs.get(roomId) ?? { durationSeconds: ZERO_CROSS_DEFAULT_DURATION } } : {})
         }
       }));
 
@@ -4383,6 +4887,9 @@ export class GameRoomManager {
 
       // Restart the chess ticker after a server restart (CH-13)
       if (currentRoom.gameType === 'chess') this.ensureChessClock(roomId);
+      if (currentRoom.gameType === 'zero-cross') this.ensureZeroCrossTimer(roomId);
+      if (currentRoom.gameType === 'rock-paper-scissors') this.ensureRpsTimer(roomId);
+      if (currentRoom.gameType === 'color-clash') this.ensureClashTimer(roomId);
       if (currentRoom.gameType === 'imposter') this.ensureImposterTimer(roomId);
       if (currentRoom.gameType === 'emoji-charades') this.ensureEmojiCharadesTimer(roomId);
       if (currentRoom.gameType === 'mafia-night') this.ensureMafiaTimer(roomId);
@@ -4602,6 +5109,7 @@ export class GameRoomManager {
     if (gameType === 'quiz-show') return QuizShowEngine.publicStateFor(state, viewerId);
     if (gameType === 'murder-mystery') return MurderMysteryEngine.publicStateFor(state, viewerId);
     if (gameType === 'tournament') return TournamentEngine.publicStateFor(state, viewerId, this.clock());
+    if (gameType === 'color-clash') return ClashEngine.publicStateFor(state, viewerId, this.clock());
     return state;
   }
 
@@ -4616,6 +5124,7 @@ export class GameRoomManager {
     if (gameType === 'quiz-show') return QuizShowEngine.isServerState(state);
     if (gameType === 'murder-mystery') return MurderMysteryEngine.isServerState(state);
     if (gameType === 'tournament') return TournamentEngine.isServerState(state);
+    if (gameType === 'color-clash') return ClashEngine.isServerState(state);
     if (gameType === 'tambola') return (Array.isArray(state.callQueue) && state.callQueue.length > 0) || (state.tickets && Object.keys(state.tickets).length > 1);
     return false;
   }
@@ -4663,6 +5172,73 @@ export class GameRoomManager {
 
       case 'game:tictactoe_move':
         this.runBoardAction(client, msg.type, () => this.handleTicTacToeMove(client.roomId, client.userId, this.parseBoardInt(msg.payload?.cellIndex ?? msg.payload?.cell)));
+        break;
+
+      case 'game:clash_ready':
+        this.runBoardAction(client, msg.type, () => this.handleClashReady(client.roomId, client.userId, msg.payload));
+        break;
+      case 'game:clash_config':
+        this.runBoardAction(client, msg.type, () => this.handleClashConfig(client.roomId, client.userId, msg.payload));
+        break;
+      case 'game:clash_start':
+        this.runBoardAction(client, msg.type, () => this.handleClashStart(client.roomId, client.userId));
+        break;
+      case 'game:clash_play':
+        this.runBoardAction(client, msg.type, () => this.handleClashAction(client.roomId, client.userId, 'play', msg.payload));
+        break;
+      case 'game:clash_draw':
+        this.runBoardAction(client, msg.type, () => this.handleClashAction(client.roomId, client.userId, 'draw', msg.payload));
+        break;
+      case 'game:clash_pass':
+        this.runBoardAction(client, msg.type, () => this.handleClashAction(client.roomId, client.userId, 'pass', msg.payload));
+        break;
+      case 'game:clash_declare':
+        this.runBoardAction(client, msg.type, () => this.handleClashAction(client.roomId, client.userId, 'declare', msg.payload));
+        break;
+      case 'game:clash_catch':
+        this.runBoardAction(client, msg.type, () => this.handleClashAction(client.roomId, client.userId, 'catch', msg.payload));
+        break;
+      case 'game:clash_challenge':
+        this.runBoardAction(client, msg.type, () => this.handleClashAction(client.roomId, client.userId, 'challenge-wild', msg.payload));
+        break;
+      case 'game:clash_cancel':
+        this.runBoardAction(client, msg.type, () => this.handleClashCancel(client.roomId, client.userId));
+        break;
+
+      case 'game:rps_choose':
+        this.runBoardAction(client, msg.type, () => this.handleRpsChoice(client, 'choose', msg.payload));
+        break;
+
+      case 'game:rps_lock':
+        this.runBoardAction(client, msg.type, () => this.handleRpsChoice(client, 'lock', msg.payload));
+        break;
+
+      case 'game:rps_cancel':
+        this.runBoardAction(client, msg.type, () => this.handleRpsCancel(client.roomId, client.userId));
+        break;
+
+      case 'game:rps_config':
+        this.runBoardAction(client, msg.type, () => this.handleRpsConfig(client.roomId, client.userId, msg.payload));
+        break;
+
+      case 'game:zerocross_action':
+        this.runBoardAction(client, msg.type, () => this.handleZeroCrossAction(client.roomId, client.userId, msg.payload));
+        break;
+
+      case 'game:zerocross_surrender':
+        this.runBoardAction(client, msg.type, () => this.handleZeroCrossSurrender(client.roomId, client.userId));
+        break;
+
+      case 'game:zerocross_cancel':
+        this.runBoardAction(client, msg.type, () => this.handleZeroCrossCancel(client.roomId, client.userId));
+        break;
+
+      case 'game:zerocross_config':
+        this.runBoardAction(client, msg.type, () => this.handleZeroCrossConfig(client.roomId, client.userId, msg.payload));
+        break;
+
+      case 'game:penfight_flick':
+        this.runBoardAction(client, msg.type, () => this.handlePenFightFlick(client.roomId, client.userId, Number(msg.payload?.angle), Number(msg.payload?.power)));
         break;
 
       case 'bingo:start':
@@ -5222,6 +5798,9 @@ export class GameRoomManager {
     this.stopBingoAutoCall(roomId);
     this.stopDoodleTimer(roomId);
     this.stopChessClock(roomId);
+    this.stopZeroCrossTimer(roomId);
+    this.stopRpsTimer(roomId);
+    this.stopClashTimer(roomId);
     this.stopLudoTurnTimer(roomId);
     this.stopImposterTimer(roomId);
     this.stopEmojiCharadesTimer(roomId);
@@ -5272,6 +5851,11 @@ export class GameRoomManager {
       this.emojiCharadesRounds.delete(roomId);
       this.bingoConfigs.delete(roomId);
       this.chessConfigs.delete(roomId);
+      this.zeroCrossConfigs.delete(roomId);
+      this.rpsSecrets.delete(roomId);
+      this.rpsFormats.delete(roomId);
+      this.clashReady.delete(roomId);
+      this.clashRules.delete(roomId);
     }
   }
 
@@ -5291,7 +5875,19 @@ export class GameRoomManager {
       gs.winnerUserId = winner.userId;
       gs.statusMessage = leftGameWinMessage(leaverName);
       this.db.updateGameRoomState(room.id, gs, gs.currentTurnSeat, winner.seat);
-    } else if (room.gameType === 'tic-tac-toe') {
+    } else if (room.gameType === 'color-clash') {
+      this.stopClashTimer(room.id);
+      Object.assign(gs, ClashEngine.forfeitWin(gs, winner.seat, leaverName));
+      this.db.updateGameRoomState(room.id, gs, gs.currentSeat, winner.seat);
+    } else if (room.gameType === 'rock-paper-scissors') {
+      this.stopRpsTimer(room.id);
+      this.rpsSecrets.delete(room.id);
+      Object.assign(gs, RpsEngine.forfeit(gs, winner.seat, leaverName, room.players));
+      this.db.updateGameRoomState(room.id, gs, gs.currentTurnSeat, winner.seat);
+    } else if (room.gameType === 'zero-cross') {
+      Object.assign(gs, ZeroCrossEngine.forfeit(gs, winner.seat, leaverName, room.players));
+      this.db.updateGameRoomState(room.id, gs, gs.currentTurnSeat, winner.seat);
+    } else if (room.gameType === 'tic-tac-toe' || room.gameType === 'pen-fight') {
       gs.winner = winner.seat === 0 ? 'X' : 'O';
       gs.winnerUserId = winner.userId;
       gs.statusMessage = leftGameWinMessage(leaverName);
@@ -5538,6 +6134,13 @@ export class GameRoomManager {
       }
       this.db.updateGameRoomState(room.id, gs, gs.currentTurnSeat);
       this.scheduleLudoTurnTimer(room.id);
+    }
+    if (room.gameType === 'color-clash') {
+      // the others play on without the leaver; their cards go to the bottom of the draw pile
+      const next = ClashEngine.removePlayer(gs, player.seat, this.clock());
+      Object.assign(gs, next);
+      this.db.updateGameRoomState(room.id, gs, gs.currentSeat);
+      this.startClashTimer(room.id);
     }
     // Tambola: a departed player simply stops participating; claims are validated against active players by its handlers.
   }

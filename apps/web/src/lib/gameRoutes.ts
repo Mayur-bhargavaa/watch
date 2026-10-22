@@ -1,6 +1,6 @@
 /** Pure game id / route resolution (exact ids and known aliases only; no substring guessing). */
 
-export type CanonicalGameId = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'bingo' | 'doodle-duel' | 'tambola' | 'chess' | 'imposter' | 'emoji-charades' | 'mafia-night' | 'quiz-show' | 'murder-mystery' | 'tournament';
+export type CanonicalGameId = 'ludo' | 'four-in-a-row' | 'tic-tac-toe' | 'zero-cross' | 'pen-fight' | 'rock-paper-scissors' | 'color-clash' | 'bingo' | 'doodle-duel' | 'tambola' | 'chess' | 'imposter' | 'emoji-charades' | 'mafia-night' | 'quiz-show' | 'murder-mystery' | 'tournament';
 
 const ALIASES: Record<string, CanonicalGameId> = {
   'ludo': 'ludo',
@@ -9,6 +9,18 @@ const ALIASES: Record<string, CanonicalGameId> = {
   'connect4': 'four-in-a-row',
   'tic-tac-toe': 'tic-tac-toe',
   'tictactoe': 'tic-tac-toe',
+  'zero-cross': 'zero-cross',
+  'zerocross': 'zero-cross',
+  'zero-cut': 'zero-cross',
+  'pen-fight': 'pen-fight',
+  'penfight': 'pen-fight',
+  'pen-battle': 'pen-fight',
+  'rock-paper-scissors': 'rock-paper-scissors',
+  'rps': 'rock-paper-scissors',
+  'color-clash': 'color-clash',
+  'colorclash': 'color-clash',
+  'clash': 'color-clash',
+  'rockpaperscissors': 'rock-paper-scissors',
   'bingo': 'bingo',
   'bingo-duel': 'bingo',
   'doodle-duel': 'doodle-duel',
@@ -37,7 +49,7 @@ const ALIASES: Record<string, CanonicalGameId> = {
 };
 
 const PREFIXES: [string, CanonicalGameId][] = [
-  ['TAMBOLA-', 'tambola'], ['BINGO-', 'bingo'], ['TIC-', 'tic-tac-toe'], ['FOUR-', 'four-in-a-row'],
+  ['TAMBOLA-', 'tambola'], ['BINGO-', 'bingo'], ['TIC-', 'tic-tac-toe'], ['ZERO-', 'zero-cross'], ['PEN-', 'pen-fight'], ['RPS-', 'rock-paper-scissors'], ['CLASH-', 'color-clash'], ['FOUR-', 'four-in-a-row'],
   ['DOODLE-', 'doodle-duel'], ['CHESS-', 'chess'], ['IMPOSTER-', 'imposter'], ['EMOJI-', 'emoji-charades'], ['MAFIA-', 'mafia-night'], ['QUIZ-', 'quiz-show'], ['MURDER-', 'murder-mystery'], ['ARENA-', 'tournament'], ['LUDO-', 'ludo']
 ];
 
@@ -45,6 +57,10 @@ export const GAME_BASE_PATHS: Record<CanonicalGameId, string> = {
   'ludo': '/games/ludo',
   'four-in-a-row': '/games/four-in-a-row',
   'tic-tac-toe': '/games/tic-tac-toe',
+  'zero-cross': '/games/zero-cross',
+  'pen-fight': '/games/pen-fight',
+  'rock-paper-scissors': '/games/rock-paper-scissors',
+  'color-clash': '/games/color-clash',
   'bingo': '/games/bingo',
   'doodle-duel': '/games/doodle-duel',
   'tambola': '/games/tambola',
@@ -61,6 +77,10 @@ export const GAME_TITLES: Record<CanonicalGameId, string> = {
   'ludo': 'Ludo',
   'four-in-a-row': 'Four in a Row',
   'tic-tac-toe': 'Tic-Tac-Toe',
+  'zero-cross': 'Zero Cross',
+  'pen-fight': 'Pen Fight',
+  'rock-paper-scissors': 'Rock Paper Scissors',
+  'color-clash': 'Color Clash',
   'bingo': 'Bingo Duel',
   'doodle-duel': 'Doodle Duel',
   'tambola': 'Tambola',

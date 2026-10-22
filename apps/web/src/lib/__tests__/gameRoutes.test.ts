@@ -56,6 +56,10 @@ test('Tournament Arena: id, aliases, room code prefix and the /games/tournament 
   assert.equal(gameTitleFor('arena'), 'Tournament Arena');
   // the match rooms a tournament creates open on the pages of their own games
   assert.equal(gameRoutePath('tic-tac-toe', 'TIC-AB12CD34'), '/games/tic-tac-toe?room=TIC-AB12CD34');
+  assert.equal(gameRoutePath('zero-cross', 'ZERO-AB12CD34'), '/games/zero-cross?room=ZERO-AB12CD34');
+  assert.equal(gameRoutePath('pen-fight', 'PEN-AB12CD34'), '/games/pen-fight?room=PEN-AB12CD34');
+  assert.equal(gameRoutePath(undefined, 'PEN-AB12CD34'), '/games/pen-fight?room=PEN-AB12CD34'); // a bare room code resolves by its prefix
+  assert.equal(gameRoutePath('zerocross'), '/games/zero-cross'); // aliases
   assert.equal(gameRoutePath('four-in-a-row', 'FOUR-AB12CD34'), '/games/four-in-a-row?room=FOUR-AB12CD34');
   assert.equal(gameRoutePath('chess', 'CHESS-AB12CD34'), '/games/chess?room=CHESS-AB12CD34');
 });

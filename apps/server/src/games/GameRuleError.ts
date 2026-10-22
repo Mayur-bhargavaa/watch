@@ -24,7 +24,16 @@ export type GameRuleErrorCode =
   | 'ALREADY_SOLVED'
   | 'TOO_MANY_GUESSES'
   | 'DUPLICATE_GUESS'
-  | 'CHAT_LOCKED';
+  | 'CHAT_LOCKED'
+  | 'STALE_STATE'
+  | 'NO_PIECES_LEFT'
+  | 'NO_PIECE'
+  | 'NOT_YOUR_PIECE'
+  | 'ALREADY_LOCKED'
+  | 'TOO_LATE'
+  | 'STALE_ROUND'
+  | 'NOT_CHOOSING'
+  | 'NOT_YOUR_CARD';
 
 export class GameRuleError extends Error {
   public readonly code: GameRuleErrorCode;

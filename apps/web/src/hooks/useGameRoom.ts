@@ -2,6 +2,7 @@
 
 import { bingoErrorText } from '../lib/bingoDuelView';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { clockOffset } from '../lib/zeroCrossView';
 import {
   GameRoom,
   GameRoomPlayer,
@@ -104,6 +105,16 @@ export interface TicTacToeCellMarkEvent {
   winningLine: [number, number, number] | null;
 }
 
+/** a Pen Fight flick as the server played it: the screen replays `flick.frames` and then shows `gameState` */
+export interface PenFightFlickEvent {
+  id: number;
+  seat: number;
+  displayName: string;
+  flick: { seat: number; angle: number; power: number; fps: number; frames: number[][] };
+  roundOver: { round: number; winnerSeat: number | null; reason: string } | null;
+  matchOver: boolean;
+}
+
 // Synthetic Web Audio API bell chime for Nudge notifications (reliable on all browsers)
 function playNudgeChime() {
   try {
@@ -147,6 +158,10 @@ function deduceGameTypeFromContext(roomCode?: string | null): string | undefined
     if (path.includes('/games/bingo')) return 'bingo';
     if (path.includes('/games/chess')) return 'chess';
     if (path.includes('/games/doodle')) return 'doodle-duel';
+    if (path.includes('/games/zero-cross')) return 'zero-cross';
+    if (path.includes('/games/pen-fight')) return 'pen-fight';
+    if (path.includes('/games/rock-paper-scissors')) return 'rock-paper-scissors';
+    if (path.includes('/games/color-clash')) return 'color-clash';
     if (path.includes('/games/tic-tac-toe') || path.includes('/games/tictactoe')) return 'tic-tac-toe';
     if (path.includes('/games/four-in-a-row') || path.includes('/games/connect4')) return 'four-in-a-row';
     if (path.includes('/games/tambola')) return 'tambola';
@@ -162,6 +177,10 @@ function deduceGameTypeFromContext(roomCode?: string | null): string | undefined
   if (code.startsWith('BINGO-')) return 'bingo';
   if (code.startsWith('CHESS-')) return 'chess';
   if (code.startsWith('DOODLE-')) return 'doodle-duel';
+  if (code.startsWith('ZERO-')) return 'zero-cross';
+  if (code.startsWith('PEN-')) return 'pen-fight';
+  if (code.startsWith('RPS-')) return 'rock-paper-scissors';
+  if (code.startsWith('CLASH-')) return 'color-clash';
   if (code.startsWith('TIC-')) return 'tic-tac-toe';
   if (code.startsWith('FOUR-')) return 'four-in-a-row';
   if (code.startsWith('TAMBOLA-')) return 'tambola';
@@ -198,6 +217,25 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
   const [lastTokenMove, setLastTokenMove] = useState<TokenMovedEvent | null>(null);
   const [lastDiscDrop, setLastDiscDrop] = useState<DiscDropEvent | null>(null);
   const [lastTicTacToeMove, setLastTicTacToeMove] = useState<TicTacToeCellMarkEvent | null>(null);
+  const [lastPenFlick, setLastPenFlick] = useState<PenFightFlickEvent | null>(null);
+  const penFlickSeq = useRef(0);
+  // Zero Cross: the match length chosen in the lobby, how far this device's clock is from the server's, and a rejected move to tell the player about
+  const [zeroCrossDuration, setZeroCrossDuration] = useState<number | null>(300);
+  const [zeroCrossOffset, setZeroCrossOffset] = useState(0);
+  const [zeroCrossRejected, setZeroCrossRejected] = useState<{ reason: string; id: number } | null>(null);
+  const zeroRejectSeq = useRef(0);
+  // Rock Paper Scissors: MY OWN pick for the open round (the server never sends me the other player's), and the format chosen in the lobby
+  const [rpsMyPick, setRpsMyPick] = useState<{ roundId: string; choice: string | null; locked: boolean } | null>(null);
+  const [rpsFormat, setRpsFormat] = useState<string>('best-of-3');
+  // Color Clash: who is ready and the rule profile (lobby), and the last table event for the screen to animate
+  const [clashLobby, setClashLobby] = useState<{ ready: string[]; rules: any } | null>(null);
+  const pendingPenState = useRef<any>(null);
+  /** after the screen has replayed a flick: show the state that came with it */
+  const applyPenState = useCallback(() => {
+    const next = pendingPenState.current;
+    pendingPenState.current = null;
+    if (next) setGameState(next);
+  }, []);
   const [lastBingoCall, setLastBingoCall] = useState<any | null>(null);
   const [lastBingoClaimResult, setLastBingoClaimResult] = useState<any | null>(null);
   const [lastBingoConditionWon, setLastBingoConditionWon] = useState<any | null>(null);
@@ -568,6 +606,16 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
           setMyUserId(payload.myUserId);
           myUserIdRef.current = payload.myUserId;
         }
+        if (payload.serverTime) setZeroCrossOffset(clockOffset(payload.serverTime, Date.now()));
+        if (payload.clash) setClashLobby({ ready: Array.isArray(payload.clash.ready) ? payload.clash.ready : [], rules: payload.clash.rules ?? null });
+        if (payload.rps) {
+          if (typeof payload.rps.format === 'string') setRpsFormat(payload.rps.format);
+          const rid = payload.room?.gameState?.roundId;
+          setRpsMyPick(typeof rid === 'string' ? { roundId: rid, choice: payload.rps.myPick ?? null, locked: !!payload.rps.myLocked } : null);
+        }
+        if (payload.zeroCrossConfig && (payload.zeroCrossConfig.durationSeconds === null || typeof payload.zeroCrossConfig.durationSeconds === 'number')) {
+          setZeroCrossDuration(payload.zeroCrossConfig.durationSeconds);
+        }
         break;
       }
 
@@ -804,6 +852,7 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
 
       case 'game:started': {
         const { gameState: startState, room: updatedRoom } = msg.payload;
+        if (msg.payload.serverTime) setZeroCrossOffset(clockOffset(msg.payload.serverTime, Date.now()));
         setRematchStatus(null);
         setRematchDeclined(null);
         setGameState(startState);
@@ -918,6 +967,62 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
           isDraw,
           winningLine
         });
+        break;
+      }
+
+      case 'game:pen_flicked': {
+        const { gameState: nextState, seat, displayName, flick, roundOver, matchOver } = msg.payload;
+        // the new state is NOT applied here: the screen replays the flick first and then shows it (see PenFightBoard)
+        penFlickSeq.current += 1;
+        setLastPenFlick({ id: penFlickSeq.current, seat, displayName, flick, roundOver: roundOver ?? null, matchOver: !!matchOver });
+        pendingPenState.current = nextState;
+        break;
+      }
+
+      case 'game:zerocross_state': {
+        const { gameState: nextState, serverTime, rejected } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        if (serverTime) setZeroCrossOffset(clockOffset(serverTime, Date.now()));
+        if (rejected?.reason) {
+          zeroRejectSeq.current += 1;
+          setZeroCrossRejected({ reason: String(rejected.reason), id: zeroRejectSeq.current });
+        }
+        break;
+      }
+
+      case 'game:clash_state': {
+        const { gameState: nextState, serverTime } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        if (serverTime) setZeroCrossOffset(clockOffset(serverTime, Date.now()));
+        break;
+      }
+
+      case 'game:clash_lobby': {
+        if (msg.payload) setClashLobby({ ready: Array.isArray(msg.payload.ready) ? msg.payload.ready : [], rules: msg.payload.rules ?? null });
+        break;
+      }
+
+      case 'game:rps_state': {
+        const { gameState: nextState, serverTime } = msg.payload || {};
+        if (nextState) setGameState(nextState);
+        if (serverTime) setZeroCrossOffset(clockOffset(serverTime, Date.now()));
+        break;
+      }
+
+      case 'game:rps_choice_ack': {
+        const { roundId, choice, locked } = msg.payload || {};
+        if (typeof roundId === 'string') setRpsMyPick({ roundId, choice: typeof choice === 'string' ? choice : null, locked: !!locked });
+        break;
+      }
+
+      case 'game:rps_config_updated': {
+        if (typeof msg.payload?.format === 'string') setRpsFormat(msg.payload.format);
+        break;
+      }
+
+      case 'game:zerocross_config_updated': {
+        const d = msg.payload?.durationSeconds;
+        if (d === null || typeof d === 'number') setZeroCrossDuration(d);
         break;
       }
 
@@ -1448,6 +1553,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
     setLastTokenMove(null);
     setLastDiscDrop(null);
     setLastTicTacToeMove(null);
+    setLastPenFlick(null);
+    pendingPenState.current = null;
     setLastBingoCall(null);
     setLastBingoClaimResult(null);
     setLastBingoConditionWon(null);
@@ -1622,6 +1729,73 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
         payload: { column }
       })
     );
+  }, []);
+
+  const makePenFlick = useCallback((angle: number, power: number): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:penfight_flick', payload: { angle, power } }));
+    return true;
+  }, []);
+
+  /** send a placement or a move; the server decides whether it is legal and answers with the new state */
+  const sendZeroCrossAction = useCallback((action: { kind: 'place'; to: number } | { kind: 'move'; from: number; to: number }, moveId: string, baseVersion: number): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:zerocross_action', payload: { ...action, moveId, baseVersion } }));
+    return true;
+  }, []);
+  const surrenderZeroCross = useCallback((): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:zerocross_surrender' }));
+    return true;
+  }, []);
+  const cancelZeroCross = useCallback((): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:zerocross_cancel' }));
+    return true;
+  }, []);
+  const chooseZeroCrossDuration = useCallback((durationSeconds: number | null): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:zerocross_config', payload: { durationSeconds } }));
+    return true;
+  }, []);
+
+  /** Color Clash: the lobby (ready, rules, start) and the moves. The server decides everything; these only ask. */
+  const sendClash = useCallback((type: string, payload?: Record<string, unknown>): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type, ...(payload ? { payload } : {}) }));
+    return true;
+  }, []);
+  const clashReady = useCallback((ready: boolean) => sendClash('game:clash_ready', { ready }), [sendClash]);
+  const clashConfig = useCallback((rules: Record<string, unknown>) => sendClash('game:clash_config', rules), [sendClash]);
+  const clashStart = useCallback(() => sendClash('game:clash_start'), [sendClash]);
+  const clashPlay = useCallback((cardId: string, color: string | undefined, moveId: string, baseVersion: number) => sendClash('game:clash_play', { cardId, ...(color ? { color } : {}), moveId, baseVersion }), [sendClash]);
+  const clashDraw = useCallback((moveId: string, baseVersion: number) => sendClash('game:clash_draw', { moveId, baseVersion }), [sendClash]);
+  const clashPass = useCallback((moveId: string, baseVersion: number) => sendClash('game:clash_pass', { moveId, baseVersion }), [sendClash]);
+  const clashDeclare = useCallback(() => sendClash('game:clash_declare'), [sendClash]);
+  const clashCatch = useCallback((target: number) => sendClash('game:clash_catch', { target }), [sendClash]);
+  const clashChallenge = useCallback((moveId: string, baseVersion: number) => sendClash('game:clash_challenge', { moveId, baseVersion }), [sendClash]);
+  const clashCancel = useCallback(() => sendClash('game:clash_cancel'), [sendClash]);
+
+  /** Rock Paper Scissors: pick (private, can change until locked), lock, cancel (host), choose the format (host, lobby) */
+  const sendRpsChoose = useCallback((roundId: string, choice: string): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:rps_choose', payload: { roundId, choice } }));
+    return true;
+  }, []);
+  const sendRpsLock = useCallback((roundId: string, choice?: string): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:rps_lock', payload: { roundId, ...(choice ? { choice } : {}) } }));
+    return true;
+  }, []);
+  const cancelRps = useCallback((): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:rps_cancel' }));
+    return true;
+  }, []);
+  const chooseRpsFormat = useCallback((format: string): boolean => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) return false;
+    socketRef.current.send(JSON.stringify({ type: 'game:rps_config', payload: { format } }));
+    return true;
   }, []);
 
   const makeTicTacToeMove = useCallback((cellIndex: number): boolean => {
@@ -2045,6 +2219,8 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
     lastTokenMove,
     lastDiscDrop,
     lastTicTacToeMove,
+    lastPenFlick,
+    applyPenState,
     lastBingoCall,
     lastBingoClaimResult,
     lastBingoConditionWon,
@@ -2079,6 +2255,31 @@ export function useGameRoom(roomCode: string | null, gameTypeHint?: string, opti
     moveToken,
     dropDisc,
     makeTicTacToeMove,
+    makePenFlick,
+    sendZeroCrossAction,
+    clashLobby,
+    clashReady,
+    clashConfig,
+    clashStart,
+    clashPlay,
+    clashDraw,
+    clashPass,
+    clashDeclare,
+    clashCatch,
+    clashChallenge,
+    clashCancel,
+    sendRpsChoose,
+    sendRpsLock,
+    cancelRps,
+    chooseRpsFormat,
+    rpsMyPick,
+    rpsFormat,
+    surrenderZeroCross,
+    cancelZeroCross,
+    chooseZeroCrossDuration,
+    zeroCrossDuration,
+    zeroCrossOffset,
+    zeroCrossRejected,
     startBingoGame,
     callNextBingoNumber,
     toggleBingoPause,

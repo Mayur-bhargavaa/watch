@@ -55,6 +55,56 @@ export const GAME_DEFINITIONS: Record<string, GameDefinition> = {
       2: ['red', 'blue']
     }
   },
+  'zero-cross': {
+    id: 'zero-cross',
+    name: 'Zero Cross',
+    minPlayers: 2,
+    maxPlayers: 2,
+    playerOptions: [2],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'blue']
+    }
+  },
+  'color-clash': {
+    id: 'color-clash',
+    name: 'Color Clash',
+    minPlayers: 2,
+    maxPlayers: 4,
+    playerOptions: [2, 3, 4],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'blue'],
+      3: ['red', 'blue', 'green'],
+      4: ['red', 'blue', 'green', 'yellow']
+    }
+  },
+  'rock-paper-scissors': {
+    id: 'rock-paper-scissors',
+    name: 'Rock Paper Scissors',
+    minPlayers: 2,
+    maxPlayers: 2,
+    playerOptions: [2],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'blue']
+    }
+  },
+  'pen-fight': {
+    id: 'pen-fight',
+    name: 'Pen Fight',
+    minPlayers: 2,
+    maxPlayers: 2,
+    playerOptions: [2],
+    supportsPartnerMode: true,
+    supportsPublicMatchmaking: true,
+    colorAssignments: {
+      2: ['red', 'blue']
+    }
+  },
   bingo: {
     id: 'bingo',
     name: 'Bingo Duel',
@@ -193,7 +243,7 @@ export function seatColorsFor(gameType: string, count: number): LudoColor[] {
 /** Strict game type resolution: exact ids (and a few explicit aliases) only; unknown input returns null (GR-32). */
 const GAME_TYPE_ALIASES: Record<string, string> = {
   ludo: 'ludo', 'four-in-a-row': 'four-in-a-row', fourinarow: 'four-in-a-row', 'connect-four': 'four-in-a-row', connect4: 'four-in-a-row',
-  'tic-tac-toe': 'tic-tac-toe', tictactoe: 'tic-tac-toe', bingo: 'bingo', 'bingo-duel': 'bingo',
+  'tic-tac-toe': 'tic-tac-toe', tictactoe: 'tic-tac-toe', 'zero-cross': 'zero-cross', zerocross: 'zero-cross', 'zero-cut': 'zero-cross', 'pen-fight': 'pen-fight', penfight: 'pen-fight', 'pen-battle': 'pen-fight', 'color-clash': 'color-clash', colorclash: 'color-clash', clash: 'color-clash', 'rock-paper-scissors': 'rock-paper-scissors', rps: 'rock-paper-scissors', rockpaperscissors: 'rock-paper-scissors', bingo: 'bingo', 'bingo-duel': 'bingo',
   'doodle-duel': 'doodle-duel', doodle: 'doodle-duel', pictionary: 'doodle-duel',
   tambola: 'tambola', housie: 'tambola', chess: 'chess',
   imposter: 'imposter',

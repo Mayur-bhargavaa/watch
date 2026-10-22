@@ -43,6 +43,10 @@ export type GameId =
   | 'tambola'
   | 'chess'
   | 'tic-tac-toe'
+  | 'zero-cross'
+  | 'pen-fight'
+  | 'rock-paper-scissors'
+  | 'color-clash'
   | 'four-in-a-row'
   | 'imposter'
   | 'mafia-night'
@@ -187,6 +191,90 @@ export const GAME_PRESETS: Record<GameId, GamePreset> = {
       'Get 3 marks in a line (horizontal, vertical, diagonal).',
       'Block your opponent before they complete 3.',
       'First to connect 3 marks wins the round!'
+    ],
+    maxPlayers: 2
+  },
+  'zero-cross': {
+    id: 'zero-cross',
+    name: 'Zero Cross',
+    tagline: 'Place 3 pieces, then move them. Line up three!',
+    annotation: 'Think. Slide. Win.',
+    icon: Grid,
+    iconColor: '#06b6d4',
+    bgImage: '/images/card-zero-cross.png',
+    chips: [
+      { label: '2 Players', icon: Users, color: '#06b6d4' },
+      { label: 'Turn-based', icon: Clock, color: '#f43f5e' },
+      { label: 'Quick Duel', icon: Sparkles, color: '#f59e0b' }
+    ],
+    rules: [
+      'Each player has exactly 3 pieces: Cross (X) or Zero (O).',
+      'Take turns placing your 3 pieces on the 3x3 board.',
+      'Then move your pieces, one per turn, to any empty square.',
+      'First to line up 3 in a row, column or diagonal wins!'
+    ],
+    maxPlayers: 2
+  },
+  'color-clash': {
+    id: 'color-clash',
+    name: 'Color Clash',
+    tagline: 'Match, play, shout Last Card!',
+    annotation: 'The fast card party.',
+    icon: Sparkles,
+    iconColor: '#ef4444',
+    bgImage: '/images/card-color-clash.png',
+    chips: [
+      { label: '2-4 Players', icon: Users, color: '#ef4444' },
+      { label: 'Turn timer', icon: Clock, color: '#f59e0b' },
+      { label: 'Action cards', icon: Sparkles, color: '#22c55e' }
+    ],
+    rules: [
+      'Everyone gets 7 cards. Match the top card by colour or number.',
+      'Skip, Reverse, Draw Two and Wild cards shake things up.',
+      'No playable card? Draw one. Down to one card? Call Last Card!',
+      'The first player to empty their hand wins.'
+    ],
+    maxPlayers: 4
+  },
+  'rock-paper-scissors': {
+    id: 'rock-paper-scissors',
+    name: 'Rock Paper Scissors',
+    tagline: 'Pick in secret. Reveal together.',
+    annotation: 'Quick, tense, fun.',
+    icon: Sparkles,
+    iconColor: '#f59e0b',
+    bgImage: '/images/card-rock-paper-scissors.png',
+    chips: [
+      { label: '2 Players', icon: Users, color: '#f59e0b' },
+      { label: 'Best of 3', icon: Trophy, color: '#22c55e' },
+      { label: 'Live Reveal', icon: Sparkles, color: '#f43f5e' }
+    ],
+    rules: [
+      'After the countdown, pick rock, paper or scissors in secret.',
+      'Lock your choice. You have 10 seconds.',
+      'Both choices are revealed at the same moment.',
+      'Rock beats scissors, scissors beats paper, paper beats rock. First to win the match.'
+    ],
+    maxPlayers: 2
+  },
+  'pen-fight': {
+    id: 'pen-fight',
+    name: 'Pen Fight',
+    tagline: 'Flick your pen. Knock theirs off the desk.',
+    annotation: 'Back-bench battle.',
+    icon: Sparkles,
+    iconColor: '#fb7185',
+    bgImage: '/images/card-pen-fight.png',
+    chips: [
+      { label: '2 Players', icon: Users, color: '#fb7185' },
+      { label: 'Aim & Flick', icon: Sparkles, color: '#f59e0b' },
+      { label: 'First to 3', icon: Trophy, color: '#22c55e' }
+    ],
+    rules: [
+      'Take turns flicking your pen: drag back from it to aim and set the power, then let go.',
+      'Slide the other pen past the edge of the desk and you win the round.',
+      'Flick too hard and your own pen can fall off the desk!',
+      'First to win 3 rounds wins the Pen Fight.'
     ],
     maxPlayers: 2
   },
@@ -363,6 +451,8 @@ interface UnifiedGameWaitingRoomProps {
   onUpdateConfig?: (config: any) => void;
   onLeave: () => void;
   customSettingsComponent?: React.ReactNode;
+  /** an extra card shown under "How to Play?" (a game's own pre-start choices, for example Zero Cross's match length) */
+  lobbyExtra?: React.ReactNode;
   groupLobby?: GroupLobbyConfig;
   /** live camera / voice tiles of the players (shown above the seats when given) */
   videoParticipants?: ParticipantStream[];
@@ -389,6 +479,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
   onUpdateConfig,
   onLeave,
   customSettingsComponent,
+  lobbyExtra,
   groupLobby,
   videoParticipants,
   surface
@@ -582,6 +673,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
                 ))}
               </div>
             </div>
+            {lobbyExtra}
           </div>
 
           {/* Center Column: Matchmaking Title, Player Cards VS, Actions */}

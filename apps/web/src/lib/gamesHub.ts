@@ -76,6 +76,50 @@ export const GAMES_DATA: GameCardData[] = [
     category: 'duel'
   },
   {
+    id: 'zero-cross',
+    title: 'Zero Cross',
+    subtext: '3 pieces each. Place them, then move them.',
+    players: '2 Players',
+    gradient: 'from-[#38bdf8] via-[#0e7490] to-[#082f49]',
+    image: '/images/card-zero-cross.png',
+    route: '/games/zero-cross',
+    watermark: 'sparkle',
+    category: 'duel'
+  },
+  {
+    id: 'pen-fight',
+    title: 'Pen Fight',
+    subtext: 'Flick your pen. Knock theirs off the desk.',
+    players: '2 Players',
+    gradient: 'from-[#fb7185] via-[#be123c] to-[#1e1b4b]',
+    image: '/images/card-pen-fight.png',
+    route: '/games/pen-fight',
+    watermark: 'sparkle',
+    category: 'duel'
+  },
+  {
+    id: 'rock-paper-scissors',
+    title: 'Rock Paper Scissors',
+    subtext: 'Secret picks. One big reveal. Best of 3.',
+    players: '2 Players',
+    gradient: 'from-[#f59e0b] via-[#b45309] to-[#1c1917]',
+    image: '/images/card-rock-paper-scissors.png',
+    route: '/games/rock-paper-scissors',
+    watermark: 'sparkle',
+    category: 'duel'
+  },
+  {
+    id: 'color-clash',
+    title: 'Color Clash',
+    subtext: 'Match colours, play action cards, empty your hand first.',
+    players: '2-4 Players',
+    gradient: 'from-[#ef4444] via-[#9f1239] to-[#1e1b4b]',
+    image: '/images/card-color-clash.png',
+    route: '/games/color-clash',
+    watermark: 'sparkle',
+    category: 'party'
+  },
+  {
     id: 'four-in-a-row',
     title: 'Four in a Row',
     subtext: 'Vertical disc duel. 4 in a line.',

@@ -46,7 +46,7 @@ function resolveGameType(raw?: string): GameType {
   const exact = parseGameType(text);
   if (exact) return exact as GameType;
   const PREFIXES: Record<string, GameType> = {
-    ludo: 'ludo', four: 'four-in-a-row', tic: 'tic-tac-toe', tambola: 'tambola', bingo: 'bingo', doodle: 'doodle-duel', chess: 'chess', imposter: 'imposter', emoji: 'emoji-charades', mafia: 'mafia-night', quiz: 'quiz-show', murder: 'murder-mystery', arena: 'tournament', tournament: 'tournament'
+    ludo: 'ludo', four: 'four-in-a-row', tic: 'tic-tac-toe', zero: 'zero-cross', pen: 'pen-fight', rps: 'rock-paper-scissors', clash: 'color-clash', tambola: 'tambola', bingo: 'bingo', doodle: 'doodle-duel', chess: 'chess', imposter: 'imposter', emoji: 'emoji-charades', mafia: 'mafia-night', quiz: 'quiz-show', murder: 'murder-mystery', arena: 'tournament', tournament: 'tournament'
   };
   const prefixed = PREFIXES[text.toLowerCase().split(/[-_]/)[0]];
   if (prefixed) return prefixed;
@@ -60,6 +60,10 @@ function getGameBasePath(gameType: string): string {
   if (gameType === 'bingo') return '/games/bingo';
   if (gameType === 'tambola') return '/games/tambola';
   if (gameType === 'tic-tac-toe') return '/games/tic-tac-toe';
+  if (gameType === 'zero-cross') return '/games/zero-cross';
+  if (gameType === 'pen-fight') return '/games/pen-fight';
+  if (gameType === 'rock-paper-scissors') return '/games/rock-paper-scissors';
+  if (gameType === 'color-clash') return '/games/color-clash';
   if (gameType === 'four-in-a-row') return '/games/four-in-a-row';
   if (gameType === 'chess') return '/games/chess';
   if (gameType === 'imposter') return '/games/imposter';
