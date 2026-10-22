@@ -4,7 +4,8 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, MessageSquare, Share2 } from 'lucide-react';
 import { useGameRoom } from '../../../hooks/useGameRoom';
-import { getGameRoute, getStoredSession, pingPartner, type FriendWithStreak } from '../../../lib/api';
+import { getGameRoute, getStoredSession, type FriendWithStreak } from '../../../lib/api';
+import { sendGameInviteToChat } from '../../../lib/gameChatInvite';
 import { isSpectateRequested } from '../../../lib/spectator';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
 import { AppHeader } from '../../../components/layout/AppHeader';
@@ -96,7 +97,7 @@ function ClashRoom({ roomCode, spectate }: { roomCode: string; spectate: boolean
   const invite = async (friend: FriendWithStreak) => {
     if (!room) return;
     try {
-      await pingPartner({ targetCode: friend.friendUser.partnerCode, roomCode: room.roomCode, gameType: 'color-clash', customMessage: 'Join my Color Clash table!' });
+      sendGameInviteToChat(friend, { roomCode: room.roomCode, gameType: 'color-clash', maxPlayers: room.maxPlayers });
       setToast(`Invite sent to ${friend.friendUser.displayName}`);
     } catch (e: any) {
       setToast(e?.message || 'Could not send the invite');

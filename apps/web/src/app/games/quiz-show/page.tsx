@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { AppIcon } from '../../../components/ui/AppIcon';
 import { useGameRoom } from '../../../hooks/useGameRoom';
-import { getGameRoute, getStoredSession, pingPartner, type FriendWithStreak } from '../../../lib/api';
+import { getGameRoute, getStoredSession, type FriendWithStreak } from '../../../lib/api';
+import { sendGameInviteToChat } from '../../../lib/gameChatInvite';
 import { isSpectateRequested } from '../../../lib/spectator';
 import { quizErrorText } from '../../../lib/quizShowView';
 import { AppSidebar } from '../../../components/layout/AppSidebar';
@@ -203,7 +204,7 @@ function QuizRoom({ roomCode, spectate }: { roomCode: string; spectate: boolean 
   const invite = async (friend: FriendWithStreak) => {
     if (!room) return;
     try {
-      await pingPartner({ targetCode: friend.friendUser.partnerCode, roomCode: room.roomCode, gameType: 'quiz-show', customMessage: 'Join my quiz on Quiz Show Studio!' });
+      sendGameInviteToChat(friend, { roomCode: room.roomCode, gameType: 'quiz-show', maxPlayers: room.maxPlayers });
       setToast(`Invite sent to ${friend.friendUser.displayName}`);
     } catch (e: any) {
       setToast(e?.message || 'Could not send the invite');

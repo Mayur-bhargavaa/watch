@@ -35,8 +35,9 @@ import { ChatPanel } from '../../doodle/waiting/ChatPanel';
 import { useTheme } from '../../../../context/ThemeContext';
 import { VideoGrid, type ParticipantStream } from '../../../voice/VideoGrid';
 import { TournamentMatchBanner } from '../TournamentMatchBanner';
+import { sendGameInviteToChat } from '../../../../lib/gameChatInvite';
 import { GameFriendSelectorDrawer } from '../../GameFriendSelectorDrawer';
-import { getStoredSession, pingPartner, type FriendWithStreak } from '../../../../lib/api';
+import { getStoredSession, type FriendWithStreak } from '../../../../lib/api';
 
 export type GameId =
   | 'doodle-duel'
@@ -568,7 +569,7 @@ export const UnifiedGameWaitingRoom: React.FC<UnifiedGameWaitingRoomProps> = ({
   // Friends are invited through chat (the same invite the Friends page sends); the group lobbies bring their own picker.
   const inviteFriend = async (friend: FriendWithStreak) => {
     try {
-      await pingPartner({ targetCode: friend.friendUser.partnerCode, roomCode: room.roomCode, gameType, customMessage: `Join my ${preset.name} room!` });
+      sendGameInviteToChat(friend, { roomCode: room.roomCode, gameType, maxPlayers: room.maxPlayers });
       setInviteNote(`Invite sent to ${friend.friendUser.displayName}`);
     } catch (e: any) {
       setInviteNote(e?.message || 'Could not send the invite');
