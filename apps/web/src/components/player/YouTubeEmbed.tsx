@@ -99,8 +99,8 @@ export const YouTubeEmbed = memo(function YouTubeEmbed({
               }
             },
             onStateChange: (event: any) => {
-              // anyone may play / pause for the room; the server ignores a repeat and keeps its own position for non-hosts
-              if (isCancelled || isInternalUpdateRef.current) return;
+              // YouTube is host-controlled: viewers have no play / pause control here (their player is corrected back)
+              if (!isHost || isCancelled || isInternalUpdateRef.current) return;
               const currentTime =
                 playerRef.current && typeof playerRef.current.getCurrentTime === 'function'
                   ? playerRef.current.getCurrentTime()
