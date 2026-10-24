@@ -45,6 +45,33 @@ export function cleanChatContent(content: string): string {
   return content;
 }
 
+/** A media data URL as a browser or phone produces it. Recorders add parameters, e.g. `data:audio/webm;codecs=opus;base64,`. */
+const DATA_URL_RE = /^data:(image|audio|video)\/[a-z0-9.+-]+(?:;[a-z0-9._=+-]+)*;base64,[A-Za-z0-9+/=]+$/i;
+const AUDIO_URL_RE = /^data:audio\/[a-z0-9.+-]+(?:;[a-z0-9._=+-]+)*;base64,[A-Za-z0-9+/=]+$/i;
+/** A voice note travels as a data URL (about 600 KB of audio = 800 KB of base64). */
+export const MAX_VOICE_DATA_URL = 880_000;
+export const MAX_VOICE_SECONDS = 180;
+export const VOICE_LABEL = '🎤 Voice message';
+
+/**
+ * The voice part of a message: `{ duration (whole seconds, 1..180), waveform (up to 64 bars, 0..100) }`. The audio itself
+ * lives ONCE, in `mediaUrl`; the old website also repeated it in `metadata.voice.audioUrl`, which is accepted as the audio
+ * when `mediaUrl` is missing and is never stored twice.
+ */
+export function cleanVoice(body: any): { mediaUrl: string; voice: { duration: number; waveform: number[] } } | { error: string } {
+  const raw = body?.metadata?.voice && typeof body.metadata.voice === 'object' ? body.metadata.voice : {};
+  const candidates = [body?.mediaUrl, raw.audioUrl];
+  const audio = candidates.find((u) => typeof u === 'string' && AUDIO_URL_RE.test(u));
+  if (!audio) return { error: 'A voice message needs audio (a recording of a supported type).' };
+  if (audio.length > MAX_VOICE_DATA_URL) return { error: 'That voice message is too long to send. Keep it under about two minutes.' };
+  const d = Number(raw.durationSeconds ?? raw.duration);
+  const duration = Number.isFinite(d) ? Math.min(MAX_VOICE_SECONDS, Math.max(1, Math.round(d))) : 1;
+  const waveform = Array.isArray(raw.waveform)
+    ? raw.waveform.slice(0, 64).map((n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : 0))
+    : [];
+  return { mediaUrl: audio, voice: { duration, waveform } };
+}
+
 export interface DirectMessageDeps {
   areConnected(a: string, b: string): Promise<boolean>;
   getDirectMessageById(id: string): Promise<any | null>;
@@ -96,7 +123,7 @@ export async function prepareDirectMessage(
   let mediaUrl: string | undefined;
   if (typeof body.mediaUrl === 'string' && body.mediaUrl) {
     mediaUrl =
-      /^data:(image|audio|video)\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+$/i.test(body.mediaUrl) && body.mediaUrl.length < 900_000
+      DATA_URL_RE.test(body.mediaUrl) && body.mediaUrl.length < 900_000
         ? body.mediaUrl
         : safeUrl(body.mediaUrl, { allowRelative: true }) || undefined;
   }
@@ -112,6 +139,15 @@ export async function prepareDirectMessage(
         }
       : undefined;
 
+  const type = typeof body.type === 'string' && /^[a-z_]{1,20}$/.test(body.type) ? body.type : 'text';
+  let voice: { duration: number; waveform: number[] } | undefined;
+  if (type === 'voice') {
+    const v = cleanVoice(body);
+    if ('error' in v) return { ok: false, status: 400, error: v.error };
+    mediaUrl = v.mediaUrl;
+    voice = v.voice;
+  }
+
   const msg = {
     id,
     conversationId: toCanonicalConvId(sender.id, recipientId),
@@ -119,10 +155,10 @@ export async function prepareDirectMessage(
     senderName: sender.displayName, // identity always comes from the token, never the body
     senderAvatar: sender.avatarUrl || undefined,
     recipientId,
-    type: typeof body.type === 'string' && /^[a-z_]{1,20}$/.test(body.type) ? body.type : 'text',
-    content: cleanChatContent(content),
+    type,
+    content: type === 'voice' ? VOICE_LABEL : cleanChatContent(content),
     mediaUrl,
-    metadata: cleanMetadata(body.metadata) || undefined,
+    metadata: type === 'voice' ? { voice } : cleanMetadata(body.metadata) || undefined,
     replyTo,
     status: isRecipientOnline(recipientId) ? 'delivered' : 'sent',
     createdAt: new Date().toISOString()

@@ -3,6 +3,7 @@
 import {
   ChatConversation,
   ChatMessage,
+  ChatMessageReaction,
   ChatUser,
   ChatMessageType,
   ChatMessageMetadata,
@@ -1104,6 +1105,27 @@ export class ChatStore {
       }
       return { ...msg, reactions: reactions.filter((r) => r.count > 0) };
     });
+    void this.sendReactionToServer(messageId, emoji);
+  }
+
+  /** Reactions live on the server so both people (and the phone app) see them: the local copy above shows it at once, this tells the server. */
+  private static async sendReactionToServer(messageId: string, emoji: string): Promise<void> {
+    const s = getStoredSession();
+    if (!s?.token || !/^[A-Za-z0-9_-]{1,64}$/.test(messageId)) return;
+    try {
+      await fetch(`${API_BASE}/api/chat/messages/${encodeURIComponent(messageId)}/react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` },
+        body: JSON.stringify({ emoji })
+      });
+    } catch {
+      // offline: the reaction stays on this device only
+    }
+  }
+
+  /** The server says what a message's reactions are now (the other person reacted, or reacted from the phone app). */
+  static applyServerReactions(conversationId: string, messageId: string, reactions: ChatMessageReaction[]): void {
+    this.patchMessage(conversationId, messageId, (msg) => ({ ...msg, reactions: reactions.filter((r) => r.userIds.length > 0).map((r) => ({ emoji: r.emoji, userIds: r.userIds, count: r.userIds.length })) }));
   }
 
   static togglePinMessage(conversationId: string, messageId: string): void {

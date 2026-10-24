@@ -21,7 +21,8 @@ import { hashPassword, verifyPassword, dummyVerify, validatePassword, isHashed }
 import { KeyedLimiter } from './util/rateLimit.js';
 import { str, plainText, isEmail, safeAvatar, ROOM_CODE_RE } from './util/validate.js';
 import { prepareDirectMessage } from './services/directMessage.js';
-import { prepareDelete, prepareEdit, preparePin, validMessageId } from './services/messageActions.js';
+import { prepareDelete, prepareEdit, preparePin, prepareReaction, validMessageId } from './services/messageActions.js';
+import { TOUR_VERSION, buildTourState, parseTourBody, tourNeeded } from './services/productTour.js';
 import { pushService, parseSubscription, isExpoPushToken, MAX_SUBSCRIPTIONS_PER_USER, type PushPayload } from './services/pushService.js';
 import { ActivityTracker, IS_PASSIVE_REQUEST, RecentKeys, platformOf } from './services/activityTracker.js';
 import { publicMessage } from './util/safeError.js';
@@ -34,6 +35,12 @@ import { runGameLaunchJob } from './services/gameLaunch.js';
 import { registerCatalogRoutes, roomTitleApi } from './routes/catalog.js';
 import { CatalogService } from './services/catalog/service.js';
 import { MongoWatchlistStore } from './services/catalog/watchlist.js';
+import { registerListRoutes } from './routes/lists.js';
+import { registerClientErrorRoutes } from './routes/clientErrors.js';
+import { registerChatThemeRoutes } from './routes/chatTheme.js';
+import { MongoChatThemeStore } from './services/chatTheme.js';
+import { MongoClientErrorSink } from './services/clientErrors.js';
+import { MongoSharedListStore } from './services/sharedLists.js';
 import { MongoQuotaStore } from './services/catalog/availabilityGuard.js';
 // the Streaming Availability monthly counter lives in Mongo (`catalog_quota`, one document per provider per UTC month)
 const cineverseCatalog = new CatalogService(process.env, { quotaStore: new MongoQuotaStore(() => mongoDb.catalogQuotaCol) });
@@ -198,6 +205,7 @@ export async function createServer(dbPath = './synccinema.db') {
   // --- Global auth gate: every /api route needs a valid, non-anonymous JWT unless listed here ---
   const PUBLIC_ROUTES = new Set([
     'GET /api/health',
+    'POST /api/client-errors', // a crash can happen before sign-in; the route limits itself per address
     'GET /api/billing/catalog',
     'POST /api/billing/webhooks/razorpay',
     'POST /api/billing/webhooks/stripe',
@@ -754,6 +762,40 @@ export async function createServer(dbPath = './synccinema.db') {
     }
   });
 
+  // First-run product tour of the mobile app: shown once per account, so the state lives on the user (not on the phone).
+  app.get('/api/user/tour', async (request, reply) => {
+    try {
+      const user = await getRequestUser(request);
+      const productTour = await mongoDb.getProductTour(user.id);
+      return { productTour, needed: tourNeeded(productTour), version: TOUR_VERSION };
+    } catch {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+  });
+  app.put('/api/user/tour', async (request, reply) => {
+    let userId: string;
+    try {
+      userId = (await getRequestUser(request)).id;
+    } catch {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+    const action = parseTourBody(request.body);
+    if (action.kind === 'invalid') return reply.code(400).send({ error: "status must be 'completed' or 'skipped'" });
+    const productTour = buildTourState(action.status);
+    if (!(await mongoDb.setProductTour(userId, productTour))) return reply.code(404).send({ error: 'User not found' });
+    return { success: true, productTour };
+  });
+  // "Replay the tour" from the app's settings
+  app.delete('/api/user/tour', async (request, reply) => {
+    try {
+      const user = await getRequestUser(request);
+      await mongoDb.setProductTour(user.id, null);
+      return { success: true, productTour: null };
+    } catch {
+      return reply.code(401).send({ error: 'Unauthorized' });
+    }
+  });
+
   app.get('/api/user/rooms', async (request, reply) => {
     try {
       const payload = (await request.jwtVerify()) as any;
@@ -1305,6 +1347,49 @@ export async function createServer(dbPath = './synccinema.db') {
     return { success: true, message: 'Friend removed' };
   });
 
+  app.get('/api/users/:userId/profile', async (request, reply) => {
+    const requester = await getRequestUser(request);
+    presenceManager.recordHeartbeat(requester.id);
+    const { userId } = request.params as { userId: string };
+    if (!userId) {
+      return reply.code(400).send({ error: 'userId is required' });
+    }
+    const targetUser = await mongoDb.getUserById(userId);
+    if (!targetUser) {
+      return reply.code(404).send({ error: 'User not found' });
+    }
+    const friends = await mongoDb.getFriendsWithStreaks(requester.id, (id) => isUserOnline(id));
+    const friendship = friends.find((f) => f.friendUser.id === userId) || null;
+    const tier = (await mongoDb.getMembershipTiers([userId])).get(userId) || 'free';
+    const online = isUserOnline(userId);
+
+    return {
+      success: true,
+      user: {
+        id: targetUser.id,
+        displayName: targetUser.displayName,
+        avatarUrl: targetUser.avatarUrl || null,
+        partnerCode: targetUser.partnerCode || '',
+        gender: targetUser.gender || null,
+        pronouns: targetUser.pronouns || null,
+        location: targetUser.location || null,
+        bio: targetUser.bio || null,
+        relationshipStatus: targetUser.relationshipStatus || null,
+        favoriteGenres: targetUser.favoriteGenres || [],
+        viewingVibe: targetUser.viewingVibe || null,
+        age: targetUser.age || null,
+        membershipTier: tier,
+        isOnline: online,
+        createdAt: targetUser.createdAt
+      },
+      friendship: friendship ? {
+        friendshipId: friendship.friendshipId,
+        streak: friendship.streak,
+        createdAt: friendship.createdAt
+      } : null
+    };
+  });
+
   // =====================================================================
   // Watch Direct Chat Endpoints
   // =====================================================================
@@ -1355,8 +1440,11 @@ export async function createServer(dbPath = './synccinema.db') {
       message: prepared.msg
     });
     // not delivered live, and the recipient does not have this chat open (a message they are already reading needs no banner)
-    if (!deliveredLive && !activity.isChatOpen(prepared.recipientId, user.id)) {
+    // The phone always gets the banner: a socket that is still open (a website tab, or the app a moment after it went to the background)
+    // must not hide it. The website already showed the message live, so it is not pushed there again.
+    if (!activity.isChatOpen(prepared.recipientId, user.id)) {
       pushOffline(prepared.recipientId, {
+        ...(deliveredLive ? { only: 'phone' as const } : {}),
         category: 'chat',
         chatWith: user.id,
         dedupeKey: `chat:${prepared.msg.id}`,
@@ -1407,6 +1495,22 @@ export async function createServer(dbPath = './synccinema.db') {
     const message = { ...existing, id, isPinned: r.value.isPinned };
     tellChatPeers([r.value.otherId, user.id], { type: 'chat:message_updated', message });
     return { success: true, isPinned: r.value.isPinned };
+  });
+
+  // React to a message with an emoji (the same emoji again takes it back). Both people see it at once.
+  const reactLimiter = new KeyedLimiter(envInt('RATE_LIMIT_REACT_MAX', 90), 60_000);
+  app.post('/api/chat/messages/:id/react', async (request, reply) => {
+    const user = await getRequestUser(request);
+    const { id } = request.params as { id: string };
+    if (!validMessageId(id)) return reply.code(400).send({ error: 'Invalid message id' });
+    if (reactLimiter.hit(`react:${user.id}`)) return tooMany(reply);
+    const existing = await mongoDb.getDirectMessageById(id);
+    const r = prepareReaction(existing, user.id, (request.body as { emoji?: unknown } | null)?.emoji);
+    if (!r.ok) return reply.code(r.status).send({ error: r.error });
+    await mongoDb.updateDirectMessage(id, { reactions: r.value.reactions });
+    const message = { ...existing, id, reactions: r.value.reactions };
+    tellChatPeers([r.value.otherId, user.id], { type: 'chat:message_updated', message });
+    return { success: true, reactions: r.value.reactions, added: r.value.added };
   });
 
   app.post('/api/chat/read', async (request, reply) => {
@@ -2013,6 +2117,16 @@ export async function createServer(dbPath = './synccinema.db') {
 
   // --- Cineverse (movie / TV discovery, watchlist, party queue): see CINEVERSE.md -------------------------------------
   await registerCatalogRoutes(app, { catalog: cineverseCatalog, watchlist: new MongoWatchlistStore(() => mongoDb.watchlistCol), rooms: roomTitleApi(syncManager) });
+  // Crash / error reports from the mobile app (grouped, kept 30 days): see services/clientErrors.ts
+  await registerClientErrorRoutes(app, { sink: new MongoClientErrorSink(() => mongoDb.clientErrorsCol), onNew: (id, s) => console.warn(`[client-error] new ${id} ${s}`) });
+  // The look of one chat, shared by both people: see services/chatTheme.ts
+  await registerChatThemeRoutes(app, { store: new MongoChatThemeStore(() => mongoDb.chatThemesCol), areConnected: (a, b) => mongoDb.areConnected(a, b), convId: toCanonicalConvId, tell: (ids, payload) => { for (const id of new Set(ids)) presenceManager.sendToUser(id, payload); } });
+  // Shared watch lists (friends add titles and vote): see services/sharedLists.ts
+  await registerListRoutes(app, {
+    store: new MongoSharedListStore(() => mongoDb.sharedListsCol),
+    areFriends: (a, b) => mongoDb.areFriends(a, b),
+    notify: (ids, n) => { for (const id of ids) pushOffline(id, { title: n.title, body: n.body, url: n.url, tag: `list:${n.url}` }); }
+  });
   syncManager.setTitleLinkResolver((titleKey, providerId, region) => cineverseCatalog.resolveDestinationUrl(titleKey, providerId, region));
 
   // --- Billing / subscriptions -------------------------------------------------------------------------------

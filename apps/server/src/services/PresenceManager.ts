@@ -28,7 +28,7 @@ export class PresenceManager {
   private lastSeen = new Map<string, number>();
 
   // Called when a message/event could not be delivered live (user has no open socket): used for Web Push
-  private offlineNotifier: ((userId: string, payload: { title: string; body: string; tag?: string; url?: string; renotify?: boolean; category?: 'chat'; chatWith?: string; dedupeKey?: string }) => void) | null = null;
+  private offlineNotifier: ((userId: string, payload: { title: string; body: string; tag?: string; url?: string; renotify?: boolean; category?: 'chat'; chatWith?: string; dedupeKey?: string; only?: 'web' | 'phone' }) => void) | null = null;
 
   public setOfflineNotifier(fn: PresenceManager['offlineNotifier']): void {
     this.offlineNotifier = fn;
@@ -330,9 +330,12 @@ export class PresenceManager {
           if (delivered) {
             status = 'delivered';
             finalMsg.status = 'delivered';
-          } else {
-            // Recipient has no open tab: fall back to an OS-level push notification (if they enabled it)
+          }
+          {
+            // The phone always gets the banner, even when a socket is open (a website tab, or the app just after it went to the
+            // background); the website only when nothing received the message live.
             this.offlineNotifier?.(prepared.recipientId, {
+              ...(delivered ? { only: 'phone' as const } : {}),
               category: 'chat',
               chatWith: user.id,
               dedupeKey: `chat:${finalMsg.id}`,

@@ -273,7 +273,7 @@ export const ChatLayout: React.FC = () => {
       metadata: {
         voice: {
           duration,
-          audioUrl,
+          // the audio travels once, in mediaUrl (repeating it here doubled the message past the server's size limit)
           waveform: waveform || [30, 45, 75, 90, 60, 40, 80, 100, 70, 50, 65, 85, 45, 95, 60, 40, 70, 85, 60, 35, 50, 40]
         }
       }

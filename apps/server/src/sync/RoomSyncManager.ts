@@ -30,6 +30,7 @@ import { mongoLogger } from '../services/mongoLogger.js';
 import { SocketGuard } from '../util/socketGuard.js';
 import { ROOM_PAYLOAD_SCHEMAS } from './schemas.js';
 import { cleanCheckin, mayRelayScreenSignal, mayStartScreenShare, screenLog } from './screenRules.js';
+import { decidePlayback } from './playbackRules.js';
 import { applyTitleAction, type TitleAction, type TitleApplyResult } from './titleQueue.js';
 
 export interface ConnectedClient {
@@ -48,6 +49,8 @@ export interface ConnectedClient {
   pending?: boolean;
   /** membership tier at connect time (gates premium themes) */
   tier?: MembershipTier;
+  /** last play / pause from a guest (stops a flood of taps) */
+  lastGuestPlaybackAt?: number;
 }
 
 const MAX_TITLE_LEN = 200;
@@ -671,21 +674,27 @@ export class RoomSyncManager {
     room: Room,
     payload: PlaybackCommandPayload
   ): void {
-    // Check permission: only HOST or CO_HOST can command playback
-    if (client.role !== 'HOST' && client.role !== 'CO_HOST') {
-      this.sendError(client.socket, 'UNAUTHORIZED', 'Only the room host or co-hosts can control playback');
-      return;
-    }
-
     const currentServerTime = Date.now();
     const currentState = room.playbackState;
 
-    // Calculate updated position
-    let newPosition = payload.position;
-    if (payload.action === 'PAUSE' && currentState.state === 'PLAYING') {
-      // If pausing, capture exact current authoritative time
-      newPosition = calculateAuthoritativePosition(currentState, currentServerTime);
+    // Host and co-hosts control everything; everybody else in the room may play and pause for all (see playbackRules.ts)
+    const isController = client.role === 'HOST' || client.role === 'CO_HOST';
+    const decision = decidePlayback({
+      isController,
+      action: payload.action,
+      state: currentState.state,
+      authoritative: calculateAuthoritativePosition(currentState, currentServerTime),
+      storedPosition: currentState.position,
+      requested: payload.position,
+      sinceLastGuestCommandMs: currentServerTime - (client.lastGuestPlaybackAt ?? 0),
+    });
+    if (decision.type === 'deny') {
+      this.sendError(client.socket, 'UNAUTHORIZED', decision.message);
+      return;
     }
+    if (decision.type === 'ignore') return;
+    if (!isController) client.lastGuestPlaybackAt = currentServerTime;
+    const newPosition = decision.position;
 
     const updatedState: RoomPlaybackState = {
       roomId: room.id,

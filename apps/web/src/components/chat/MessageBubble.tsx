@@ -405,7 +405,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           >
             {message.type === 'voice' && message.metadata?.voice ? (
               /* Voice Note */
-              <VoiceMessage voice={message.metadata.voice} isSender={isSender} />
+              <VoiceMessage voice={{ ...message.metadata.voice, audioUrl: message.metadata.voice.audioUrl ?? message.mediaUrl }} isSender={isSender} />
             ) : message.type === 'plan' && message.metadata?.plan ? (
               /* Plan Card */
               <PlanMessage plan={message.metadata.plan} isSender={isSender} />

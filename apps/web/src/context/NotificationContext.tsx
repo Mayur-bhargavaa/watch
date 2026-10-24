@@ -582,6 +582,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           case 'chat:status_update':
             ChatStore.updateMessageStatus(data.messageId, data.conversationId, data.status, data.messageIds);
             return;
+          case 'chat:message_updated':
+            // a reaction was added or taken back (by the other person or from the phone app)
+            if (data.message?.id && Array.isArray(data.message.reactions)) ChatStore.applyServerReactions(data.message.conversationId, data.message.id, data.message.reactions);
+            return;
           case 'chat:view_once_opened':
             if (data.messageId) ChatStore.markViewOnceOpened(data.conversationId, data.messageId, false);
             return;

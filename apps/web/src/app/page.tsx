@@ -26,6 +26,7 @@ import { AppIcon, type IconName } from '../components/ui/AppIcon';
 import { getStoredSession, clearStoredSession, UserSession } from '../lib/api';
 import { liveGames } from '../lib/gamesHub';
 import { RevealOnScroll } from '../components/landing/RevealOnScroll';
+import { MobileWelcomeOnboarding } from '../components/landing/MobileWelcomeOnboarding';
 
 /** The real number of playable games in the hub (counted from the games catalogue, never typed by hand). */
 const GAME_COUNT = liveGames().length;
@@ -39,6 +40,7 @@ export default function LandingPage() {
   const [customNickname, setCustomNickname] = useState<string>('Alex');
   const [hostOnlyControl, setHostOnlyControl] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [showMobileDetails, setShowMobileDetails] = useState<boolean>(false);
 
   useEffect(() => {
     const stored = getStoredSession();
@@ -93,7 +95,7 @@ export default function LandingPage() {
       subtitle: 'Zero installation required',
       desc: 'Click "Get Started" or "Sign In". No Chrome extension to download, no credit card, no sign-up hassle. Your private room is ready in 3 seconds.',
       badge: 'Instant Setup',
-      image: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1000&auto=format&fit=crop&q=80',
+      image: '/theater/theater_clean_backdrop.png',
       caption: 'Private Room is ready. Secure invite link generated.'
     },
     {
@@ -101,7 +103,7 @@ export default function LandingPage() {
       subtitle: 'YouTube, Discover, Ludo, Four-in-a-Row',
       desc: `Paste any YouTube link you want to binge, or find a movie or show in Discover and propose it to the room. Prefer to play? Launch one of ${GAME_COUNT} games, from Ludo and Four-in-a-Row to Chess, Imposter and Mafia Night.`,
       badge: 'Video + Games Together',
-      image: 'https://img.youtube.com/vi/zSWdZVtXT7E/maxresdefault.jpg',
+      image: '/images/games-hero-banner.jpg',
       caption: 'Stream 4K YouTube in sync or roll the dice in 3D Ludo.'
     },
     {
@@ -109,7 +111,7 @@ export default function LandingPage() {
       subtitle: 'One-click invite link',
       desc: 'Copy your unique room URL and send it to your partner or friends on WhatsApp, Telegram, or Discord. They click it and drop right in.',
       badge: 'Private & Encrypted',
-      image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1000&auto=format&fit=crop&q=80',
+      image: '/images/romantic_room_ambient_bg.jpg',
       caption: 'Only people with your secret link can join your room.'
     },
     {
@@ -117,7 +119,7 @@ export default function LandingPage() {
       subtitle: 'Sub-15ms playback sync engine',
       desc: 'When anyone hits Play or Pause, it reacts simultaneously for everyone in the room. No counting down "3, 2, 1, press play!" ever again.',
       badge: 'Sub-second Sync',
-      image: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1000&auto=format&fit=crop&q=80',
+      image: '/theater/cinema_ultra_lux.png',
       caption: 'Synced frame-for-frame across phones, laptops, and tablets.'
     },
     {
@@ -125,19 +127,19 @@ export default function LandingPage() {
       subtitle: 'Live reactions on camera',
       desc: 'See their genuine smiles, laugh together on camera with picture-in-picture video call, and spam cute looping Bubu & Dudu animated stickers in chat.',
       badge: 'Picture-in-Picture Call',
-      image: 'https://images.unsplash.com/photo-1516251193007-45ef944ab0c6?w=1000&auto=format&fit=crop&q=80',
+      image: '/images/cozy_ludo_bg.jpg',
       caption: 'Talk, react, and feel like you are sitting together on the couch.'
     },
   ];
 
   // Gallery cards of Shows & Games
   const catalogCards = [
-    { title: 'Stranger Things', type: 'Sci-Fi Series', tag: 'Streaming', img: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=500&auto=format&fit=crop&q=80', isGame: false },
-    { title: 'Cottagecore Ludo 3D', type: '2-4 Player Board Game', tag: 'Instant Game', img: 'https://images.unsplash.com/photo-1610890716171-6b1bb98ffd09?w=500&auto=format&fit=crop&q=80', isGame: true },
-    { title: 'Interstellar (4K)', type: 'Cinema Masterpiece', tag: 'Streaming', img: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500&auto=format&fit=crop&q=80', isGame: false },
-    { title: 'Four in a Row Duel', type: 'Connect 4 Strategy', tag: 'Instant Game', img: 'https://images.unsplash.com/photo-1606167668584-78701c57f13d?w=500&auto=format&fit=crop&q=80', isGame: true },
-    { title: 'Anime & Demon Slayer', type: 'Animation Party', tag: 'Streaming', img: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500&auto=format&fit=crop&q=80', isGame: false },
-    { title: 'Lofi Girl Live Beats', type: 'Study & Chill', tag: 'Streaming', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&auto=format&fit=crop&q=80', isGame: false },
+    { title: 'Interstellar (4K)', type: 'Cinema Masterpiece', tag: 'Streaming', img: '/plans/interstellar_thumb.jpg', isGame: false, path: '/discover' },
+    { title: 'Cottagecore Ludo 3D', type: '2-4 Player Board Game', tag: 'Instant Game', img: '/images/card-ludo-dice.jpg', isGame: true, path: '/games/ludo' },
+    { title: 'Cinema Ultra Lux', type: 'Private Room Theater', tag: 'Streaming', img: '/theater/cinema_ultra_lux.png', isGame: false, path: '/discover' },
+    { title: 'Four in a Row Duel', type: 'Connect 4 Strategy', tag: 'Instant Game', img: '/images/card-four-in-row.jpg', isGame: true, path: '/games/four-in-a-row' },
+    { title: 'Chess Arena', type: '1v1 Live Chess Duel', tag: 'Instant Game', img: '/images/card-chess-arena.jpg', isGame: true, path: '/games/chess' },
+    { title: 'Cinema Trivia & Quiz', type: 'Party Quiz Show', tag: 'Instant Game', img: '/images/card-cinema-trivia.jpg', isGame: true, path: '/games/quiz-show' },
   ];
 
   const faqs = [
@@ -171,9 +173,33 @@ export default function LandingPage() {
     <div data-landing-root className="min-h-screen bg-white text-zinc-900 flex flex-col selection:bg-[#d2281e] selection:text-white font-sans antialiased overflow-x-hidden w-full max-w-full">
       <RevealOnScroll />
 
-      {/* ===================================================================== */}
-      {/* 1. TOP NAVBAR (Pure #d2281e Theme & Responsive Buttons in a Row)      */}
-      {/* ===================================================================== */}
+      {/* Mobile Welcome Onboarding View (Rendered on mobile screens) */}
+      {!showMobileDetails && (
+        <div className="md:hidden w-full">
+          <MobileWelcomeOnboarding
+            onGetStarted={handleGetStarted}
+            onExploreMore={() => setShowMobileDetails(true)}
+          />
+        </div>
+      )}
+
+      {/* Main Landing Page (Always visible on desktop, or toggled on mobile via Explore) */}
+      <div className={!showMobileDetails ? 'hidden md:flex flex-col min-h-screen w-full' : 'flex flex-col min-h-screen w-full'}>
+        {showMobileDetails && (
+          <div className="md:hidden sticky top-0 z-50 bg-[#1D1B41] text-white px-4 py-2.5 flex items-center justify-between text-xs font-bold shadow-md">
+            <span>Welcome Overview</span>
+            <button
+              onClick={() => setShowMobileDetails(false)}
+              className="text-xs bg-white/15 hover:bg-white/25 text-white px-3 py-1 rounded-full transition"
+            >
+              ← Back to Welcome
+            </button>
+          </div>
+        )}
+
+        {/* ===================================================================== */}
+        {/* 1. TOP NAVBAR (Pure #d2281e Theme & Responsive Buttons in a Row)      */}
+        {/* ===================================================================== */}
       <header className="sticky top-0 z-50 w-full backdrop-blur-xl bg-white/95 border-b border-zinc-200/80 px-3 sm:px-8 py-2.5 sm:py-3 transition-all shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
@@ -364,7 +390,7 @@ export default function LandingPage() {
                   <div className="md:col-span-8 p-2.5 sm:p-4 flex flex-col justify-between space-y-2.5 sm:space-y-3 bg-black w-full min-w-0">
                     <div className="relative aspect-video rounded-xl sm:rounded-2xl overflow-hidden bg-black border border-white/10 shadow-inner group w-full">
                       <img
-                        src="https://img.youtube.com/vi/zSWdZVtXT7E/maxresdefault.jpg"
+                        src="/plans/interstellar_thumb.jpg"
                         alt="Cinema Synchronized Player"
                         className="w-full h-full object-cover opacity-85"
                       />
@@ -635,9 +661,8 @@ export default function LandingPage() {
               <div
                 key={idx}
                 onClick={() => {
-                  if (card.isGame) {
-                    if (card.title.includes('Ludo')) handlePlayGame('/games/ludo');
-                    else handlePlayGame('/games/four-in-a-row');
+                  if (card.isGame && card.path) {
+                    handlePlayGame(card.path);
                   } else {
                     handleGetStarted();
                   }
@@ -718,7 +743,7 @@ export default function LandingPage() {
               <div className="w-full rounded-2xl bg-zinc-900 p-2 sm:p-2.5 shadow-xl relative border border-zinc-700">
                 <div className="rounded-xl overflow-hidden aspect-video bg-black relative">
                   <img
-                    src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=800&auto=format&fit=crop&q=80"
+                    src="/theater/cinema_ultra_lux.png"
                     alt="Desktop Watch Sync"
                     className="w-full h-full object-cover opacity-85"
                   />
@@ -741,7 +766,7 @@ export default function LandingPage() {
               <div className="absolute -bottom-2 sm:-bottom-4 right-1 sm:right-4 w-28 sm:w-36 rounded-2xl bg-zinc-900 p-1.5 border-2 border-[#d2281e] shadow-2xl z-20">
                 <div className="rounded-xl overflow-hidden aspect-[9/16] bg-black relative flex flex-col justify-between p-1.5">
                   <img
-                    src="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400&auto=format&fit=crop&q=80"
+                    src="/images/card-ludo-dice.jpg"
                     alt="Mobile Watch Sync"
                     className="absolute inset-0 w-full h-full object-cover opacity-85"
                   />
@@ -1025,14 +1050,25 @@ export default function LandingPage() {
             {/* Ludo Card */}
             <div
               onClick={() => handlePlayGame('/games/ludo')}
-              className="group relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white border border-zinc-200 hover:border-[#d2281e] cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-4 sm:space-y-6"
+              className="group relative rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-white border border-zinc-200 hover:border-[#d2281e] cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-3 sm:space-y-4 overflow-hidden"
             >
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2"><AppIcon name="paw" className="w-9 h-9 sm:w-11 sm:h-11" /><AppIcon name="turtle" className="w-9 h-9 sm:w-11 sm:h-11" /></span>
-                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">
+              <div className="relative aspect-video rounded-xl sm:rounded-2xl overflow-hidden bg-zinc-100 border border-zinc-200">
+                <img
+                  src="/images/card-ludo-dice.jpg"
+                  alt="Cottagecore 3D Ludo"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute top-2.5 right-2.5">
+                  <span className="px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-[#d2281e] text-white shadow">
                     2-4 Player Classic
                   </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2">
+                  <AppIcon name="paw" className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <AppIcon name="turtle" className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-[#d2281e] transition-colors">
                   Cottagecore 3D Ludo
@@ -1054,14 +1090,25 @@ export default function LandingPage() {
             {/* Four-in-a-Row Card */}
             <div
               onClick={() => handlePlayGame('/games/four-in-a-row')}
-              className="group relative rounded-2xl sm:rounded-3xl p-5 sm:p-7 bg-white border border-zinc-200 hover:border-[#d2281e] cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-4 sm:space-y-6"
+              className="group relative rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-white border border-zinc-200 hover:border-[#d2281e] cursor-pointer transition-all hover:-translate-y-1 shadow-md hover:shadow-xl flex flex-col justify-between space-y-3 sm:space-y-4 overflow-hidden"
             >
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2"><AppIcon name="dot" className="w-9 h-9 sm:w-11 sm:h-11 text-[#d2281e] fill-current" /><AppIcon name="dot" className="w-9 h-9 sm:w-11 sm:h-11 text-purple-600 fill-current" /></span>
-                  <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-red-50 text-[#d2281e] border border-red-200">
+              <div className="relative aspect-video rounded-xl sm:rounded-2xl overflow-hidden bg-zinc-100 border border-zinc-200">
+                <img
+                  src="/images/card-four-in-row.jpg"
+                  alt="Four in a Row"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <div className="absolute top-2.5 right-2.5">
+                  <span className="px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-black uppercase bg-[#d2281e] text-white shadow">
                     Connect 4 Stand
                   </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-center gap-2">
+                  <AppIcon name="dot" className="w-6 h-6 sm:w-7 sm:h-7 text-[#d2281e] fill-current" />
+                  <AppIcon name="dot" className="w-6 h-6 sm:w-7 sm:h-7 text-purple-600 fill-current" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-zinc-950 group-hover:text-[#d2281e] transition-colors">
                   Four in a Row (Connect 4)
@@ -1216,6 +1263,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

@@ -427,9 +427,8 @@ export const CinemaPlayer = memo(function CinemaPlayer({
         mainVideoRef.current.pause();
       }
     }
-    if (isHost) {
-      onHostCommand(nextState, authPos);
-    }
+    // anyone in the room may play and pause for everybody (the server keeps the room's own position for them); only the host seeks
+    onHostCommand(nextState, authPos);
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -836,7 +835,7 @@ export const CinemaPlayer = memo(function CinemaPlayer({
               }}
             />
             {/* Play Button Overlay if paused */}
-            {isHost && !isPlaying && countdownStep === null && (
+            {!isPlaying && countdownStep === null && (
               <button
                 type="button"
                 onClick={(e) => {

@@ -5,6 +5,7 @@ import { MongoClient, Db, Collection } from 'mongodb';
 import { nanoid } from 'nanoid';
 import {
   User,
+  ProductTourState,
   Room,
   RoomMember,
   MediaItem,
@@ -46,6 +47,7 @@ export interface FriendWithStreak {
     partnerCode: string;
     isOnline: boolean;
     membershipTier?: 'free' | 'plus' | 'creator';
+    gender?: string | null;
   };
   streak: {
     currentStreak: number;
@@ -145,6 +147,13 @@ export class MongoDatabaseService {
       await this.watchlistCol.createIndex({ userId: 1, addedAt: -1 });
     } catch (err) {
       console.warn('[mongo] could not create watchlist indexes:', (err as Error)?.message || err);
+    }
+    try {
+      await this.sharedListsCol.createIndex({ memberIds: 1 });
+      await this.sharedListsCol.createIndex({ ownerId: 1 });
+      await this.clientErrorsCol.createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 });
+    } catch (err) {
+      console.warn('[mongo] could not create shared list indexes:', (err as Error)?.message || err);
     }
   }
 
@@ -309,6 +318,18 @@ export class MongoDatabaseService {
   get watchlistCol(): Collection<any> {
     return this.db!.collection('catalog_watchlist');
   }
+  /** The theme of each chat (one row per conversation, shared by both people). */
+  get chatThemesCol(): Collection<any> {
+    return this.db!.collection('chat_themes');
+  }
+  /** Crash / error reports from the mobile app, one row per distinct bug with a counter; rows expire after 30 days. */
+  get clientErrorsCol(): Collection<any> {
+    return this.db!.collection('client_errors');
+  }
+  /** Shared watch lists (a few friends build one together): one document per list, items and votes inside. */
+  get sharedListsCol(): Collection<any> {
+    return this.db!.collection('shared_lists');
+  }
 
   // --- Partner requests (consent flow: a partner code only lets you ASK) ----------------------------------------
   async arePartners(userA: string, userB: string): Promise<boolean> {
@@ -432,6 +453,7 @@ export class MongoDatabaseService {
       age: typeof doc.age === 'number' ? doc.age : undefined,
       activeDevice: doc.activeDevice || undefined,
       discoverable: doc.discoverable !== false,
+      productTour: doc.productTour && typeof doc.productTour === 'object' && (doc.productTour.status === 'completed' || doc.productTour.status === 'skipped') ? doc.productTour : undefined,
       createdAt: doc.createdAt
     };
   }
@@ -639,6 +661,22 @@ export class MongoDatabaseService {
     }
     await this.usersCol.updateOne({ _id: id }, { $set: setObj });
     return this.getUserById(id);
+  }
+
+  /** The first-run tour state of an account (null = not seen yet). */
+  async getProductTour(userId: string): Promise<ProductTourState | null> {
+    const doc = await this.usersCol.findOne({ _id: userId }, { projection: { productTour: 1 } });
+    const t = doc?.productTour;
+    return t && (t.status === 'completed' || t.status === 'skipped') ? (t as ProductTourState) : null;
+  }
+
+  /** Marks the tour finished / skipped, or (null) clears it so it plays again. */
+  async setProductTour(userId: string, state: ProductTourState | null): Promise<boolean> {
+    const res = await this.usersCol.updateOne(
+      { _id: userId },
+      state ? { $set: { productTour: state, updatedAt: new Date().toISOString() } } : { $unset: { productTour: '' }, $set: { updatedAt: new Date().toISOString() } }
+    );
+    return res.matchedCount > 0;
   }
 
   async generateUniquePartnerCode(displayName?: string): Promise<string> {
@@ -865,6 +903,7 @@ export class MongoDatabaseService {
       status: d.status || 'sent',
       ...(d.editedAt ? { editedAt: d.editedAt } : {}),
       ...(d.isPinned ? { isPinned: true } : {}),
+      ...(Array.isArray(d.reactions) && d.reactions.length ? { reactions: d.reactions } : {}),
       createdAt: d.createdAt
     }));
   }
@@ -1012,7 +1051,8 @@ export class MongoDatabaseService {
           avatarUrl: friendUser.avatarUrl,
           partnerCode: friendUser.partnerCode,
           isOnline: isOnlineCheck(friendUser._id || friendUser.id),
-          membershipTier: tiers.get(friendUser._id || friendUser.id) || 'free'
+          membershipTier: tiers.get(friendUser._id || friendUser.id) || 'free',
+          gender: friendUser.gender || null
         },
         streak: {
           currentStreak,
@@ -1536,6 +1576,10 @@ export class MongoDatabaseService {
     await this.partnerRequestsCol.deleteMany({ $or: [{ requesterId: userId }, { recipientId: userId }] });
     await this.gameInterestCol.deleteMany({ userId });
     await this.watchlistCol.deleteMany({ userId });
+    await this.chatThemesCol.deleteMany({ setBy: userId });
+    // shared lists: the person leaves every list (their votes go with them); a list nobody is left in is deleted
+    await this.sharedListsCol.updateMany({ memberIds: userId }, { $pull: { memberIds: userId, 'items.$[].votes': userId } } as any);
+    await this.sharedListsCol.deleteMany({ memberIds: { $size: 0 } });
     await this.usernameHistoryCol.deleteMany({ userId });
   }
 

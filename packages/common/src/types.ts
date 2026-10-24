@@ -16,6 +16,16 @@ export interface ActiveDeviceSession {
   lastActiveAt: number;
 }
 
+/** The first-run product tour of the mobile app: stored on the account so it is shown once, on any phone. */
+export interface ProductTourState {
+  /** how the person left the tour */
+  status: 'completed' | 'skipped';
+  /** the tour version they saw (a future, longer tour can ask for it again) */
+  version: number;
+  /** ISO time */
+  at: string;
+}
+
 export interface User {
   id: string;
   email?: string | null;
@@ -37,6 +47,8 @@ export interface User {
   activeDevice?: ActiveDeviceSession | null;
   /** When false the user is hidden from friend discovery (they can still be added by exact friend code). */
   discoverable?: boolean;
+  /** Set once the person has finished or skipped the first-run tour; missing means they have not seen it yet. */
+  productTour?: ProductTourState | null;
   createdAt: string;
 }
 
